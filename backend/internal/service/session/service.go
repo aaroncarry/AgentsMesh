@@ -35,7 +35,6 @@ func NewService(db *gorm.DB) *Service {
 // CreateSessionRequest represents a session creation request
 type CreateSessionRequest struct {
 	OrganizationID    int64
-	TeamID            *int64
 	RunnerID          int64
 	AgentTypeID       *int64
 	CustomAgentTypeID *int64
@@ -85,7 +84,6 @@ func (s *Service) CreateSession(ctx context.Context, req *CreateSessionRequest) 
 
 	sess := &session.Session{
 		OrganizationID:    req.OrganizationID,
-		TeamID:            req.TeamID,
 		SessionKey:        sessionKey,
 		RunnerID:          req.RunnerID,
 		AgentTypeID:       req.AgentTypeID,
@@ -240,13 +238,32 @@ func (s *Service) GetSessionByID(ctx context.Context, sessionID int64) (*session
 	return &sess, nil
 }
 
-// ListSessions returns sessions for an organization
-func (s *Service) ListSessions(ctx context.Context, orgID int64, teamID *int64, status string, limit, offset int) ([]*session.Session, int64, error) {
-	query := s.db.WithContext(ctx).Model(&session.Session{}).Where("organization_id = ?", orgID)
+// GetSessionByKey returns a session by key (implements middleware.SessionService)
+// This is used by SessionAuthMiddleware to lookup sessions by X-Session-Key header
+func (s *Service) GetSessionByKey(ctx context.Context, sessionKey string) (*session.Session, error) {
+	return s.GetSession(ctx, sessionKey)
+}
 
-	if teamID != nil {
-		query = query.Where("team_id = ?", *teamID)
+// GetSessionInfo returns session info for binding policy evaluation
+// This implements the binding.SessionQuerier interface
+func (s *Service) GetSessionInfo(ctx context.Context, sessionKey string) (map[string]interface{}, error) {
+	sess, err := s.GetSession(ctx, sessionKey)
+	if err != nil {
+		return nil, err
 	}
+
+	return map[string]interface{}{
+		"user_id":         sess.CreatedByID,
+		"organization_id": sess.OrganizationID,
+		"ticket_id":       sess.TicketID,
+		"status":          sess.Status,
+	}, nil
+}
+
+// ListSessions returns sessions for an organization
+// Note: teamID parameter is deprecated and ignored - all sessions visible to org members
+func (s *Service) ListSessions(ctx context.Context, orgID int64, _ *int64, status string, limit, offset int) ([]*session.Session, int64, error) {
+	query := s.db.WithContext(ctx).Model(&session.Session{}).Where("organization_id = ?", orgID)
 
 	if status != "" {
 		query = query.Where("status = ?", status)

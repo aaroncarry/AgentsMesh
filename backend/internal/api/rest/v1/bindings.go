@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/anthropics/agentmesh/backend/internal/middleware"
 	"github.com/anthropics/agentmesh/backend/internal/service/binding"
 	"github.com/gin-gonic/gin"
 )
@@ -76,13 +77,13 @@ func (h *BindingHandler) RequestBinding(c *gin.Context) {
 		return
 	}
 
-	// Get org ID from context
-	orgID, _ := c.Get("organization_id")
-	orgIDInt64, ok := orgID.(int64)
-	if !ok {
+	// Get org ID from tenant context (set by SessionAuthMiddleware or TenantMiddleware)
+	tenant := middleware.GetTenant(c)
+	if tenant == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid organization context"})
 		return
 	}
+	orgIDInt64 := tenant.OrganizationID
 
 	binding, err := h.bindingSvc.RequestBinding(c.Request.Context(), orgIDInt64, sessionKey, req.TargetSession, req.Scopes, req.Policy)
 	if err != nil {

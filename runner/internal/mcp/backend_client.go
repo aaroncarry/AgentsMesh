@@ -37,6 +37,11 @@ func (c *BackendClient) SetSessionKey(sessionKey string) {
 	c.sessionKey = sessionKey
 }
 
+// GetSessionKey returns the current session key.
+func (c *BackendClient) GetSessionKey() string {
+	return c.sessionKey
+}
+
 // request makes an HTTP request to the backend.
 func (c *BackendClient) request(ctx context.Context, method, path string, body interface{}, result interface{}) error {
 	fullURL := c.baseURL + path
@@ -91,7 +96,7 @@ func (c *BackendClient) ObserveTerminal(ctx context.Context, sessionKey string, 
 	params.Set("raw", strconv.FormatBool(raw))
 	params.Set("include_screen", strconv.FormatBool(includeScreen))
 
-	path := fmt.Sprintf("/api/v1/sessions/%s/terminal/observe?%s", url.PathEscape(sessionKey), params.Encode())
+	path := fmt.Sprintf("/api/v1/session/sessions/%s/terminal/observe?%s", url.PathEscape(sessionKey), params.Encode())
 
 	var result tools.TerminalOutput
 	err := c.request(ctx, http.MethodGet, path, nil, &result)
@@ -104,17 +109,80 @@ func (c *BackendClient) ObserveTerminal(ctx context.Context, sessionKey string, 
 // SendTerminalText sends text input to a terminal.
 func (c *BackendClient) SendTerminalText(ctx context.Context, sessionKey string, text string) error {
 	body := map[string]interface{}{
-		"text": text,
+		"input": text,
 	}
-	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
+	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
 }
 
 // SendTerminalKey sends special keys to a terminal.
 func (c *BackendClient) SendTerminalKey(ctx context.Context, sessionKey string, keys []string) error {
+	// Convert keys to escape sequences and concatenate
+	input := convertKeysToInput(keys)
 	body := map[string]interface{}{
-		"keys": keys,
+		"input": input,
 	}
-	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
+	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
+}
+
+// convertKeysToInput converts key names to terminal escape sequences.
+func convertKeysToInput(keys []string) string {
+	var result string
+	for _, key := range keys {
+		switch key {
+		case "enter":
+			result += "\r"
+		case "escape":
+			result += "\x1b"
+		case "tab":
+			result += "\t"
+		case "backspace":
+			result += "\x7f"
+		case "delete":
+			result += "\x1b[3~"
+		case "ctrl+c":
+			result += "\x03"
+		case "ctrl+d":
+			result += "\x04"
+		case "ctrl+u":
+			result += "\x15"
+		case "ctrl+l":
+			result += "\x0c"
+		case "ctrl+z":
+			result += "\x1a"
+		case "ctrl+a":
+			result += "\x01"
+		case "ctrl+e":
+			result += "\x05"
+		case "ctrl+k":
+			result += "\x0b"
+		case "ctrl+w":
+			result += "\x17"
+		case "up":
+			result += "\x1b[A"
+		case "down":
+			result += "\x1b[B"
+		case "left":
+			result += "\x1b[D"
+		case "right":
+			result += "\x1b[C"
+		case "home":
+			result += "\x1b[H"
+		case "end":
+			result += "\x1b[F"
+		case "pageup":
+			result += "\x1b[5~"
+		case "pagedown":
+			result += "\x1b[6~"
+		case "shift+tab":
+			result += "\x1b[Z"
+		default:
+			// Single character keys
+			if len(key) == 1 {
+				result += key
+			}
+		}
+	}
+	return result
 }
 
 // Discovery Operations
@@ -125,11 +193,35 @@ func (c *BackendClient) ListAvailableSessions(ctx context.Context) ([]tools.Avai
 		Sessions []tools.AvailableSession `json:"sessions"`
 	}
 	// Use sessions endpoint with status filter
-	err := c.request(ctx, http.MethodGet, "/api/v1/sessions?status=running", nil, &result)
+	err := c.request(ctx, http.MethodGet, "/api/v1/session/sessions?status=running", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	return result.Sessions, nil
+}
+
+// ListRunners lists available runners in the organization.
+func (c *BackendClient) ListRunners(ctx context.Context) ([]tools.Runner, error) {
+	var result struct {
+		Runners []tools.Runner `json:"runners"`
+	}
+	err := c.request(ctx, http.MethodGet, "/api/v1/session/runners", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Runners, nil
+}
+
+// ListRepositories lists repositories configured in the organization.
+func (c *BackendClient) ListRepositories(ctx context.Context) ([]tools.Repository, error) {
+	var result struct {
+		Repositories []tools.Repository `json:"repositories"`
+	}
+	err := c.request(ctx, http.MethodGet, "/api/v1/session/repositories", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Repositories, nil
 }
 
 // Binding Operations
@@ -141,12 +233,14 @@ func (c *BackendClient) RequestBinding(ctx context.Context, targetSession string
 		"scopes":         scopes,
 	}
 
-	var result tools.Binding
-	err := c.request(ctx, http.MethodPost, "/api/v1/bindings", body, &result)
+	var result struct {
+		Binding tools.Binding `json:"binding"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings", body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Binding, nil
 }
 
 // AcceptBinding accepts a binding request.
@@ -155,12 +249,14 @@ func (c *BackendClient) AcceptBinding(ctx context.Context, bindingID int) (*tool
 		"binding_id": bindingID,
 	}
 
-	var result tools.Binding
-	err := c.request(ctx, http.MethodPost, "/api/v1/bindings/accept", body, &result)
+	var result struct {
+		Binding tools.Binding `json:"binding"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings/accept", body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Binding, nil
 }
 
 // RejectBinding rejects a binding request.
@@ -170,12 +266,14 @@ func (c *BackendClient) RejectBinding(ctx context.Context, bindingID int, reason
 		"reason":     reason,
 	}
 
-	var result tools.Binding
-	err := c.request(ctx, http.MethodPost, "/api/v1/bindings/reject", body, &result)
+	var result struct {
+		Binding tools.Binding `json:"binding"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings/reject", body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Binding, nil
 }
 
 // UnbindSession unbinds from another session.
@@ -183,12 +281,12 @@ func (c *BackendClient) UnbindSession(ctx context.Context, targetSession string)
 	body := map[string]interface{}{
 		"target_session": targetSession,
 	}
-	return c.request(ctx, http.MethodPost, "/api/v1/bindings/unbind", body, nil)
+	return c.request(ctx, http.MethodPost, "/api/v1/session/bindings/unbind", body, nil)
 }
 
 // GetBindings gets all bindings for the current session.
 func (c *BackendClient) GetBindings(ctx context.Context, status *tools.BindingStatus) ([]tools.Binding, error) {
-	path := "/api/v1/bindings"
+	path := "/api/v1/session/bindings"
 	if status != nil {
 		path += "?status=" + url.QueryEscape(string(*status))
 	}
@@ -208,7 +306,7 @@ func (c *BackendClient) GetBoundSessions(ctx context.Context) ([]tools.Available
 	var result struct {
 		Sessions []tools.AvailableSession `json:"sessions"`
 	}
-	err := c.request(ctx, http.MethodGet, "/api/v1/bindings/sessions", nil, &result)
+	err := c.request(ctx, http.MethodGet, "/api/v1/session/bindings/sessions", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +333,7 @@ func (c *BackendClient) SearchChannels(ctx context.Context, name string, project
 	params.Set("offset", strconv.Itoa(offset))
 	params.Set("limit", strconv.Itoa(limit))
 
-	path := "/api/v1/channels?" + params.Encode()
+	path := "/api/v1/session/channels?" + params.Encode()
 
 	var result struct {
 		Channels []tools.Channel `json:"channels"`
@@ -260,22 +358,26 @@ func (c *BackendClient) CreateChannel(ctx context.Context, name, description str
 		body["ticket_id"] = *ticketID
 	}
 
-	var result tools.Channel
-	err := c.request(ctx, http.MethodPost, "/api/v1/channels", body, &result)
+	var result struct {
+		Channel tools.Channel `json:"channel"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/channels", body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Channel, nil
 }
 
 // GetChannel gets a channel by ID.
 func (c *BackendClient) GetChannel(ctx context.Context, channelID int) (*tools.Channel, error) {
-	var result tools.Channel
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/channels/%d", channelID), nil, &result)
+	var result struct {
+		Channel tools.Channel `json:"channel"`
+	}
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/channels/%d", channelID), nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Channel, nil
 }
 
 // SendMessage sends a message to a channel.
@@ -291,12 +393,14 @@ func (c *BackendClient) SendMessage(ctx context.Context, channelID int, content 
 		body["reply_to"] = *replyTo
 	}
 
-	var result tools.ChannelMessage
-	err := c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/channels/%d/messages", channelID), body, &result)
+	var result struct {
+		Message tools.ChannelMessage `json:"message"`
+	}
+	err := c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/channels/%d/messages", channelID), body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Message, nil
 }
 
 // GetMessages gets messages from a channel.
@@ -313,7 +417,7 @@ func (c *BackendClient) GetMessages(ctx context.Context, channelID int, beforeTi
 	}
 	params.Set("limit", strconv.Itoa(limit))
 
-	path := fmt.Sprintf("/api/v1/channels/%d/messages?%s", channelID, params.Encode())
+	path := fmt.Sprintf("/api/v1/session/channels/%d/messages?%s", channelID, params.Encode())
 
 	var result struct {
 		Messages []tools.ChannelMessage `json:"messages"`
@@ -330,7 +434,7 @@ func (c *BackendClient) GetDocument(ctx context.Context, channelID int) (string,
 	var result struct {
 		Document string `json:"document"`
 	}
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/channels/%d/document", channelID), nil, &result)
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/channels/%d/document", channelID), nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -342,7 +446,7 @@ func (c *BackendClient) UpdateDocument(ctx context.Context, channelID int, docum
 	body := map[string]interface{}{
 		"document": document,
 	}
-	return c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/channels/%d/document", channelID), body, nil)
+	return c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session/channels/%d/document", channelID), body, nil)
 }
 
 // Ticket Operations
@@ -375,7 +479,7 @@ func (c *BackendClient) SearchTickets(ctx context.Context, productID *int, statu
 		params.Set("query", query)
 	}
 
-	path := "/api/v1/tickets?" + params.Encode()
+	path := "/api/v1/session/tickets?" + params.Encode()
 
 	var result struct {
 		Tickets []tools.Ticket `json:"tickets"`
@@ -389,12 +493,14 @@ func (c *BackendClient) SearchTickets(ctx context.Context, productID *int, statu
 
 // GetTicket gets a ticket by ID or identifier (e.g., "AM-123").
 func (c *BackendClient) GetTicket(ctx context.Context, ticketID string) (*tools.Ticket, error) {
-	var result tools.Ticket
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/tickets/%s", url.PathEscape(ticketID)), nil, &result)
+	var result struct {
+		Ticket tools.Ticket `json:"ticket"`
+	}
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/tickets/%s", url.PathEscape(ticketID)), nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Ticket, nil
 }
 
 // CreateTicket creates a new ticket.
@@ -410,12 +516,14 @@ func (c *BackendClient) CreateTicket(ctx context.Context, productID int, title, 
 		body["parent_ticket_id"] = *parentTicketID
 	}
 
-	var result tools.Ticket
-	err := c.request(ctx, http.MethodPost, "/api/v1/tickets", body, &result)
+	var result struct {
+		Ticket tools.Ticket `json:"ticket"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/tickets", body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Ticket, nil
 }
 
 // UpdateTicket updates a ticket.
@@ -437,24 +545,34 @@ func (c *BackendClient) UpdateTicket(ctx context.Context, ticketID string, title
 		body["type"] = *ticketType
 	}
 
-	var result tools.Ticket
-	err := c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/tickets/%s", url.PathEscape(ticketID)), body, &result)
+	var result struct {
+		Ticket tools.Ticket `json:"ticket"`
+	}
+	err := c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session/tickets/%s", url.PathEscape(ticketID)), body, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &result.Ticket, nil
 }
 
 // Session Operations
 
 // CreateSession creates a new DevPod session.
 func (c *BackendClient) CreateSession(ctx context.Context, req *tools.SessionCreateRequest) (*tools.SessionCreateResponse, error) {
-	var result tools.SessionCreateResponse
-	err := c.request(ctx, http.MethodPost, "/api/v1/sessions", req, &result)
+	var result struct {
+		Session struct {
+			SessionKey string `json:"session_key"`
+			Status     string `json:"status"`
+		} `json:"session"`
+	}
+	err := c.request(ctx, http.MethodPost, "/api/v1/session/sessions", req, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &result, nil
+	return &tools.SessionCreateResponse{
+		SessionKey: result.Session.SessionKey,
+		Status:     result.Session.Status,
+	}, nil
 }
 
 // Verify BackendClient implements CollaborationClient interface.

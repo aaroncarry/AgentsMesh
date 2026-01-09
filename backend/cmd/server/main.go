@@ -66,7 +66,8 @@ func main() {
 	}
 
 	// Initialize services
-	userSvc := user.NewService(db)
+	// Use JWT secret as encryption key for token encryption (OAuth tokens, etc.)
+	userSvc := user.NewServiceWithEncryption(db, cfg.JWT.Secret)
 	authCfg := &auth.Config{
 		JWTSecret:         cfg.JWT.Secret,
 		JWTExpiration:     time.Duration(cfg.JWT.ExpirationHours) * time.Hour,
@@ -77,14 +78,14 @@ func main() {
 	orgSvc := organization.NewService(db)
 	agentSvc := agent.NewService(db)
 	gitProviderSvc := gitprovider.NewService(db)
-	repoSvc := repository.NewService(db, gitProviderSvc)
+	repoSvc := repository.NewService(db)
 	runnerSvc := runner.NewService(db)
 	sessionSvc := session.NewService(db)
 	channelSvc := channel.NewService(db)
 	ticketSvc := ticket.NewService(db)
 	sshKeySvc := sshkey.NewService(db)
 	billingSvc := billing.NewService(db, "") // Empty stripe key for now
-	bindingSvc := binding.NewService(db, nil) // nil sessionQuerier - auto-approve will return pending
+	bindingSvc := binding.NewService(db, sessionSvc) // sessionSvc implements SessionQuerier for auto-approve
 	devmeshSvc := devmesh.NewService(db, sessionSvc, channelSvc, bindingSvc)
 
 	// Initialize email service for invitations

@@ -162,6 +162,39 @@ type Ticket struct {
 	UpdatedAt      string         `json:"updated_at"`
 }
 
+// Runner represents a self-hosted runner.
+type Runner struct {
+	ID                    int64                  `json:"id"`
+	NodeID                string                 `json:"node_id"`
+	Description           string                 `json:"description,omitempty"`
+	Status                string                 `json:"status"`
+	LastHeartbeat         string                 `json:"last_heartbeat,omitempty"`
+	CurrentSessions       int                    `json:"current_sessions"`
+	MaxConcurrentSessions int                    `json:"max_concurrent_sessions"`
+	RunnerVersion         string                 `json:"runner_version,omitempty"`
+	IsEnabled             bool                   `json:"is_enabled"`
+	HostInfo              map[string]interface{} `json:"host_info,omitempty"`
+	CreatedAt             string                 `json:"created_at"`
+	UpdatedAt             string                 `json:"updated_at"`
+}
+
+// Repository represents a Git repository configuration.
+type Repository struct {
+	ID              int64  `json:"id"`
+	ProviderType    string `json:"provider_type"`
+	ProviderBaseURL string `json:"provider_base_url"`
+	CloneURL        string `json:"clone_url,omitempty"`
+	ExternalID      string `json:"external_id"`
+	Name            string `json:"name"`
+	FullPath        string `json:"full_path"`
+	DefaultBranch   string `json:"default_branch"`
+	TicketPrefix    string `json:"ticket_prefix,omitempty"`
+	Visibility      string `json:"visibility"`
+	IsActive        bool   `json:"is_active"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+}
+
 // SessionCreateRequest represents a request to create a new session.
 type SessionCreateRequest struct {
 	RunnerID      int    `json:"runner_id,omitempty"`
@@ -187,6 +220,8 @@ type TerminalClient interface {
 // DiscoveryClient defines the interface for session discovery.
 type DiscoveryClient interface {
 	ListAvailableSessions(ctx context.Context) ([]AvailableSession, error)
+	ListRunners(ctx context.Context) ([]Runner, error)
+	ListRepositories(ctx context.Context) ([]Repository, error)
 }
 
 // BindingClient defines the interface for session binding operations.
@@ -231,4 +266,7 @@ type CollaborationClient interface {
 	ChannelClient
 	TicketClient
 	SessionClient
+
+	// GetSessionKey returns the current session's key.
+	GetSessionKey() string
 }

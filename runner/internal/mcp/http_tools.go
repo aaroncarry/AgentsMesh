@@ -140,6 +140,34 @@ func (s *HTTPServer) createListAvailableSessionsTool() *MCPTool {
 	}
 }
 
+func (s *HTTPServer) createListRunnersTool() *MCPTool {
+	return &MCPTool{
+		Name:        "list_runners",
+		Description: "List available runners in the organization. Shows runner status, capacity, and host information.",
+		InputSchema: map[string]interface{}{
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		},
+		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
+			return client.ListRunners(ctx)
+		},
+	}
+}
+
+func (s *HTTPServer) createListRepositoriesTool() *MCPTool {
+	return &MCPTool{
+		Name:        "list_repositories",
+		Description: "List repositories configured in the organization. Shows repository name, provider, clone URL, and default branch.",
+		InputSchema: map[string]interface{}{
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		},
+		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
+			return client.ListRepositories(ctx)
+		},
+	}
+}
+
 // Binding Tools
 
 func (s *HTTPServer) createBindSessionTool() *MCPTool {
@@ -843,7 +871,7 @@ func (s *HTTPServer) createUpdateTicketTool() *MCPTool {
 func (s *HTTPServer) createCreateSessionTool() *MCPTool {
 	return &MCPTool{
 		Name:        "create_devpod_session",
-		Description: "Create a new DevPod agent session. The new session will automatically have terminal:read and terminal:write permissions to the creator.",
+		Description: "Create a new DevPod agent session. The new session will automatically have terminal:read and terminal:write permissions to the creator via binding.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -878,7 +906,31 @@ func (s *HTTPServer) createCreateSessionTool() *MCPTool {
 				req.TicketID = v
 			}
 
-			return client.CreateSession(ctx, req)
+			// Create the session
+			resp, err := client.CreateSession(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+
+			// Auto-bind to the new session with terminal permissions
+			// This allows the creator to observe and control the new session's terminal
+			scopes := []tools.BindingScope{tools.ScopeTerminalRead, tools.ScopeTerminalWrite}
+			binding, err := client.RequestBinding(ctx, resp.SessionKey, scopes)
+			if err != nil {
+				// Session created but binding failed - return both info
+				return map[string]interface{}{
+					"session_key":   resp.SessionKey,
+					"status":        resp.Status,
+					"binding_error": err.Error(),
+				}, nil
+			}
+
+			return map[string]interface{}{
+				"session_key":    resp.SessionKey,
+				"status":         resp.Status,
+				"binding_id":     binding.ID,
+				"binding_status": binding.Status,
+			}, nil
 		},
 	}
 }

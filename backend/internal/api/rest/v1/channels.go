@@ -23,10 +23,9 @@ func NewChannelHandler(channelService *channel.Service) *ChannelHandler {
 
 // ListChannelsRequest represents channel list request
 type ListChannelsRequest struct {
-	TeamID       *int64 `form:"team_id"`
-	RepositoryID *int64 `form:"repository_id"`
-	TicketID     *int64 `form:"ticket_id"`
-	IncludeArchived bool `form:"include_archived"`
+	RepositoryID    *int64 `form:"repository_id"`
+	TicketID        *int64 `form:"ticket_id"`
+	IncludeArchived bool   `form:"include_archived"`
 }
 
 // ListChannels lists channels
@@ -43,7 +42,7 @@ func (h *ChannelHandler) ListChannels(c *gin.Context) {
 	limit := 50
 	offset := 0
 
-	channels, total, err := h.channelService.ListChannels(c.Request.Context(), tenant.OrganizationID, req.TeamID, req.IncludeArchived, limit, offset)
+	channels, total, err := h.channelService.ListChannels(c.Request.Context(), tenant.OrganizationID, req.IncludeArchived, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list channels"})
 		return
@@ -57,7 +56,6 @@ type CreateChannelRequest struct {
 	Name         string `json:"name" binding:"required,min=2,max=100"`
 	Description  string `json:"description"`
 	Document     string `json:"document"`
-	TeamID       *int64 `json:"team_id"`
 	RepositoryID *int64 `json:"repository_id"`
 	TicketID     *int64 `json:"ticket_id"`
 }
@@ -80,7 +78,6 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 
 	ch, err := h.channelService.CreateChannel(c.Request.Context(), &channel.CreateChannelRequest{
 		OrganizationID:  tenant.OrganizationID,
-		TeamID:          req.TeamID,
 		Name:            req.Name,
 		Description:     desc,
 		RepositoryID:    req.RepositoryID,
@@ -423,4 +420,62 @@ func (h *ChannelHandler) ListChannelSessions(c *gin.Context) {
 		"sessions": sessions,
 		"total":    len(sessions),
 	})
+}
+
+// GetDocument returns the channel document
+// GET /api/v1/session/channels/:id/document
+func (h *ChannelHandler) GetDocument(c *gin.Context) {
+	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
+		return
+	}
+
+	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Channel not found"})
+		return
+	}
+
+	document := ""
+	if ch.Document != nil {
+		document = *ch.Document
+	}
+
+	c.JSON(http.StatusOK, gin.H{"document": document})
+}
+
+// UpdateDocumentRequest represents document update request
+type UpdateDocumentRequest struct {
+	Document string `json:"document" binding:"required"`
+}
+
+// UpdateDocument updates the channel document
+// PUT /api/v1/session/channels/:id/document
+func (h *ChannelHandler) UpdateDocument(c *gin.Context) {
+	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
+		return
+	}
+
+	var req UpdateDocumentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	_, err = h.channelService.GetChannel(c.Request.Context(), channelID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Channel not found"})
+		return
+	}
+
+	_, err = h.channelService.UpdateChannel(c.Request.Context(), channelID, nil, nil, &req.Document)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update document"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"document": req.Document})
 }

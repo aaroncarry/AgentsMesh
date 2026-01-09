@@ -394,6 +394,8 @@ func (s *HTTPServer) registerTools() {
 
 		// Discovery tools
 		s.createListAvailableSessionsTool(),
+		s.createListRunnersTool(),
+		s.createListRepositoriesTool(),
 
 		// Binding tools
 		s.createBindSessionTool(),
