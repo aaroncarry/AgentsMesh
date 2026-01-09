@@ -1,0 +1,158 @@
+"use client";
+
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { DevMeshTopology, DevMeshSidebar } from "@/components/devmesh";
+import { useDevMeshStore } from "@/stores/devmesh";
+
+export default function MeshPage() {
+  const {
+    topology,
+    selectedNode,
+    selectedChannel,
+    loading,
+    error,
+    selectNode,
+    selectChannel,
+    fetchTopology,
+    clearError,
+  } = useDevMeshStore();
+
+  useEffect(() => {
+    fetchTopology();
+  }, [fetchTopology]);
+
+  const handleCloseSidebar = () => {
+    selectNode(null);
+    selectChannel(null);
+  };
+
+  const activeSessionCount = topology?.nodes.filter(
+    (n) => n.status === "running" || n.status === "initializing"
+  ).length || 0;
+
+  const activeChannelCount = topology?.channels.filter((c) => !c.is_archived).length || 0;
+
+  return (
+    <div className="flex h-full">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">DevMesh</h1>
+            <p className="text-sm text-muted-foreground">
+              Multi-agent collaboration network topology
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Stats */}
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-muted-foreground">
+                  {activeSessionCount} active sessions
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-500">#</span>
+                <span className="text-muted-foreground">
+                  {activeChannelCount} channels
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span className="text-muted-foreground">
+                  {topology?.edges.length || 0} bindings
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <Button variant="outline" size="sm" onClick={() => fetchTopology()}>
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mx-6 mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2 text-destructive">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm">{error}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={clearError}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {/* Topology Visualization */}
+        <div className="flex-1 relative">
+          {loading && !topology && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
+          <DevMeshTopology />
+
+          {/* Loading indicator for polling */}
+          {loading && topology && (
+            <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-background/80 border border-border rounded-full text-xs text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              Updating...
+            </div>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="px-6 py-3 border-t border-border">
+          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <span className="font-medium">Legend:</span>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-green-500" />
+              <span>Running</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-yellow-500" />
+              <span>Initializing</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-gray-500" />
+              <span>Terminated</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-red-500" />
+              <span>Failed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-blue-500" />
+              <span>Channel</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-6 border-t-2 border-green-500" />
+              <span>Active Binding</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-6 border-t-2 border-yellow-500 border-dashed" />
+              <span>Pending Binding</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar for selected node/channel */}
+      {(selectedNode || selectedChannel) && (
+        <DevMeshSidebar onClose={handleCloseSidebar} />
+      )}
+    </div>
+  );
+}

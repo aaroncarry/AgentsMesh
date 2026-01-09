@@ -1,0 +1,91 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "search": "搜索",
+    "noResults": "未找到结果",
+    "error": "发生错误",
+    "success": "成功"
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "退出登录",
+    "register": "注册",
+    "email": "邮箱",
+    "password": "密码",
+    "username": "用户名",
+    "name": "姓名",
+    "forgotPassword": "忘记密码？",
+    "noAccount": "没有账号？",
+    "hasAccount": "已有账号？",
+    "loginWith": "使用 {provider} 登录"
+  },
+  "nav": {
+    "devpod": "开发工作台",
+    "mesh": "智能体网络",
+    "tickets": "任务管理",
+    "settings": "设置",
+    "billing": "账单"
+  },
+  "devpod": {
+    "title": "开发工作台",
+    "sessions": "会话",
+    "newSession": "新建会话",
+    "runners": "运行节点",
+    "noRunnersOnline": "暂无在线节点",
+    "selectAgent": "选择 Agent",
+    "selectRepository": "选择仓库",
+    "initialPrompt": "初始提示",
+    "status": {
+      "initializing": "初始化中",
+      "running": "运行中",
+      "paused": "已暂停",
+      "terminated": "已终止",
+      "error": "错误"
+    }
+  },
+  "mesh": {
+    "title": "智能体网络",
+    "channels": "频道",
+    "newChannel": "新建频道",
+    "topology": "拓扑图",
+    "messages": "消息",
+    "sendMessage": "发送消息..."
+  },
+  "tickets": {
+    "title": "任务管理",
+    "newTicket": "新建任务",
+    "board": "看板",
+    "list": "列表",
+    "backlog": "待办池",
+    "todo": "待开始",
+    "inProgress": "进行中",
+    "inReview": "待审核",
+    "done": "已完成",
+    "priority": {
+      "none": "无优先级",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急"
+    },
+    "type": {
+      "task": "任务",
+      "bug": "缺陷",
+      "feature": "功能",
+      "epic": "史诗"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "general": "通用",
+    "team": "团队",
+    "gitProviders": "Git 服务",
+    "agents": "智能体",
+    "billing": "账单"
+  }
+}

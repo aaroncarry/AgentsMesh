@@ -1,0 +1,91 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "noResults": "No results found",
+    "error": "An error occurred",
+    "success": "Success"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "name": "Name",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginWith": "Login with {provider}"
+  },
+  "nav": {
+    "devpod": "DevPod",
+    "mesh": "AgentMesh",
+    "tickets": "Tickets",
+    "settings": "Settings",
+    "billing": "Billing"
+  },
+  "devpod": {
+    "title": "DevPod",
+    "sessions": "Sessions",
+    "newSession": "New Session",
+    "runners": "Runners",
+    "noRunnersOnline": "No runners online",
+    "selectAgent": "Select Agent",
+    "selectRepository": "Select Repository",
+    "initialPrompt": "Initial Prompt",
+    "status": {
+      "initializing": "Initializing",
+      "running": "Running",
+      "paused": "Paused",
+      "terminated": "Terminated",
+      "error": "Error"
+    }
+  },
+  "mesh": {
+    "title": "AgentMesh",
+    "channels": "Channels",
+    "newChannel": "New Channel",
+    "topology": "Topology",
+    "messages": "Messages",
+    "sendMessage": "Send message..."
+  },
+  "tickets": {
+    "title": "Tickets",
+    "newTicket": "New Ticket",
+    "board": "Board",
+    "list": "List",
+    "backlog": "Backlog",
+    "todo": "To Do",
+    "inProgress": "In Progress",
+    "inReview": "In Review",
+    "done": "Done",
+    "priority": {
+      "none": "No Priority",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "type": {
+      "task": "Task",
+      "bug": "Bug",
+      "feature": "Feature",
+      "epic": "Epic"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "team": "Team",
+    "gitProviders": "Git Providers",
+    "agents": "Agents",
+    "billing": "Billing"
+  }
+}

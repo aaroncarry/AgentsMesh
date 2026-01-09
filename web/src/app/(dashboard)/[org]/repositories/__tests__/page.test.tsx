@@ -1,0 +1,386 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import RepositoriesPage from "../page";
+
+// Mock next/link
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+// Mock the API modules
+vi.mock("@/lib/api", () => ({
+  repositoryApi: {
+    list: vi.fn(),
+    delete: vi.fn(),
+  },
+  gitProviderApi: {
+    list: vi.fn(),
+  },
+}));
+
+import { repositoryApi, gitProviderApi } from "@/lib/api";
+const mockRepositoryApi = vi.mocked(repositoryApi);
+const mockGitProviderApi = vi.mocked(gitProviderApi);
+
+describe("RepositoriesPage", () => {
+  const mockRepositories = [
+    {
+      id: 1,
+      organization_id: 1,
+      git_provider_id: 1,
+      external_id: "12345",
+      name: "repo-one",
+      full_path: "org/repo-one",
+      default_branch: "main",
+      ticket_prefix: "REPO",
+      is_active: true,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      organization_id: 1,
+      git_provider_id: 2,
+      external_id: "67890",
+      name: "repo-two",
+      full_path: "org/repo-two",
+      default_branch: "develop",
+      is_active: true,
+      created_at: "2024-01-02T00:00:00Z",
+      updated_at: "2024-01-02T00:00:00Z",
+    },
+    {
+      id: 3,
+      organization_id: 1,
+      git_provider_id: 1,
+      external_id: "11111",
+      name: "inactive-repo",
+      full_path: "org/inactive-repo",
+      default_branch: "main",
+      is_active: false,
+      created_at: "2024-01-03T00:00:00Z",
+      updated_at: "2024-01-03T00:00:00Z",
+    },
+  ];
+
+  const mockGitProviders = [
+    {
+      id: 1,
+      organization_id: 1,
+      name: "GitHub",
+      provider_type: "github",
+      is_active: true,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      organization_id: 1,
+      name: "GitLab",
+      provider_type: "gitlab",
+      is_active: true,
+      created_at: "2024-01-01T00:00:00Z",
+      updated_at: "2024-01-01T00:00:00Z",
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRepositoryApi.list.mockResolvedValue({ repositories: mockRepositories });
+    mockGitProviderApi.list.mockResolvedValue({ git_providers: mockGitProviders });
+    // Mock window.confirm
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  describe("loading state", () => {
+    it("should show loading spinner initially", () => {
+      // Keep promise pending
+      mockRepositoryApi.list.mockImplementation(() => new Promise(() => {}));
+
+      const { container } = render(<RepositoriesPage />);
+
+      // Check for spinner via class
+      expect(container.querySelector(".animate-spin")).toBeTruthy();
+    });
+  });
+
+  describe("rendering", () => {
+    it("should render page title", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Repositories")).toBeInTheDocument();
+      });
+    });
+
+    it("should render page description", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Manage your Git repositories for DevPod sessions")).toBeInTheDocument();
+      });
+    });
+
+    it("should render Add Repository button", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+      });
+    });
+
+    it("should render stats cards", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Total Repositories")).toBeInTheDocument();
+        expect(screen.getByText("Active")).toBeInTheDocument();
+        expect(screen.getByText("Git Providers")).toBeInTheDocument();
+      });
+    });
+
+    it("should show correct stats values", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        // Total: 3, Active: 2, Providers: 2
+        const stats = screen.getAllByText("2");
+        expect(stats.length).toBeGreaterThanOrEqual(2);
+      });
+    });
+  });
+
+  describe("repository list", () => {
+    it("should render all repositories", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+        expect(screen.getByText("repo-two")).toBeInTheDocument();
+        expect(screen.getByText("inactive-repo")).toBeInTheDocument();
+      });
+    });
+
+    it("should show full path for each repository", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("org/repo-one")).toBeInTheDocument();
+        expect(screen.getByText("org/repo-two")).toBeInTheDocument();
+      });
+    });
+
+    it("should show inactive badge for inactive repositories", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Inactive")).toBeInTheDocument();
+      });
+    });
+
+    it("should show ticket prefix badge when available", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("REPO")).toBeInTheDocument();
+      });
+    });
+
+    it("should show default branch for each repository", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        // There can be multiple "main" branches from different repos
+        expect(screen.getAllByText("main").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText("develop")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("filtering", () => {
+    it("should filter repositories by search text", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByPlaceholderText("Search repositories..."), {
+        target: { value: "repo-one" },
+      });
+
+      expect(screen.getByText("repo-one")).toBeInTheDocument();
+      expect(screen.queryByText("repo-two")).not.toBeInTheDocument();
+    });
+
+    it("should filter repositories by provider", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      // Find the provider filter select by its option text
+      const providerSelect = screen.getByRole("combobox");
+      fireEvent.change(providerSelect, { target: { value: "2" } });
+
+      await waitFor(() => {
+        expect(screen.queryByText("repo-one")).not.toBeInTheDocument();
+        expect(screen.getByText("repo-two")).toBeInTheDocument();
+      });
+    });
+
+    it("should show empty state when no matches", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByPlaceholderText("Search repositories..."), {
+        target: { value: "nonexistent" },
+      });
+
+      expect(screen.getByText("No repositories match your search")).toBeInTheDocument();
+    });
+  });
+
+  describe("delete functionality", () => {
+    it("should call delete API when delete button clicked and confirmed", async () => {
+      mockRepositoryApi.delete.mockResolvedValue({ message: "Deleted" });
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      // Find and click the first delete button
+      const deleteButtons = screen.getAllByRole("button").filter(
+        (btn) => btn.querySelector("svg path[d*='M19 7l-.867 12.142']")
+      );
+      fireEvent.click(deleteButtons[0]);
+
+      expect(window.confirm).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockRepositoryApi.delete).toHaveBeenCalledWith(1);
+      });
+    });
+
+    it("should not call delete API when cancelled", async () => {
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByRole("button").filter(
+        (btn) => btn.querySelector("svg path[d*='M19 7l-.867 12.142']")
+      );
+      fireEvent.click(deleteButtons[0]);
+
+      expect(window.confirm).toHaveBeenCalled();
+      expect(mockRepositoryApi.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("empty state", () => {
+    it("should show empty state when no repositories", async () => {
+      mockRepositoryApi.list.mockResolvedValue({ repositories: [] });
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("No repositories yet")).toBeInTheDocument();
+      });
+    });
+
+    it("should show help text in empty state", async () => {
+      mockRepositoryApi.list.mockResolvedValue({ repositories: [] });
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Add a repository to use Git-based workflows in DevPod")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("create modal", () => {
+    it("should open create modal when Add Repository clicked", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("Add Repository"));
+
+      expect(screen.getByText("Add Repository", { selector: "h2" })).toBeInTheDocument();
+    });
+
+    it("should close create modal when Cancel clicked", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("Add Repository"));
+
+      expect(screen.getByText("Cancel")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Cancel"));
+
+      await waitFor(() => {
+        expect(screen.queryByText("Add Repository", { selector: "h2" })).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("links", () => {
+    it("should link to repository detail page", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      const link = screen.getByRole("link", { name: "repo-one" });
+      expect(link).toHaveAttribute("href", "repositories/1");
+    });
+
+    it("should have View button linking to detail page", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("repo-one")).toBeInTheDocument();
+      });
+
+      const viewButtons = screen.getAllByRole("link", { name: "View" });
+      expect(viewButtons[0]).toHaveAttribute("href", "repositories/1");
+    });
+  });
+
+  describe("error handling", () => {
+    it("should handle API errors gracefully", async () => {
+      mockRepositoryApi.list.mockRejectedValue(new Error("Network error"));
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith("Failed to load data:", expect.any(Error));
+      });
+
+      consoleSpy.mockRestore();
+    });
+  });
+});

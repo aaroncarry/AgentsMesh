@@ -1,0 +1,447 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { useTicketStore, getStatusInfo, getPriorityInfo, getTypeInfo, Ticket, TicketStatus } from "@/stores/ticket";
+import { ticketApi, TicketRelation, TicketCommit } from "@/lib/api/client";
+import TicketSessionPanel from "./TicketSessionPanel";
+
+interface TicketDetailProps {
+  identifier: string;
+}
+
+export function TicketDetail({ identifier }: TicketDetailProps) {
+  const router = useRouter();
+  const { currentTicket, fetchTicket, updateTicket, updateTicketStatus, deleteTicket, loading, error } = useTicketStore();
+
+  const [subTickets, setSubTickets] = useState<Ticket[]>([]);
+  const [relations, setRelations] = useState<TicketRelation[]>([]);
+  const [commits, setCommits] = useState<TicketCommit[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [loadingExtra, setLoadingExtra] = useState(true);
+
+  // Fetch ticket data
+  useEffect(() => {
+    fetchTicket(identifier);
+  }, [identifier, fetchTicket]);
+
+  // Fetch extra data (sub-tickets, relations, commits)
+  const fetchExtraData = useCallback(async () => {
+    if (!currentTicket) return;
+
+    setLoadingExtra(true);
+    try {
+      const [subTicketsRes, relationsRes, commitsRes] = await Promise.all([
+        ticketApi.getSubTickets(identifier).catch(() => ({ tickets: [] })),
+        ticketApi.listRelations(identifier).catch(() => ({ relations: [] })),
+        ticketApi.listCommits(identifier).catch(() => ({ commits: [] })),
+      ]);
+
+      setSubTickets(subTicketsRes.tickets || []);
+      setRelations(relationsRes.relations || []);
+      setCommits(commitsRes.commits || []);
+    } catch (err) {
+      console.error("Failed to fetch extra data:", err);
+    } finally {
+      setLoadingExtra(false);
+    }
+  }, [currentTicket, identifier]);
+
+  useEffect(() => {
+    if (currentTicket) {
+      fetchExtraData();
+      setEditTitle(currentTicket.title);
+      setEditDescription(currentTicket.description || "");
+    }
+  }, [currentTicket, fetchExtraData]);
+
+  // Handle status change
+  const handleStatusChange = async (newStatus: TicketStatus) => {
+    try {
+      await updateTicketStatus(identifier, newStatus);
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
+  };
+
+  // Handle save edit
+  const handleSaveEdit = async () => {
+    try {
+      await updateTicket(identifier, {
+        title: editTitle,
+        description: editDescription,
+      });
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to update ticket:", err);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    try {
+      await deleteTicket(identifier);
+      router.back();
+    } catch (err) {
+      console.error("Failed to delete ticket:", err);
+    }
+  };
+
+  if (loading && !currentTicket) {
+    return <TicketDetailSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">{error}</div>
+        <Button onClick={() => fetchTicket(identifier)}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!currentTicket) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Ticket not found
+      </div>
+    );
+  }
+
+  const statusInfo = getStatusInfo(currentTicket.status);
+  const priorityInfo = getPriorityInfo(currentTicket.priority);
+  const typeInfo = getTypeInfo(currentTicket.type);
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* Main Content */}
+      <div className="flex-1 min-w-0">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className={typeInfo.color} title={typeInfo.label}>
+              {typeInfo.icon}
+            </span>
+            <span className="text-muted-foreground font-mono text-sm">
+              {currentTicket.identifier}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+              {statusInfo.label}
+            </span>
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-4">
+              <input
+                type="text"
+                className="w-full text-2xl font-semibold px-3 py-2 border border-border rounded-md"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+              <textarea
+                className="w-full px-3 py-2 border border-border rounded-md resize-none"
+                rows={4}
+                placeholder="Add a description..."
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold mb-2">{currentTicket.title}</h1>
+              {currentTicket.description && (
+                <p className="text-muted-foreground whitespace-pre-wrap">
+                  {currentTicket.description}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Labels */}
+        {currentTicket.labels && currentTicket.labels.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {currentTicket.labels.map((label: any) => (
+              <span
+                key={label.id}
+                className="px-2 py-1 rounded text-sm"
+                style={{
+                  backgroundColor: `${label.color}20`,
+                  color: label.color,
+                }}
+              >
+                {label.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Sub-tickets */}
+        {subTickets.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-medium mb-3 flex items-center gap-2">
+              <span className="text-muted-foreground">◦</span>
+              Sub-tickets ({subTickets.length})
+            </h3>
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {subTickets.map((subTicket) => {
+                const subStatus = getStatusInfo(subTicket.status);
+                const subType = getTypeInfo(subTicket.type);
+                return (
+                  <div
+                    key={subTicket.id}
+                    className="px-4 py-3 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => router.push(`/tickets/${subTicket.identifier}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={subType.color}>{subType.icon}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {subTicket.identifier}
+                      </span>
+                      <span className="flex-1 truncate">{subTicket.title}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs ${subStatus.bgColor} ${subStatus.color}`}>
+                        {subStatus.label}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Relations */}
+        {relations.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-medium mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Related ({relations.length})
+            </h3>
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {relations.map((relation) => {
+                const targetTicket = relation.target_ticket;
+                if (!targetTicket) return null;
+                return (
+                  <div
+                    key={relation.id}
+                    className="px-4 py-3 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => router.push(`/tickets/${targetTicket.identifier}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {relation.relation_type}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {targetTicket.identifier}
+                      </span>
+                      <span className="flex-1 truncate">{targetTicket.title}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Commits */}
+        {commits.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-medium mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Commits ({commits.length})
+            </h3>
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {commits.map((commit) => (
+                <div key={commit.id} className="px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                      {commit.commit_sha.substring(0, 7)}
+                    </code>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate">{commit.commit_message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {commit.author_name} • {commit.committed_at ? new Date(commit.committed_at).toLocaleDateString() : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* DevPod Sessions */}
+        <TicketSessionPanel
+          ticketIdentifier={identifier}
+          ticketTitle={currentTicket.title}
+        />
+      </div>
+
+      {/* Sidebar */}
+      <div className="lg:w-80 space-y-6">
+        {/* Actions */}
+        <div className="border border-border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Actions</h3>
+          <div className="space-y-2">
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+              disabled={isEditing}
+            >
+              Edit
+            </Button>
+            <Button
+              className="w-full"
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+
+        {/* Status */}
+        <div className="border border-border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Status</h3>
+          <select
+            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm"
+            value={currentTicket.status}
+            onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
+          >
+            <option value="backlog">Backlog</option>
+            <option value="todo">To Do</option>
+            <option value="in_progress">In Progress</option>
+            <option value="in_review">In Review</option>
+            <option value="done">Done</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        {/* Details */}
+        <div className="border border-border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Details</h3>
+          <dl className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Type</dt>
+              <dd className={`flex items-center gap-1 ${typeInfo.color}`}>
+                <span>{typeInfo.icon}</span>
+                {typeInfo.label}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Priority</dt>
+              <dd className={`flex items-center gap-1 ${priorityInfo.color}`}>
+                <span>{priorityInfo.icon}</span>
+                {priorityInfo.label}
+              </dd>
+            </div>
+            {currentTicket.due_date && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Due Date</dt>
+                <dd>{new Date(currentTicket.due_date).toLocaleDateString()}</dd>
+              </div>
+            )}
+            {currentTicket.repository && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Repository</dt>
+                <dd>{(currentTicket.repository as any).name}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+
+        {/* Assignees */}
+        <div className="border border-border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Assignees</h3>
+          {currentTicket.assignees && currentTicket.assignees.length > 0 ? (
+            <div className="space-y-2">
+              {currentTicket.assignees.map((assignee: any) => (
+                <div key={assignee.id} className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs">
+                    {(assignee.name || assignee.username)[0].toUpperCase()}
+                  </div>
+                  <span className="text-sm">{assignee.name || assignee.username}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No assignees</p>
+          )}
+        </div>
+
+        {/* Timestamps */}
+        <div className="border border-border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Timestamps</h3>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Created</dt>
+              <dd>{new Date(currentTicket.created_at).toLocaleString()}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Updated</dt>
+              <dd>{new Date(currentTicket.updated_at).toLocaleString()}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">Delete Ticket</h3>
+            <p className="text-muted-foreground mb-4">
+              Are you sure you want to delete ticket <strong>{currentTicket.identifier}</strong>?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TicketDetailSkeleton() {
+  return (
+    <div className="animate-pulse" data-testid="ticket-detail-skeleton">
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1">
+          <div className="h-6 bg-muted rounded w-48 mb-4" />
+          <div className="h-10 bg-muted rounded w-3/4 mb-4" />
+          <div className="h-24 bg-muted rounded mb-6" />
+          <div className="h-40 bg-muted rounded" />
+        </div>
+        <div className="lg:w-80 space-y-6">
+          <div className="h-32 bg-muted rounded" />
+          <div className="h-24 bg-muted rounded" />
+          <div className="h-40 bg-muted rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default TicketDetail;
