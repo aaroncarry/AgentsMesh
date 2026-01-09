@@ -69,16 +69,13 @@ mobile/migrate_working_dir/
 backend/bin/
 backend/tmp/
 backend/vendor/
+backend/server
 
 # =========================
-# Runner (Python)
+# Runner (Go)
 # =========================
-runner/__pycache__/
-runner/*.pyc
-runner/.venv/
-runner/venv/
-runner/.pytest_cache/
-runner/*.egg-info/
+runner/bin/
+runner/*.out
 
 # =========================
 # Docker
