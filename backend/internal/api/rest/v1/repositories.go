@@ -26,14 +26,7 @@ func NewRepositoryHandler(repositoryService *repository.Service) *RepositoryHand
 func (h *RepositoryHandler) ListRepositories(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	var teamID *int64
-	if tid := c.Query("team_id"); tid != "" {
-		if id, err := strconv.ParseInt(tid, 10, 64); err == nil {
-			teamID = &id
-		}
-	}
-
-	repos, err := h.repositoryService.ListByOrganization(c.Request.Context(), tenant.OrganizationID, teamID)
+	repos, err := h.repositoryService.ListByOrganization(c.Request.Context(), tenant.OrganizationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list repositories"})
 		return
@@ -43,15 +36,17 @@ func (h *RepositoryHandler) ListRepositories(c *gin.Context) {
 }
 
 // CreateRepositoryRequest represents repository creation request
+// Self-contained: includes all provider info, no git_provider_id
 type CreateRepositoryRequest struct {
-	GitProviderID int64  `json:"git_provider_id" binding:"required"`
-	ExternalID    string `json:"external_id" binding:"required"`
-	Name          string `json:"name" binding:"required"`
-	FullPath      string `json:"full_path" binding:"required"`
-	DefaultBranch string `json:"default_branch"`
-	TeamID        *int64 `json:"team_id"`
-	TicketPrefix  string `json:"ticket_prefix"`
-	AccessToken   string `json:"access_token"` // For git provider operations
+	ProviderType    string `json:"provider_type" binding:"required"`     // github, gitlab, gitee, generic
+	ProviderBaseURL string `json:"provider_base_url" binding:"required"` // https://github.com, https://gitlab.company.com
+	CloneURL        string `json:"clone_url"`                            // Full clone URL (optional, will be generated)
+	ExternalID      string `json:"external_id" binding:"required"`
+	Name            string `json:"name" binding:"required"`
+	FullPath        string `json:"full_path" binding:"required"`
+	DefaultBranch   string `json:"default_branch"`
+	TicketPrefix    string `json:"ticket_prefix"`
+	Visibility      string `json:"visibility"` // "organization" or "private", defaults to "organization"
 }
 
 // CreateRepository creates a new repository configuration
@@ -64,6 +59,7 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+	userID := middleware.GetUserID(c)
 
 	// Check admin permission
 	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
@@ -76,20 +72,28 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 		defaultBranch = "main"
 	}
 
+	visibility := req.Visibility
+	if visibility == "" {
+		visibility = "organization"
+	}
+
 	var ticketPrefix *string
 	if req.TicketPrefix != "" {
 		ticketPrefix = &req.TicketPrefix
 	}
 
 	repo, err := h.repositoryService.Create(c.Request.Context(), &repository.CreateRequest{
-		OrganizationID: tenant.OrganizationID,
-		GitProviderID:  req.GitProviderID,
-		ExternalID:     req.ExternalID,
-		Name:           req.Name,
-		FullPath:       req.FullPath,
-		DefaultBranch:  defaultBranch,
-		TeamID:         req.TeamID,
-		TicketPrefix:   ticketPrefix,
+		OrganizationID:   tenant.OrganizationID,
+		ProviderType:     req.ProviderType,
+		ProviderBaseURL:  req.ProviderBaseURL,
+		CloneURL:         req.CloneURL,
+		ExternalID:       req.ExternalID,
+		Name:             req.Name,
+		FullPath:         req.FullPath,
+		DefaultBranch:    defaultBranch,
+		TicketPrefix:     ticketPrefix,
+		Visibility:       visibility,
+		ImportedByUserID: &userID,
 	})
 	if err != nil {
 		if err == repository.ErrRepositoryExists {
@@ -131,7 +135,6 @@ func (h *RepositoryHandler) GetRepository(c *gin.Context) {
 type UpdateRepositoryRequest struct {
 	Name          string `json:"name"`
 	DefaultBranch string `json:"default_branch"`
-	TeamID        *int64 `json:"team_id"`
 	TicketPrefix  string `json:"ticket_prefix"`
 	IsActive      *bool  `json:"is_active"`
 }
@@ -176,9 +179,6 @@ func (h *RepositoryHandler) UpdateRepository(c *gin.Context) {
 	}
 	if req.DefaultBranch != "" {
 		updates["default_branch"] = req.DefaultBranch
-	}
-	if req.TeamID != nil {
-		updates["team_id"] = req.TeamID
 	}
 	if req.TicketPrefix != "" {
 		updates["ticket_prefix"] = req.TicketPrefix

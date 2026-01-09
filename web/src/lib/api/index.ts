@@ -45,7 +45,11 @@ export type { GitProviderData } from "./git-provider";
 
 // Repository
 export { repositoryApi } from "./repository";
-export type { RepositoryData } from "./repository";
+export type {
+  RepositoryData,
+  CreateRepositoryRequest,
+  UpdateRepositoryRequest,
+} from "./repository";
 
 // SSH Key
 export { sshKeyApi } from "./ssh-key";
@@ -95,3 +99,12 @@ export type {
   InvitationInfo,
   PendingInvitation,
 } from "./invitation";
+
+// Git Connection (User-level)
+export { gitConnectionApi } from "./git-connection";
+export type {
+  GitConnectionData,
+  RemoteRepositoryData,
+  CreateConnectionRequest,
+  UpdateConnectionRequest,
+} from "./git-connection";

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { repositoryApi, gitProviderApi, RepositoryData, GitProviderData } from "@/lib/api";
+import { repositoryApi, RepositoryData } from "@/lib/api";
 
 export default function RepositoryDetailPage() {
   const params = useParams();
@@ -13,63 +13,42 @@ export default function RepositoryDetailPage() {
   const repositoryId = Number(params.id);
 
   const [repository, setRepository] = useState<RepositoryData | null>(null);
-  const [gitProvider, setGitProvider] = useState<GitProviderData | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "branches">("info");
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    loadRepository();
-  }, [repositoryId]);
-
-  const loadRepository = async () => {
+  const loadRepository = useCallback(async () => {
     try {
       const res = await repositoryApi.get(repositoryId);
       setRepository(res.repository);
-
-      // Load git provider info
-      if (res.repository.git_provider_id) {
-        try {
-          const providerRes = await gitProviderApi.get(res.repository.git_provider_id);
-          setGitProvider(providerRes.git_provider);
-        } catch {
-          // Provider may not be accessible
-        }
-      }
     } catch (error) {
       console.error("Failed to load repository:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [repositoryId]);
+
+  useEffect(() => {
+    loadRepository();
+  }, [loadRepository]);
 
   const loadBranches = useCallback(async () => {
     if (!repository) return;
     setLoadingBranches(true);
     try {
-      const res = await repositoryApi.listBranches(repositoryId);
-      setBranches(res.branches || []);
+      // Note: Branch listing requires access token which should come from user's Git connection
+      // For now, this will show empty or require manual token input
+      // const res = await repositoryApi.listBranches(repositoryId, accessToken);
+      // setBranches(res.branches || []);
+      setBranches([]);
     } catch (error) {
       console.error("Failed to load branches:", error);
     } finally {
       setLoadingBranches(false);
     }
-  }, [repository, repositoryId]);
-
-  const handleSyncBranches = useCallback(async () => {
-    if (!repository) return;
-    setLoadingBranches(true);
-    try {
-      const res = await repositoryApi.syncBranches(repositoryId);
-      setBranches(res.branches || []);
-    } catch (error) {
-      console.error("Failed to sync branches:", error);
-    } finally {
-      setLoadingBranches(false);
-    }
-  }, [repository, repositoryId]);
+  }, [repository]);
 
   const handleDelete = useCallback(async () => {
     if (!repository) return;
@@ -125,12 +104,6 @@ export default function RepositoryDetailPage() {
             <path d="M11.984 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.016 0zm6.09 5.333c.328 0 .593.266.592.593v1.482a.594.594 0 01-.593.592H9.777c-.982 0-1.778.796-1.778 1.778v5.63c0 .327.266.592.593.592h5.63c.982 0 1.778-.796 1.778-1.778v-.296a.593.593 0 00-.592-.593h-4.15a.592.592 0 01-.592-.592v-1.482a.593.593 0 01.593-.592h6.815c.327 0 .593.265.593.592v3.408a4 4 0 01-4 4H5.926a.593.593 0 01-.593-.593V9.778a4.444 4.444 0 014.445-4.444h8.296z" />
           </svg>
         );
-      case "ssh":
-        return (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-          </svg>
-        );
       default:
         return (
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,7 +140,7 @@ export default function RepositoryDetailPage() {
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-start gap-4">
           <div className="mt-1 text-muted-foreground">
-            {getProviderIcon(gitProvider?.provider_type)}
+            {getProviderIcon(repository.provider_type)}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -175,6 +148,11 @@ export default function RepositoryDetailPage() {
               {!repository.is_active && (
                 <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
                   Inactive
+                </span>
+              )}
+              {repository.visibility === "private" && (
+                <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
+                  Private
                 </span>
               )}
             </div>
@@ -242,6 +220,10 @@ export default function RepositoryDetailPage() {
                 <dd className="font-medium">{repository.full_path}</dd>
               </div>
               <div>
+                <dt className="text-sm text-muted-foreground">Clone URL</dt>
+                <dd className="font-medium text-sm break-all">{repository.clone_url}</dd>
+              </div>
+              <div>
                 <dt className="text-sm text-muted-foreground">Default Branch</dt>
                 <dd className="font-medium">{repository.default_branch}</dd>
               </div>
@@ -272,29 +254,23 @@ export default function RepositoryDetailPage() {
             </dl>
           </div>
 
-          {/* Git Provider Info */}
+          {/* Git Provider Info (from self-contained fields) */}
           <div className="border border-border rounded-lg p-6">
             <h3 className="font-semibold mb-4">Git Provider</h3>
-            {gitProvider ? (
-              <dl className="space-y-3">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Name</dt>
-                  <dd className="font-medium">{gitProvider.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Type</dt>
-                  <dd className="font-medium capitalize">{gitProvider.provider_type}</dd>
-                </div>
-                {gitProvider.base_url && (
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Base URL</dt>
-                    <dd className="font-medium">{gitProvider.base_url}</dd>
-                  </div>
-                )}
-              </dl>
-            ) : (
-              <p className="text-muted-foreground">Provider information not available</p>
-            )}
+            <dl className="space-y-3">
+              <div>
+                <dt className="text-sm text-muted-foreground">Type</dt>
+                <dd className="font-medium capitalize">{repository.provider_type}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted-foreground">Base URL</dt>
+                <dd className="font-medium">{repository.provider_base_url}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted-foreground">Visibility</dt>
+                <dd className="font-medium capitalize">{repository.visibility}</dd>
+              </div>
+            </dl>
           </div>
 
           {/* Actions */}
@@ -317,22 +293,6 @@ export default function RepositoryDetailPage() {
                 </svg>
                 Setup Webhook
               </Button>
-              <Button variant="outline" onClick={handleSyncBranches}>
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Sync Branches
-              </Button>
             </div>
           </div>
         </div>
@@ -342,26 +302,6 @@ export default function RepositoryDetailPage() {
         <div className="border border-border rounded-lg">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold">Branches</h3>
-            <Button variant="outline" size="sm" onClick={handleSyncBranches}>
-              {loadingBranches ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-              ) : (
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-              )}
-              Sync
-            </Button>
           </div>
           <div className="divide-y divide-border">
             {loadingBranches ? (
@@ -399,19 +339,10 @@ export default function RepositoryDetailPage() {
               ))
             ) : (
               <div className="p-8 text-center text-muted-foreground">
-                {gitProvider?.provider_type === "ssh" ? (
-                  <>
-                    <p className="mb-2">Branch listing not available for SSH providers</p>
-                    <p className="text-sm">
-                      Enter branch names manually when creating sessions
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mb-2">No branches loaded</p>
-                    <p className="text-sm">Click Sync to load branches from the repository</p>
-                  </>
-                )}
+                <p className="mb-2">Branch listing requires Git credentials</p>
+                <p className="text-sm">
+                  Configure a Git connection in your settings to browse branches
+                </p>
               </div>
             )}
           </div>

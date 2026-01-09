@@ -78,6 +78,12 @@ func (h *RunnerMessageHandler) OnCreateSession(req client.CreateSessionRequest) 
 	h.sessionStore.Put(req.SessionID, session)
 	session.Status = SessionStatusRunning
 
+	// Register session with MCP HTTP Server for tool access (backend communication)
+	if h.runner.mcpServer != nil {
+		h.runner.mcpServer.RegisterSession(req.SessionID, nil, nil, req.InitialCommand)
+		log.Printf("[message_handler] Registered session %s with MCP server", req.SessionID)
+	}
+
 	// Send Shift+Tab if plan mode is requested
 	if req.PermissionMode == "plan" {
 		time.AfterFunc(1*time.Second, func() {
@@ -164,6 +170,11 @@ func (h *RunnerMessageHandler) OnTerminateSession(req client.TerminateSessionReq
 		if err := h.runner.sandboxManager.Cleanup(req.SessionID); err != nil {
 			log.Printf("[message_handler] Warning: failed to cleanup sandbox: %v", err)
 		}
+	}
+
+	// Unregister session from MCP HTTP Server
+	if h.runner.mcpServer != nil {
+		h.runner.mcpServer.UnregisterSession(req.SessionID)
 	}
 
 	// Notify server

@@ -16,22 +16,25 @@ func TestRepositoryTableName(t *testing.T) {
 
 func TestRepositoryStruct(t *testing.T) {
 	now := time.Now()
-	teamID := int64(10)
 	ticketPrefix := "AM"
+	importedBy := int64(50)
 
 	r := Repository{
-		ID:             1,
-		OrganizationID: 100,
-		TeamID:         &teamID,
-		GitProviderID:  5,
-		ExternalID:     "12345",
-		Name:           "my-repo",
-		FullPath:       "org/my-repo",
-		DefaultBranch:  "main",
-		TicketPrefix:   &ticketPrefix,
-		IsActive:       true,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:               1,
+		OrganizationID:   100,
+		ProviderType:     "github",
+		ProviderBaseURL:  "https://github.com",
+		CloneURL:         "https://github.com/org/my-repo.git",
+		ExternalID:       "12345",
+		Name:             "my-repo",
+		FullPath:         "org/my-repo",
+		DefaultBranch:    "main",
+		TicketPrefix:     &ticketPrefix,
+		Visibility:       "organization",
+		ImportedByUserID: &importedBy,
+		IsActive:         true,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 
 	if r.ID != 1 {
@@ -40,8 +43,8 @@ func TestRepositoryStruct(t *testing.T) {
 	if r.OrganizationID != 100 {
 		t.Errorf("expected OrganizationID 100, got %d", r.OrganizationID)
 	}
-	if *r.TeamID != 10 {
-		t.Errorf("expected TeamID 10, got %d", *r.TeamID)
+	if r.ProviderType != "github" {
+		t.Errorf("expected ProviderType 'github', got %s", r.ProviderType)
 	}
 	if r.Name != "my-repo" {
 		t.Errorf("expected Name 'my-repo', got %s", r.Name)
@@ -59,21 +62,22 @@ func TestRepositoryStruct(t *testing.T) {
 
 func TestRepositoryWithNilOptionalFields(t *testing.T) {
 	r := Repository{
-		ID:             1,
-		OrganizationID: 100,
-		GitProviderID:  5,
-		ExternalID:     "12345",
-		Name:           "my-repo",
-		FullPath:       "org/my-repo",
-		DefaultBranch:  "main",
-		IsActive:       true,
+		ID:              1,
+		OrganizationID:  100,
+		ProviderType:    "github",
+		ProviderBaseURL: "https://github.com",
+		ExternalID:      "12345",
+		Name:            "my-repo",
+		FullPath:        "org/my-repo",
+		DefaultBranch:   "main",
+		IsActive:        true,
 	}
 
-	if r.TeamID != nil {
-		t.Error("expected TeamID to be nil")
-	}
 	if r.TicketPrefix != nil {
 		t.Error("expected TicketPrefix to be nil")
+	}
+	if r.ImportedByUserID != nil {
+		t.Error("expected ImportedByUserID to be nil")
 	}
 }
 

@@ -138,12 +138,21 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 
 	// Sessions
 	sessionHandler := NewSessionHandler(svc.Session, svc.Runner, svc.Agent)
-	// Inject session coordinator and terminal router
+	// Inject dependencies for session handling
 	if svc.SessionCoordinator != nil {
 		sessionHandler.SetSessionCoordinator(svc.SessionCoordinator)
 	}
 	if svc.TerminalRouter != nil {
 		sessionHandler.SetTerminalRouter(svc.TerminalRouter)
+	}
+	if svc.Repository != nil {
+		sessionHandler.SetRepositoryService(svc.Repository)
+	}
+	if svc.Ticket != nil {
+		sessionHandler.SetTicketService(svc.Ticket)
+	}
+	if svc.User != nil {
+		sessionHandler.SetUserService(svc.User)
 	}
 	sessions := rg.Group("/sessions")
 	{

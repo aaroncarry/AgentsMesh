@@ -101,22 +101,25 @@ func TestRepositoryTableName(t *testing.T) {
 
 func TestRepositoryStruct(t *testing.T) {
 	now := time.Now()
-	teamID := int64(10)
 	ticketPrefix := "PROJ"
+	importedBy := int64(50)
 
 	r := Repository{
-		ID:             1,
-		OrganizationID: 100,
-		TeamID:         &teamID,
-		GitProviderID:  5,
-		ExternalID:     "ext-123",
-		Name:           "my-project",
-		FullPath:       "org/my-project",
-		DefaultBranch:  "develop",
-		TicketPrefix:   &ticketPrefix,
-		IsActive:       true,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:               1,
+		OrganizationID:   100,
+		ProviderType:     "gitlab",
+		ProviderBaseURL:  "https://gitlab.com",
+		CloneURL:         "https://gitlab.com/org/my-project.git",
+		ExternalID:       "ext-123",
+		Name:             "my-project",
+		FullPath:         "org/my-project",
+		DefaultBranch:    "develop",
+		TicketPrefix:     &ticketPrefix,
+		Visibility:       "organization",
+		ImportedByUserID: &importedBy,
+		IsActive:         true,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 
 	if r.ID != 1 {
@@ -125,11 +128,8 @@ func TestRepositoryStruct(t *testing.T) {
 	if r.OrganizationID != 100 {
 		t.Errorf("expected OrganizationID 100, got %d", r.OrganizationID)
 	}
-	if *r.TeamID != 10 {
-		t.Errorf("expected TeamID 10, got %d", *r.TeamID)
-	}
-	if r.GitProviderID != 5 {
-		t.Errorf("expected GitProviderID 5, got %d", r.GitProviderID)
+	if r.ProviderType != "gitlab" {
+		t.Errorf("expected ProviderType 'gitlab', got %s", r.ProviderType)
 	}
 	if r.Name != "my-project" {
 		t.Errorf("expected Name 'my-project', got %s", r.Name)
@@ -144,21 +144,22 @@ func TestRepositoryStruct(t *testing.T) {
 
 func TestRepositoryWithNilOptionalFields(t *testing.T) {
 	r := Repository{
-		ID:             1,
-		OrganizationID: 100,
-		GitProviderID:  5,
-		ExternalID:     "ext-456",
-		Name:           "repo",
-		FullPath:       "org/repo",
-		DefaultBranch:  "main",
-		IsActive:       true,
+		ID:              1,
+		OrganizationID:  100,
+		ProviderType:    "github",
+		ProviderBaseURL: "https://github.com",
+		ExternalID:      "ext-456",
+		Name:            "repo",
+		FullPath:        "org/repo",
+		DefaultBranch:   "main",
+		IsActive:        true,
 	}
 
-	if r.TeamID != nil {
-		t.Error("expected TeamID to be nil")
-	}
 	if r.TicketPrefix != nil {
 		t.Error("expected TicketPrefix to be nil")
+	}
+	if r.ImportedByUserID != nil {
+		t.Error("expected ImportedByUserID to be nil")
 	}
 }
 

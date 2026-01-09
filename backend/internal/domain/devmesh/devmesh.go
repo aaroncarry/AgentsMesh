@@ -77,7 +77,6 @@ func (ChannelAccess) TableName() string {
 // CreateSessionForTicketRequest represents the request to create a session for a ticket
 type CreateSessionForTicketRequest struct {
 	OrganizationID int64  `json:"organization_id"`
-	TeamID         *int64 `json:"team_id,omitempty"`
 	TicketID       int64  `json:"ticket_id"`
 	RunnerID       int64  `json:"runner_id"`
 	CreatedByID    int64  `json:"created_by_id"`

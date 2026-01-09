@@ -22,7 +22,6 @@ func setupRelationsTestDB(t *testing.T) *gorm.DB {
 		CREATE TABLE IF NOT EXISTS tickets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			team_id INTEGER,
 			number INTEGER NOT NULL,
 			identifier TEXT NOT NULL,
 			type TEXT NOT NULL DEFAULT 'task',

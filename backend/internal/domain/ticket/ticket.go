@@ -44,9 +44,8 @@ var ValidEstimates = []int{1, 2, 3, 5, 8, 13, 21}
 
 // Ticket represents a task/issue in the system
 type Ticket struct {
-	ID             int64  `gorm:"primaryKey" json:"id"`
-	OrganizationID int64  `gorm:"not null;index" json:"organization_id"`
-	TeamID         *int64 `gorm:"index" json:"team_id,omitempty"`
+	ID             int64 `gorm:"primaryKey" json:"id"`
+	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 
 	Number     int    `gorm:"not null" json:"number"`
 	Identifier string `gorm:"size:50;not null;uniqueIndex" json:"identifier"` // e.g., "AM-123"

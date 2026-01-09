@@ -169,3 +169,22 @@ func MaskEmail(email string) string {
 	masked := email[:1] + "****" + email[at-1:]
 	return masked
 }
+
+// EncryptWithKey encrypts plaintext using the provided key (convenience function)
+// Uses JWT_SECRET or similar secret key for token encryption
+func EncryptWithKey(plaintext, key string) (string, error) {
+	if plaintext == "" {
+		return "", nil
+	}
+	enc := NewEncryptor(key)
+	return enc.Encrypt(plaintext)
+}
+
+// DecryptWithKey decrypts ciphertext using the provided key (convenience function)
+func DecryptWithKey(ciphertext, key string) (string, error) {
+	if ciphertext == "" {
+		return "", nil
+	}
+	enc := NewEncryptor(key)
+	return enc.Decrypt(ciphertext)
+}

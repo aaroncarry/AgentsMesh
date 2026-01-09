@@ -26,36 +26,25 @@ vi.mock("@/lib/api", () => ({
     syncBranches: vi.fn(),
     setupWebhook: vi.fn(),
   },
-  gitProviderApi: {
-    get: vi.fn(),
-  },
 }));
 
-import { repositoryApi, gitProviderApi } from "@/lib/api";
+import { repositoryApi } from "@/lib/api";
 const mockRepositoryApi = vi.mocked(repositoryApi);
-const mockGitProviderApi = vi.mocked(gitProviderApi);
 
 describe("RepositoryDetailPage", () => {
+  // New self-contained repository model (no git_provider_id)
   const mockRepository = {
     id: 1,
     organization_id: 1,
-    git_provider_id: 1,
+    provider_type: "github",
+    provider_base_url: "https://github.com",
+    clone_url: "https://github.com/org/my-repo.git",
     external_id: "12345",
     name: "my-repo",
     full_path: "org/my-repo",
     default_branch: "main",
     ticket_prefix: "PROJ",
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  };
-
-  const mockGitProvider = {
-    id: 1,
-    organization_id: 1,
-    name: "GitHub",
-    provider_type: "github",
-    base_url: "https://github.com",
+    visibility: "organization",
     is_active: true,
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -66,11 +55,9 @@ describe("RepositoryDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRepositoryApi.get.mockResolvedValue({ repository: mockRepository });
-    mockGitProviderApi.get.mockResolvedValue({ git_provider: mockGitProvider });
     mockRepositoryApi.listBranches.mockResolvedValue({ branches: mockBranches });
     mockRepositoryApi.syncBranches.mockResolvedValue({
       branches: mockBranches,
-      message: "Synced",
     });
     mockRepositoryApi.setupWebhook.mockResolvedValue({
       message: "Webhook created",
@@ -183,6 +170,15 @@ describe("RepositoryDetailPage", () => {
       });
     });
 
+    it("should show clone URL", async () => {
+      render(<RepositoryDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Clone URL")).toBeInTheDocument();
+        expect(screen.getByText("https://github.com/org/my-repo.git")).toBeInTheDocument();
+      });
+    });
+
     it("should show ticket prefix", async () => {
       render(<RepositoryDetailPage />);
 
@@ -201,12 +197,22 @@ describe("RepositoryDetailPage", () => {
       });
     });
 
-    it("should show git provider info", async () => {
+    it("should show git provider info from self-contained fields", async () => {
       render(<RepositoryDetailPage />);
 
       await waitFor(() => {
         expect(screen.getByText("Git Provider")).toBeInTheDocument();
-        expect(screen.getByText("GitHub")).toBeInTheDocument();
+        expect(screen.getByText("github")).toBeInTheDocument();
+        expect(screen.getByText("https://github.com")).toBeInTheDocument();
+      });
+    });
+
+    it("should show visibility", async () => {
+      render(<RepositoryDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Visibility")).toBeInTheDocument();
+        expect(screen.getByText("organization")).toBeInTheDocument();
       });
     });
 
@@ -216,7 +222,6 @@ describe("RepositoryDetailPage", () => {
       await waitFor(() => {
         expect(screen.getByText("Actions")).toBeInTheDocument();
         expect(screen.getByText("Setup Webhook")).toBeInTheDocument();
-        expect(screen.getByText("Sync Branches")).toBeInTheDocument();
       });
     });
   });
@@ -231,12 +236,14 @@ describe("RepositoryDetailPage", () => {
 
       fireEvent.click(screen.getByText("Branches"));
 
+      // The branches tab should now be active
       await waitFor(() => {
-        expect(mockRepositoryApi.listBranches).toHaveBeenCalledWith(1);
+        // Branch listing requires Git credentials message should appear
+        expect(screen.getByText(/Branch listing requires Git credentials/)).toBeInTheDocument();
       });
     });
 
-    it("should render branches list", async () => {
+    it("should show message about Git credentials for branch listing", async () => {
       render(<RepositoryDetailPage />);
 
       await waitFor(() => {
@@ -246,37 +253,7 @@ describe("RepositoryDetailPage", () => {
       fireEvent.click(screen.getByText("Branches"));
 
       await waitFor(() => {
-        expect(screen.getByText("main")).toBeInTheDocument();
-        expect(screen.getByText("develop")).toBeInTheDocument();
-        expect(screen.getByText("feature/new-feature")).toBeInTheDocument();
-      });
-    });
-
-    it("should show default badge on default branch", async () => {
-      render(<RepositoryDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Branches")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("Branches"));
-
-      await waitFor(() => {
-        expect(screen.getByText("default")).toBeInTheDocument();
-      });
-    });
-
-    it("should have sync button in branches tab", async () => {
-      render(<RepositoryDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Branches")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("Branches"));
-
-      await waitFor(() => {
-        expect(screen.getByText("Sync")).toBeInTheDocument();
+        expect(screen.getByText(/Configure a Git connection in your settings/)).toBeInTheDocument();
       });
     });
   });
@@ -358,22 +335,6 @@ describe("RepositoryDetailPage", () => {
     });
   });
 
-  describe("sync branches", () => {
-    it("should call syncBranches API when button clicked", async () => {
-      render(<RepositoryDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Sync Branches")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("Sync Branches"));
-
-      await waitFor(() => {
-        expect(mockRepositoryApi.syncBranches).toHaveBeenCalledWith(1);
-      });
-    });
-  });
-
   describe("edit modal", () => {
     it("should open edit modal when Edit clicked", async () => {
       render(<RepositoryDetailPage />);
@@ -440,48 +401,52 @@ describe("RepositoryDetailPage", () => {
     });
   });
 
-  describe("SSH provider", () => {
-    it("should show SSH provider type in provider info", async () => {
-      mockGitProviderApi.get.mockResolvedValue({
-        git_provider: { ...mockGitProvider, provider_type: "ssh", name: "SSH Provider" },
+  describe("private visibility repository", () => {
+    it("should show Private badge for private visibility repository", async () => {
+      mockRepositoryApi.get.mockResolvedValue({
+        repository: { ...mockRepository, visibility: "private" },
       });
 
       render(<RepositoryDetailPage />);
 
       await waitFor(() => {
-        // Should show provider type as "ssh" (CSS handles capitalization)
-        expect(screen.getByText("ssh")).toBeInTheDocument();
-      });
-    });
-
-    it("should show message about unavailable branches for SSH", async () => {
-      mockGitProviderApi.get.mockResolvedValue({
-        git_provider: { ...mockGitProvider, provider_type: "ssh" },
-      });
-      mockRepositoryApi.listBranches.mockResolvedValue({ branches: [] });
-
-      render(<RepositoryDetailPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Branches")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText("Branches"));
-
-      await waitFor(() => {
-        expect(screen.getByText("Branch listing not available for SSH providers")).toBeInTheDocument();
+        expect(screen.getByText("Private")).toBeInTheDocument();
       });
     });
   });
 
-  describe("error handling", () => {
-    it("should handle git provider fetch error gracefully", async () => {
-      mockGitProviderApi.get.mockRejectedValue(new Error("Not found"));
+  describe("different providers", () => {
+    it("should show GitLab provider type", async () => {
+      mockRepositoryApi.get.mockResolvedValue({
+        repository: {
+          ...mockRepository,
+          provider_type: "gitlab",
+          provider_base_url: "https://gitlab.com",
+        },
+      });
 
       render(<RepositoryDetailPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Provider information not available")).toBeInTheDocument();
+        expect(screen.getByText("gitlab")).toBeInTheDocument();
+        expect(screen.getByText("https://gitlab.com")).toBeInTheDocument();
+      });
+    });
+
+    it("should show Gitee provider type", async () => {
+      mockRepositoryApi.get.mockResolvedValue({
+        repository: {
+          ...mockRepository,
+          provider_type: "gitee",
+          provider_base_url: "https://gitee.com",
+        },
+      });
+
+      render(<RepositoryDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("gitee")).toBeInTheDocument();
+        expect(screen.getByText("https://gitee.com")).toBeInTheDocument();
       });
     });
   });

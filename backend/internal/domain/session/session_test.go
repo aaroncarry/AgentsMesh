@@ -185,7 +185,6 @@ func TestSessionCanReconnect(t *testing.T) {
 
 func TestSessionStruct(t *testing.T) {
 	now := time.Now()
-	teamID := int64(10)
 	model := "opus"
 	permMode := "default"
 	branch := "feature/test"
@@ -193,7 +192,6 @@ func TestSessionStruct(t *testing.T) {
 	s := Session{
 		ID:             1,
 		OrganizationID: 100,
-		TeamID:         &teamID,
 		SessionKey:     "sess-123",
 		RunnerID:       5,
 		CreatedByID:    50,

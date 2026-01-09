@@ -544,47 +544,6 @@ func TestListMembersEmpty(t *testing.T) {
 	}
 }
 
-func TestGetUserTeams(t *testing.T) {
-	db := setupTestDB(t)
-	service := NewService(db)
-	ctx := context.Background()
-
-	req := &CreateRequest{Name: "Test Org", Slug: "test-org"}
-	org, _ := service.Create(ctx, 1, req)
-
-	// Create teams
-	db.Exec("INSERT INTO teams (id, organization_id, name) VALUES (1, ?, 'Team 1')", org.ID)
-	db.Exec("INSERT INTO teams (id, organization_id, name) VALUES (2, ?, 'Team 2')", org.ID)
-
-	// Add user to teams
-	db.Exec("INSERT INTO team_members (team_id, user_id, role) VALUES (1, 1, 'member')")
-	db.Exec("INSERT INTO team_members (team_id, user_id, role) VALUES (2, 1, 'member')")
-
-	teamIDs, err := service.GetUserTeams(ctx, org.ID, 1)
-	if err != nil {
-		t.Fatalf("failed to get user teams: %v", err)
-	}
-
-	if len(teamIDs) != 2 {
-		t.Errorf("expected 2 teams, got %d", len(teamIDs))
-	}
-}
-
-func TestGetUserTeamsNoTeams(t *testing.T) {
-	db := setupTestDB(t)
-	service := NewService(db)
-	ctx := context.Background()
-
-	teamIDs, err := service.GetUserTeams(ctx, 1, 1)
-	if err != nil {
-		t.Fatalf("failed to get user teams: %v", err)
-	}
-
-	if len(teamIDs) != 0 {
-		t.Errorf("expected 0 teams, got %d", len(teamIDs))
-	}
-}
-
 func TestGetBySlugNotFound(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)

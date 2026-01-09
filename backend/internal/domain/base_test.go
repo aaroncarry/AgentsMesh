@@ -43,44 +43,8 @@ func TestTenantModelStruct(t *testing.T) {
 	}
 }
 
-func TestTeamScopedModelStruct(t *testing.T) {
-	now := time.Now()
-	teamID := int64(10)
-	teamScoped := TeamScopedModel{
-		TenantModel: TenantModel{
-			BaseModel: BaseModel{
-				ID:        1,
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-			OrganizationID: 100,
-		},
-		TeamID: &teamID,
-	}
-
-	if teamScoped.ID != 1 {
-		t.Errorf("expected ID 1, got %d", teamScoped.ID)
-	}
-	if teamScoped.OrganizationID != 100 {
-		t.Errorf("expected OrganizationID 100, got %d", teamScoped.OrganizationID)
-	}
-	if *teamScoped.TeamID != 10 {
-		t.Errorf("expected TeamID 10, got %d", *teamScoped.TeamID)
-	}
-}
-
-func TestTeamScopedModelWithNilTeamID(t *testing.T) {
-	teamScoped := TeamScopedModel{
-		TenantModel: TenantModel{
-			OrganizationID: 100,
-		},
-		TeamID: nil,
-	}
-
-	if teamScoped.TeamID != nil {
-		t.Error("expected TeamID to be nil")
-	}
-}
+// TestTeamScopedModel tests removed - TeamScopedModel has been deprecated
+// All resources are now visible to all organization members
 
 // --- Benchmark Tests ---
 

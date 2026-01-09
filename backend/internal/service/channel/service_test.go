@@ -23,7 +23,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS channels (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		organization_id INTEGER NOT NULL,
-		team_id INTEGER,
 		name TEXT NOT NULL,
 		description TEXT,
 		document TEXT,
@@ -269,13 +268,13 @@ func TestListChannels(t *testing.T) {
 	}
 
 	// Archive one channel
-	channels, _, _ := svc.ListChannels(ctx, 1, nil, true, 10, 0)
+	channels, _, _ := svc.ListChannels(ctx, 1, true, 10, 0)
 	if len(channels) > 0 {
 		svc.ArchiveChannel(ctx, channels[0].ID)
 	}
 
 	t.Run("list active only", func(t *testing.T) {
-		channels, total, err := svc.ListChannels(ctx, 1, nil, false, 10, 0)
+		channels, total, err := svc.ListChannels(ctx, 1, false, 10, 0)
 		if err != nil {
 			t.Fatalf("ListChannels failed: %v", err)
 		}
@@ -288,7 +287,7 @@ func TestListChannels(t *testing.T) {
 	})
 
 	t.Run("list including archived", func(t *testing.T) {
-		_, total, err := svc.ListChannels(ctx, 1, nil, true, 10, 0)
+		_, total, err := svc.ListChannels(ctx, 1, true, 10, 0)
 		if err != nil {
 			t.Fatalf("ListChannels failed: %v", err)
 		}
@@ -298,7 +297,7 @@ func TestListChannels(t *testing.T) {
 	})
 
 	t.Run("pagination", func(t *testing.T) {
-		channels, total, err := svc.ListChannels(ctx, 1, nil, true, 2, 0)
+		channels, total, err := svc.ListChannels(ctx, 1, true, 2, 0)
 		if err != nil {
 			t.Fatalf("ListChannels failed: %v", err)
 		}
@@ -855,7 +854,6 @@ func TestErrors(t *testing.T) {
 func TestCreateChannelRequest(t *testing.T) {
 	req := &CreateChannelRequest{
 		OrganizationID:   1,
-		TeamID:           intPtr(2),
 		Name:             "test-channel",
 		Description:      strPtr("Test description"),
 		RepositoryID:     intPtr(3),

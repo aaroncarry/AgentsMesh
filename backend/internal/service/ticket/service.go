@@ -31,7 +31,6 @@ func NewService(db *gorm.DB) *Service {
 // CreateTicketRequest represents a ticket creation request
 type CreateTicketRequest struct {
 	OrganizationID int64
-	TeamID         *int64
 	RepositoryID   *int64
 	ReporterID     int64
 	ParentTicketID *int64
@@ -78,7 +77,6 @@ func (s *Service) CreateTicket(ctx context.Context, req *CreateTicketRequest) (*
 
 	t := &ticket.Ticket{
 		OrganizationID: req.OrganizationID,
-		TeamID:         req.TeamID,
 		Number:         number,
 		Identifier:     identifier,
 		Type:           req.Type,
@@ -177,7 +175,6 @@ func (s *Service) GetTicketByIdentifier(ctx context.Context, identifier string) 
 // ListTicketsFilter represents filters for listing tickets
 type ListTicketsFilter struct {
 	OrganizationID int64
-	TeamID         *int64 // Deprecated: kept for backward compatibility
 	RepositoryID   *int64
 	Status         string
 	Type           string
@@ -196,9 +193,6 @@ type ListTicketsFilter struct {
 func (s *Service) ListTickets(ctx context.Context, filter *ListTicketsFilter) ([]*ticket.Ticket, int64, error) {
 	query := s.db.WithContext(ctx).Model(&ticket.Ticket{}).Where("organization_id = ?", filter.OrganizationID)
 
-	if filter.TeamID != nil {
-		query = query.Where("team_id = ?", *filter.TeamID)
-	}
 	if filter.RepositoryID != nil {
 		query = query.Where("repository_id = ?", *filter.RepositoryID)
 	}

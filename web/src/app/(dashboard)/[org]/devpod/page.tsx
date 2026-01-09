@@ -381,7 +381,9 @@ function CreateSessionModal({
     loadRepositories();
   }, []);
 
-  // Load branches when repository is selected
+  // Auto-select default branch when repository is selected
+  // Note: Branch listing requires Git credentials which are not available here
+  // Users should manually enter the branch name or use the repository's default branch
   useEffect(() => {
     if (!selectedRepository) {
       setBranches([]);
@@ -389,28 +391,14 @@ function CreateSessionModal({
       return;
     }
 
-    const loadBranches = async () => {
-      setLoadingBranches(true);
-      try {
-        const res = await repositoryApi.listBranches(selectedRepository);
-        setBranches(res.branches || []);
-        // Auto-select default branch
-        const repo = repositories.find((r) => r.id === selectedRepository);
-        if (repo?.default_branch && res.branches?.includes(repo.default_branch)) {
-          setSelectedBranch(repo.default_branch);
-        } else if (res.branches?.length > 0) {
-          setSelectedBranch(res.branches[0]);
-        }
-      } catch (error) {
-        console.error("Failed to load branches:", error);
-        // For SSH providers, branches might not be available
-        setBranches([]);
-        setSelectedBranch("");
-      } finally {
-        setLoadingBranches(false);
-      }
-    };
-    loadBranches();
+    // Use the repository's default branch directly since we don't have credentials
+    // to fetch the full branch list
+    const repo = repositories.find((r) => r.id === selectedRepository);
+    if (repo?.default_branch) {
+      setSelectedBranch(repo.default_branch);
+    }
+    setBranches([]);
+    setLoadingBranches(false);
   }, [selectedRepository, repositories]);
 
   const handleCreate = async () => {

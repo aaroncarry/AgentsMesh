@@ -23,7 +23,6 @@ func NewTicketHandler(ticketService *ticket.Service) *TicketHandler {
 
 // ListTicketsRequest represents ticket list request
 type ListTicketsRequest struct {
-	TeamID       *int64   `form:"team_id"`
 	RepositoryID *int64   `form:"repository_id"`
 	Status       string   `form:"status"`
 	Type         string   `form:"type"`
@@ -49,10 +48,8 @@ func (h *TicketHandler) ListTickets(c *gin.Context) {
 		limit = 20
 	}
 
-	// TeamID is deprecated - all resources are visible to organization members
 	tickets, total, err := h.ticketService.ListTickets(c.Request.Context(), &ticket.ListTicketsFilter{
 		OrganizationID: tenant.OrganizationID,
-		TeamID:         req.TeamID, // Kept for backward compatibility, may be nil
 		RepositoryID:   req.RepositoryID,
 		Status:         req.Status,
 		Type:           req.Type,
@@ -77,7 +74,6 @@ func (h *TicketHandler) ListTickets(c *gin.Context) {
 // CreateTicketRequest represents ticket creation request
 type CreateTicketRequest struct {
 	RepositoryID   *int64   `json:"repository_id"`
-	TeamID         *int64   `json:"team_id"`
 	Type           string   `json:"type" binding:"required,oneof=task bug feature epic"`
 	Title          string   `json:"title" binding:"required,min=1,max=500"`
 	Description    string   `json:"description"`
@@ -111,7 +107,6 @@ func (h *TicketHandler) CreateTicket(c *gin.Context) {
 
 	t, err := h.ticketService.CreateTicket(c.Request.Context(), &ticket.CreateTicketRequest{
 		OrganizationID: tenant.OrganizationID,
-		TeamID:         req.TeamID,
 		RepositoryID:   req.RepositoryID,
 		ReporterID:     tenant.UserID,
 		Type:           req.Type,
@@ -586,23 +581,16 @@ func (h *TicketHandler) GetActiveTickets(c *gin.Context) {
 func (h *TicketHandler) GetBoard(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	var repoID, teamID *int64
+	var repoID *int64
 	if repoIDStr := c.Query("repository_id"); repoIDStr != "" {
 		if id, err := strconv.ParseInt(repoIDStr, 10, 64); err == nil {
 			repoID = &id
 		}
 	}
-	if teamIDStr := c.Query("team_id"); teamIDStr != "" {
-		if id, err := strconv.ParseInt(teamIDStr, 10, 64); err == nil {
-			teamID = &id
-		}
-	}
 
-	// TeamID is deprecated - all resources are visible to organization members
 	board, err := h.ticketService.GetBoard(c.Request.Context(), &ticket.ListTicketsFilter{
 		OrganizationID: tenant.OrganizationID,
 		RepositoryID:   repoID,
-		TeamID:         teamID, // Kept for backward compatibility, may be nil
 		UserRole:       tenant.UserRole,
 		Limit:          50,
 	})

@@ -41,10 +41,11 @@ func (p *WorktreePlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config 
 	baseBranch := sandbox.GetStringConfig(config, "branch")
 	gitToken := sandbox.GetStringConfig(config, "git_token")
 	sshPrivateKey := sandbox.GetStringConfig(config, "ssh_private_key")
+	providerType := sandbox.GetStringConfig(config, "provider_type") // github, gitlab, gitee, etc.
 
-	// Skip if no repository URL or ticket identifier
-	if repoURL == "" || ticketID == "" {
-		log.Printf("[worktree] Skipping: no repository_url or ticket_identifier")
+	// Skip if no repository URL (ticket identifier is optional)
+	if repoURL == "" {
+		log.Printf("[worktree] Skipping: no repository_url")
 		return nil
 	}
 
@@ -68,7 +69,7 @@ func (p *WorktreePlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config 
 	// If git token is provided and URL is HTTPS, inject it into the URL
 	cloneURL := repoURL
 	if gitToken != "" && !isSSHURL(repoURL) {
-		cloneURL = p.injectToken(repoURL, gitToken)
+		cloneURL = p.injectToken(repoURL, gitToken, providerType)
 	}
 
 	// Ensure repository is cloned/updated in cache
@@ -83,12 +84,18 @@ func (p *WorktreePlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config 
 	// Worktree path inside sandbox
 	worktreePath := filepath.Join(sb.RootPath, "worktree")
 
-	// Branch naming: ticket/{ticket_id}-{session_suffix}
+	// Branch naming: ticket/{ticket_id}-{session_suffix} or session/{session_suffix} if no ticket
+	// Use last 8 chars of session key (the random hash part) to avoid collisions
 	sessionSuffix := sb.SessionKey
 	if len(sessionSuffix) > 8 {
-		sessionSuffix = sessionSuffix[:8]
+		sessionSuffix = sessionSuffix[len(sessionSuffix)-8:]
 	}
-	branchName := fmt.Sprintf("ticket/%s-%s", ticketID, sessionSuffix)
+	var branchName string
+	if ticketID != "" {
+		branchName = fmt.Sprintf("ticket/%s-%s", ticketID, sessionSuffix)
+	} else {
+		branchName = fmt.Sprintf("session/%s", sessionSuffix)
+	}
 
 	// Create worktree
 	if err := p.createWorktree(ctx, repoPath, worktreePath, branchName, baseBranch, sshKeyPath); err != nil {
@@ -138,15 +145,36 @@ func (p *WorktreePlugin) Teardown(sb *sandbox.Sandbox) error {
 	return nil
 }
 
-// injectToken injects authentication token into the repository URL.
-func (p *WorktreePlugin) injectToken(repoURL, token string) string {
-	// Handle HTTPS URLs: https://github.com/org/repo.git -> https://token@github.com/org/repo.git
+// injectToken injects authentication token into the repository URL based on provider type.
+// Different Git providers use different authentication formats:
+// - GitHub: https://x-access-token:TOKEN@github.com/... (for OAuth) or https://TOKEN@github.com/... (for PAT)
+// - GitLab: https://oauth2:TOKEN@gitlab.com/... (works for both OAuth and PAT)
+// - Gitee:  https://oauth2:TOKEN@gitee.com/...
+func (p *WorktreePlugin) injectToken(repoURL, token, providerType string) string {
+	// Determine the username prefix based on provider type
+	var authPrefix string
+	switch providerType {
+	case "github":
+		// GitHub PATs and OAuth tokens work with x-access-token as username
+		authPrefix = fmt.Sprintf("x-access-token:%s", token)
+	case "gitlab":
+		// GitLab PATs and OAuth tokens work with oauth2 as username
+		authPrefix = fmt.Sprintf("oauth2:%s", token)
+	case "gitee":
+		// Gitee uses oauth2 format similar to GitLab
+		authPrefix = fmt.Sprintf("oauth2:%s", token)
+	default:
+		// For unknown providers, try oauth2 format as it's widely supported
+		authPrefix = fmt.Sprintf("oauth2:%s", token)
+	}
+
+	// Handle HTTPS URLs
 	if strings.HasPrefix(repoURL, "https://") {
-		return strings.Replace(repoURL, "https://", fmt.Sprintf("https://%s@", token), 1)
+		return strings.Replace(repoURL, "https://", fmt.Sprintf("https://%s@", authPrefix), 1)
 	}
 	// Handle HTTP URLs (not recommended but supported)
 	if strings.HasPrefix(repoURL, "http://") {
-		return strings.Replace(repoURL, "http://", fmt.Sprintf("http://%s@", token), 1)
+		return strings.Replace(repoURL, "http://", fmt.Sprintf("http://%s@", authPrefix), 1)
 	}
 	// SSH URLs don't need token injection
 	return repoURL

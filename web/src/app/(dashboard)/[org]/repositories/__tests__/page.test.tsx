@@ -14,27 +14,32 @@ vi.mock("@/lib/api", () => ({
   repositoryApi: {
     list: vi.fn(),
     delete: vi.fn(),
+    create: vi.fn(),
   },
-  gitProviderApi: {
+  gitConnectionApi: {
     list: vi.fn(),
+    listRepositories: vi.fn(),
   },
 }));
 
-import { repositoryApi, gitProviderApi } from "@/lib/api";
+import { repositoryApi, gitConnectionApi } from "@/lib/api";
 const mockRepositoryApi = vi.mocked(repositoryApi);
-const mockGitProviderApi = vi.mocked(gitProviderApi);
+const mockGitConnectionApi = vi.mocked(gitConnectionApi);
 
 describe("RepositoriesPage", () => {
   const mockRepositories = [
     {
       id: 1,
       organization_id: 1,
-      git_provider_id: 1,
+      provider_type: "github",
+      provider_base_url: "https://github.com",
+      clone_url: "https://github.com/org/repo-one.git",
       external_id: "12345",
       name: "repo-one",
       full_path: "org/repo-one",
       default_branch: "main",
       ticket_prefix: "REPO",
+      visibility: "organization",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
@@ -42,11 +47,14 @@ describe("RepositoriesPage", () => {
     {
       id: 2,
       organization_id: 1,
-      git_provider_id: 2,
+      provider_type: "gitlab",
+      provider_base_url: "https://gitlab.com",
+      clone_url: "https://gitlab.com/org/repo-two.git",
       external_id: "67890",
       name: "repo-two",
       full_path: "org/repo-two",
       default_branch: "develop",
+      visibility: "organization",
       is_active: true,
       created_at: "2024-01-02T00:00:00Z",
       updated_at: "2024-01-02T00:00:00Z",
@@ -54,42 +62,47 @@ describe("RepositoriesPage", () => {
     {
       id: 3,
       organization_id: 1,
-      git_provider_id: 1,
+      provider_type: "github",
+      provider_base_url: "https://github.com",
+      clone_url: "https://github.com/org/inactive-repo.git",
       external_id: "11111",
       name: "inactive-repo",
       full_path: "org/inactive-repo",
       default_branch: "main",
+      visibility: "private",
       is_active: false,
       created_at: "2024-01-03T00:00:00Z",
       updated_at: "2024-01-03T00:00:00Z",
     },
   ];
 
-  const mockGitProviders = [
+  const mockConnections = [
     {
-      id: 1,
-      organization_id: 1,
-      name: "GitHub",
+      id: "oauth:github",
+      type: "oauth" as const,
       provider_type: "github",
+      provider_name: "GitHub",
+      base_url: "https://github.com",
+      username: "john",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
-      updated_at: "2024-01-01T00:00:00Z",
     },
     {
-      id: 2,
-      organization_id: 1,
-      name: "GitLab",
+      id: "connection:1",
+      type: "personal" as const,
       provider_type: "gitlab",
+      provider_name: "Company GitLab",
+      base_url: "https://gitlab.company.com",
+      username: "john.doe",
       is_active: true,
       created_at: "2024-01-01T00:00:00Z",
-      updated_at: "2024-01-01T00:00:00Z",
     },
   ];
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockRepositoryApi.list.mockResolvedValue({ repositories: mockRepositories });
-    mockGitProviderApi.list.mockResolvedValue({ git_providers: mockGitProviders });
+    mockGitConnectionApi.list.mockResolvedValue({ connections: mockConnections });
     // Mock window.confirm
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
@@ -127,11 +140,11 @@ describe("RepositoriesPage", () => {
       });
     });
 
-    it("should render Add Repository button", async () => {
+    it("should render Import Repository button", async () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
       });
     });
 
@@ -141,7 +154,7 @@ describe("RepositoriesPage", () => {
       await waitFor(() => {
         expect(screen.getByText("Total Repositories")).toBeInTheDocument();
         expect(screen.getByText("Active")).toBeInTheDocument();
-        expect(screen.getByText("Git Providers")).toBeInTheDocument();
+        expect(screen.getByText("Providers")).toBeInTheDocument();
       });
     });
 
@@ -184,6 +197,14 @@ describe("RepositoriesPage", () => {
       });
     });
 
+    it("should show private badge for private visibility repositories", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Private")).toBeInTheDocument();
+      });
+    });
+
     it("should show ticket prefix badge when available", async () => {
       render(<RepositoriesPage />);
 
@@ -199,6 +220,15 @@ describe("RepositoriesPage", () => {
         // There can be multiple "main" branches from different repos
         expect(screen.getAllByText("main").length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText("develop")).toBeInTheDocument();
+      });
+    });
+
+    it("should show provider type for each repository", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText("github").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText("gitlab")).toBeInTheDocument();
       });
     });
   });
@@ -219,16 +249,16 @@ describe("RepositoriesPage", () => {
       expect(screen.queryByText("repo-two")).not.toBeInTheDocument();
     });
 
-    it("should filter repositories by provider", async () => {
+    it("should filter repositories by provider type", async () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
         expect(screen.getByText("repo-one")).toBeInTheDocument();
       });
 
-      // Find the provider filter select by its option text
+      // Find the provider filter select
       const providerSelect = screen.getByRole("combobox");
-      fireEvent.change(providerSelect, { target: { value: "2" } });
+      fireEvent.change(providerSelect, { target: { value: "gitlab" } });
 
       await waitFor(() => {
         expect(screen.queryByText("repo-one")).not.toBeInTheDocument();
@@ -261,7 +291,7 @@ describe("RepositoriesPage", () => {
         expect(screen.getByText("repo-one")).toBeInTheDocument();
       });
 
-      // Find and click the first delete button
+      // Find and click the first delete button (by looking for the svg path pattern)
       const deleteButtons = screen.getAllByRole("button").filter(
         (btn) => btn.querySelector("svg path[d*='M19 7l-.867 12.142']")
       );
@@ -309,38 +339,90 @@ describe("RepositoriesPage", () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Add a repository to use Git-based workflows in DevPod")).toBeInTheDocument();
+        expect(screen.getByText("Import a repository to use Git-based workflows in DevPod")).toBeInTheDocument();
       });
     });
   });
 
-  describe("create modal", () => {
-    it("should open create modal when Add Repository clicked", async () => {
+  describe("import modal", () => {
+    it("should open import modal when Import Repository clicked", async () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText("Add Repository"));
+      fireEvent.click(screen.getByText("Import Repository"));
 
-      expect(screen.getByText("Add Repository", { selector: "h2" })).toBeInTheDocument();
+      // The modal header should appear
+      await waitFor(() => {
+        expect(screen.getByText("Import Repository", { selector: "h2" })).toBeInTheDocument();
+      });
     });
 
-    it("should close create modal when Cancel clicked", async () => {
+    it("should close import modal when Cancel clicked", async () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Add Repository")).toBeInTheDocument();
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
       });
 
-      fireEvent.click(screen.getByText("Add Repository"));
+      fireEvent.click(screen.getByText("Import Repository"));
 
-      expect(screen.getByText("Cancel")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText("Cancel")).toBeInTheDocument();
+      });
+
       fireEvent.click(screen.getByText("Cancel"));
 
       await waitFor(() => {
-        expect(screen.queryByText("Add Repository", { selector: "h2" })).not.toBeInTheDocument();
+        expect(screen.queryByText("Import Repository", { selector: "h2" })).not.toBeInTheDocument();
+      });
+    });
+
+    it("should show Git connections in import modal", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("Import Repository"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Your Git Connections")).toBeInTheDocument();
+        expect(screen.getByText("GitHub")).toBeInTheDocument();
+        expect(screen.getByText("Company GitLab")).toBeInTheDocument();
+      });
+    });
+
+    it("should show manual entry option", async () => {
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("Import Repository"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Enter Manually")).toBeInTheDocument();
+      });
+    });
+
+    it("should show message when no connections available", async () => {
+      mockGitConnectionApi.list.mockResolvedValue({ connections: [] });
+
+      render(<RepositoriesPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Import Repository")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText("Import Repository"));
+
+      await waitFor(() => {
+        expect(screen.getByText(/No Git connections configured/)).toBeInTheDocument();
       });
     });
   });

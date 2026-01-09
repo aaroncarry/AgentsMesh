@@ -22,7 +22,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		CREATE TABLE IF NOT EXISTS tickets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			team_id INTEGER,
 			number INTEGER NOT NULL,
 			identifier TEXT NOT NULL,
 			type TEXT NOT NULL DEFAULT 'task',
@@ -580,26 +579,23 @@ func TestListTickets_Filters(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup: Create tickets with varied properties
-	teamID := int64(1)
 	repoID := int64(1)
 
 	tickets := []struct {
-		teamID     *int64
 		repoID     *int64
 		typ        string
 		priority   string
 		reporterID int64
 	}{
-		{&teamID, &repoID, "bug", "high", 1},
-		{nil, nil, "task", "low", 2},
-		{&teamID, nil, "feature", "medium", 1},
+		{&repoID, "bug", "high", 1},
+		{nil, "task", "low", 2},
+		{nil, "feature", "medium", 1},
 	}
 
 	for _, tc := range tickets {
 		req := &CreateTicketRequest{
 			OrganizationID: 1,
 			ReporterID:     tc.reporterID,
-			TeamID:         tc.teamID,
 			RepositoryID:   tc.repoID,
 			Type:           tc.typ,
 			Title:          "Test",
@@ -613,11 +609,6 @@ func TestListTickets_Filters(t *testing.T) {
 		filter    *ListTicketsFilter
 		wantCount int64
 	}{
-		{
-			name:      "filter by team",
-			filter:    &ListTicketsFilter{OrganizationID: 1, TeamID: &teamID, Limit: 10},
-			wantCount: 2,
-		},
 		{
 			name:      "filter by repository",
 			filter:    &ListTicketsFilter{OrganizationID: 1, RepositoryID: &repoID, Limit: 10},

@@ -16,9 +16,3 @@ type TenantModel struct {
 	BaseModel
 	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 }
-
-// TeamScopedModel adds team_id for team-level isolation
-type TeamScopedModel struct {
-	TenantModel
-	TeamID *int64 `gorm:"index" json:"team_id,omitempty"`
-}

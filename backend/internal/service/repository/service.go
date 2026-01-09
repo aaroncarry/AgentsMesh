@@ -5,63 +5,80 @@ import (
 	"errors"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/gitprovider"
-	gitproviderService "github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
+	"github.com/anthropics/agentmesh/backend/internal/infra/git"
 	"gorm.io/gorm"
 )
 
 var (
 	ErrRepositoryNotFound = errors.New("repository not found")
 	ErrRepositoryExists   = errors.New("repository already exists")
+	ErrNoPermission       = errors.New("no permission to access this repository")
 )
 
 // Service handles repository operations
 type Service struct {
-	db                 *gorm.DB
-	gitProviderService *gitproviderService.Service
+	db *gorm.DB
 }
 
 // NewService creates a new repository service
-func NewService(db *gorm.DB, gitProviderSvc *gitproviderService.Service) *Service {
+func NewService(db *gorm.DB) *Service {
 	return &Service{
-		db:                 db,
-		gitProviderService: gitProviderSvc,
+		db: db,
 	}
 }
 
 // CreateRequest represents repository creation request
+// Self-contained: no git_provider_id, includes all necessary info
 type CreateRequest struct {
-	OrganizationID int64
-	TeamID         *int64
-	GitProviderID  int64
-	ExternalID     string
-	Name           string
-	FullPath       string
-	DefaultBranch  string
-	TicketPrefix   *string
+	OrganizationID   int64
+	ProviderType     string // github, gitlab, gitee, generic
+	ProviderBaseURL  string // https://github.com, https://gitlab.company.com
+	CloneURL         string // Full clone URL
+	ExternalID       string
+	Name             string
+	FullPath         string
+	DefaultBranch    string
+	TicketPrefix     *string
+	Visibility       string // "organization" or "private"
+	ImportedByUserID *int64 // User who imported this repo
 }
 
 // Create creates a new repository configuration
 func (s *Service) Create(ctx context.Context, req *CreateRequest) (*gitprovider.Repository, error) {
-	// Check if repository already exists
+	// Check if repository already exists (unique: org + provider_type + provider_base_url + full_path)
 	var existing gitprovider.Repository
-	if err := s.db.WithContext(ctx).Where("git_provider_id = ? AND external_id = ?", req.GitProviderID, req.ExternalID).First(&existing).Error; err == nil {
+	if err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND provider_type = ? AND provider_base_url = ? AND full_path = ?",
+			req.OrganizationID, req.ProviderType, req.ProviderBaseURL, req.FullPath).
+		First(&existing).Error; err == nil {
 		return nil, ErrRepositoryExists
 	}
 
 	repo := &gitprovider.Repository{
-		OrganizationID: req.OrganizationID,
-		TeamID:         req.TeamID,
-		GitProviderID:  req.GitProviderID,
-		ExternalID:     req.ExternalID,
-		Name:           req.Name,
-		FullPath:       req.FullPath,
-		DefaultBranch:  req.DefaultBranch,
-		TicketPrefix:   req.TicketPrefix,
-		IsActive:       true,
+		OrganizationID:   req.OrganizationID,
+		ProviderType:     req.ProviderType,
+		ProviderBaseURL:  req.ProviderBaseURL,
+		CloneURL:         req.CloneURL,
+		ExternalID:       req.ExternalID,
+		Name:             req.Name,
+		FullPath:         req.FullPath,
+		DefaultBranch:    req.DefaultBranch,
+		TicketPrefix:     req.TicketPrefix,
+		Visibility:       req.Visibility,
+		ImportedByUserID: req.ImportedByUserID,
+		IsActive:         true,
 	}
 
 	if repo.DefaultBranch == "" {
 		repo.DefaultBranch = "main"
+	}
+	if repo.Visibility == "" {
+		repo.Visibility = "organization"
+	}
+
+	// Generate clone URL if not provided
+	if repo.CloneURL == "" {
+		repo.CloneURL = generateCloneURL(repo.ProviderType, repo.ProviderBaseURL, repo.FullPath)
 	}
 
 	if err := s.db.WithContext(ctx).Create(repo).Error; err != nil {
@@ -71,13 +88,46 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*gitprovider.
 	return repo, nil
 }
 
+// generateCloneURL generates clone URL based on provider type
+func generateCloneURL(providerType, baseURL, fullPath string) string {
+	switch providerType {
+	case "github":
+		return "https://github.com/" + fullPath + ".git"
+	case "gitlab":
+		return baseURL + "/" + fullPath + ".git"
+	case "gitee":
+		return "https://gitee.com/" + fullPath + ".git"
+	default:
+		return baseURL + "/" + fullPath + ".git"
+	}
+}
+
 // GetByID returns a repository by ID
 func (s *Service) GetByID(ctx context.Context, id int64) (*gitprovider.Repository, error) {
 	var repo gitprovider.Repository
-	if err := s.db.WithContext(ctx).Preload("GitProvider").First(&repo, id).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		Where("deleted_at IS NULL").
+		First(&repo, id).Error; err != nil {
 		return nil, ErrRepositoryNotFound
 	}
 	return &repo, nil
+}
+
+// GetByIDForUser returns a repository by ID, checking visibility permissions
+func (s *Service) GetByIDForUser(ctx context.Context, id int64, userID int64) (*gitprovider.Repository, error) {
+	repo, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check visibility permissions
+	if repo.Visibility == "private" {
+		if repo.ImportedByUserID == nil || *repo.ImportedByUserID != userID {
+			return nil, ErrNoPermission
+		}
+	}
+
+	return repo, nil
 }
 
 // Update updates a repository
@@ -88,61 +138,79 @@ func (s *Service) Update(ctx context.Context, id int64, updates map[string]inter
 	return s.GetByID(ctx, id)
 }
 
-// Delete deletes a repository
+// Delete soft deletes a repository
 func (s *Service) Delete(ctx context.Context, id int64) error {
-	return s.db.WithContext(ctx).Delete(&gitprovider.Repository{}, id).Error
+	return s.db.WithContext(ctx).Model(&gitprovider.Repository{}).
+		Where("id = ?", id).
+		Update("deleted_at", gorm.Expr("NOW()")).Error
+}
+
+// HardDelete permanently deletes a repository
+func (s *Service) HardDelete(ctx context.Context, id int64) error {
+	return s.db.WithContext(ctx).Unscoped().Delete(&gitprovider.Repository{}, id).Error
 }
 
 // ListByOrganization returns repositories for an organization
-func (s *Service) ListByOrganization(ctx context.Context, orgID int64, teamID *int64) ([]*gitprovider.Repository, error) {
-	query := s.db.WithContext(ctx).Preload("GitProvider").Where("organization_id = ? AND is_active = ?", orgID, true)
-
-	if teamID != nil {
-		query = query.Where("team_id = ?", *teamID)
-	}
-
-	var repos []*gitprovider.Repository
-	err := query.Find(&repos).Error
-	return repos, err
-}
-
-// ListByTeam returns repositories for a team
-func (s *Service) ListByTeam(ctx context.Context, teamID int64) ([]*gitprovider.Repository, error) {
+func (s *Service) ListByOrganization(ctx context.Context, orgID int64) ([]*gitprovider.Repository, error) {
 	var repos []*gitprovider.Repository
 	err := s.db.WithContext(ctx).
-		Preload("GitProvider").
-		Where("team_id = ? AND is_active = ?", teamID, true).
-		Find(&repos).Error
+		Where("organization_id = ? AND is_active = ? AND deleted_at IS NULL", orgID, true).
+		Order("created_at DESC").Find(&repos).Error
 	return repos, err
 }
 
-// AssignToTeam assigns a repository to a team
-func (s *Service) AssignToTeam(ctx context.Context, repoID int64, teamID *int64) error {
-	return s.db.WithContext(ctx).Model(&gitprovider.Repository{}).
-		Where("id = ?", repoID).
-		Update("team_id", teamID).Error
+// ListByOrganizationForUser returns repositories visible to a specific user
+func (s *Service) ListByOrganizationForUser(ctx context.Context, orgID int64, userID int64) ([]*gitprovider.Repository, error) {
+	var repos []*gitprovider.Repository
+	err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND is_active = ? AND deleted_at IS NULL", orgID, true).
+		Where("(visibility = 'organization' OR (visibility = 'private' AND imported_by_user_id = ?))", userID).
+		Order("created_at DESC").Find(&repos).Error
+	return repos, err
 }
 
-// GetByExternalID returns a repository by git provider and external ID
-func (s *Service) GetByExternalID(ctx context.Context, providerID int64, externalID string) (*gitprovider.Repository, error) {
+// GetByExternalID returns a repository by provider type, base URL, and external ID
+func (s *Service) GetByExternalID(ctx context.Context, providerType, providerBaseURL, externalID string) (*gitprovider.Repository, error) {
 	var repo gitprovider.Repository
 	if err := s.db.WithContext(ctx).
-		Preload("GitProvider").
-		Where("git_provider_id = ? AND external_id = ?", providerID, externalID).
+		Where("provider_type = ? AND provider_base_url = ? AND external_id = ? AND deleted_at IS NULL",
+			providerType, providerBaseURL, externalID).
 		First(&repo).Error; err != nil {
 		return nil, ErrRepositoryNotFound
 	}
 	return &repo, nil
 }
 
-// SyncFromProvider syncs repository info from git provider
+// GetByFullPath returns a repository by organization, provider, and full path
+func (s *Service) GetByFullPath(ctx context.Context, orgID int64, providerType, providerBaseURL, fullPath string) (*gitprovider.Repository, error) {
+	var repo gitprovider.Repository
+	if err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND provider_type = ? AND provider_base_url = ? AND full_path = ? AND deleted_at IS NULL",
+			orgID, providerType, providerBaseURL, fullPath).
+		First(&repo).Error; err != nil {
+		return nil, ErrRepositoryNotFound
+	}
+	return &repo, nil
+}
+
+// GetCloneURL returns the clone URL for a repository
+func (s *Service) GetCloneURL(ctx context.Context, repoID int64) (string, error) {
+	repo, err := s.GetByID(ctx, repoID)
+	if err != nil {
+		return "", err
+	}
+	return repo.CloneURL, nil
+}
+
+// SyncFromProvider syncs repository info from git provider using user's token
 func (s *Service) SyncFromProvider(ctx context.Context, repoID int64, accessToken string) (*gitprovider.Repository, error) {
 	repo, err := s.GetByID(ctx, repoID)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := s.gitProviderService.GetClient(ctx, repo.GitProviderID, accessToken)
+	// Create git provider client using repo's self-contained info
+	client, err := git.NewProvider(repo.ProviderType, repo.ProviderBaseURL, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -161,64 +229,15 @@ func (s *Service) SyncFromProvider(ctx context.Context, repoID int64, accessToke
 	return s.Update(ctx, repoID, updates)
 }
 
-// GetCloneURL returns the clone URL for a repository
-func (s *Service) GetCloneURL(ctx context.Context, repoID int64) (string, error) {
-	repo, err := s.GetByID(ctx, repoID)
-	if err != nil {
-		return "", err
-	}
-
-	// Build clone URL based on provider type
-	baseURL := repo.GitProvider.BaseURL
-	fullPath := repo.FullPath
-
-	switch repo.GitProvider.ProviderType {
-	case "github":
-		return "https://github.com/" + fullPath + ".git", nil
-	case "gitlab":
-		return baseURL + "/" + fullPath + ".git", nil
-	case "gitee":
-		return "https://gitee.com/" + fullPath + ".git", nil
-	default:
-		return baseURL + "/" + fullPath + ".git", nil
-	}
-}
-
-// ImportFromProvider imports a repository from git provider
-func (s *Service) ImportFromProvider(ctx context.Context, orgID int64, providerID int64, externalID string, accessToken string) (*gitprovider.Repository, error) {
-	// Check if already imported
-	if repo, err := s.GetByExternalID(ctx, providerID, externalID); err == nil {
-		return repo, nil
-	}
-
-	client, err := s.gitProviderService.GetClient(ctx, providerID, accessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := client.GetProject(ctx, externalID)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.Create(ctx, &CreateRequest{
-		OrganizationID: orgID,
-		GitProviderID:  providerID,
-		ExternalID:     externalID,
-		Name:           project.Name,
-		FullPath:       project.FullPath,
-		DefaultBranch:  project.DefaultBranch,
-	})
-}
-
-// ListBranches lists branches for a repository
+// ListBranches lists branches for a repository using user's token
 func (s *Service) ListBranches(ctx context.Context, repoID int64, accessToken string) ([]string, error) {
 	repo, err := s.GetByID(ctx, repoID)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := s.gitProviderService.GetClient(ctx, repo.GitProviderID, accessToken)
+	// Create git provider client using repo's self-contained info
+	client, err := git.NewProvider(repo.ProviderType, repo.ProviderBaseURL, accessToken)
 	if err != nil {
 		return nil, err
 	}

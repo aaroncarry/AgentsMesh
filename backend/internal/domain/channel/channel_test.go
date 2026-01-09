@@ -20,7 +20,6 @@ func TestChannelStruct(t *testing.T) {
 	now := time.Now()
 	desc := "Test channel"
 	doc := "Shared doc content"
-	teamID := int64(10)
 	repoID := int64(5)
 	ticketID := int64(20)
 	createdBySession := "sess-123"
@@ -29,7 +28,6 @@ func TestChannelStruct(t *testing.T) {
 	c := Channel{
 		ID:               1,
 		OrganizationID:   100,
-		TeamID:           &teamID,
 		Name:             "Development",
 		Description:      &desc,
 		Document:         &doc,

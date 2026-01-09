@@ -13,6 +13,7 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/service/session"
 	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
+	"github.com/anthropics/agentmesh/backend/internal/service/user"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,6 +26,7 @@ type SessionHandler struct {
 	ticketService      *ticket.Service
 	gitProviderService *gitprovider.Service
 	sshKeyService      *sshkey.Service
+	userService        *user.Service // For user credential retrieval (权限跟人走)
 	runnerConnMgr      *runner.ConnectionManager
 	sessionCoordinator *runner.SessionCoordinator
 	terminalRouter     interface{} // *runner.TerminalRouter, optional
@@ -74,9 +76,13 @@ func (h *SessionHandler) SetSSHKeyService(sks *sshkey.Service) {
 	h.sshKeyService = sks
 }
 
+// SetUserService sets the user service for user credential retrieval (权限跟人走)
+func (h *SessionHandler) SetUserService(us *user.Service) {
+	h.userService = us
+}
+
 // ListSessionsRequest represents session list request
 type ListSessionsRequest struct {
-	TeamID *int64 `form:"team_id"`
 	Status string `form:"status"`
 	Limit  int    `form:"limit"`
 	Offset int    `form:"offset"`
@@ -98,11 +104,10 @@ func (h *SessionHandler) ListSessions(c *gin.Context) {
 		limit = 20
 	}
 
-	// TeamID is deprecated - all resources are visible to organization members
 	sessions, total, err := h.sessionService.ListSessions(
 		c.Request.Context(),
 		tenant.OrganizationID,
-		req.TeamID, // Kept for backward compatibility, may be nil
+		nil, // TeamID is deprecated
 		req.Status,
 		limit,
 		req.Offset,
@@ -125,7 +130,6 @@ type CreateSessionRequest struct {
 	RunnerID          int64   `json:"runner_id" binding:"required"`
 	AgentTypeID       *int64  `json:"agent_type_id"`
 	CustomAgentTypeID *int64  `json:"custom_agent_type_id"`
-	TeamID            *int64  `json:"team_id"`
 	RepositoryID      *int64  `json:"repository_id"`
 	RepositoryURL     *string `json:"repository_url"`      // Direct repository URL (takes precedence over repository_id)
 	TicketID          *int64  `json:"ticket_id"`
@@ -150,12 +154,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 
 	tenant := middleware.GetTenant(c)
 
-	// TeamID is deprecated - all resources are visible to organization members
-
 	// Create session record in database
 	sess, err := h.sessionService.CreateSession(c.Request.Context(), &session.CreateSessionRequest{
 		OrganizationID:    tenant.OrganizationID,
-		TeamID:            req.TeamID,
 		RunnerID:          req.RunnerID,
 		AgentTypeID:       req.AgentTypeID,
 		CustomAgentTypeID: req.CustomAgentTypeID,
@@ -539,10 +540,15 @@ func (h *SessionHandler) ResizeTerminal(c *gin.Context) {
 }
 
 // buildPluginConfig builds the PluginConfig map for Runner's Sandbox plugins
-// It resolves repository_id -> repository_url, ticket_id -> ticket_identifier,
-// and fetches git_token or ssh_private_key from the associated GitProvider
+// It resolves repository_id -> repository_url, ticket_id -> ticket_identifier
+//
+// Credential Strategy (权限跟人走):
+// - Repository is self-contained with provider_type and provider_base_url
+// - Credentials are obtained from the current user's OAuth identity or Git connections
+// - If no user credentials available, Runner uses its local Git configuration
 func (h *SessionHandler) buildPluginConfig(c *gin.Context, req *CreateSessionRequest) map[string]interface{} {
 	config := make(map[string]interface{})
+	userID := middleware.GetUserID(c)
 
 	// 1. Resolve Repository URL
 	// Priority: repository_url > repository_id
@@ -551,36 +557,21 @@ func (h *SessionHandler) buildPluginConfig(c *gin.Context, req *CreateSessionReq
 	} else if req.RepositoryID != nil && h.repositoryService != nil {
 		repo, err := h.repositoryService.GetByID(c.Request.Context(), *req.RepositoryID)
 		if err == nil && repo != nil {
-			// Get clone URL from repository
-			cloneURL, err := h.repositoryService.GetCloneURL(c.Request.Context(), *req.RepositoryID)
-			if err == nil {
-				config["repository_url"] = cloneURL
-			}
+			// Use repository's self-contained clone URL
+			config["repository_url"] = repo.CloneURL
 
-			// Get credentials from GitProvider (if available)
-			if h.gitProviderService != nil && repo.GitProviderID > 0 {
-				provider, err := h.gitProviderService.GetByID(c.Request.Context(), repo.GitProviderID)
-				if err == nil && provider != nil {
-					// Check if this is an SSH Provider
-					if provider.IsSSHProvider() {
-						// Get SSH private key for authentication
-						if provider.SSHKeyID != nil && h.sshKeyService != nil {
-							privateKey, err := h.sshKeyService.GetPrivateKey(c.Request.Context(), *provider.SSHKeyID)
-							if err == nil && privateKey != "" {
-								config["ssh_private_key"] = privateKey
-							}
-						}
-					} else {
-						// HTTPS-based provider: use bot token
-						if provider.BotTokenEncrypted != nil {
-							// Note: Token is encrypted, Runner should handle decryption or
-							// we need to decrypt here if encryption service is available
-							// For now, we'll pass the encrypted token and let Runner handle it
-							// TODO: Implement proper token decryption
-							config["git_token"] = *provider.BotTokenEncrypted
-						}
-					}
+			// Store provider info for potential use by Runner
+			config["provider_type"] = repo.ProviderType
+			config["provider_base_url"] = repo.ProviderBaseURL
+
+			// Get credentials from current user (权限跟人走)
+			// Try OAuth identity first, then PAT connections
+			if h.userService != nil {
+				token := h.getUserGitToken(c, userID, repo.ProviderType, repo.ProviderBaseURL)
+				if token != "" {
+					config["git_token"] = token
 				}
+				// If no token found, Runner will use its local Git configuration
 			}
 		}
 	}
@@ -615,4 +606,51 @@ func (h *SessionHandler) buildPluginConfig(c *gin.Context, req *CreateSessionReq
 	}
 
 	return config
+}
+
+// getUserGitToken retrieves the Git access token for the current user
+// Implements "权限跟人走" - credentials follow the person, not the organization
+//
+// Priority:
+// 1. OAuth identity matching provider type (for public providers like github.com, gitlab.com)
+// 2. PAT connection matching provider type + base URL (for private GitLab instances)
+//
+// Returns empty string if no credentials found (Runner will use local Git config)
+func (h *SessionHandler) getUserGitToken(c *gin.Context, userID int64, providerType, providerBaseURL string) string {
+	ctx := c.Request.Context()
+
+	// 1. Try OAuth identity first (for github.com, gitlab.com, gitee.com)
+	// OAuth identities only exist for public providers
+	if isPublicProvider(providerType, providerBaseURL) {
+		tokens, err := h.userService.GetDecryptedTokens(ctx, userID, providerType)
+		if err == nil && tokens.AccessToken != "" {
+			return tokens.AccessToken
+		}
+	}
+
+	// 2. Try PAT connections (for private GitLab or additional accounts)
+	conn, err := h.userService.GetGitConnectionByProviderAndURL(ctx, userID, providerType, providerBaseURL)
+	if err == nil && conn != nil {
+		decryptedTokens, err := h.userService.GetDecryptedConnectionToken(ctx, userID, conn.ID)
+		if err == nil && decryptedTokens.AccessToken != "" {
+			return decryptedTokens.AccessToken
+		}
+	}
+
+	// No credentials found - Runner will use its local Git configuration
+	return ""
+}
+
+// isPublicProvider checks if the provider is a public provider (github.com, gitlab.com, gitee.com)
+func isPublicProvider(providerType, providerBaseURL string) bool {
+	switch providerType {
+	case "github":
+		return providerBaseURL == "https://github.com" || providerBaseURL == "https://api.github.com"
+	case "gitlab":
+		return providerBaseURL == "https://gitlab.com"
+	case "gitee":
+		return providerBaseURL == "https://gitee.com"
+	default:
+		return false
+	}
 }

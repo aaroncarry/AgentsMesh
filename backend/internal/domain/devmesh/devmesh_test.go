@@ -303,11 +303,8 @@ func TestChannelAccessStruct(t *testing.T) {
 // --- Test CreateSessionForTicketRequest ---
 
 func TestCreateSessionForTicketRequestStruct(t *testing.T) {
-	teamID := int64(10)
-
 	req := CreateSessionForTicketRequest{
 		OrganizationID: 100,
-		TeamID:         &teamID,
 		TicketID:       20,
 		RunnerID:       5,
 		CreatedByID:    50,
@@ -319,9 +316,6 @@ func TestCreateSessionForTicketRequestStruct(t *testing.T) {
 
 	if req.OrganizationID != 100 {
 		t.Errorf("expected OrganizationID 100, got %d", req.OrganizationID)
-	}
-	if *req.TeamID != 10 {
-		t.Errorf("expected TeamID 10, got %d", *req.TeamID)
 	}
 	if req.TicketID != 20 {
 		t.Errorf("expected TicketID 20, got %d", req.TicketID)

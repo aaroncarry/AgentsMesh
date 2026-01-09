@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	gitproviderService "github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -41,13 +40,16 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		CREATE TABLE IF NOT EXISTS repositories (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			team_id INTEGER,
-			git_provider_id INTEGER NOT NULL,
+			provider_type TEXT NOT NULL DEFAULT 'github',
+			provider_base_url TEXT NOT NULL,
+			clone_url TEXT,
 			external_id TEXT NOT NULL,
 			name TEXT NOT NULL,
 			full_path TEXT NOT NULL,
 			default_branch TEXT NOT NULL DEFAULT 'main',
 			ticket_prefix TEXT,
+			visibility TEXT NOT NULL DEFAULT 'organization',
+			imported_by_user_id INTEGER,
 			is_active INTEGER NOT NULL DEFAULT 1,
 			last_synced_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -61,19 +63,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func seedGitProvider(t *testing.T, db *gorm.DB) int64 {
-	err := db.Exec(`INSERT INTO git_providers (id, organization_id, provider_type, name, base_url, is_default, is_active)
-		VALUES (1, 1, 'gitlab', 'GitLab', 'https://gitlab.com', 1, 1)`).Error
-	if err != nil {
-		t.Fatalf("failed to seed git provider: %v", err)
-	}
-	return 1
-}
-
 func TestNewService(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 
 	if service == nil {
 		t.Fatal("expected non-nil service")
@@ -82,19 +74,19 @@ func TestNewService(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
-		DefaultBranch:  "main",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		DefaultBranch:   "main",
+		Visibility:      "organization",
 	}
 
 	repo, err := service.Create(ctx, req)
@@ -108,18 +100,18 @@ func TestCreate(t *testing.T) {
 
 func TestCreateDuplicate(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 	}
 	service.Create(ctx, req)
 
@@ -132,18 +124,18 @@ func TestCreateDuplicate(t *testing.T) {
 
 func TestCreateWithDefaultBranch(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 		// No DefaultBranch - should default to "main"
 	}
 
@@ -158,18 +150,18 @@ func TestCreateWithDefaultBranch(t *testing.T) {
 
 func TestGetByID(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
 
@@ -184,8 +176,7 @@ func TestGetByID(t *testing.T) {
 
 func TestGetByIDNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
 	_, err := service.GetByID(ctx, 999)
@@ -196,18 +187,18 @@ func TestGetByIDNotFound(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
 
@@ -225,18 +216,18 @@ func TestUpdate(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
 
@@ -253,31 +244,34 @@ func TestDelete(t *testing.T) {
 
 func TestListByOrganization(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req1 := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "repo-1",
-		FullPath:       "org/repo-1",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/repo-1.git",
+		ExternalID:      "12345",
+		Name:            "repo-1",
+		FullPath:        "org/repo-1",
+		Visibility:      "organization",
 	}
 	service.Create(ctx, req1)
 
 	req2 := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12346",
-		Name:           "repo-2",
-		FullPath:       "org/repo-2",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/repo-2.git",
+		ExternalID:      "12346",
+		Name:            "repo-2",
+		FullPath:        "org/repo-2",
+		Visibility:      "organization",
 	}
 	service.Create(ctx, req2)
 
-	repos, err := service.ListByOrganization(ctx, 1, nil)
+	repos, err := service.ListByOrganization(ctx, 1)
 	if err != nil {
 		t.Fatalf("failed to list repositories: %v", err)
 	}
@@ -286,89 +280,24 @@ func TestListByOrganization(t *testing.T) {
 	}
 }
 
-func TestListByOrganizationWithTeam(t *testing.T) {
-	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
-	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
-
-	teamID := int64(1)
-	req1 := &CreateRequest{
-		OrganizationID: 1,
-		TeamID:         &teamID,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "repo-1",
-		FullPath:       "org/repo-1",
-	}
-	service.Create(ctx, req1)
-
-	req2 := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12346",
-		Name:           "repo-2",
-		FullPath:       "org/repo-2",
-	}
-	service.Create(ctx, req2)
-
-	repos, err := service.ListByOrganization(ctx, 1, &teamID)
-	if err != nil {
-		t.Fatalf("failed to list repositories: %v", err)
-	}
-	if len(repos) != 1 {
-		t.Errorf("expected 1 repository, got %d", len(repos))
-	}
-}
-
-func TestListByTeam(t *testing.T) {
-	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
-	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
-
-	teamID := int64(1)
-	req := &CreateRequest{
-		OrganizationID: 1,
-		TeamID:         &teamID,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "repo-1",
-		FullPath:       "org/repo-1",
-	}
-	service.Create(ctx, req)
-
-	repos, err := service.ListByTeam(ctx, 1)
-	if err != nil {
-		t.Fatalf("failed to list repositories by team: %v", err)
-	}
-	if len(repos) != 1 {
-		t.Errorf("expected 1 repository, got %d", len(repos))
-	}
-}
-
 func TestGetByExternalID(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		Visibility:      "organization",
 	}
 	service.Create(ctx, req)
 
-	repo, err := service.GetByExternalID(ctx, providerID, "12345")
+	repo, err := service.GetByExternalID(ctx, "gitlab", "https://gitlab.com", "12345")
 	if err != nil {
 		t.Fatalf("failed to get by external ID: %v", err)
 	}
@@ -379,61 +308,31 @@ func TestGetByExternalID(t *testing.T) {
 
 func TestGetByExternalIDNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	_, err := service.GetByExternalID(ctx, 1, "nonexistent")
+	_, err := service.GetByExternalID(ctx, "github", "https://github.com", "nonexistent")
 	if err != ErrRepositoryNotFound {
 		t.Errorf("expected ErrRepositoryNotFound, got %v", err)
 	}
 }
 
-func TestAssignToTeam(t *testing.T) {
-	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
-	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
-
-	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
-	}
-	created, _ := service.Create(ctx, req)
-
-	teamID := int64(1)
-	err := service.AssignToTeam(ctx, created.ID, &teamID)
-	if err != nil {
-		t.Fatalf("failed to assign to team: %v", err)
-	}
-
-	repo, _ := service.GetByID(ctx, created.ID)
-	if repo.TeamID == nil || *repo.TeamID != 1 {
-		t.Error("expected repository to be assigned to team 1")
-	}
-}
-
 func TestCreateWithTicketPrefix(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
 
 	prefix := "PROJ"
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
-		TicketPrefix:   &prefix,
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		ExternalID:      "12345",
+		Name:            "test-repo",
+		FullPath:        "org/test-repo",
+		TicketPrefix:    &prefix,
+		Visibility:      "organization",
 	}
 
 	repo, err := service.Create(ctx, req)
@@ -454,33 +353,21 @@ func TestErrorVariables(t *testing.T) {
 	}
 }
 
-func seedGitProviderWithType(t *testing.T, db *gorm.DB, providerType string) int64 {
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM git_providers").Scan(&count)
-	id := count + 1
-
-	err := db.Exec(`INSERT INTO git_providers (id, organization_id, provider_type, name, base_url, is_default, is_active)
-		VALUES (?, 1, ?, 'Provider', 'https://test.com', 1, 1)`, id, providerType).Error
-	if err != nil {
-		t.Fatalf("failed to seed git provider: %v", err)
-	}
-	return id
-}
-
 func TestGetCloneURL(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
-	t.Run("github clone URL", func(t *testing.T) {
-		providerID := seedGitProviderWithType(t, db, "github")
+	t.Run("repository with clone URL", func(t *testing.T) {
 		req := &CreateRequest{
-			OrganizationID: 1,
-			GitProviderID:  providerID,
-			ExternalID:     "gh_12345",
-			Name:           "github-repo",
-			FullPath:       "owner/repo",
+			OrganizationID:  1,
+			ProviderType:    "github",
+			ProviderBaseURL: "https://github.com",
+			CloneURL:        "https://github.com/owner/repo.git",
+			ExternalID:      "gh_12345",
+			Name:            "github-repo",
+			FullPath:        "owner/repo",
+			Visibility:      "organization",
 		}
 		created, _ := service.Create(ctx, req)
 
@@ -490,66 +377,6 @@ func TestGetCloneURL(t *testing.T) {
 		}
 		if cloneURL != "https://github.com/owner/repo.git" {
 			t.Errorf("expected 'https://github.com/owner/repo.git', got %s", cloneURL)
-		}
-	})
-
-	t.Run("gitlab clone URL", func(t *testing.T) {
-		providerID := seedGitProviderWithType(t, db, "gitlab")
-		req := &CreateRequest{
-			OrganizationID: 1,
-			GitProviderID:  providerID,
-			ExternalID:     "gl_12345",
-			Name:           "gitlab-repo",
-			FullPath:       "group/project",
-		}
-		created, _ := service.Create(ctx, req)
-
-		cloneURL, err := service.GetCloneURL(ctx, created.ID)
-		if err != nil {
-			t.Fatalf("GetCloneURL failed: %v", err)
-		}
-		if cloneURL != "https://test.com/group/project.git" {
-			t.Errorf("expected 'https://test.com/group/project.git', got %s", cloneURL)
-		}
-	})
-
-	t.Run("gitee clone URL", func(t *testing.T) {
-		providerID := seedGitProviderWithType(t, db, "gitee")
-		req := &CreateRequest{
-			OrganizationID: 1,
-			GitProviderID:  providerID,
-			ExternalID:     "gitee_12345",
-			Name:           "gitee-repo",
-			FullPath:       "user/gitee-repo",
-		}
-		created, _ := service.Create(ctx, req)
-
-		cloneURL, err := service.GetCloneURL(ctx, created.ID)
-		if err != nil {
-			t.Fatalf("GetCloneURL failed: %v", err)
-		}
-		if cloneURL != "https://gitee.com/user/gitee-repo.git" {
-			t.Errorf("expected 'https://gitee.com/user/gitee-repo.git', got %s", cloneURL)
-		}
-	})
-
-	t.Run("default clone URL", func(t *testing.T) {
-		providerID := seedGitProviderWithType(t, db, "custom")
-		req := &CreateRequest{
-			OrganizationID: 1,
-			GitProviderID:  providerID,
-			ExternalID:     "custom_12345",
-			Name:           "custom-repo",
-			FullPath:       "org/custom-repo",
-		}
-		created, _ := service.Create(ctx, req)
-
-		cloneURL, err := service.GetCloneURL(ctx, created.ID)
-		if err != nil {
-			t.Fatalf("GetCloneURL failed: %v", err)
-		}
-		if cloneURL != "https://test.com/org/custom-repo.git" {
-			t.Errorf("expected 'https://test.com/org/custom-repo.git', got %s", cloneURL)
 		}
 	})
 
@@ -563,8 +390,7 @@ func TestGetCloneURL(t *testing.T) {
 
 func TestGetNextTicketNumber(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
 	// Create tickets table for testing
@@ -582,14 +408,15 @@ func TestGetNextTicketNumber(t *testing.T) {
 		t.Fatalf("failed to create tickets table: %v", err)
 	}
 
-	providerID := seedGitProvider(t, db)
-
 	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "ticket_12345",
-		Name:           "ticket-repo",
-		FullPath:       "org/ticket-repo",
+		OrganizationID:  1,
+		ProviderType:    "gitlab",
+		ProviderBaseURL: "https://gitlab.com",
+		CloneURL:        "https://gitlab.com/org/ticket-repo.git",
+		ExternalID:      "ticket_12345",
+		Name:            "ticket-repo",
+		FullPath:        "org/ticket-repo",
+		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
 
@@ -621,8 +448,7 @@ func TestGetNextTicketNumber(t *testing.T) {
 
 func TestSyncFromProviderNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
 	_, err := service.SyncFromProvider(ctx, 99999, "access_token")
@@ -633,8 +459,7 @@ func TestSyncFromProviderNotFound(t *testing.T) {
 
 func TestListBranchesNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
 	_, err := service.ListBranches(ctx, 99999, "access_token")
@@ -643,73 +468,13 @@ func TestListBranchesNotFound(t *testing.T) {
 	}
 }
 
-func TestImportFromProviderExisting(t *testing.T) {
-	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
-	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
-
-	// Create existing repository
-	req := &CreateRequest{
-		OrganizationID: 1,
-		GitProviderID:  providerID,
-		ExternalID:     "import_12345",
-		Name:           "existing-repo",
-		FullPath:       "org/existing-repo",
-	}
-	existing, _ := service.Create(ctx, req)
-
-	// Try to import same repository - should return existing
-	repo, err := service.ImportFromProvider(ctx, 1, providerID, "import_12345", "access_token")
-	if err != nil {
-		t.Fatalf("ImportFromProvider failed: %v", err)
-	}
-	if repo.ID != existing.ID {
-		t.Errorf("expected to return existing repo ID %d, got %d", existing.ID, repo.ID)
-	}
-}
-
 func TestUpdateNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
+	service := NewService(db)
 	ctx := context.Background()
 
 	_, err := service.Update(ctx, 99999, map[string]interface{}{"name": "test"})
 	if err != ErrRepositoryNotFound {
 		t.Errorf("expected ErrRepositoryNotFound, got %v", err)
-	}
-}
-
-func TestAssignToTeamUnassign(t *testing.T) {
-	db := setupTestDB(t)
-	gitProviderSvc := gitproviderService.NewService(db)
-	service := NewService(db, gitProviderSvc)
-	ctx := context.Background()
-
-	providerID := seedGitProvider(t, db)
-	teamID := int64(1)
-
-	req := &CreateRequest{
-		OrganizationID: 1,
-		TeamID:         &teamID,
-		GitProviderID:  providerID,
-		ExternalID:     "unassign_12345",
-		Name:           "test-repo",
-		FullPath:       "org/test-repo",
-	}
-	created, _ := service.Create(ctx, req)
-
-	// Unassign from team
-	err := service.AssignToTeam(ctx, created.ID, nil)
-	if err != nil {
-		t.Fatalf("failed to unassign from team: %v", err)
-	}
-
-	repo, _ := service.GetByID(ctx, created.ID)
-	if repo.TeamID != nil {
-		t.Error("expected repository to have no team")
 	}
 }

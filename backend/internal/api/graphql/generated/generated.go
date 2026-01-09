@@ -205,15 +205,18 @@ type ComplexityRoot struct {
 	}
 
 	Repository struct {
-		CreatedAt     func(childComplexity int) int
-		DefaultBranch func(childComplexity int) int
-		FullPath      func(childComplexity int) int
-		GitProvider   func(childComplexity int) int
-		ID            func(childComplexity int) int
-		IsActive      func(childComplexity int) int
-		Name          func(childComplexity int) int
-		TicketPrefix  func(childComplexity int) int
-		UpdatedAt     func(childComplexity int) int
+		CloneURL        func(childComplexity int) int
+		CreatedAt       func(childComplexity int) int
+		DefaultBranch   func(childComplexity int) int
+		FullPath        func(childComplexity int) int
+		ID              func(childComplexity int) int
+		IsActive        func(childComplexity int) int
+		Name            func(childComplexity int) int
+		ProviderBaseURL func(childComplexity int) int
+		ProviderType    func(childComplexity int) int
+		TicketPrefix    func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+		Visibility      func(childComplexity int) int
 	}
 
 	Runner struct {
@@ -1214,6 +1217,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.User(childComplexity, args["id"].(int64)), true
 
+	case "Repository.cloneURL":
+		if e.complexity.Repository.CloneURL == nil {
+			break
+		}
+
+		return e.complexity.Repository.CloneURL(childComplexity), true
 	case "Repository.createdAt":
 		if e.complexity.Repository.CreatedAt == nil {
 			break
@@ -1232,12 +1241,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Repository.FullPath(childComplexity), true
-	case "Repository.gitProvider":
-		if e.complexity.Repository.GitProvider == nil {
-			break
-		}
-
-		return e.complexity.Repository.GitProvider(childComplexity), true
 	case "Repository.id":
 		if e.complexity.Repository.ID == nil {
 			break
@@ -1256,6 +1259,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Repository.Name(childComplexity), true
+	case "Repository.providerBaseURL":
+		if e.complexity.Repository.ProviderBaseURL == nil {
+			break
+		}
+
+		return e.complexity.Repository.ProviderBaseURL(childComplexity), true
+	case "Repository.providerType":
+		if e.complexity.Repository.ProviderType == nil {
+			break
+		}
+
+		return e.complexity.Repository.ProviderType(childComplexity), true
 	case "Repository.ticketPrefix":
 		if e.complexity.Repository.TicketPrefix == nil {
 			break
@@ -1268,6 +1283,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Repository.UpdatedAt(childComplexity), true
+	case "Repository.visibility":
+		if e.complexity.Repository.Visibility == nil {
+			break
+		}
+
+		return e.complexity.Repository.Visibility(childComplexity), true
 
 	case "Runner.activeSessions":
 		if e.complexity.Runner.ActiveSessions == nil {
@@ -1976,10 +1997,13 @@ type Repository {
   fullPath: String!
   defaultBranch: String!
   ticketPrefix: String
+  providerType: String!
+  providerBaseURL: String!
+  cloneURL: String!
+  visibility: String!
   isActive: Boolean!
   createdAt: Time!
   updatedAt: Time!
-  gitProvider: GitProvider!
 }
 
 type GitProvider {
@@ -6621,14 +6645,20 @@ func (ec *executionContext) fieldContext_Query_repository(ctx context.Context, f
 				return ec.fieldContext_Repository_defaultBranch(ctx, field)
 			case "ticketPrefix":
 				return ec.fieldContext_Repository_ticketPrefix(ctx, field)
+			case "providerType":
+				return ec.fieldContext_Repository_providerType(ctx, field)
+			case "providerBaseURL":
+				return ec.fieldContext_Repository_providerBaseURL(ctx, field)
+			case "cloneURL":
+				return ec.fieldContext_Repository_cloneURL(ctx, field)
+			case "visibility":
+				return ec.fieldContext_Repository_visibility(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Repository_isActive(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Repository_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Repository_updatedAt(ctx, field)
-			case "gitProvider":
-				return ec.fieldContext_Repository_gitProvider(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 		},
@@ -6681,14 +6711,20 @@ func (ec *executionContext) fieldContext_Query_repositories(_ context.Context, f
 				return ec.fieldContext_Repository_defaultBranch(ctx, field)
 			case "ticketPrefix":
 				return ec.fieldContext_Repository_ticketPrefix(ctx, field)
+			case "providerType":
+				return ec.fieldContext_Repository_providerType(ctx, field)
+			case "providerBaseURL":
+				return ec.fieldContext_Repository_providerBaseURL(ctx, field)
+			case "cloneURL":
+				return ec.fieldContext_Repository_cloneURL(ctx, field)
+			case "visibility":
+				return ec.fieldContext_Repository_visibility(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Repository_isActive(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Repository_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Repository_updatedAt(ctx, field)
-			case "gitProvider":
-				return ec.fieldContext_Repository_gitProvider(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 		},
@@ -7297,6 +7333,122 @@ func (ec *executionContext) fieldContext_Repository_ticketPrefix(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Repository_providerType(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Repository_providerType,
+		func(ctx context.Context) (any, error) {
+			return obj.ProviderType, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Repository_providerType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Repository_providerBaseURL(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Repository_providerBaseURL,
+		func(ctx context.Context) (any, error) {
+			return obj.ProviderBaseURL, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Repository_providerBaseURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Repository_cloneURL(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Repository_cloneURL,
+		func(ctx context.Context) (any, error) {
+			return obj.CloneURL, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Repository_cloneURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Repository_visibility(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Repository_visibility,
+		func(ctx context.Context) (any, error) {
+			return obj.Visibility, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Repository_visibility(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Repository_isActive(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7379,49 +7531,6 @@ func (ec *executionContext) fieldContext_Repository_updatedAt(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Repository_gitProvider(ctx context.Context, field graphql.CollectedField, obj *gitprovider.Repository) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Repository_gitProvider,
-		func(ctx context.Context) (any, error) {
-			return obj.GitProvider, nil
-		},
-		nil,
-		ec.marshalNGitProvider2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐGitProvider,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Repository_gitProvider(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Repository",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_GitProvider_id(ctx, field)
-			case "providerType":
-				return ec.fieldContext_GitProvider_providerType(ctx, field)
-			case "name":
-				return ec.fieldContext_GitProvider_name(ctx, field)
-			case "baseURL":
-				return ec.fieldContext_GitProvider_baseURL(ctx, field)
-			case "isDefault":
-				return ec.fieldContext_GitProvider_isDefault(ctx, field)
-			case "isActive":
-				return ec.fieldContext_GitProvider_isActive(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type GitProvider", field.Name)
 		},
 	}
 	return fc, nil
@@ -8297,14 +8406,20 @@ func (ec *executionContext) fieldContext_Session_repository(_ context.Context, f
 				return ec.fieldContext_Repository_defaultBranch(ctx, field)
 			case "ticketPrefix":
 				return ec.fieldContext_Repository_ticketPrefix(ctx, field)
+			case "providerType":
+				return ec.fieldContext_Repository_providerType(ctx, field)
+			case "providerBaseURL":
+				return ec.fieldContext_Repository_providerBaseURL(ctx, field)
+			case "cloneURL":
+				return ec.fieldContext_Repository_cloneURL(ctx, field)
+			case "visibility":
+				return ec.fieldContext_Repository_visibility(ctx, field)
 			case "isActive":
 				return ec.fieldContext_Repository_isActive(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Repository_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Repository_updatedAt(ctx, field)
-			case "gitProvider":
-				return ec.fieldContext_Repository_gitProvider(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 		},
@@ -13551,6 +13666,26 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "ticketPrefix":
 			out.Values[i] = ec._Repository_ticketPrefix(ctx, field, obj)
+		case "providerType":
+			out.Values[i] = ec._Repository_providerType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "providerBaseURL":
+			out.Values[i] = ec._Repository_providerBaseURL(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cloneURL":
+			out.Values[i] = ec._Repository_cloneURL(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "visibility":
+			out.Values[i] = ec._Repository_visibility(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "isActive":
 			out.Values[i] = ec._Repository_isActive(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -13563,11 +13698,6 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Repository_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "gitProvider":
-			out.Values[i] = ec._Repository_gitProvider(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -15294,16 +15424,6 @@ func (ec *executionContext) marshalNGitProvider2ᚕgithubᚗcomᚋanthropicsᚋa
 	}
 
 	return ret
-}
-
-func (ec *executionContext) marshalNGitProvider2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐGitProvider(ctx context.Context, sel ast.SelectionSet, v *gitprovider.GitProvider) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._GitProvider(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNID2int64(ctx context.Context, v any) (int64, error) {

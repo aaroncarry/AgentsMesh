@@ -119,10 +119,13 @@ type Repository {
   fullPath: String!
   defaultBranch: String!
   ticketPrefix: String
+  providerType: String!
+  providerBaseURL: String!
+  cloneURL: String!
+  visibility: String!
   isActive: Boolean!
   createdAt: Time!
   updatedAt: Time!
-  gitProvider: GitProvider!
 }
 
 type GitProvider {

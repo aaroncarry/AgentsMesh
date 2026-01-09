@@ -13,6 +13,8 @@ export interface BranchSelectProps {
   className?: string;
   /** Allow manual input when branches are unavailable */
   allowManualInput?: boolean;
+  /** Git access token for fetching branches (optional, will use manual mode if not provided) */
+  accessToken?: string;
 }
 
 export function BranchSelect({
@@ -24,6 +26,7 @@ export function BranchSelect({
   placeholder = "Select a branch...",
   className = "",
   allowManualInput = true,
+  accessToken,
 }: BranchSelectProps) {
   const [branches, setBranches] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,12 +40,21 @@ export function BranchSelect({
       return;
     }
 
+    // If no access token provided, use manual mode by default
+    if (!accessToken) {
+      setBranches([]);
+      if (allowManualInput) {
+        setManualMode(true);
+      }
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setManualMode(false);
 
     try {
-      const res = await repositoryApi.listBranches(repositoryId);
+      const res = await repositoryApi.listBranches(repositoryId, accessToken);
       const branchList = res.branches || [];
       setBranches(branchList);
 
@@ -70,7 +82,7 @@ export function BranchSelect({
     } finally {
       setLoading(false);
     }
-  }, [repositoryId, repository, value, onChange, allowManualInput]);
+  }, [repositoryId, repository, value, onChange, allowManualInput, accessToken]);
 
   useEffect(() => {
     loadBranches();

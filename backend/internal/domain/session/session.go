@@ -53,9 +53,8 @@ const (
 
 // Session represents an AI coding session
 type Session struct {
-	ID             int64  `gorm:"primaryKey" json:"id"`
-	OrganizationID int64  `gorm:"not null;index" json:"organization_id"`
-	TeamID         *int64 `gorm:"index" json:"team_id,omitempty"`
+	ID             int64 `gorm:"primaryKey" json:"id"`
+	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 
 	SessionKey string `gorm:"size:100;not null;uniqueIndex" json:"session_key"`
 	RunnerID   int64  `gorm:"not null;index" json:"runner_id"`
@@ -117,6 +116,16 @@ func (s *Session) IsTerminal() bool {
 // CanReconnect returns true if session can be reconnected
 func (s *Session) CanReconnect() bool {
 	return s.Status == SessionStatusDisconnected
+}
+
+// GetOrganizationID returns the organization ID (implements middleware.SessionGetter)
+func (s *Session) GetOrganizationID() int64 {
+	return s.OrganizationID
+}
+
+// GetSessionKey returns the session key (implements middleware.SessionGetter)
+func (s *Session) GetSessionKey() string {
+	return s.SessionKey
 }
 
 // PreparationConfig holds the preparation script configuration

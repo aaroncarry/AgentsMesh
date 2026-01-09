@@ -31,16 +31,9 @@ func NewDevMeshHandler(ds *devmeshService.Service, ts *ticket.Service) *DevMeshH
 func (h *DevMeshHandler) GetTopology(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	var teamID *int64
-	if teamIDStr := c.Query("team_id"); teamIDStr != "" {
-		if id, err := strconv.ParseInt(teamIDStr, 10, 64); err == nil {
-			teamID = &id
-		}
-	}
+	slog.Debug("GetTopology called", "org_id", tenant.OrganizationID)
 
-	slog.Debug("GetTopology called", "org_id", tenant.OrganizationID, "team_id", teamID)
-
-	topology, err := h.devmeshService.GetTopology(c.Request.Context(), tenant.OrganizationID, teamID)
+	topology, err := h.devmeshService.GetTopology(c.Request.Context(), tenant.OrganizationID)
 	if err != nil {
 		slog.Error("Failed to get topology", "error", err, "org_id", tenant.OrganizationID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get topology: " + err.Error()})
@@ -81,7 +74,6 @@ func (h *DevMeshHandler) CreateSessionForTicket(c *gin.Context) {
 	// Create session
 	session, err := h.devmeshService.CreateSessionForTicket(c.Request.Context(), &devmesh.CreateSessionForTicketRequest{
 		OrganizationID: tenant.OrganizationID,
-		TeamID:         t.TeamID,
 		TicketID:       t.ID,
 		RunnerID:       req.RunnerID,
 		CreatedByID:    tenant.UserID,

@@ -29,7 +29,6 @@ func NewService(db *gorm.DB) *Service {
 // CreateChannelRequest represents a channel creation request
 type CreateChannelRequest struct {
 	OrganizationID   int64
-	TeamID           *int64
 	Name             string
 	Description      *string
 	RepositoryID     *int64
@@ -50,7 +49,6 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 
 	ch := &channel.Channel{
 		OrganizationID:   req.OrganizationID,
-		TeamID:           req.TeamID,
 		Name:             req.Name,
 		Description:      req.Description,
 		RepositoryID:     req.RepositoryID,
@@ -88,12 +86,8 @@ func (s *Service) GetChannelByName(ctx context.Context, orgID int64, name string
 }
 
 // ListChannels returns channels for an organization
-func (s *Service) ListChannels(ctx context.Context, orgID int64, teamID *int64, includeArchived bool, limit, offset int) ([]*channel.Channel, int64, error) {
+func (s *Service) ListChannels(ctx context.Context, orgID int64, includeArchived bool, limit, offset int) ([]*channel.Channel, int64, error) {
 	query := s.db.WithContext(ctx).Model(&channel.Channel{}).Where("organization_id = ?", orgID)
-
-	if teamID != nil {
-		query = query.Where("team_id = ?", *teamID)
-	}
 
 	if !includeArchived {
 		query = query.Where("is_archived = ?", false)

@@ -1,20 +1,41 @@
 import { request } from "./base";
-import { GitProviderData } from "./git-provider";
 
-// Repository types
+// Repository types (self-contained, no git_provider_id)
 export interface RepositoryData {
   id: number;
   organization_id: number;
-  git_provider_id: number;
+  provider_type: string; // github, gitlab, gitee, generic
+  provider_base_url: string; // https://github.com
+  clone_url: string;
   external_id: string;
   name: string;
   full_path: string;
   default_branch: string;
   ticket_prefix?: string;
+  visibility: string; // "organization" or "private"
+  imported_by_user_id?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  git_provider?: GitProviderData;
+}
+
+export interface CreateRepositoryRequest {
+  provider_type: string;
+  provider_base_url: string;
+  clone_url?: string;
+  external_id: string;
+  name: string;
+  full_path: string;
+  default_branch?: string;
+  ticket_prefix?: string;
+  visibility?: string;
+}
+
+export interface UpdateRepositoryRequest {
+  name?: string;
+  default_branch?: string;
+  ticket_prefix?: string;
+  is_active?: boolean;
 }
 
 // Repository API
@@ -26,25 +47,13 @@ export const repositoryApi = {
   get: (id: number) =>
     request<{ repository: RepositoryData }>(`/api/v1/org/repositories/${id}`),
 
-  create: (data: {
-    git_provider_id: number;
-    external_id: string;
-    name: string;
-    full_path: string;
-    default_branch?: string;
-    ticket_prefix?: string;
-  }) =>
+  create: (data: CreateRepositoryRequest) =>
     request<{ repository: RepositoryData }>("/api/v1/org/repositories", {
       method: "POST",
       body: data,
     }),
 
-  update: (id: number, data: {
-    name?: string;
-    default_branch?: string;
-    ticket_prefix?: string;
-    is_active?: boolean;
-  }) =>
+  update: (id: number, data: UpdateRepositoryRequest) =>
     request<{ repository: RepositoryData }>(`/api/v1/org/repositories/${id}`, {
       method: "PUT",
       body: data,
@@ -55,12 +64,15 @@ export const repositoryApi = {
       method: "DELETE",
     }),
 
-  listBranches: (id: number) =>
-    request<{ branches: string[] }>(`/api/v1/org/repositories/${id}/branches`),
+  listBranches: (id: number, accessToken: string) =>
+    request<{ branches: string[] }>(`/api/v1/org/repositories/${id}/branches`, {
+      headers: { "X-Git-Access-Token": accessToken },
+    }),
 
-  syncBranches: (id: number) =>
-    request<{ branches: string[]; message: string }>(`/api/v1/org/repositories/${id}/sync-branches`, {
+  syncBranches: (id: number, accessToken: string) =>
+    request<{ branches: string[] }>(`/api/v1/org/repositories/${id}/sync-branches`, {
       method: "POST",
+      body: { access_token: accessToken },
     }),
 
   setupWebhook: (id: number) =>

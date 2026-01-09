@@ -42,9 +42,9 @@ func NewService(
 }
 
 // GetTopology returns the complete DevMesh topology for an organization
-func (s *Service) GetTopology(ctx context.Context, orgID int64, teamID *int64) (*devmesh.DevMeshTopology, error) {
+func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMeshTopology, error) {
 	// 1. Get active sessions
-	sessions, _, err := s.sessionService.ListSessions(ctx, orgID, teamID, "", 100, 0)
+	sessions, _, err := s.sessionService.ListSessions(ctx, orgID, nil, "", 100, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64, teamID *int64) (
 	}
 
 	// 3. Get channels
-	channels, _, err := s.channelService.ListChannels(ctx, orgID, teamID, false, 50, 0)
+	channels, _, err := s.channelService.ListChannels(ctx, orgID, false, 50, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,6 @@ func (s *Service) getChannelMessageCount(ctx context.Context, channelID int64) i
 func (s *Service) CreateSessionForTicket(ctx context.Context, req *devmesh.CreateSessionForTicketRequest) (*session.Session, error) {
 	return s.sessionService.CreateSessionForTicket(ctx, &sessionService.CreateSessionRequest{
 		OrganizationID: req.OrganizationID,
-		TeamID:         req.TeamID,
 		RunnerID:       req.RunnerID,
 		TicketID:       &req.TicketID,
 		CreatedByID:    req.CreatedByID,

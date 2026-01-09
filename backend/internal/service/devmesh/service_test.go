@@ -22,7 +22,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		session_key TEXT NOT NULL UNIQUE,
 		organization_id INTEGER NOT NULL,
-		team_id INTEGER,
 		ticket_id INTEGER,
 		repository_id INTEGER,
 		runner_id INTEGER,

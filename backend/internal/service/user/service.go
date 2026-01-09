@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/user"
+	"github.com/anthropics/agentmesh/backend/pkg/crypto"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -25,12 +26,26 @@ var (
 
 // Service handles user operations
 type Service struct {
-	db *gorm.DB
+	db            *gorm.DB
+	encryptionKey string
 }
 
 // NewService creates a new user service
 func NewService(db *gorm.DB) *Service {
 	return &Service{db: db}
+}
+
+// NewServiceWithEncryption creates a new user service with encryption support
+func NewServiceWithEncryption(db *gorm.DB, encryptionKey string) *Service {
+	return &Service{
+		db:            db,
+		encryptionKey: encryptionKey,
+	}
+}
+
+// SetEncryptionKey sets the encryption key for token encryption
+func (s *Service) SetEncryptionKey(key string) {
+	s.encryptionKey = key
 }
 
 // CreateRequest represents user creation request
@@ -225,14 +240,41 @@ func (s *Service) GetOrCreateByOAuth(ctx context.Context, provider, providerUser
 }
 
 // UpdateIdentityTokens updates OAuth tokens for an identity
+// Tokens are encrypted using AES-GCM before storage
 func (s *Service) UpdateIdentityTokens(ctx context.Context, userID int64, provider, accessToken, refreshToken string, expiresAt *time.Time) error {
+	updates := map[string]interface{}{
+		"token_expires_at": expiresAt,
+	}
+
+	// Encrypt tokens if encryption key is configured
+	if s.encryptionKey != "" {
+		if accessToken != "" {
+			encrypted, err := crypto.EncryptWithKey(accessToken, s.encryptionKey)
+			if err != nil {
+				return err
+			}
+			updates["access_token_encrypted"] = encrypted
+		}
+		if refreshToken != "" {
+			encrypted, err := crypto.EncryptWithKey(refreshToken, s.encryptionKey)
+			if err != nil {
+				return err
+			}
+			updates["refresh_token_encrypted"] = encrypted
+		}
+	} else {
+		// Fallback: store as-is (not recommended for production)
+		if accessToken != "" {
+			updates["access_token_encrypted"] = accessToken
+		}
+		if refreshToken != "" {
+			updates["refresh_token_encrypted"] = refreshToken
+		}
+	}
+
 	return s.db.WithContext(ctx).Model(&user.Identity{}).
 		Where("user_id = ? AND provider = ?", userID, provider).
-		Updates(map[string]interface{}{
-			"access_token_encrypted":  accessToken, // Should be encrypted
-			"refresh_token_encrypted": refreshToken,
-			"token_expires_at":        expiresAt,
-		}).Error
+		Updates(updates).Error
 }
 
 // GetIdentity returns an OAuth identity
@@ -242,6 +284,58 @@ func (s *Service) GetIdentity(ctx context.Context, userID int64, provider string
 		return nil, err
 	}
 	return &identity, nil
+}
+
+// GetIdentityByProvider returns an OAuth identity by provider (alias for GetIdentity)
+func (s *Service) GetIdentityByProvider(ctx context.Context, userID int64, provider string) (*user.Identity, error) {
+	return s.GetIdentity(ctx, userID, provider)
+}
+
+// DecryptedTokens holds decrypted OAuth tokens
+type DecryptedTokens struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    *time.Time
+}
+
+// GetDecryptedTokens retrieves and decrypts OAuth tokens for an identity
+func (s *Service) GetDecryptedTokens(ctx context.Context, userID int64, provider string) (*DecryptedTokens, error) {
+	identity, err := s.GetIdentity(ctx, userID, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	tokens := &DecryptedTokens{
+		ExpiresAt: identity.TokenExpiresAt,
+	}
+
+	// Decrypt tokens if encryption key is configured
+	if s.encryptionKey != "" {
+		if identity.AccessTokenEncrypted != nil && *identity.AccessTokenEncrypted != "" {
+			decrypted, err := crypto.DecryptWithKey(*identity.AccessTokenEncrypted, s.encryptionKey)
+			if err != nil {
+				return nil, err
+			}
+			tokens.AccessToken = decrypted
+		}
+		if identity.RefreshTokenEncrypted != nil && *identity.RefreshTokenEncrypted != "" {
+			decrypted, err := crypto.DecryptWithKey(*identity.RefreshTokenEncrypted, s.encryptionKey)
+			if err != nil {
+				return nil, err
+			}
+			tokens.RefreshToken = decrypted
+		}
+	} else {
+		// No encryption key - return as-is
+		if identity.AccessTokenEncrypted != nil {
+			tokens.AccessToken = *identity.AccessTokenEncrypted
+		}
+		if identity.RefreshTokenEncrypted != nil {
+			tokens.RefreshToken = *identity.RefreshTokenEncrypted
+		}
+	}
+
+	return tokens, nil
 }
 
 // ListIdentities returns all identities for a user

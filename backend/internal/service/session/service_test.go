@@ -42,7 +42,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		organization_id INTEGER NOT NULL,
-		team_id INTEGER,
 		session_key TEXT NOT NULL UNIQUE,
 		runner_id INTEGER NOT NULL,
 		agent_type_id INTEGER,
@@ -953,7 +952,6 @@ func TestErrors(t *testing.T) {
 func TestCreateSessionRequest(t *testing.T) {
 	req := &CreateSessionRequest{
 		OrganizationID:    1,
-		TeamID:            intPtr(2),
 		RunnerID:          3,
 		AgentTypeID:       intPtr(4),
 		CustomAgentTypeID: intPtr(5),

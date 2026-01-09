@@ -100,7 +100,6 @@ func setupMRSyncTestDB(t *testing.T) *gorm.DB {
 		CREATE TABLE IF NOT EXISTS tickets (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			team_id INTEGER,
 			number INTEGER NOT NULL DEFAULT 0,
 			identifier TEXT NOT NULL,
 			type TEXT NOT NULL DEFAULT 'task',
@@ -152,13 +151,16 @@ func setupMRSyncTestDB(t *testing.T) *gorm.DB {
 		CREATE TABLE IF NOT EXISTS repositories (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			team_id INTEGER,
-			git_provider_id INTEGER NOT NULL DEFAULT 0,
+			provider_type TEXT NOT NULL DEFAULT 'github',
+			provider_base_url TEXT NOT NULL DEFAULT 'https://github.com',
+			clone_url TEXT,
 			external_id TEXT,
 			name TEXT NOT NULL,
 			full_path TEXT NOT NULL,
 			default_branch TEXT DEFAULT 'main',
 			ticket_prefix TEXT,
+			visibility TEXT NOT NULL DEFAULT 'organization',
+			imported_by_user_id INTEGER,
 			is_active INTEGER DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

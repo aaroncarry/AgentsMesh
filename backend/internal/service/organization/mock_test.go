@@ -628,33 +628,6 @@ func TestMockGetMemberRole(t *testing.T) {
 	}
 }
 
-func TestMockGetUserTeams(t *testing.T) {
-	ctx := context.Background()
-	mock := NewMockService()
-
-	org, _ := mock.Create(ctx, 1, &CreateRequest{Slug: "test-org", Name: "Test"})
-
-	t.Run("returns empty teams", func(t *testing.T) {
-		teams, err := mock.GetUserTeams(ctx, org.ID, 1)
-		if err != nil {
-			t.Fatalf("GetUserTeams failed: %v", err)
-		}
-		if len(teams) != 0 {
-			t.Errorf("Teams count = %d, want 0", len(teams))
-		}
-	})
-
-	t.Run("configurable error", func(t *testing.T) {
-		customErr := errors.New("teams error")
-		mock.GetUserTeamsErr = customErr
-		_, err := mock.GetUserTeams(ctx, org.ID, 1)
-		if err != customErr {
-			t.Errorf("Expected custom error, got %v", err)
-		}
-		mock.GetUserTeamsErr = nil
-	})
-}
-
 func TestMockHelperMethods(t *testing.T) {
 	ctx := context.Background()
 	mock := NewMockService()

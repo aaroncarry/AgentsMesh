@@ -152,6 +152,7 @@ func (c *Config) parseUserInfo(body []byte) (*UserInfo, error) {
 }
 
 // NewGitHubConfig creates a GitHub OAuth configuration
+// Includes "repo" scope for repository access (browsing and cloning)
 func NewGitHubConfig(clientID, clientSecret, redirectURL string) *Config {
 	return &Config{
 		Provider:      "github",
@@ -161,7 +162,7 @@ func NewGitHubConfig(clientID, clientSecret, redirectURL string) *Config {
 		AuthEndpoint:  "https://github.com/login/oauth/authorize",
 		TokenEndpoint: "https://github.com/login/oauth/access_token",
 		UserInfoURL:   "https://api.github.com/user",
-		Scopes:        []string{"user:email", "read:user"},
+		Scopes:        []string{"user:email", "read:user", "repo"},
 	}
 }
 
@@ -180,6 +181,7 @@ func NewGoogleConfig(clientID, clientSecret, redirectURL string) *Config {
 }
 
 // NewGitLabConfig creates a GitLab OAuth configuration
+// Includes repository scopes for browsing and cloning
 func NewGitLabConfig(clientID, clientSecret, redirectURL, baseURL string) *Config {
 	if baseURL == "" {
 		baseURL = "https://gitlab.com"
@@ -192,12 +194,13 @@ func NewGitLabConfig(clientID, clientSecret, redirectURL, baseURL string) *Confi
 		AuthEndpoint:  baseURL + "/oauth/authorize",
 		TokenEndpoint: baseURL + "/oauth/token",
 		UserInfoURL:   baseURL + "/api/v4/user",
-		Scopes:        []string{"read_user", "openid", "profile", "email"},
+		Scopes:        []string{"read_user", "openid", "profile", "email", "read_repository", "write_repository", "read_api"},
 		BaseURL:       baseURL,
 	}
 }
 
 // NewGiteeConfig creates a Gitee OAuth configuration
+// Includes "projects" scope for repository access
 func NewGiteeConfig(clientID, clientSecret, redirectURL string) *Config {
 	return &Config{
 		Provider:      "gitee",
@@ -207,7 +210,7 @@ func NewGiteeConfig(clientID, clientSecret, redirectURL string) *Config {
 		AuthEndpoint:  "https://gitee.com/oauth/authorize",
 		TokenEndpoint: "https://gitee.com/oauth/token",
 		UserInfoURL:   "https://gitee.com/api/v5/user",
-		Scopes:        []string{"user_info", "emails"},
+		Scopes:        []string{"user_info", "emails", "projects"},
 	}
 }
 

@@ -11,9 +11,8 @@ import (
 
 // Channel represents a communication channel for agent collaboration
 type Channel struct {
-	ID             int64  `gorm:"primaryKey" json:"id"`
-	OrganizationID int64  `gorm:"not null;index" json:"organization_id"`
-	TeamID         *int64 `gorm:"index" json:"team_id,omitempty"`
+	ID             int64 `gorm:"primaryKey" json:"id"`
+	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 
 	Name        string  `gorm:"size:100;not null" json:"name"`
 	Description *string `gorm:"type:text" json:"description,omitempty"`

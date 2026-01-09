@@ -33,8 +33,8 @@ type GitProvider struct {
 	CreatedAt time.Time `gorm:"not null;default:now()" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 
-	// Associations
-	Repositories []Repository `gorm:"foreignKey:GitProviderID" json:"repositories,omitempty"`
+	// Note: Repositories no longer have GitProviderID foreign key
+	// Repositories are now self-contained with provider_type and provider_base_url
 }
 
 // IsSSHProvider returns true if this is an SSH-based provider
@@ -52,11 +52,15 @@ func (GitProvider) TableName() string {
 }
 
 // Repository represents a Git repository configured in the system
+// Self-contained design: repository stores all necessary info, no git_provider_id dependency
 type Repository struct {
-	ID             int64  `gorm:"primaryKey" json:"id"`
-	OrganizationID int64  `gorm:"not null;index" json:"organization_id"`
-	TeamID         *int64 `gorm:"index" json:"team_id,omitempty"`
-	GitProviderID  int64  `gorm:"not null" json:"git_provider_id"`
+	ID             int64 `gorm:"primaryKey" json:"id"`
+	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
+
+	// Provider info (self-contained, no foreign key to git_providers)
+	ProviderType    string `gorm:"size:50;not null" json:"provider_type"`      // github, gitlab, gitee, generic
+	ProviderBaseURL string `gorm:"size:255;not null" json:"provider_base_url"` // https://github.com, https://gitlab.company.com
+	CloneURL        string `gorm:"size:500" json:"clone_url"`                  // Full clone URL
 
 	ExternalID    string  `gorm:"size:255;not null" json:"external_id"`
 	Name          string  `gorm:"size:255;not null" json:"name"`
@@ -64,13 +68,15 @@ type Repository struct {
 	DefaultBranch string  `gorm:"size:100;default:'main'" json:"default_branch"`
 	TicketPrefix  *string `gorm:"size:10" json:"ticket_prefix,omitempty"`
 
+	// Visibility: "organization" (all members can see), "private" (only importer can see)
+	Visibility       string `gorm:"size:20;not null;default:'organization'" json:"visibility"`
+	ImportedByUserID *int64 `gorm:"index" json:"imported_by_user_id,omitempty"` // User who imported this repo
+
 	IsActive bool `gorm:"not null;default:true" json:"is_active"`
 
-	CreatedAt time.Time `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
-
-	// Associations
-	GitProvider *GitProvider `gorm:"foreignKey:GitProviderID" json:"git_provider,omitempty"`
+	CreatedAt time.Time  `gorm:"not null;default:now()" json:"created_at"`
+	UpdatedAt time.Time  `gorm:"not null;default:now()" json:"updated_at"`
+	DeletedAt *time.Time `gorm:"index" json:"deleted_at,omitempty"` // Soft delete support
 }
 
 func (Repository) TableName() string {

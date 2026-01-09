@@ -14,15 +14,20 @@ const mockRepositoryApi = vi.mocked(repositoryApi);
 
 describe("BranchSelect Component", () => {
   const mockBranches = ["main", "develop", "feature/new-feature"];
+  const mockAccessToken = "test-access-token";
 
+  // New self-contained repository model (no git_provider_id)
   const mockRepository = {
     id: 1,
     organization_id: 1,
-    git_provider_id: 1,
+    provider_type: "github",
+    provider_base_url: "https://github.com",
+    clone_url: "https://github.com/org/my-repo.git",
     external_id: "12345",
     name: "my-repo",
     full_path: "org/my-repo",
     default_branch: "main",
+    visibility: "organization",
     is_active: true,
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -52,6 +57,27 @@ describe("BranchSelect Component", () => {
     });
   });
 
+  describe("no access token provided", () => {
+    it("should switch to manual mode when no access token", async () => {
+      render(
+        <BranchSelect
+          repositoryId={1}
+          value=""
+          onChange={() => {}}
+          allowManualInput
+        />
+      );
+
+      // Without access token, it should go to manual mode
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText("Enter branch name (e.g., main)")).toBeInTheDocument();
+      });
+
+      // API should not be called without access token
+      expect(mockRepositoryApi.listBranches).not.toHaveBeenCalled();
+    });
+  });
+
   describe("loading state", () => {
     it("should show loading text while fetching branches", () => {
       mockRepositoryApi.listBranches.mockImplementation(() => new Promise(() => {}));
@@ -61,6 +87,7 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -75,6 +102,7 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -93,6 +121,7 @@ describe("BranchSelect Component", () => {
           repository={mockRepository}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -108,6 +137,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           placeholder="Pick a branch..."
+          accessToken={mockAccessToken}
         />
       );
 
@@ -127,6 +157,7 @@ describe("BranchSelect Component", () => {
           repository={mockRepository}
           value=""
           onChange={handleChange}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -147,6 +178,7 @@ describe("BranchSelect Component", () => {
           repository={mockRepository}
           value=""
           onChange={handleChange}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -164,6 +196,7 @@ describe("BranchSelect Component", () => {
           repository={mockRepository}
           value="develop"
           onChange={handleChange}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -187,6 +220,7 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value="main"
           onChange={handleChange}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -205,6 +239,7 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value="develop"
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -224,6 +259,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -241,6 +277,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -259,6 +296,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={handleChange}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -282,6 +320,7 @@ describe("BranchSelect Component", () => {
           value="main"
           onChange={handleChange}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -306,6 +345,7 @@ describe("BranchSelect Component", () => {
           value="main"
           onChange={handleChange}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -338,6 +378,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           disabled
+          accessToken={mockAccessToken}
         />
       );
 
@@ -356,6 +397,7 @@ describe("BranchSelect Component", () => {
           onChange={() => {}}
           disabled
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -375,6 +417,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           allowManualInput={false}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -383,7 +426,7 @@ describe("BranchSelect Component", () => {
       });
     });
 
-    it("should show retry and manual entry buttons on error", async () => {
+    it("should switch to manual mode on error when allowManualInput", async () => {
       mockRepositoryApi.listBranches.mockRejectedValue(new Error("Network error"));
 
       render(
@@ -392,6 +435,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           allowManualInput
+          accessToken={mockAccessToken}
         />
       );
 
@@ -409,11 +453,12 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
       await waitFor(() => {
-        expect(mockRepositoryApi.listBranches).toHaveBeenCalledWith(1);
+        expect(mockRepositoryApi.listBranches).toHaveBeenCalledWith(1, mockAccessToken);
       });
 
       mockRepositoryApi.listBranches.mockResolvedValue({
@@ -425,11 +470,12 @@ describe("BranchSelect Component", () => {
           repositoryId={2}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
       await waitFor(() => {
-        expect(mockRepositoryApi.listBranches).toHaveBeenCalledWith(2);
+        expect(mockRepositoryApi.listBranches).toHaveBeenCalledWith(2, mockAccessToken);
       });
     });
 
@@ -439,6 +485,7 @@ describe("BranchSelect Component", () => {
           repositoryId={1}
           value="main"
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -451,6 +498,7 @@ describe("BranchSelect Component", () => {
           repositoryId={null}
           value=""
           onChange={() => {}}
+          accessToken={mockAccessToken}
         />
       );
 
@@ -466,6 +514,7 @@ describe("BranchSelect Component", () => {
           value=""
           onChange={() => {}}
           className="custom-class"
+          accessToken={mockAccessToken}
         />
       );
 
