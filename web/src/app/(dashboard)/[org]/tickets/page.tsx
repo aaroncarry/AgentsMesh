@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { KanbanBoard } from "@/components/tickets";
+import { KanbanBoard, TicketFilters, TicketFiltersValue, TicketCreateDialog } from "@/components/tickets";
 import { ticketApi } from "@/lib/api/client";
+import { Plus } from "lucide-react";
 
 interface Ticket {
   id: number;
@@ -44,9 +44,9 @@ export default function TicketsPage() {
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [filters, setFilters] = useState<TicketFiltersValue>({});
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   useEffect(() => {
     loadTickets();
@@ -78,13 +78,34 @@ export default function TicketsPage() {
     router.push(`tickets/${ticket.identifier}`);
   }, [router]);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.title.toLowerCase().includes(filter.toLowerCase()) ||
-      ticket.identifier.toLowerCase().includes(filter.toLowerCase());
-    const matchesStatus = !statusFilter || ticket.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const handleTicketCreated = useCallback((ticketId: number, identifier: string) => {
+    // Reload tickets to show the new one
+    loadTickets();
+    // Optionally navigate to the new ticket
+    // router.push(`tickets/${identifier}`);
+  }, []);
+
+  const filteredTickets = useMemo(() => {
+    return tickets.filter((ticket) => {
+      // Search filter
+      const searchTerm = filters.search?.toLowerCase() || "";
+      const matchesSearch =
+        !searchTerm ||
+        ticket.title.toLowerCase().includes(searchTerm) ||
+        ticket.identifier.toLowerCase().includes(searchTerm);
+
+      // Status filter
+      const matchesStatus = !filters.status || ticket.status === filters.status;
+
+      // Type filter
+      const matchesType = !filters.type || ticket.type === filters.type;
+
+      // Priority filter
+      const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+
+      return matchesSearch && matchesStatus && matchesType && matchesPriority;
+    });
+  }, [tickets, filters]);
 
   if (loading) {
     return (
@@ -104,88 +125,28 @@ export default function TicketsPage() {
             Track and manage your tasks and issues
           </p>
         </div>
-        <Button>
-          <svg
-            className="w-4 h-4 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
           New Ticket
         </Button>
       </div>
 
+      {/* Create Ticket Dialog */}
+      <TicketCreateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreated={handleTicketCreated}
+      />
+
       {/* Filters */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="flex-1 max-w-sm">
-          <Input
-            placeholder="Search tickets..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="w-full"
-          />
-        </div>
-        <select
-          className="px-3 py-2 border border-border rounded-md bg-background text-sm"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">All Status</option>
-          <option value="backlog">Backlog</option>
-          <option value="todo">To Do</option>
-          <option value="in_progress">In Progress</option>
-          <option value="in_review">In Review</option>
-          <option value="done">Done</option>
-        </select>
-        <div className="flex border border-border rounded-md overflow-hidden">
-          <button
-            className={`px-3 py-2 text-sm ${
-              viewMode === "list" ? "bg-muted" : ""
-            }`}
-            onClick={() => setViewMode("list")}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <button
-            className={`px-3 py-2 text-sm ${
-              viewMode === "board" ? "bg-muted" : ""
-            }`}
-            onClick={() => setViewMode("board")}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
-              />
-            </svg>
-          </button>
-        </div>
+      <div className="mb-6">
+        <TicketFilters
+          value={filters}
+          onChange={setFilters}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          showViewToggle
+        />
       </div>
 
       {/* Content */}

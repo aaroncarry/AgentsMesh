@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useTicketStore, getStatusInfo, getPriorityInfo, getTypeInfo, Ticket, TicketStatus } from "@/stores/ticket";
 import { ticketApi, TicketRelation, TicketCommit } from "@/lib/api/client";
 import TicketPodPanel from "./TicketPodPanel";
+
+// Lazy load BlockEditor to avoid SSR issues
+const BlockEditor = lazy(() => import("@/components/ui/block-editor"));
+const BlockViewer = lazy(() =>
+  import("@/components/ui/block-editor").then((mod) => ({ default: mod.BlockViewer }))
+);
 
 interface TicketDetailProps {
   identifier: string;
@@ -21,6 +27,7 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editContent, setEditContent] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loadingExtra, setLoadingExtra] = useState(true);
 
@@ -56,6 +63,7 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
       fetchExtraData();
       setEditTitle(currentTicket.title);
       setEditDescription(currentTicket.description || "");
+      setEditContent(currentTicket.content || "");
     }
   }, [currentTicket, fetchExtraData]);
 
@@ -74,6 +82,7 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
       await updateTicket(identifier, {
         title: editTitle,
         description: editDescription,
+        content: editContent,
       });
       setIsEditing(false);
     } catch (err) {
@@ -142,13 +151,32 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
               />
-              <textarea
-                className="w-full px-3 py-2 border border-border rounded-md resize-none"
-                rows={4}
-                placeholder="Add a description..."
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-              />
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1 block">
+                  Summary
+                </label>
+                <textarea
+                  className="w-full px-3 py-2 border border-border rounded-md resize-none"
+                  rows={2}
+                  placeholder="Brief summary..."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1 block">
+                  Content
+                </label>
+                <div className="border border-border rounded-md overflow-hidden min-h-[200px] bg-card">
+                  <Suspense fallback={<div className="h-[200px] animate-pulse bg-muted" />}>
+                    <BlockEditor
+                      initialContent={editContent}
+                      onChange={setEditContent}
+                      editable={true}
+                    />
+                  </Suspense>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSaveEdit}>Save</Button>
                 <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
@@ -160,9 +188,16 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
             <>
               <h1 className="text-2xl font-semibold mb-2">{currentTicket.title}</h1>
               {currentTicket.description && (
-                <p className="text-muted-foreground whitespace-pre-wrap">
+                <p className="text-muted-foreground mb-4">
                   {currentTicket.description}
                 </p>
+              )}
+              {currentTicket.content && (
+                <div className="border border-border rounded-md overflow-hidden bg-card">
+                  <Suspense fallback={<div className="h-[100px] animate-pulse bg-muted" />}>
+                    <BlockViewer content={currentTicket.content} />
+                  </Suspense>
+                </div>
               )}
             </>
           )}

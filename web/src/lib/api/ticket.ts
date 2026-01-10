@@ -1,7 +1,7 @@
 import { request, orgPath } from "./base";
 
 // Ticket types
-export type TicketType = "task" | "bug" | "feature" | "epic" | "subtask" | "story";
+export type TicketType = "task" | "bug" | "feature" | "improvement" | "epic" | "subtask" | "story";
 export type TicketStatus = "backlog" | "todo" | "in_progress" | "in_review" | "done" | "cancelled";
 export type TicketPriority = "none" | "low" | "medium" | "high" | "urgent";
 
@@ -81,8 +81,10 @@ export const ticketApi = {
     return request<{ tickets: TicketData[]; total: number }>(`${orgPath("/tickets")}${query}`);
   },
 
-  get: (identifier: string) =>
-    request<TicketData>(`${orgPath("/tickets")}/${identifier}`),
+  get: async (identifier: string) => {
+    const response = await request<{ ticket: TicketData }>(`${orgPath("/tickets")}/${identifier}`);
+    return response.ticket;
+  },
 
   create: (data: {
     repositoryId: number;
@@ -99,7 +101,19 @@ export const ticketApi = {
   }) =>
     request<TicketData>(orgPath("/tickets"), {
       method: "POST",
-      body: data,
+      body: {
+        repository_id: data.repositoryId,
+        type: data.type,
+        title: data.title,
+        description: data.description,
+        content: data.content,
+        priority: data.priority,
+        severity: data.severity,
+        estimate: data.estimate,
+        assignee_ids: data.assigneeIds,
+        labels: data.labels,
+        parent_ticket_id: data.parentId,
+      },
     }),
 
   update: (identifier: string, data: {

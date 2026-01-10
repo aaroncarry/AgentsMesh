@@ -83,7 +83,7 @@ describe('TicketDetail Component', () => {
     vi.clearAllMocks()
 
     // Setup default mock implementation
-    ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+    ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       currentTicket: mockTicket,
       fetchTicket: mockFetchTicket,
       updateTicket: mockUpdateTicket,
@@ -138,7 +138,7 @@ describe('TicketDetail Component', () => {
 
   describe('loading state', () => {
     it('should render skeleton when loading', () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: null,
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -155,7 +155,7 @@ describe('TicketDetail Component', () => {
 
   describe('error state', () => {
     it('should render error message', () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: null,
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -170,7 +170,7 @@ describe('TicketDetail Component', () => {
     })
 
     it('should render retry button on error', () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: null,
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -186,7 +186,7 @@ describe('TicketDetail Component', () => {
     })
 
     it('should call fetchTicket when retry is clicked', () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: null,
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -207,7 +207,7 @@ describe('TicketDetail Component', () => {
 
   describe('not found state', () => {
     it('should render not found message when ticket is null', () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: null,
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -248,7 +248,7 @@ describe('TicketDetail Component', () => {
     })
 
     it('should show no assignees message when empty', async () => {
-      ;(useTicketStore as ReturnType<typeof vi.fn>).mockReturnValue({
+      ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
         currentTicket: { ...mockTicket, assignees: [] },
         fetchTicket: mockFetchTicket,
         updateTicket: mockUpdateTicket,
@@ -485,6 +485,7 @@ describe('TicketDetail Component', () => {
         expect(mockUpdateTicket).toHaveBeenCalledWith('PROJ-42', {
           title: 'Updated title',
           description: 'This is the ticket description',
+          content: '', // content field is now included
         })
       })
     })

@@ -48,7 +48,7 @@ beforeEach(() => {
 describe('Runner Store Actions', () => {
   describe('fetchRunners', () => {
     it('should fetch runners successfully', async () => {
-      const mockRunners = [createMockRunner({ id: 1 }), createMockRunner({ id: 2, name: 'runner-2' })]
+      const mockRunners = [createMockRunner({ id: 1 }), createMockRunner({ id: 2, node_id: 'runner-2' })]
       vi.mocked(runnerApi.list).mockResolvedValue({ runners: mockRunners })
 
       await useRunnerStore.getState().fetchRunners()
@@ -150,7 +150,7 @@ describe('Runner Store Actions', () => {
         availableRunners: [runner],
         currentRunner: runner,
       })
-      vi.mocked(runnerApi.delete).mockResolvedValue(undefined)
+      vi.mocked(runnerApi.delete).mockResolvedValue({ message: 'Deleted' })
 
       await useRunnerStore.getState().deleteRunner(1)
 
@@ -168,7 +168,7 @@ describe('Runner Store Actions', () => {
 
   describe('regenerateAuthToken', () => {
     it('should regenerate auth token successfully', async () => {
-      vi.mocked(runnerApi.regenerateAuthToken).mockResolvedValue({ auth_token: 'new-token' })
+      vi.mocked(runnerApi.regenerateAuthToken).mockResolvedValue({ auth_token: 'new-token', message: 'Token regenerated' })
 
       const token = await useRunnerStore.getState().regenerateAuthToken(1)
 
@@ -184,7 +184,15 @@ describe('Runner Store Actions', () => {
 
   describe('Token operations', () => {
     it('should fetch tokens successfully', async () => {
-      const mockTokens = [{ id: 1, token: 'xxx', description: 'Test', is_active: true }]
+      const mockTokens = [{
+        id: 1,
+        organization_id: 1,
+        description: 'Test',
+        created_by_id: 1,
+        is_active: true,
+        used_count: 0,
+        created_at: '2024-01-01T00:00:00Z',
+      }]
       vi.mocked(runnerApi.listTokens).mockResolvedValue({ tokens: mockTokens })
 
       await useRunnerStore.getState().fetchTokens()
@@ -193,7 +201,7 @@ describe('Runner Store Actions', () => {
     })
 
     it('should create token successfully', async () => {
-      vi.mocked(runnerApi.createToken).mockResolvedValue({ token: 'new-token-123' })
+      vi.mocked(runnerApi.createToken).mockResolvedValue({ token: 'new-token-123', message: 'Token created' })
       vi.mocked(runnerApi.listTokens).mockResolvedValue({ tokens: [] })
 
       const token = await useRunnerStore.getState().createToken('Test token', 5)
@@ -203,9 +211,17 @@ describe('Runner Store Actions', () => {
     })
 
     it('should revoke token successfully', async () => {
-      const token = { id: 1, token: 'xxx', description: 'Test', is_active: true }
+      const token = {
+        id: 1,
+        organization_id: 1,
+        description: 'Test',
+        created_by_id: 1,
+        is_active: true,
+        used_count: 0,
+        created_at: '2024-01-01T00:00:00Z',
+      }
       useRunnerStore.setState({ tokens: [token] })
-      vi.mocked(runnerApi.revokeToken).mockResolvedValue(undefined)
+      vi.mocked(runnerApi.revokeToken).mockResolvedValue({ message: 'Token revoked' })
 
       await useRunnerStore.getState().revokeToken(1)
 
@@ -213,7 +229,7 @@ describe('Runner Store Actions', () => {
     })
 
     it('should use createRegistrationToken as alias', async () => {
-      vi.mocked(runnerApi.createToken).mockResolvedValue({ token: 'new-token' })
+      vi.mocked(runnerApi.createToken).mockResolvedValue({ token: 'new-token', message: 'Token created' })
       vi.mocked(runnerApi.listTokens).mockResolvedValue({ tokens: [] })
 
       const token = await useRunnerStore.getState().createRegistrationToken('Test')

@@ -244,7 +244,8 @@ export const getStatusInfo = (status: TicketStatus) => {
     done: { label: "Done", color: "text-green-600", bgColor: "bg-green-100" },
     cancelled: { label: "Cancelled", color: "text-red-600", bgColor: "bg-red-100" },
   };
-  return statusMap[status];
+  // Return default if status not found
+  return statusMap[status] || { label: status || "Unknown", color: "text-gray-500", bgColor: "bg-gray-100" };
 };
 
 // Helper function to get priority display info
@@ -259,7 +260,8 @@ export const getPriorityInfo = (priority: TicketPriority) => {
     high: { label: "High", color: "text-orange-500", icon: "↑" },
     urgent: { label: "Urgent", color: "text-red-500", icon: "⚡" },
   };
-  return priorityMap[priority];
+  // Return default if priority not found
+  return priorityMap[priority] || { label: priority || "Unknown", color: "text-gray-400", icon: "?" };
 };
 
 // Helper function to get type display info
@@ -268,9 +270,11 @@ export const getTypeInfo = (type: TicketType) => {
     task: { label: "Task", color: "text-blue-500", icon: "✓" },
     bug: { label: "Bug", color: "text-red-500", icon: "🐛" },
     feature: { label: "Feature", color: "text-green-500", icon: "✨" },
+    improvement: { label: "Improvement", color: "text-cyan-500", icon: "📈" },
     epic: { label: "Epic", color: "text-purple-500", icon: "⚡" },
     subtask: { label: "Subtask", color: "text-gray-500", icon: "◦" },
     story: { label: "Story", color: "text-teal-500", icon: "📖" },
   };
-  return typeMap[type];
+  // Return default if type not found
+  return typeMap[type] || { label: type || "Unknown", color: "text-gray-500", icon: "?" };
 };
