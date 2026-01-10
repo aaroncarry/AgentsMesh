@@ -63,6 +63,7 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 
 	// 2. Get bindings (edges) for active pods
 	edges := make([]devmesh.DevMeshEdge, 0)
+	seenBindings := make(map[int64]bool) // Track seen binding IDs to avoid duplicates
 	for _, key := range podKeys {
 		activeStatus := channel.BindingStatusActive
 		bindings, err := s.bindingService.GetBindingsForPod(ctx, key, &activeStatus)
@@ -70,6 +71,12 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 			continue
 		}
 		for _, b := range bindings {
+			// Skip if we've already seen this binding (since it appears for both source and target pods)
+			if seenBindings[b.ID] {
+				continue
+			}
+			seenBindings[b.ID] = true
+
 			if b.IsActive() {
 				edges = append(edges, devmesh.DevMeshEdge{
 					ID:            b.ID,
