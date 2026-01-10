@@ -8,9 +8,9 @@
 DROP TABLE IF EXISTS channel_access;
 
 -- ==========================================
--- 7. Drop Channel Sessions Table
+-- 7. Drop Channel Pods Table
 -- ==========================================
-DROP TABLE IF EXISTS channel_sessions;
+DROP TABLE IF EXISTS channel_pods;
 
 -- ==========================================
 -- 6. Drop Ticket Relations Table
@@ -35,21 +35,21 @@ ALTER TABLE ticket_merge_requests DROP COLUMN IF EXISTS merged_by_id;
 ALTER TABLE ticket_merge_requests DROP COLUMN IF EXISTS last_synced_at;
 
 -- ==========================================
--- 3. Remove Session Binding Enhancements
+-- 3. Remove Pod Binding Enhancements
 -- ==========================================
-ALTER TABLE session_bindings DROP COLUMN IF EXISTS pending_scopes;
-ALTER TABLE session_bindings DROP COLUMN IF EXISTS requested_at;
-ALTER TABLE session_bindings DROP COLUMN IF EXISTS responded_at;
-ALTER TABLE session_bindings DROP COLUMN IF EXISTS expires_at;
-ALTER TABLE session_bindings DROP COLUMN IF EXISTS rejection_reason;
+ALTER TABLE pod_bindings DROP COLUMN IF EXISTS pending_scopes;
+ALTER TABLE pod_bindings DROP COLUMN IF EXISTS requested_at;
+ALTER TABLE pod_bindings DROP COLUMN IF EXISTS responded_at;
+ALTER TABLE pod_bindings DROP COLUMN IF EXISTS expires_at;
+ALTER TABLE pod_bindings DROP COLUMN IF EXISTS rejection_reason;
 
 -- ==========================================
--- 2. Remove Session Enhancements
+-- 2. Remove Pod Enhancements
 -- ==========================================
-ALTER TABLE sessions DROP COLUMN IF EXISTS model;
-ALTER TABLE sessions DROP COLUMN IF EXISTS permission_mode;
-ALTER TABLE sessions DROP COLUMN IF EXISTS think_level;
-ALTER TABLE sessions DROP COLUMN IF EXISTS agent_pid;
+ALTER TABLE pods DROP COLUMN IF EXISTS model;
+ALTER TABLE pods DROP COLUMN IF EXISTS permission_mode;
+ALTER TABLE pods DROP COLUMN IF EXISTS think_level;
+ALTER TABLE pods DROP COLUMN IF EXISTS agent_pid;
 
 -- ==========================================
 -- 1. Remove Ticket Enhancements

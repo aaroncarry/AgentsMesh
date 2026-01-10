@@ -29,7 +29,7 @@ const (
 	MessageTypeTerminalInput  MessageType = "terminal:input"
 	MessageTypeTerminalOutput MessageType = "terminal:output"
 	MessageTypeTerminalResize MessageType = "terminal:resize"
-	MessageTypeSessionStatus  MessageType = "session:status"
+	MessageTypePodStatus      MessageType = "pod:status"
 	MessageTypeAgentStatus    MessageType = "agent:status"
 	MessageTypeChannelMessage MessageType = "channel:message"
 	MessageTypePing           MessageType = "ping"
@@ -40,7 +40,7 @@ const (
 // Message represents a WebSocket message
 type Message struct {
 	Type      MessageType     `json:"type"`
-	SessionID string          `json:"session_id,omitempty"`
+	PodKey    string          `json:"pod_key,omitempty"`
 	ChannelID int64           `json:"channel_id,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
 	Timestamp int64           `json:"timestamp"`
@@ -62,8 +62,8 @@ type TerminalResizeData struct {
 	Rows int `json:"rows"`
 }
 
-// SessionStatusData represents session status update
-type SessionStatusData struct {
+// PodStatusData represents pod status update
+type PodStatusData struct {
 	Status      string `json:"status"`
 	AgentStatus string `json:"agent_status,omitempty"`
 }
@@ -75,7 +75,7 @@ type Client struct {
 	send      chan []byte
 	userID    int64
 	orgID     int64
-	sessionID string // Empty if not connected to a session
+	podKey    string // Empty if not connected to a pod
 	channelID int64  // Non-zero if subscribed to a channel
 	mu        sync.Mutex
 }
@@ -85,8 +85,8 @@ type Hub struct {
 	// Registered clients
 	clients map[*Client]bool
 
-	// Clients by session
-	sessionClients map[string]map[*Client]bool
+	// Clients by pod
+	podClients map[string]map[*Client]bool
 
 	// Clients by channel
 	channelClients map[int64]map[*Client]bool
@@ -97,8 +97,8 @@ type Hub struct {
 	// Unregister requests from clients
 	unregister chan *Client
 
-	// Broadcast to session
-	sessionBroadcast chan *SessionMessage
+	// Broadcast to pod
+	podBroadcast chan *PodMessage
 
 	// Broadcast to channel
 	channelBroadcast chan *ChannelMessage
@@ -106,10 +106,10 @@ type Hub struct {
 	mu sync.RWMutex
 }
 
-// SessionMessage represents a message to broadcast to a session
-type SessionMessage struct {
-	SessionID string
-	Message   []byte
+// PodMessage represents a message to broadcast to a pod
+type PodMessage struct {
+	PodKey  string
+	Message []byte
 }
 
 // ChannelMessage represents a message to broadcast to a channel
@@ -122,11 +122,11 @@ type ChannelMessage struct {
 func NewHub() *Hub {
 	return &Hub{
 		clients:          make(map[*Client]bool),
-		sessionClients:   make(map[string]map[*Client]bool),
+		podClients:       make(map[string]map[*Client]bool),
 		channelClients:   make(map[int64]map[*Client]bool),
 		register:         make(chan *Client),
 		unregister:       make(chan *Client),
-		sessionBroadcast: make(chan *SessionMessage, 256),
+		podBroadcast:     make(chan *PodMessage, 256),
 		channelBroadcast: make(chan *ChannelMessage, 256),
 	}
 }
@@ -139,11 +139,11 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 
-			if client.sessionID != "" {
-				if h.sessionClients[client.sessionID] == nil {
-					h.sessionClients[client.sessionID] = make(map[*Client]bool)
+			if client.podKey != "" {
+				if h.podClients[client.podKey] == nil {
+					h.podClients[client.podKey] = make(map[*Client]bool)
 				}
-				h.sessionClients[client.sessionID][client] = true
+				h.podClients[client.podKey][client] = true
 			}
 
 			if client.channelID != 0 {
@@ -160,10 +160,10 @@ func (h *Hub) Run() {
 				delete(h.clients, client)
 				close(client.send)
 
-				if client.sessionID != "" {
-					delete(h.sessionClients[client.sessionID], client)
-					if len(h.sessionClients[client.sessionID]) == 0 {
-						delete(h.sessionClients, client.sessionID)
+				if client.podKey != "" {
+					delete(h.podClients[client.podKey], client)
+					if len(h.podClients[client.podKey]) == 0 {
+						delete(h.podClients, client.podKey)
 					}
 				}
 
@@ -176,9 +176,9 @@ func (h *Hub) Run() {
 			}
 			h.mu.Unlock()
 
-		case msg := <-h.sessionBroadcast:
+		case msg := <-h.podBroadcast:
 			h.mu.RLock()
-			clients := h.sessionClients[msg.SessionID]
+			clients := h.podClients[msg.PodKey]
 			h.mu.RUnlock()
 
 			for client := range clients {
@@ -205,16 +205,16 @@ func (h *Hub) Run() {
 	}
 }
 
-// BroadcastToSession sends a message to all clients connected to a session
-func (h *Hub) BroadcastToSession(sessionID string, msg *Message) {
+// BroadcastToPod sends a message to all clients connected to a pod
+func (h *Hub) BroadcastToPod(podKey string, msg *Message) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return
 	}
 
-	h.sessionBroadcast <- &SessionMessage{
-		SessionID: sessionID,
-		Message:   data,
+	h.podBroadcast <- &PodMessage{
+		PodKey:  podKey,
+		Message: data,
 	}
 }
 
@@ -231,11 +231,11 @@ func (h *Hub) BroadcastToChannel(channelID int64, msg *Message) {
 	}
 }
 
-// GetSessionClientCount returns the number of clients connected to a session
-func (h *Hub) GetSessionClientCount(sessionID string) int {
+// GetPodClientCount returns the number of clients connected to a pod
+func (h *Hub) GetPodClientCount(podKey string) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return len(h.sessionClients[sessionID])
+	return len(h.podClients[podKey])
 }
 
 // Register registers a client with the hub
@@ -259,30 +259,30 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, orgID int64) *Client {
 	}
 }
 
-// SetSession sets the session for this client
-func (c *Client) SetSession(sessionID string) {
+// SetPod sets the pod for this client
+func (c *Client) SetPod(podKey string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Remove from old session
-	if c.sessionID != "" {
+	// Remove from old pod
+	if c.podKey != "" {
 		c.hub.mu.Lock()
-		delete(c.hub.sessionClients[c.sessionID], c)
-		if len(c.hub.sessionClients[c.sessionID]) == 0 {
-			delete(c.hub.sessionClients, c.sessionID)
+		delete(c.hub.podClients[c.podKey], c)
+		if len(c.hub.podClients[c.podKey]) == 0 {
+			delete(c.hub.podClients, c.podKey)
 		}
 		c.hub.mu.Unlock()
 	}
 
-	c.sessionID = sessionID
+	c.podKey = podKey
 
-	// Add to new session
-	if sessionID != "" {
+	// Add to new pod
+	if podKey != "" {
 		c.hub.mu.Lock()
-		if c.hub.sessionClients[sessionID] == nil {
-			c.hub.sessionClients[sessionID] = make(map[*Client]bool)
+		if c.hub.podClients[podKey] == nil {
+			c.hub.podClients[podKey] = make(map[*Client]bool)
 		}
-		c.hub.sessionClients[sessionID][c] = true
+		c.hub.podClients[podKey][c] = true
 		c.hub.mu.Unlock()
 	}
 }

@@ -7,12 +7,12 @@ import (
 // mockEventSender is a mock for testing EventSender interface
 type mockEventSender struct {
 	statuses []struct {
-		sessionKey string
+		podKey string
 		status     string
 		data       map[string]interface{}
 	}
 	outputs []struct {
-		sessionKey string
+		podKey string
 		data       []byte
 	}
 	mu sync.Mutex
@@ -22,30 +22,30 @@ func newMockEventSender() *mockEventSender {
 	return &mockEventSender{}
 }
 
-func (m *mockEventSender) SendSessionStatus(sessionKey, status string, data map[string]interface{}) {
+func (m *mockEventSender) SendPodStatus(podKey, status string, data map[string]interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.statuses = append(m.statuses, struct {
-		sessionKey string
+		podKey string
 		status     string
 		data       map[string]interface{}
-	}{sessionKey, status, data})
+	}{podKey, status, data})
 }
 
-func (m *mockEventSender) SendTerminalOutput(sessionKey string, data []byte) error {
+func (m *mockEventSender) SendTerminalOutput(podKey string, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.outputs = append(m.outputs, struct {
-		sessionKey string
+		podKey string
 		data       []byte
-	}{sessionKey, data})
+	}{podKey, data})
 	return nil
 }
 
 // mockOutputHandler is a mock for testing OutputHandler interface
 type mockOutputHandler struct {
 	outputs []struct {
-		sessionKey string
+		podKey string
 		data       []byte
 	}
 	shouldBackpressure bool
@@ -56,24 +56,24 @@ func newMockOutputHandler() *mockOutputHandler {
 	return &mockOutputHandler{}
 }
 
-func (m *mockOutputHandler) SendOutput(sessionKey string, data []byte) bool {
+func (m *mockOutputHandler) SendOutput(podKey string, data []byte) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.outputs = append(m.outputs, struct {
-		sessionKey string
+		podKey string
 		data       []byte
-	}{sessionKey, data})
+	}{podKey, data})
 	return !m.shouldBackpressure
 }
 
 func (m *mockOutputHandler) GetOutputs() []struct {
-	sessionKey string
+	podKey string
 	data       []byte
 } {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	result := make([]struct {
-		sessionKey string
+		podKey string
 		data       []byte
 	}, len(m.outputs))
 	copy(result, m.outputs)

@@ -200,19 +200,19 @@ var (
 
 // Key prefixes for different data types
 const (
-	PrefixSession     = "session:"
-	PrefixUser        = "user:"
-	PrefixOrg         = "org:"
-	PrefixRunner      = "runner:"
-	PrefixChannel     = "channel:"
-	PrefixRateLimit   = "ratelimit:"
-	PrefixLock        = "lock:"
-	PrefixPubSub      = "pubsub:"
+	PrefixPod       = "pod:"
+	PrefixUser      = "user:"
+	PrefixOrg       = "org:"
+	PrefixRunner    = "runner:"
+	PrefixChannel   = "channel:"
+	PrefixRateLimit = "ratelimit:"
+	PrefixLock      = "lock:"
+	PrefixPubSub    = "pubsub:"
 )
 
-// SessionKey returns a cache key for a session
-func SessionKey(sessionKey string) string {
-	return PrefixSession + sessionKey
+// PodKey returns a cache key for a pod
+func PodKey(podKey string) string {
+	return PrefixPod + podKey
 }
 
 // UserKey returns a cache key for a user

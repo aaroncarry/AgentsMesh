@@ -97,8 +97,8 @@
     "status_online": "在线",
     "status_offline": "离线",
     "status_maintenance": "维护中",
-    "current_sessions": "当前会话数",
-    "max_sessions": "最大会话数",
+    "current_pods": "当前 Pod 数",
+    "max_pods": "最大 Pod 数",
     "last_heartbeat": "最后心跳",
     "host_info": "主机信息",
     "registration_token": "注册令牌",
@@ -107,12 +107,14 @@
     "runner_registered": "运行器注册成功",
     "runner_deleted": "运行器删除成功"
   },
-  "session": {
-    "session": "会话",
-    "sessions": "会话列表",
-    "create_session": "创建会话",
-    "terminate_session": "终止会话",
-    "session_status": "状态",
+  "pod": {
+    "pod": "Pod",
+    "pods": "Pods",
+    "agentpod": "AgentPod",
+    "agentpods": "AgentPods",
+    "create_pod": "创建 Pod",
+    "terminate_pod": "终止 Pod",
+    "pod_status": "状态",
     "status_initializing": "初始化中",
     "status_running": "运行中",
     "status_paused": "已暂停",
@@ -121,8 +123,8 @@
     "agent_type": "Agent 类型",
     "initial_prompt": "初始提示",
     "branch_name": "分支名称",
-    "session_created": "会话创建成功",
-    "session_terminated": "会话已终止"
+    "pod_created": "Pod 创建成功",
+    "pod_terminated": "Pod 已终止"
   },
   "channel": {
     "channel": "频道",
@@ -198,7 +200,7 @@
     "upgrade": "升级",
     "downgrade": "降级",
     "usage": "用量",
-    "session_minutes": "会话时长",
+    "pod_minutes": "Pod 时长",
     "seats": "席位",
     "invoices": "发票",
     "payment_method": "支付方式"

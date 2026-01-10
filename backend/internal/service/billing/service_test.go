@@ -24,7 +24,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			name TEXT NOT NULL UNIQUE,
 			display_name TEXT NOT NULL,
 			price_per_seat_monthly REAL NOT NULL DEFAULT 0,
-			included_session_minutes INTEGER NOT NULL DEFAULT 0,
+			included_pod_minutes INTEGER NOT NULL DEFAULT 0,
 			price_per_extra_minute REAL NOT NULL DEFAULT 0,
 			max_users INTEGER NOT NULL DEFAULT 0,
 			max_runners INTEGER NOT NULL DEFAULT 0,
@@ -82,7 +82,7 @@ func seedTestPlan(t *testing.T, db *gorm.DB) *billing.SubscriptionPlan {
 		Name:                   "free",
 		DisplayName:            "Free Plan",
 		PricePerSeatMonthly:    0,
-		IncludedSessionMinutes: 100,
+		IncludedPodMinutes: 100,
 		PricePerExtraMinute:    0,
 		MaxUsers:               5,
 		MaxRunners:             1,
@@ -154,7 +154,7 @@ func TestListPlans(t *testing.T) {
 	seedTestPlan(t, db)
 
 	// Add another plan
-	db.Exec(`INSERT INTO subscription_plans (name, display_name, price_per_seat_monthly, included_session_minutes, max_users, max_runners, max_repositories, is_active)
+	db.Exec(`INSERT INTO subscription_plans (name, display_name, price_per_seat_monthly, included_pod_minutes, max_users, max_runners, max_repositories, is_active)
 		VALUES ('pro', 'Pro Plan', 1000, 500, 20, 5, 50, 1)`)
 
 	plans, err := service.ListPlans(ctx)
@@ -241,7 +241,7 @@ func TestUpdateSubscription(t *testing.T) {
 
 	// Create two plans
 	seedTestPlan(t, db)
-	db.Exec(`INSERT INTO subscription_plans (name, display_name, price_per_seat_monthly, included_session_minutes, max_users, max_runners, max_repositories, is_active)
+	db.Exec(`INSERT INTO subscription_plans (name, display_name, price_per_seat_monthly, included_pod_minutes, max_users, max_runners, max_repositories, is_active)
 		VALUES ('pro', 'Pro Plan', 1000, 500, 20, 5, 50, 1)`)
 
 	// Create subscription with free plan
@@ -285,7 +285,7 @@ func TestRecordUsage(t *testing.T) {
 	seedTestPlan(t, db)
 	service.CreateSubscription(ctx, 1, "free")
 
-	err := service.RecordUsage(ctx, 1, "session_minutes", 5.0, billing.UsageMetadata{})
+	err := service.RecordUsage(ctx, 1, "pod_minutes", 5.0, billing.UsageMetadata{})
 	if err != nil {
 		t.Fatalf("failed to record usage: %v", err)
 	}
@@ -300,10 +300,10 @@ func TestGetUsage(t *testing.T) {
 	seedTestPlan(t, db)
 	service.CreateSubscription(ctx, 1, "free")
 
-	service.RecordUsage(ctx, 1, "session_minutes", 5.0, billing.UsageMetadata{})
-	service.RecordUsage(ctx, 1, "session_minutes", 3.0, billing.UsageMetadata{})
+	service.RecordUsage(ctx, 1, "pod_minutes", 5.0, billing.UsageMetadata{})
+	service.RecordUsage(ctx, 1, "pod_minutes", 3.0, billing.UsageMetadata{})
 
-	usage, err := service.GetUsage(ctx, 1, "session_minutes")
+	usage, err := service.GetUsage(ctx, 1, "pod_minutes")
 	if err != nil {
 		t.Fatalf("failed to get usage: %v", err)
 	}
@@ -321,9 +321,9 @@ func TestGetUsageHistory(t *testing.T) {
 	seedTestPlan(t, db)
 	service.CreateSubscription(ctx, 1, "free")
 
-	service.RecordUsage(ctx, 1, "session_minutes", 5.0, billing.UsageMetadata{})
+	service.RecordUsage(ctx, 1, "pod_minutes", 5.0, billing.UsageMetadata{})
 
-	records, err := service.GetUsageHistory(ctx, 1, "session_minutes", 10)
+	records, err := service.GetUsageHistory(ctx, 1, "pod_minutes", 10)
 	if err != nil {
 		t.Fatalf("failed to get usage history: %v", err)
 	}

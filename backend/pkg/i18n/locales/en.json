@@ -97,8 +97,8 @@
     "status_online": "Online",
     "status_offline": "Offline",
     "status_maintenance": "Maintenance",
-    "current_sessions": "Current Sessions",
-    "max_sessions": "Max Sessions",
+    "current_pods": "Current Pods",
+    "max_pods": "Max Pods",
     "last_heartbeat": "Last Heartbeat",
     "host_info": "Host Info",
     "registration_token": "Registration Token",
@@ -107,12 +107,14 @@
     "runner_registered": "Runner registered successfully",
     "runner_deleted": "Runner deleted successfully"
   },
-  "session": {
-    "session": "Session",
-    "sessions": "Sessions",
-    "create_session": "Create Session",
-    "terminate_session": "Terminate Session",
-    "session_status": "Status",
+  "pod": {
+    "pod": "Pod",
+    "pods": "Pods",
+    "agentpod": "AgentPod",
+    "agentpods": "AgentPods",
+    "create_pod": "Create Pod",
+    "terminate_pod": "Terminate Pod",
+    "pod_status": "Status",
     "status_initializing": "Initializing",
     "status_running": "Running",
     "status_paused": "Paused",
@@ -121,8 +123,8 @@
     "agent_type": "Agent Type",
     "initial_prompt": "Initial Prompt",
     "branch_name": "Branch Name",
-    "session_created": "Session created successfully",
-    "session_terminated": "Session terminated successfully"
+    "pod_created": "Pod created successfully",
+    "pod_terminated": "Pod terminated successfully"
   },
   "channel": {
     "channel": "Channel",
@@ -198,7 +200,7 @@
     "upgrade": "Upgrade",
     "downgrade": "Downgrade",
     "usage": "Usage",
-    "session_minutes": "Session Minutes",
+    "pod_minutes": "Pod Minutes",
     "seats": "Seats",
     "invoices": "Invoices",
     "payment_method": "Payment Method"

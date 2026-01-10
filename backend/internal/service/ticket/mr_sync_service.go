@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/infra/git"
 	"gorm.io/gorm"
@@ -51,7 +51,7 @@ type MRData struct {
 }
 
 // FindOrCreateMR finds or creates an MR record from git provider data
-func (s *MRSyncService) FindOrCreateMR(ctx context.Context, orgID int64, t *ticket.Ticket, mrData *MRData, sessionID *int64) (*ticket.MergeRequest, error) {
+func (s *MRSyncService) FindOrCreateMR(ctx context.Context, orgID int64, t *ticket.Ticket, mrData *MRData, podID *int64) (*ticket.MergeRequest, error) {
 	if mrData.WebURL == "" {
 		return nil, errors.New("MR data must contain web URL")
 	}
@@ -65,8 +65,8 @@ func (s *MRSyncService) FindOrCreateMR(ctx context.Context, orgID int64, t *tick
 	if err == nil {
 		// Update existing record
 		s.updateMRFromData(&existing, mrData)
-		if sessionID != nil && existing.SessionID == nil {
-			existing.SessionID = sessionID
+		if podID != nil && existing.PodID == nil {
+			existing.PodID = podID
 		}
 		if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func (s *MRSyncService) FindOrCreateMR(ctx context.Context, orgID int64, t *tick
 	mr := &ticket.MergeRequest{
 		OrganizationID: orgID,
 		TicketID:       t.ID,
-		SessionID:      sessionID,
+		PodID:          podID,
 		MRIID:          mrData.IID,
 		MRURL:          mrData.WebURL,
 		SourceBranch:   mrData.SourceBranch,
@@ -105,9 +105,9 @@ func (s *MRSyncService) FindOrCreateMR(ctx context.Context, orgID int64, t *tick
 	return mr, nil
 }
 
-// CheckSessionForNewMR checks if a session's branch has an MR
-func (s *MRSyncService) CheckSessionForNewMR(ctx context.Context, sess *session.Session) (*ticket.MergeRequest, error) {
-	if sess.BranchName == nil || sess.TicketID == nil {
+// CheckPodForNewMR checks if a pod's branch has an MR
+func (s *MRSyncService) CheckPodForNewMR(ctx context.Context, pod *agentpod.Pod) (*ticket.MergeRequest, error) {
+	if pod.BranchName == nil || pod.TicketID == nil {
 		return nil, nil
 	}
 
@@ -119,7 +119,7 @@ func (s *MRSyncService) CheckSessionForNewMR(ctx context.Context, sess *session.
 	var t ticket.Ticket
 	if err := s.db.WithContext(ctx).
 		Preload("Repository").
-		First(&t, *sess.TicketID).Error; err != nil {
+		First(&t, *pod.TicketID).Error; err != nil {
 		return nil, err
 	}
 
@@ -140,7 +140,7 @@ func (s *MRSyncService) CheckSessionForNewMR(ctx context.Context, sess *session.
 	}
 
 	// Fetch MRs from git provider
-	mrs, err := s.gitProvider.ListMergeRequestsByBranch(ctx, repo.ExternalID, *sess.BranchName, "all")
+	mrs, err := s.gitProvider.ListMergeRequestsByBranch(ctx, repo.ExternalID, *pod.BranchName, "all")
 	if err != nil {
 		return nil, err
 	}
@@ -153,39 +153,39 @@ func (s *MRSyncService) CheckSessionForNewMR(ctx context.Context, sess *session.
 	mr := mrs[0]
 	mrData := s.buildMRData(mr)
 
-	return s.FindOrCreateMR(ctx, sess.OrganizationID, &t, mrData, &sess.ID)
+	return s.FindOrCreateMR(ctx, pod.OrganizationID, &t, mrData, &pod.ID)
 }
 
-// BatchCheckSessions checks active sessions for new MRs
-func (s *MRSyncService) BatchCheckSessions(ctx context.Context) ([]*ticket.MergeRequest, error) {
+// BatchCheckPods checks active pods for new MRs
+func (s *MRSyncService) BatchCheckPods(ctx context.Context) ([]*ticket.MergeRequest, error) {
 	if s.gitProvider == nil {
 		return nil, ErrNoGitProvider
 	}
 
-	// Find sessions with branch but no MR record
-	var sessions []*session.Session
+	// Find pods with branch but no MR record
+	var pods []*agentpod.Pod
 	subquery := s.db.WithContext(ctx).
 		Table("ticket_merge_requests").
-		Select("session_id").
-		Where("session_id IS NOT NULL")
+		Select("pod_id").
+		Where("pod_id IS NOT NULL")
 
 	err := s.db.WithContext(ctx).
 		Where("branch_name IS NOT NULL").
 		Where("ticket_id IS NOT NULL").
 		Where("id NOT IN (?)", subquery).
 		Where("status IN ?", []string{
-			session.SessionStatusRunning,
-			session.SessionStatusDisconnected,
+			agentpod.PodStatusRunning,
+			agentpod.PodStatusDisconnected,
 		}).
-		Find(&sessions).Error
+		Find(&pods).Error
 
 	if err != nil {
 		return nil, err
 	}
 
 	var newMRs []*ticket.MergeRequest
-	for _, sess := range sessions {
-		mr, err := s.CheckSessionForNewMR(ctx, sess)
+	for _, pod := range pods {
+		mr, err := s.CheckPodForNewMR(ctx, pod)
 		if err != nil {
 			continue // Log and continue
 		}
@@ -263,11 +263,11 @@ func (s *MRSyncService) GetTicketMRs(ctx context.Context, ticketID int64) ([]*ti
 	return mrs, nil
 }
 
-// GetSessionMRs returns all MRs for a session
-func (s *MRSyncService) GetSessionMRs(ctx context.Context, sessionID int64) ([]*ticket.MergeRequest, error) {
+// GetPodMRs returns all MRs for a pod
+func (s *MRSyncService) GetPodMRs(ctx context.Context, podID int64) ([]*ticket.MergeRequest, error) {
 	var mrs []*ticket.MergeRequest
 	if err := s.db.WithContext(ctx).
-		Where("session_id = ?", sessionID).
+		Where("pod_id = ?", podID).
 		Order("created_at DESC").
 		Find(&mrs).Error; err != nil {
 		return nil, err

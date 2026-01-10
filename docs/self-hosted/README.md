@@ -135,7 +135,7 @@ oauth:
 
 ## Runner Setup
 
-Runners are self-hosted agents that execute AI sessions. Each organization deploys their own runners.
+Runners are self-hosted agents that execute AI pods. Each organization deploys their own runners.
 
 ### Installing a Runner
 
@@ -178,7 +178,7 @@ services:
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
       - BACKEND_URL=${BACKEND_URL}
       - NODE_ID=${HOSTNAME}
-      - MAX_CONCURRENT_SESSIONS=5
+      - MAX_CONCURRENT_PODS=5
       - WORKSPACE_BASE=/workspaces
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -323,7 +323,7 @@ monitoring:
     enabled: true
     dashboards:
       - agentmesh-overview
-      - agentmesh-sessions
+      - agentmesh-pods
 ```
 
 ### Log Aggregation

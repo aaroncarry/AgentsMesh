@@ -221,13 +221,13 @@ func TestServerConnectionReadLoop(t *testing.T) {
 	conn.conn = mockConn
 	conn.SetHandler(handler)
 
-	// Send a create session message
-	reqData, _ := json.Marshal(CreateSessionRequest{
-		SessionID:      "test-session",
+	// Send a create pod message
+	reqData, _ := json.Marshal(CreatePodRequest{
+		PodKey:         "test-pod",
 		InitialCommand: "claude-code",
 	})
 	msg := ProtocolMessage{
-		Type: MsgTypeCreateSession,
+		Type: MsgTypeCreatePod,
 		Data: reqData,
 	}
 	msgBytes, _ := json.Marshal(msg)
@@ -250,16 +250,16 @@ func TestServerConnectionReadLoop(t *testing.T) {
 
 	// Handler should have been called
 	handler.mu.Lock()
-	called := handler.createSessionCalled
-	sessionID := handler.lastCreateReq.SessionID
+	called := handler.createPodCalled
+	podKey := handler.lastCreateReq.PodKey
 	handler.mu.Unlock()
 
 	if !called {
-		t.Error("OnCreateSession should have been called")
+		t.Error("OnCreatePod should have been called")
 	}
 
-	if sessionID != "test-session" {
-		t.Errorf("SessionID: got %v, want test-session", sessionID)
+	if podKey != "test-pod" {
+		t.Errorf("PodKey: got %v, want test-pod", podKey)
 	}
 }
 
@@ -290,11 +290,11 @@ func TestServerConnectionReadLoopInvalidJSON(t *testing.T) {
 
 	// Handler should not have been called
 	handler.mu.Lock()
-	called := handler.createSessionCalled
+	called := handler.createPodCalled
 	handler.mu.Unlock()
 
 	if called {
-		t.Error("OnCreateSession should not have been called for invalid JSON")
+		t.Error("OnCreatePod should not have been called for invalid JSON")
 	}
 }
 
@@ -419,8 +419,8 @@ func TestServerConnectionWriteLoopNilConnection(t *testing.T) {
 func TestServerConnectionHeartbeatLoop(t *testing.T) {
 	mockConn := newMockWebSocketConnWithControl()
 	handler := &mockHandler{
-		sessions: []SessionInfo{
-			{SessionID: "session-1", Status: "running"},
+		pods: []PodInfo{
+			{PodKey: "pod-1", Status: "running"},
 		},
 	}
 
@@ -485,8 +485,8 @@ func TestServerConnectionHeartbeatLoopStopChannel(t *testing.T) {
 
 func TestServerConnectionSendHeartbeat(t *testing.T) {
 	handler := &mockHandler{
-		sessions: []SessionInfo{
-			{SessionID: "session-1", Status: "running", Pid: 12345},
+		pods: []PodInfo{
+			{PodKey: "pod-1", Status: "running", Pid: 12345},
 		},
 	}
 
@@ -511,8 +511,8 @@ func TestServerConnectionSendHeartbeat(t *testing.T) {
 			t.Errorf("NodeID: got %v, want test-node", data.NodeID)
 		}
 
-		if len(data.Sessions) != 1 {
-			t.Errorf("Sessions length: got %v, want 1", len(data.Sessions))
+		if len(data.Pods) != 1 {
+			t.Errorf("Pods length: got %v, want 1", len(data.Pods))
 		}
 	default:
 		t.Error("expected heartbeat message in sendCh")
@@ -534,9 +534,9 @@ func TestServerConnectionSendHeartbeatNilHandler(t *testing.T) {
 			t.Fatalf("failed to unmarshal heartbeat data: %v", err)
 		}
 
-		// Sessions should be nil when handler is nil
-		if data.Sessions != nil {
-			t.Errorf("Sessions should be nil, got %v", data.Sessions)
+		// Pods should be nil when handler is nil
+		if data.Pods != nil {
+			t.Errorf("Pods should be nil, got %v", data.Pods)
 		}
 	default:
 		t.Error("expected heartbeat message")
@@ -652,8 +652,8 @@ func TestServerConnectionIntegration(t *testing.T) {
 	mockConn := newMockWebSocketConnWithControl()
 	mockDialer := &mockWebSocketDialerWithControl{conn: mockConn}
 	handler := &mockHandler{
-		sessions: []SessionInfo{
-			{SessionID: "session-1", Status: "running"},
+		pods: []PodInfo{
+			{PodKey: "pod-1", Status: "running"},
 		},
 	}
 
@@ -694,20 +694,20 @@ func TestServerConnectionMultipleMessageTypes(t *testing.T) {
 	// Queue multiple messages
 	messages := []ProtocolMessage{
 		{
-			Type: MsgTypeCreateSession,
-			Data: mustMarshal(CreateSessionRequest{SessionID: "session-1"}),
+			Type: MsgTypeCreatePod,
+			Data: mustMarshal(CreatePodRequest{PodKey: "pod-1"}),
 		},
 		{
-			Type: MsgTypeTerminateSession,
-			Data: mustMarshal(TerminateSessionRequest{SessionID: "session-1"}),
+			Type: MsgTypeTerminatePod,
+			Data: mustMarshal(TerminatePodRequest{PodKey: "pod-1"}),
 		},
 		{
 			Type: MsgTypeTerminalInput,
-			Data: mustMarshal(TerminalInputRequest{SessionID: "session-1", Data: "test"}),
+			Data: mustMarshal(TerminalInputRequest{PodKey: "pod-1", Data: "test"}),
 		},
 		{
 			Type: MsgTypeTerminalResize,
-			Data: mustMarshal(TerminalResizeRequest{SessionID: "session-1", Cols: 80, Rows: 24}),
+			Data: mustMarshal(TerminalResizeRequest{PodKey: "pod-1", Cols: 80, Rows: 24}),
 		},
 	}
 
@@ -730,11 +730,11 @@ func TestServerConnectionMultipleMessageTypes(t *testing.T) {
 	handler.mu.Lock()
 	defer handler.mu.Unlock()
 
-	if !handler.createSessionCalled {
-		t.Error("OnCreateSession should have been called")
+	if !handler.createPodCalled {
+		t.Error("OnCreatePod should have been called")
 	}
-	if !handler.terminateSessionCalled {
-		t.Error("OnTerminateSession should have been called")
+	if !handler.terminatePodCalled {
+		t.Error("OnTerminatePod should have been called")
 	}
 	if !handler.terminalInputCalled {
 		t.Error("OnTerminalInput should have been called")

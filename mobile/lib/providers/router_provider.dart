@@ -7,8 +7,8 @@ import 'package:agentmesh/screens/auth/register_screen.dart';
 import 'package:agentmesh/screens/home/home_screen.dart';
 import 'package:agentmesh/screens/tickets/ticket_list_screen.dart';
 import 'package:agentmesh/screens/tickets/ticket_detail_screen.dart';
-import 'package:agentmesh/screens/sessions/session_list_screen.dart';
-import 'package:agentmesh/screens/sessions/session_detail_screen.dart';
+import 'package:agentmesh/screens/pods/pod_list_screen.dart';
+import 'package:agentmesh/screens/pods/pod_detail_screen.dart';
 import 'package:agentmesh/screens/settings/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -77,16 +77,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
-            path: '/sessions',
-            name: 'sessions',
-            builder: (context, state) => const SessionListScreen(),
+            path: '/pods',
+            name: 'pods',
+            builder: (context, state) => const PodListScreen(),
             routes: [
               GoRoute(
                 path: ':key',
-                name: 'session-detail',
+                name: 'pod-detail',
                 builder: (context, state) {
                   final key = state.pathParameters['key']!;
-                  return SessionDetailScreen(sessionKey: key);
+                  return PodDetailScreen(podKey: key);
                 },
               ),
             ],
@@ -126,7 +126,7 @@ class MainBottomNav extends ConsumerWidget {
     int currentIndex = 0;
     if (location.startsWith('/tickets')) {
       currentIndex = 1;
-    } else if (location.startsWith('/sessions')) {
+    } else if (location.startsWith('/pods')) {
       currentIndex = 2;
     } else if (location.startsWith('/settings')) {
       currentIndex = 3;
@@ -143,7 +143,7 @@ class MainBottomNav extends ConsumerWidget {
             context.go('/tickets');
             break;
           case 2:
-            context.go('/sessions');
+            context.go('/pods');
             break;
           case 3:
             context.go('/settings');
@@ -164,7 +164,7 @@ class MainBottomNav extends ConsumerWidget {
         NavigationDestination(
           icon: Icon(Icons.terminal_outlined),
           selectedIcon: Icon(Icons.terminal),
-          label: 'Sessions',
+          label: 'Pods',
         ),
         NavigationDestination(
           icon: Icon(Icons.settings_outlined),

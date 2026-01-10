@@ -51,7 +51,7 @@ export default function DashboardLayout({
   const orgSlug = currentOrg?.slug || "";
 
   const navItems = [
-    { href: `/${orgSlug}/devpod`, label: "DevPod", icon: "terminal" },
+    { href: `/${orgSlug}/agentpod`, label: "AgentPod", icon: "terminal" },
     { href: `/${orgSlug}/repositories`, label: "Repositories", icon: "repository" },
     { href: `/${orgSlug}/mesh`, label: "AgentMesh", icon: "network" },
     { href: `/${orgSlug}/tickets`, label: "Tickets", icon: "ticket" },
@@ -128,7 +128,7 @@ export default function DashboardLayout({
                         pathParts[1] = org.slug;
                         router.push(pathParts.join('/'));
                       } else {
-                        router.push(`/${org.slug}/devpod`);
+                        router.push(`/${org.slug}/agentpod`);
                       }
                     }}
                   >

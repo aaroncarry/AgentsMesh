@@ -84,7 +84,7 @@ func TestPTYForwarderReadLoopWithNilSession(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil, // nil session
-		SessionKey: "nil-session-test",
+		PodKey: "nil-pod-test",
 		Handler:    handler,
 	}
 
@@ -112,7 +112,7 @@ func TestPTYForwarderMultipleFlushes(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       nil,
-		SessionKey:    "multi-flush-test",
+		PodKey:    "multi-flush-test",
 		Handler:       handler,
 		FlushInterval: 5 * time.Millisecond,
 	}
@@ -145,7 +145,7 @@ func TestPTYForwarderBackpressureStates(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "bp-states-test",
+		PodKey:       "bp-states-test",
 		Handler:          handler,
 		BackpressureWait: 1 * time.Millisecond,
 	}
@@ -186,7 +186,7 @@ func TestPTYForwarderBufferGrowth(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "buffer-growth-test",
+		PodKey: "buffer-growth-test",
 		Handler:    handler,
 		BufferSize: 10240, // 10KB buffer
 	}
@@ -226,7 +226,7 @@ func TestPTYForwarderFlushLoopTiming(t *testing.T) {
 	flushInterval := 10 * time.Millisecond
 	cfg := &PTYForwarderConfig{
 		Session:       nil,
-		SessionKey:    "flush-timing-test",
+		PodKey:    "flush-timing-test",
 		Handler:       handler,
 		FlushInterval: flushInterval,
 	}
@@ -258,7 +258,7 @@ func TestPTYForwarderHandlerBackpressureSignal(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "handler-bp-signal-test",
+		PodKey:       "handler-bp-signal-test",
 		Handler:          handler,
 		BackpressureWait: 1 * time.Millisecond,
 	}
@@ -281,7 +281,7 @@ func TestPTYForwarderConcurrentOperations(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       nil,
-		SessionKey:    "concurrent-ops-test",
+		PodKey:    "concurrent-ops-test",
 		Handler:       handler,
 		BufferSize:    65536,
 		FlushInterval: 5 * time.Millisecond,
@@ -340,7 +340,7 @@ func TestPTYForwarderWithRealTerminal(t *testing.T) {
 
 	// Create a real terminal session that echoes something
 	sessionCfg := &terminal.SessionConfig{
-		ID:         "test-session",
+		ID:         "test-pod",
 		Command:    "/bin/echo",
 		Args:       []string{"hello world"},
 		WorkingDir: "/tmp",
@@ -357,7 +357,7 @@ func TestPTYForwarderWithRealTerminal(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       session,
-		SessionKey:    "real-terminal-test",
+		PodKey:    "real-terminal-test",
 		Handler:       handler,
 		FlushInterval: 10 * time.Millisecond,
 	}
@@ -400,7 +400,7 @@ func TestPTYForwarderWithLongRunningTerminal(t *testing.T) {
 
 	// Create a terminal session that produces output over time
 	sessionCfg := &terminal.SessionConfig{
-		ID:         "long-running-session",
+		ID:         "long-running-pod",
 		Command:    "/bin/sh",
 		Args:       []string{"-c", "for i in 1 2 3; do echo line$i; sleep 0.01; done"},
 		WorkingDir: "/tmp",
@@ -417,7 +417,7 @@ func TestPTYForwarderWithLongRunningTerminal(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       session,
-		SessionKey:    "long-running-test",
+		PodKey:    "long-running-test",
 		Handler:       handler,
 		FlushInterval: 5 * time.Millisecond,
 		BufferSize:    1024,
@@ -448,7 +448,7 @@ func BenchmarkPTYForwarderBufferAndFlushV2(b *testing.B) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "bench-buf-flush-v2",
+		PodKey: "bench-buf-flush-v2",
 		Handler:    handler,
 		BufferSize: 64 * 1024,
 	}
@@ -470,7 +470,7 @@ func BenchmarkPTYForwarderBackpressureToggle(b *testing.B) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "bench-bp-toggle",
+		PodKey: "bench-bp-toggle",
 		Handler:    handler,
 	}
 

@@ -246,12 +246,12 @@ export const ticketApi = {
       method: "DELETE",
     }),
 
-  // Sessions (DevMesh integration)
-  getSessions: (identifier: string, activeOnly?: boolean) => {
+  // Pods (DevMesh integration)
+  getPods: (identifier: string, activeOnly?: boolean) => {
     const params = activeOnly ? "?active=true" : "";
     return request<{
-      sessions: Array<{
-        session_key: string;
+      pods: Array<{
+        pod_key: string;
         status: string;
         agent_status: string;
         model?: string;
@@ -259,10 +259,10 @@ export const ticketApi = {
         runner_id: number;
         created_by_id: number;
       }>;
-    }>(`/api/v1/org/tickets/${identifier}/sessions${params}`);
+    }>(`/api/v1/org/tickets/${identifier}/pods${params}`);
   },
 
-  createSession: (identifier: string, data: {
+  createPod: (identifier: string, data: {
     runner_id: number;
     initial_prompt?: string;
     model?: string;
@@ -271,24 +271,24 @@ export const ticketApi = {
   }) =>
     request<{
       message: string;
-      session: {
-        session_key: string;
+      pod: {
+        pod_key: string;
         status: string;
       };
-    }>(`/api/v1/org/tickets/${identifier}/sessions`, {
+    }>(`/api/v1/org/tickets/${identifier}/pods`, {
       method: "POST",
       body: data,
     }),
 
-  // Batch sessions
-  batchGetSessions: (ticketIds: number[]) =>
+  // Batch pods
+  batchGetPods: (ticketIds: number[]) =>
     request<{
-      ticket_sessions: Record<number, Array<{
-        session_key: string;
+      ticket_pods: Record<number, Array<{
+        pod_key: string;
         status: string;
         agent_status: string;
       }>>;
-    }>("/api/v1/org/tickets/batch-sessions", {
+    }>("/api/v1/org/tickets/batch-pods", {
       method: "POST",
       body: { ticket_ids: ticketIds },
     }),

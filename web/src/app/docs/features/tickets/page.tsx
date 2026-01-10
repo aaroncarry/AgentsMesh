@@ -5,7 +5,7 @@ export default function TicketsPage() {
 
       <p className="text-muted-foreground leading-relaxed mb-8">
         Integrated task management with Kanban board view. Create tickets,
-        assign them to AI sessions, and track progress through your workflow.
+        assign them to AgentPods, and track progress through your workflow.
       </p>
 
       {/* Overview */}
@@ -17,7 +17,7 @@ export default function TicketsPage() {
         </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>Kanban board visualization</li>
-          <li>Ticket ↔ Session linking for context</li>
+          <li>Ticket ↔ Pod linking for context</li>
           <li>Git commit and merge request associations</li>
           <li>Priority and estimation tracking</li>
           <li>Labels and assignees</li>
@@ -144,11 +144,11 @@ export default function TicketsPage() {
         </div>
       </section>
 
-      {/* Session Integration */}
+      {/* Pod Integration */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Session Integration</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pod Integration</h2>
         <p className="text-muted-foreground leading-relaxed mb-4">
-          Link tickets to DevPod sessions to:
+          Link tickets to AgentPods to:
         </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>
@@ -156,15 +156,15 @@ export default function TicketsPage() {
             details as initial context
           </li>
           <li>
-            <strong>Track progress</strong> - See which sessions are working on
+            <strong>Track progress</strong> - See which Pods are working on
             which tickets
           </li>
           <li>
-            <strong>Auto-update</strong> - Session completion can update ticket
+            <strong>Auto-update</strong> - Pod completion can update ticket
             status
           </li>
           <li>
-            <strong>View history</strong> - See all sessions that worked on a
+            <strong>View history</strong> - See all Pods that worked on a
             ticket
           </li>
         </ul>

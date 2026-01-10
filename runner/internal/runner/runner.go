@@ -22,11 +22,11 @@ type Runner struct {
 	cfg       *config.Config
 	conn      client.Connection         // New unified connection interface
 	workspace *workspace.Manager
-	sessions  map[string]*Session
+	pods      map[string]*Pod
 	mu        sync.RWMutex
 
-	// Session management
-	sessionStore   SessionStore           // Session state management
+	// Pod management
+	podStore       PodStore               // Pod state management
 	messageHandler *RunnerMessageHandler  // Message handler implementing client.MessageHandler
 
 	// Enhanced components
@@ -42,10 +42,10 @@ type Runner struct {
 	stopChan chan struct{}
 }
 
-// Session represents an active terminal session
-type Session struct {
+// Pod represents an active terminal pod
+type Pod struct {
 	ID               string
-	SessionKey       string
+	PodKey           string
 	AgentType        string
 	RepositoryURL    string
 	Branch           string
@@ -54,18 +54,18 @@ type Session struct {
 	Terminal         *terminal.Terminal
 	StartedAt        time.Time
 	Status           string
-	TicketIdentifier string              // Ticket ID for worktree-based sessions
+	TicketIdentifier string              // Ticket ID for worktree-based pods
 	OnOutput         func([]byte)        // Output callback
 	OnExit           func(int)           // Exit callback
 	Forwarder        *PTYForwarder       // Output forwarder with backpressure
 }
 
-// SessionStatus constants
+// PodStatus constants
 const (
-	SessionStatusInitializing = "initializing"
-	SessionStatusRunning      = "running"
-	SessionStatusStopped      = "stopped"
-	SessionStatusFailed       = "failed"
+	PodStatusInitializing = "initializing"
+	PodStatusRunning      = "running"
+	PodStatusStopped      = "stopped"
+	PodStatusFailed       = "failed"
 )
 
 // New creates a new runner instance
@@ -87,20 +87,20 @@ func New(cfg *config.Config) (*Runner, error) {
 	// Create new ServerConnection
 	conn := client.NewServerConnection(wsURL, cfg.NodeID, cfg.AuthToken)
 
-	// Create session store
-	sessionStore := NewInMemorySessionStore()
+	// Create pod store
+	podStore := NewInMemoryPodStore()
 
 	r := &Runner{
-		cfg:          cfg,
-		conn:         conn,
-		workspace:    ws,
-		sessions:     make(map[string]*Session),
-		sessionStore: sessionStore,
-		stopChan:     make(chan struct{}),
+		cfg:      cfg,
+		conn:     conn,
+		workspace: ws,
+		pods:     make(map[string]*Pod),
+		podStore: podStore,
+		stopChan: make(chan struct{}),
 	}
 
 	// Create message handler and set it on connection
-	r.messageHandler = NewRunnerMessageHandler(r, sessionStore, conn)
+	r.messageHandler = NewRunnerMessageHandler(r, podStore, conn)
 	conn.SetHandler(r.messageHandler)
 
 	// Initialize optional enhanced components
@@ -125,7 +125,7 @@ func buildWebSocketURL(serverURL string) string {
 func (r *Runner) WithConnection(conn client.Connection) *Runner {
 	r.conn = conn
 	// Re-create message handler with new connection
-	r.messageHandler = NewRunnerMessageHandler(r, r.sessionStore, conn)
+	r.messageHandler = NewRunnerMessageHandler(r, r.podStore, conn)
 	conn.SetHandler(r.messageHandler)
 	return r
 }
@@ -218,8 +218,8 @@ func (r *Runner) Run(ctx context.Context) error {
 	<-ctx.Done()
 	log.Println("Shutting down runner...")
 
-	// Stop all sessions
-	r.stopAllSessions()
+	// Stop all pods
+	r.stopAllPods()
 
 	return nil
 }
@@ -231,7 +231,7 @@ func (r *Runner) register(ctx context.Context) (string, error) {
 		NodeID:            r.cfg.NodeID,
 		RegistrationToken: r.cfg.RegistrationToken,
 		Description:       r.cfg.Description,
-		MaxSessions:       r.cfg.MaxConcurrentSessions,
+		MaxPods:           r.cfg.MaxConcurrentPods,
 	}
 	resp, err := client.Register(ctx, req)
 	if err != nil {
@@ -240,9 +240,9 @@ func (r *Runner) register(ctx context.Context) (string, error) {
 	return resp.AuthToken, nil
 }
 
-// SessionStartPayload represents the payload for session start
-type SessionStartPayload struct {
-	SessionKey       string            `json:"session_key"`
+// PodStartPayload represents the payload for pod start
+type PodStartPayload struct {
+	PodKey           string            `json:"pod_key"`
 	AgentType        string            `json:"agent_type"`
 	LaunchCommand    string            `json:"launch_command"`
 	LaunchArgs       []string          `json:"launch_args"`
@@ -261,9 +261,9 @@ type SessionStartPayload struct {
 	PluginConfig map[string]interface{} `json:"plugin_config,omitempty"`
 }
 
-// ToPluginConfig converts SessionStartPayload to a plugin config map.
+// ToPluginConfig converts PodStartPayload to a plugin config map.
 // This merges explicit fields with any PluginConfig values.
-func (p *SessionStartPayload) ToPluginConfig() map[string]interface{} {
+func (p *PodStartPayload) ToPluginConfig() map[string]interface{} {
 	config := make(map[string]interface{})
 
 	// Copy explicit fields
@@ -298,31 +298,31 @@ func (p *SessionStartPayload) ToPluginConfig() map[string]interface{} {
 	return config
 }
 
-// SessionStopPayload represents the payload for session stop (legacy, kept for session_handler.go)
-type SessionStopPayload struct {
-	SessionKey string `json:"session_key"`
+// PodStopPayload represents the payload for pod stop
+type PodStopPayload struct {
+	PodKey string `json:"pod_key"`
 }
 
-// TerminalInputPayload represents terminal input (legacy, kept for session_handler.go)
+// TerminalInputPayload represents terminal input
 type TerminalInputPayload struct {
-	SessionKey string `json:"session_key"`
-	Data       []byte `json:"data"`
+	PodKey string `json:"pod_key"`
+	Data   []byte `json:"data"`
 }
 
-// TerminalResizePayload represents terminal resize (legacy, kept for session_handler.go)
+// TerminalResizePayload represents terminal resize
 type TerminalResizePayload struct {
-	SessionKey string `json:"session_key"`
-	Rows       int    `json:"rows"`
-	Cols       int    `json:"cols"`
+	PodKey string `json:"pod_key"`
+	Rows   int    `json:"rows"`
+	Cols   int    `json:"cols"`
 }
 
-// stopAllSessions stops all active sessions
-func (r *Runner) stopAllSessions() {
-	sessions := r.sessionStore.All()
-	for _, session := range sessions {
-		if session.Terminal != nil {
-			session.Terminal.Stop()
+// stopAllPods stops all active pods
+func (r *Runner) stopAllPods() {
+	pods := r.podStore.All()
+	for _, pod := range pods {
+		if pod.Terminal != nil {
+			pod.Terminal.Stop()
 		}
-		r.sessionStore.Delete(session.SessionKey)
+		r.podStore.Delete(pod.PodKey)
 	}
 }

@@ -12,9 +12,9 @@ export { userApi } from "./user";
 export { organizationApi } from "./organization";
 export type { OrganizationMember } from "./organization";
 
-// Session
-export { sessionApi } from "./session";
-export type { SessionData } from "./session";
+// Pod
+export { podApi } from "./pod";
+export type { PodData } from "./pod";
 
 // Channel
 export { channelApi } from "./channel";
@@ -57,7 +57,7 @@ export type { SSHKeyData } from "./ssh-key";
 
 // Binding
 export { bindingApi } from "./binding";
-export type { SessionBinding } from "./binding";
+export type { PodBinding } from "./binding";
 
 // DevMesh
 export { devmeshApi } from "./devmesh";
@@ -81,16 +81,16 @@ export type {
   Subscription,
 } from "./billing";
 
-// DevPod
-export { devpodApi } from "./devpod";
+// AgentPod
+export { agentpodApi } from "./agentpod";
 export type {
   AIProviderType,
-  UserDevPodSettings,
+  UserAgentPodSettings,
   UserAIProvider,
   UpdateSettingsRequest,
   CreateProviderRequest,
   UpdateProviderRequest,
-} from "./devpod";
+} from "./agentpod";
 
 // Invitation
 export { invitationApi } from "./invitation";

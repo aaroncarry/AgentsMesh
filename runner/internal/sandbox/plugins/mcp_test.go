@@ -66,7 +66,7 @@ func TestMCPPluginSetup(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewMCPPlugin(9999)
-	sb := sandbox.NewSandbox("test-session-123", tmpDir)
+	sb := sandbox.NewSandbox("test-pod-123", tmpDir)
 	ctx := context.Background()
 
 	if err := p.Setup(ctx, sb, nil); err != nil {
@@ -105,8 +105,8 @@ func TestMCPPluginSetup(t *testing.T) {
 		t.Errorf("URL = %q, want %q", server.URL, expectedURL)
 	}
 
-	if server.Headers["X-Session-Key"] != "test-session-123" {
-		t.Errorf("X-Session-Key = %q, want %q", server.Headers["X-Session-Key"], "test-session-123")
+	if server.Headers["X-Pod-Key"] != "test-pod-123" {
+		t.Errorf("X-Pod-Key = %q, want %q", server.Headers["X-Pod-Key"], "test-pod-123")
 	}
 
 	// Verify LaunchArgs
@@ -137,7 +137,7 @@ func TestMCPPluginSetupConfigFormat(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewMCPPlugin(19000)
-	sb := sandbox.NewSandbox("my-session", tmpDir)
+	sb := sandbox.NewSandbox("my-pod", tmpDir)
 	ctx := context.Background()
 
 	if err := p.Setup(ctx, sb, nil); err != nil {
@@ -179,14 +179,14 @@ func TestMCPPluginSetupConfigFormat(t *testing.T) {
 	if !ok {
 		t.Fatal("headers not found")
 	}
-	if headers["X-Session-Key"] != "my-session" {
-		t.Errorf("X-Session-Key = %v, want my-session", headers["X-Session-Key"])
+	if headers["X-Pod-Key"] != "my-pod" {
+		t.Errorf("X-Pod-Key = %v, want my-pod", headers["X-Pod-Key"])
 	}
 }
 
 func TestMCPPluginTeardown(t *testing.T) {
 	p := NewMCPPlugin(19000)
-	sb := sandbox.NewSandbox("test-session", "/tmp/sandbox")
+	sb := sandbox.NewSandbox("test-pod", "/tmp/sandbox")
 
 	// Teardown should not error
 	if err := p.Teardown(sb); err != nil {
@@ -228,7 +228,7 @@ func TestMCPPluginSetupWriteError(t *testing.T) {
 	// Test error case when config file cannot be written
 	p := NewMCPPlugin(19000)
 	// Use a path that doesn't exist and can't be created
-	sb := sandbox.NewSandbox("test-session", "/nonexistent/path/that/cannot/be/written")
+	sb := sandbox.NewSandbox("test-pod", "/nonexistent/path/that/cannot/be/written")
 	ctx := context.Background()
 
 	// Setup should fail when writing config file

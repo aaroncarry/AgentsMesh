@@ -1,5 +1,5 @@
 // Deprecated: The Preparer functionality has been moved to sandbox/plugins/initscript.go.
-// This file is kept for backward compatibility with legacy session_builder code.
+// This file is kept for backward compatibility with legacy pod_builder code.
 package workspace
 
 import (
@@ -20,13 +20,13 @@ type PreparationStep interface {
 	Name() string
 
 	// Execute runs the preparation step.
-	// Returns an error if the step fails, which should abort session creation.
+	// Returns an error if the step fails, which should abort pod creation.
 	Execute(ctx context.Context, prepCtx *PreparationContext) error
 }
 
 // PreparationContext contains all the context needed for workspace preparation.
 type PreparationContext struct {
-	SessionID        string            // Session identifier
+	PodID            string            // Pod identifier
 	TicketIdentifier string            // Ticket identifier (e.g., "TBD-123")
 	BranchName       string            // Git branch name
 	WorkingDir       string            // Actual working directory (may be worktree path)
@@ -66,8 +66,8 @@ func (c *PreparationContext) GetEnvVars() map[string]string {
 // String returns a string representation for logging.
 func (c *PreparationContext) String() string {
 	return fmt.Sprintf(
-		"PreparationContext{SessionID: %s, Ticket: %s, WorkingDir: %s}",
-		c.SessionID, c.TicketIdentifier, c.WorkingDir,
+		"PreparationContext{PodID: %s, Ticket: %s, WorkingDir: %s}",
+		c.PodID, c.TicketIdentifier, c.WorkingDir,
 	)
 }
 
@@ -126,21 +126,21 @@ func (p *Preparer) Prepare(ctx context.Context, prepCtx *PreparationContext) err
 		return nil
 	}
 
-	log.Printf("[workspace] Starting workspace preparation: session_id=%s, step_count=%d",
-		prepCtx.SessionID, len(p.steps))
+	log.Printf("[workspace] Starting workspace preparation: pod_id=%s, step_count=%d",
+		prepCtx.PodID, len(p.steps))
 
 	for i, step := range p.steps {
-		log.Printf("[workspace] Executing preparation step: session_id=%s, step=%s, step_num=%d, total=%d",
-			prepCtx.SessionID, step.Name(), i+1, len(p.steps))
+		log.Printf("[workspace] Executing preparation step: pod_id=%s, step=%s, step_num=%d, total=%d",
+			prepCtx.PodID, step.Name(), i+1, len(p.steps))
 
 		if err := step.Execute(ctx, prepCtx); err != nil {
-			log.Printf("[workspace] Preparation step failed: session_id=%s, step=%s, error=%v",
-				prepCtx.SessionID, step.Name(), err)
+			log.Printf("[workspace] Preparation step failed: pod_id=%s, step=%s, error=%v",
+				prepCtx.PodID, step.Name(), err)
 			return err
 		}
 	}
 
-	log.Printf("[workspace] Workspace preparation completed: session_id=%s", prepCtx.SessionID)
+	log.Printf("[workspace] Workspace preparation completed: pod_id=%s", prepCtx.PodID)
 	return nil
 }
 
@@ -186,8 +186,8 @@ func (s *ScriptPreparationStep) Execute(ctx context.Context, prepCtx *Preparatio
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
-	log.Printf("[workspace] Executing preparation script: session_id=%s, working_dir=%s, timeout=%s",
-		prepCtx.SessionID, prepCtx.WorkingDir, s.timeout.String())
+	log.Printf("[workspace] Executing preparation script: pod_id=%s, working_dir=%s, timeout=%s",
+		prepCtx.PodID, prepCtx.WorkingDir, s.timeout.String())
 
 	// Create command
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", s.script)
@@ -199,8 +199,8 @@ func (s *ScriptPreparationStep) Execute(ctx context.Context, prepCtx *Preparatio
 	outputStr := string(output)
 
 	if err != nil {
-		log.Printf("[workspace] Preparation script failed: session_id=%s, error=%v, output=%s",
-			prepCtx.SessionID, err, outputStr)
+		log.Printf("[workspace] Preparation script failed: pod_id=%s, error=%v, output=%s",
+			prepCtx.PodID, err, outputStr)
 
 		return &PreparationError{
 			Step:   s.Name(),
@@ -209,8 +209,8 @@ func (s *ScriptPreparationStep) Execute(ctx context.Context, prepCtx *Preparatio
 		}
 	}
 
-	log.Printf("[workspace] Preparation script completed: session_id=%s, output_len=%d",
-		prepCtx.SessionID, len(outputStr))
+	log.Printf("[workspace] Preparation script completed: pod_id=%s, output_len=%d",
+		prepCtx.PodID, len(outputStr))
 
 	if outputStr != "" {
 		log.Printf("[workspace] Script output: %s", outputStr)

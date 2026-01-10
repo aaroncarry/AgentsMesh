@@ -9,19 +9,19 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/domain/user"
 )
 
 type ChannelMessage struct {
-	ID          int64            `json:"id"`
-	Content     string           `json:"content"`
-	MessageType string           `json:"messageType"`
-	Metadata    map[string]any   `json:"metadata,omitempty"`
-	CreatedAt   time.Time        `json:"createdAt"`
-	Session     *session.Session `json:"session,omitempty"`
-	User        *user.User       `json:"user,omitempty"`
+	ID          int64          `json:"id"`
+	Content     string         `json:"content"`
+	MessageType string         `json:"messageType"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	Pod         *agentpod.Pod  `json:"pod,omitempty"`
+	User        *user.User     `json:"user,omitempty"`
 }
 
 type CreateChannelInput struct {
@@ -32,7 +32,7 @@ type CreateChannelInput struct {
 	TicketID     *int64  `json:"ticketID,omitempty"`
 }
 
-type CreateSessionInput struct {
+type CreatePodInput struct {
 	RunnerID          int64   `json:"runnerID"`
 	AgentTypeID       *int64  `json:"agentTypeID,omitempty"`
 	CustomAgentTypeID *int64  `json:"customAgentTypeID,omitempty"`
@@ -72,24 +72,24 @@ type PageInfo struct {
 	EndCursor       *string `json:"endCursor,omitempty"`
 }
 
+type PodConnection struct {
+	Edges      []PodEdge `json:"edges"`
+	PageInfo   *PageInfo `json:"pageInfo"`
+	TotalCount int       `json:"totalCount"`
+}
+
+type PodEdge struct {
+	Node   *agentpod.Pod `json:"node"`
+	Cursor string        `json:"cursor"`
+}
+
+type PodFilter struct {
+	RunnerID *int64     `json:"runnerID,omitempty"`
+	Status   *PodStatus `json:"status,omitempty"`
+	TicketID *int64     `json:"ticketID,omitempty"`
+}
+
 type Query struct {
-}
-
-type SessionConnection struct {
-	Edges      []SessionEdge `json:"edges"`
-	PageInfo   *PageInfo     `json:"pageInfo"`
-	TotalCount int           `json:"totalCount"`
-}
-
-type SessionEdge struct {
-	Node   *session.Session `json:"node"`
-	Cursor string           `json:"cursor"`
-}
-
-type SessionFilter struct {
-	RunnerID *int64         `json:"runnerID,omitempty"`
-	Status   *SessionStatus `json:"status,omitempty"`
-	TicketID *int64         `json:"ticketID,omitempty"`
 }
 
 type TicketConnection struct {
@@ -129,6 +129,67 @@ type UpdateTicketInput struct {
 	AssigneeIDs []int64         `json:"assigneeIDs,omitempty"`
 	Labels      []string        `json:"labels,omitempty"`
 	DueDate     *time.Time      `json:"dueDate,omitempty"`
+}
+
+type PodStatus string
+
+const (
+	PodStatusInitializing PodStatus = "INITIALIZING"
+	PodStatusRunning      PodStatus = "RUNNING"
+	PodStatusPaused       PodStatus = "PAUSED"
+	PodStatusTerminated   PodStatus = "TERMINATED"
+	PodStatusFailed       PodStatus = "FAILED"
+)
+
+var AllPodStatus = []PodStatus{
+	PodStatusInitializing,
+	PodStatusRunning,
+	PodStatusPaused,
+	PodStatusTerminated,
+	PodStatusFailed,
+}
+
+func (e PodStatus) IsValid() bool {
+	switch e {
+	case PodStatusInitializing, PodStatusRunning, PodStatusPaused, PodStatusTerminated, PodStatusFailed:
+		return true
+	}
+	return false
+}
+
+func (e PodStatus) String() string {
+	return string(e)
+}
+
+func (e *PodStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PodStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PodStatus", str)
+	}
+	return nil
+}
+
+func (e PodStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PodStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PodStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type RunnerStatus string
@@ -183,67 +244,6 @@ func (e *RunnerStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e RunnerStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type SessionStatus string
-
-const (
-	SessionStatusInitializing SessionStatus = "INITIALIZING"
-	SessionStatusRunning      SessionStatus = "RUNNING"
-	SessionStatusPaused       SessionStatus = "PAUSED"
-	SessionStatusTerminated   SessionStatus = "TERMINATED"
-	SessionStatusFailed       SessionStatus = "FAILED"
-)
-
-var AllSessionStatus = []SessionStatus{
-	SessionStatusInitializing,
-	SessionStatusRunning,
-	SessionStatusPaused,
-	SessionStatusTerminated,
-	SessionStatusFailed,
-}
-
-func (e SessionStatus) IsValid() bool {
-	switch e {
-	case SessionStatusInitializing, SessionStatusRunning, SessionStatusPaused, SessionStatusTerminated, SessionStatusFailed:
-		return true
-	}
-	return false
-}
-
-func (e SessionStatus) String() string {
-	return string(e)
-}
-
-func (e *SessionStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = SessionStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid SessionStatus", str)
-	}
-	return nil
-}
-
-func (e SessionStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *SessionStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e SessionStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

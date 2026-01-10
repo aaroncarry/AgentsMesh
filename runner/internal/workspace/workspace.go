@@ -31,7 +31,7 @@ func NewManager(root, gitConfigPath string) (*Manager, error) {
 }
 
 // CreateWorktree creates a git worktree for a repository
-func (m *Manager) CreateWorktree(ctx context.Context, repoURL, branch, sessionKey string) (string, error) {
+func (m *Manager) CreateWorktree(ctx context.Context, repoURL, branch, podKey string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -50,7 +50,7 @@ func (m *Manager) CreateWorktree(ctx context.Context, repoURL, branch, sessionKe
 	}
 
 	// Worktree path
-	worktreePath := filepath.Join(m.root, "worktrees", sessionKey)
+	worktreePath := filepath.Join(m.root, "worktrees", podKey)
 
 	// Remove existing worktree if it exists
 	if _, err := os.Stat(worktreePath); err == nil {
@@ -88,7 +88,7 @@ func (m *Manager) CreateWorktree(ctx context.Context, repoURL, branch, sessionKe
 
 	// Create worktree
 	// Use a unique branch name to avoid conflicts
-	worktreeBranch := fmt.Sprintf("worktree-%s", sessionKey)
+	worktreeBranch := fmt.Sprintf("worktree-%s", podKey)
 
 	worktreeCmd := exec.CommandContext(ctx, "git", "worktree", "add", "-b", worktreeBranch, worktreePath, fmt.Sprintf("origin/%s", branch))
 	worktreeCmd.Dir = mainRepoPath
@@ -204,8 +204,8 @@ func (m *Manager) findMainRepo(worktreePath string) (string, error) {
 }
 
 // TempWorkspace creates a temporary workspace directory
-func (m *Manager) TempWorkspace(sessionKey string) string {
-	path := filepath.Join(m.root, "temp", sessionKey)
+func (m *Manager) TempWorkspace(podKey string) string {
+	path := filepath.Join(m.root, "temp", podKey)
 	os.MkdirAll(path, 0755)
 	return path
 }

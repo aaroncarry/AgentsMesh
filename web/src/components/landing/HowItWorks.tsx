@@ -33,9 +33,9 @@ claude config set mesh_token \\
   {
     number: "03",
     title: "Start Collaborating",
-    description: "Create sessions, channels, and let multiple agents work together.",
-    code: `# Create a session
-agentmesh session create \\
+    description: "Create pods, channels, and let multiple agents work together.",
+    code: `# Create a pod
+agentmesh pod create \\
   --agent claude-code \\
   --task "Build auth system"
 

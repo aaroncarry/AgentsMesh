@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:agentmesh/providers/auth_provider.dart';
 import 'package:agentmesh/providers/organization_provider.dart';
 import 'package:agentmesh/providers/ticket_provider.dart';
-import 'package:agentmesh/providers/session_provider.dart';
+import 'package:agentmesh/providers/pod_provider.dart';
 import 'package:agentmesh/utils/theme.dart';
 import 'package:agentmesh/widgets/organization_selector.dart';
 
@@ -28,7 +28,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await ref.read(organizationProvider.notifier).loadOrganizations();
     await Future.wait([
       ref.read(ticketListProvider.notifier).loadTickets(),
-      ref.read(sessionListProvider.notifier).loadSessions(),
+      ref.read(podListProvider.notifier).loadPods(),
       ref.read(runnerListProvider.notifier).loadRunners(),
     ]);
   }
@@ -38,7 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final authState = ref.watch(authProvider);
     final orgState = ref.watch(organizationProvider);
     final ticketState = ref.watch(ticketListProvider);
-    final sessionState = ref.watch(sessionListProvider);
+    final podState = ref.watch(podListProvider);
     final runnerState = ref.watch(runnerListProvider);
 
     return Scaffold(
@@ -122,11 +122,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 Expanded(
                   child: _StatCard(
-                    title: 'Active Sessions',
-                    value: sessionState.activeSessions.length.toString(),
+                    title: 'Active Pods',
+                    value: podState.activePods.length.toString(),
                     icon: Icons.terminal,
                     color: AppTheme.primaryColor,
-                    onTap: () => context.go('/sessions'),
+                    onTap: () => context.go('/pods'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -170,25 +170,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Recent sessions
+            // Recent pods
             _buildSectionHeader(
               context,
-              'Active Sessions',
-              onSeeAll: () => context.go('/sessions'),
+              'Active AgentPods',
+              onSeeAll: () => context.go('/pods'),
             ),
             const SizedBox(height: 12),
-            if (sessionState.isLoading && sessionState.sessions.isEmpty)
+            if (podState.isLoading && podState.pods.isEmpty)
               const Center(child: CircularProgressIndicator())
-            else if (sessionState.activeSessions.isEmpty)
+            else if (podState.activePods.isEmpty)
               const _EmptyState(
                 icon: Icons.terminal,
-                message: 'No active sessions',
+                message: 'No active pods',
               )
             else
-              ...sessionState.activeSessions.take(3).map((session) =>
-                  _SessionCard(
-                    session: session,
-                    onTap: () => context.go('/sessions/${session.sessionKey}'),
+              ...podState.activePods.take(3).map((pod) =>
+                  _PodCard(
+                    pod: pod,
+                    onTap: () => context.go('/pods/${pod.podKey}'),
                   )),
 
             const SizedBox(height: 24),
@@ -298,12 +298,12 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _SessionCard extends StatelessWidget {
-  final dynamic session;
+class _PodCard extends StatelessWidget {
+  final dynamic pod;
   final VoidCallback onTap;
 
-  const _SessionCard({
-    required this.session,
+  const _PodCard({
+    required this.pod,
     required this.onTap,
   });
 
@@ -323,15 +323,15 @@ class _SessionCard extends StatelessWidget {
           child: const Icon(Icons.terminal, color: AppTheme.primaryColor),
         ),
         title: Text(
-          session.sessionKey,
+          pod.podKey,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          'Status: ${session.status}',
+          'Status: ${pod.status}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        trailing: _StatusChip(status: session.status),
+        trailing: _StatusChip(status: pod.status),
       ),
     );
   }

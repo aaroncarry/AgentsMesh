@@ -20,8 +20,8 @@ interface Channel {
     identifier: string;
     title: string;
   };
-  sessions?: Array<{
-    sessionKey: string;
+  pods?: Array<{
+    podKey: string;
     status: string;
     agentType?: {
       name: string;
@@ -50,8 +50,8 @@ export function ChannelList({
     ? channels
     : channels.filter((c) => !c.isArchived);
 
-  const activeSessionCount = (channel: Channel) =>
-    channel.sessions?.filter((s) => s.status === "running").length || 0;
+  const activePodCount = (channel: Channel) =>
+    channel.pods?.filter((p) => p.status === "running").length || 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -106,11 +106,11 @@ export function ChannelList({
                     )}
                   </div>
 
-                  {/* Active Sessions Badge */}
-                  {activeSessionCount(channel) > 0 && (
+                  {/* Active Pods Badge */}
+                  {activePodCount(channel) > 0 && (
                     <div className="flex items-center gap-1 text-xs text-green-600">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      {activeSessionCount(channel)}
+                      {activePodCount(channel)}
                     </div>
                   )}
                 </div>

@@ -17,7 +17,7 @@ export default function DocsPage() {
           Codex CLI, Gemini CLI, and Aider at scale. Unlike IDE plugins (Cursor,
           Copilot), AgentMesh focuses on autonomous terminal agents with full
           system access, enabling multi-agent coordination (DevMesh), remote AI
-          workstations (DevPod), and integrated task management.
+          workstations (AgentPod), and integrated task management.
         </p>
         <div className="bg-muted rounded-lg p-4 mt-4">
           <p className="font-medium mb-2">Supported AI Agents:</p>
@@ -113,10 +113,10 @@ export default function DocsPage() {
             </p>
           </Link>
           <Link
-            href="/docs/features/devpod"
+            href="/docs/features/agentpod"
             className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
           >
-            <h3 className="font-medium mb-1">DevPod →</h3>
+            <h3 className="font-medium mb-1">AgentPod →</h3>
             <p className="text-sm text-muted-foreground">
               Remote AI development workstations
             </p>

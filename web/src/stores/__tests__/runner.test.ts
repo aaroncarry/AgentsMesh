@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getRunnerStatusInfo, canAcceptSessions, formatHostInfo, Runner, useRunnerStore } from '../runner'
+import { getRunnerStatusInfo, canAcceptPods, formatHostInfo, Runner, useRunnerStore } from '../runner'
 
 // Mock the API client
 vi.mock('@/lib/api/client', () => ({
@@ -21,12 +21,11 @@ import { runnerApi } from '@/lib/api/client'
 // Helper to create mock runner
 const createMockRunner = (overrides: Partial<Runner> = {}): Runner => ({
   id: 1,
-  name: 'test-runner',
-  organization_id: 1,
+  node_id: 'test-runner',
   status: 'online',
   is_enabled: true,
-  current_sessions: 0,
-  max_concurrent_sessions: 5,
+  current_pods: 0,
+  max_concurrent_pods: 5,
   last_heartbeat: '2024-01-01T00:00:00Z',
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
@@ -315,15 +314,14 @@ describe('Runner Store Helper Functions', () => {
     })
   })
 
-  describe('canAcceptSessions', () => {
+  describe('canAcceptPods', () => {
     const createRunner = (overrides: Partial<Runner> = {}): Runner => ({
       id: 1,
-      name: 'test-runner',
-      organization_id: 1,
+      node_id: 'test-runner',
       status: 'online',
       is_enabled: true,
-      current_sessions: 0,
-      max_concurrent_sessions: 5,
+      current_pods: 0,
+      max_concurrent_pods: 5,
       last_heartbeat: '2024-01-01T00:00:00Z',
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
@@ -331,38 +329,38 @@ describe('Runner Store Helper Functions', () => {
     })
 
     it('should return true for online runner with available slots', () => {
-      const runner = createRunner({ status: 'online', current_sessions: 2, max_concurrent_sessions: 5 })
-      expect(canAcceptSessions(runner)).toBe(true)
+      const runner = createRunner({ status: 'online', current_pods: 2, max_concurrent_pods: 5 })
+      expect(canAcceptPods(runner)).toBe(true)
     })
 
     it('should return false for offline runner', () => {
       const runner = createRunner({ status: 'offline' })
-      expect(canAcceptSessions(runner)).toBe(false)
+      expect(canAcceptPods(runner)).toBe(false)
     })
 
     it('should return false for maintenance runner', () => {
       const runner = createRunner({ status: 'maintenance' })
-      expect(canAcceptSessions(runner)).toBe(false)
+      expect(canAcceptPods(runner)).toBe(false)
     })
 
     it('should return false for busy runner', () => {
       const runner = createRunner({ status: 'busy' })
-      expect(canAcceptSessions(runner)).toBe(false)
+      expect(canAcceptPods(runner)).toBe(false)
     })
 
     it('should return false when at max capacity', () => {
-      const runner = createRunner({ status: 'online', current_sessions: 5, max_concurrent_sessions: 5 })
-      expect(canAcceptSessions(runner)).toBe(false)
+      const runner = createRunner({ status: 'online', current_pods: 5, max_concurrent_pods: 5 })
+      expect(canAcceptPods(runner)).toBe(false)
     })
 
     it('should return false when over max capacity', () => {
-      const runner = createRunner({ status: 'online', current_sessions: 6, max_concurrent_sessions: 5 })
-      expect(canAcceptSessions(runner)).toBe(false)
+      const runner = createRunner({ status: 'online', current_pods: 6, max_concurrent_pods: 5 })
+      expect(canAcceptPods(runner)).toBe(false)
     })
 
-    it('should return true with zero current sessions', () => {
-      const runner = createRunner({ status: 'online', current_sessions: 0, max_concurrent_sessions: 5 })
-      expect(canAcceptSessions(runner)).toBe(true)
+    it('should return true with zero current pods', () => {
+      const runner = createRunner({ status: 'online', current_pods: 0, max_concurrent_pods: 5 })
+      expect(canAcceptPods(runner)).toBe(true)
     })
   })
 

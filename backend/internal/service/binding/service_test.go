@@ -9,27 +9,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// MockSessionQuerier implements SessionQuerier for testing
-type MockSessionQuerier struct {
-	sessions map[string]map[string]interface{}
-	err      error
+// MockPodQuerier implements PodQuerier for testing
+type MockPodQuerier struct {
+	pods map[string]map[string]interface{}
+	err  error
 }
 
-func NewMockSessionQuerier() *MockSessionQuerier {
-	return &MockSessionQuerier{
-		sessions: make(map[string]map[string]interface{}),
+func NewMockPodQuerier() *MockPodQuerier {
+	return &MockPodQuerier{
+		pods: make(map[string]map[string]interface{}),
 	}
 }
 
-func (m *MockSessionQuerier) AddSession(key string, info map[string]interface{}) {
-	m.sessions[key] = info
+func (m *MockPodQuerier) AddPod(key string, info map[string]interface{}) {
+	m.pods[key] = info
 }
 
-func (m *MockSessionQuerier) GetSessionInfo(ctx context.Context, sessionKey string) (map[string]interface{}, error) {
+func (m *MockPodQuerier) GetPodInfo(ctx context.Context, podKey string) (map[string]interface{}, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	if info, ok := m.sessions[sessionKey]; ok {
+	if info, ok := m.pods[podKey]; ok {
 		return info, nil
 	}
 	return nil, nil
@@ -43,13 +43,13 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
-	// Create session_bindings table
+	// Create pod_bindings table
 	err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS session_bindings (
+		CREATE TABLE IF NOT EXISTS pod_bindings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			initiator_session TEXT NOT NULL,
-			target_session TEXT NOT NULL,
+			initiator_pod TEXT NOT NULL,
+			target_pod TEXT NOT NULL,
 			granted_scopes TEXT,
 			pending_scopes TEXT,
 			status TEXT NOT NULL DEFAULT 'pending',
@@ -62,7 +62,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		)
 	`).Error
 	if err != nil {
-		t.Fatalf("failed to create session_bindings table: %v", err)
+		t.Fatalf("failed to create pod_bindings table: %v", err)
 	}
 
 	return db
@@ -70,7 +70,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestNewService(t *testing.T) {
 	db := setupTestDB(t)
-	querier := NewMockSessionQuerier()
+	querier := NewMockPodQuerier()
 	service := NewService(db, querier)
 
 	if service == nil {
@@ -115,12 +115,12 @@ func TestValidateScopes(t *testing.T) {
 
 func TestRequestBinding(t *testing.T) {
 	db := setupTestDB(t)
-	querier := NewMockSessionQuerier()
+	querier := NewMockPodQuerier()
 	service := NewService(db, querier)
 	ctx := context.Background()
 
 	t.Run("creates pending binding", func(t *testing.T) {
-		binding, err := service.RequestBinding(ctx, 1, "session-1", "session-2",
+		binding, err := service.RequestBinding(ctx, 1, "pod-1", "pod-2",
 			[]string{channel.BindingScopeTerminalRead}, "")
 		if err != nil {
 			t.Fatalf("failed to request binding: %v", err)
@@ -128,13 +128,13 @@ func TestRequestBinding(t *testing.T) {
 		if binding.Status != channel.BindingStatusPending {
 			t.Errorf("expected status pending, got %s", binding.Status)
 		}
-		if binding.InitiatorSession != "session-1" {
-			t.Errorf("expected initiator session-1, got %s", binding.InitiatorSession)
+		if binding.InitiatorPod != "pod-1" {
+			t.Errorf("expected initiator pod-1, got %s", binding.InitiatorPod)
 		}
 	})
 
 	t.Run("self-binding returns error", func(t *testing.T) {
-		_, err := service.RequestBinding(ctx, 1, "session-1", "session-1",
+		_, err := service.RequestBinding(ctx, 1, "pod-1", "pod-1",
 			[]string{channel.BindingScopeTerminalRead}, "")
 		if err != ErrSelfBinding {
 			t.Errorf("expected ErrSelfBinding, got %v", err)
@@ -142,7 +142,7 @@ func TestRequestBinding(t *testing.T) {
 	})
 
 	t.Run("invalid scope returns error", func(t *testing.T) {
-		_, err := service.RequestBinding(ctx, 1, "session-a", "session-b",
+		_, err := service.RequestBinding(ctx, 1, "pod-a", "pod-b",
 			[]string{"invalid:scope"}, "")
 		if err != ErrInvalidScope {
 			t.Errorf("expected ErrInvalidScope, got %v", err)
@@ -150,10 +150,10 @@ func TestRequestBinding(t *testing.T) {
 	})
 
 	t.Run("same user auto approves", func(t *testing.T) {
-		querier.AddSession("user-session-1", map[string]interface{}{"user_id": int64(1)})
-		querier.AddSession("user-session-2", map[string]interface{}{"user_id": int64(1)})
+		querier.AddPod("user-pod-1", map[string]interface{}{"user_id": int64(1)})
+		querier.AddPod("user-pod-2", map[string]interface{}{"user_id": int64(1)})
 
-		binding, err := service.RequestBinding(ctx, 1, "user-session-1", "user-session-2",
+		binding, err := service.RequestBinding(ctx, 1, "user-pod-1", "user-pod-2",
 			[]string{channel.BindingScopeTerminalRead}, "")
 		if err != nil {
 			t.Fatalf("failed to request binding: %v", err)
@@ -281,7 +281,7 @@ func TestAcceptBinding(t *testing.T) {
 		}
 	})
 
-	t.Run("wrong session returns error", func(t *testing.T) {
+	t.Run("wrong pod returns error", func(t *testing.T) {
 		pending, _ := service.RequestBinding(ctx, 1, "wrong-1", "wrong-2",
 			[]string{channel.BindingScopeTerminalRead}, channel.BindingPolicyExplicitOnly)
 
@@ -323,7 +323,7 @@ func TestRejectBinding(t *testing.T) {
 		}
 	})
 
-	t.Run("wrong session returns error", func(t *testing.T) {
+	t.Run("wrong pod returns error", func(t *testing.T) {
 		pending, _ := service.RequestBinding(ctx, 1, "reject-wrong-1", "reject-wrong-2",
 			[]string{channel.BindingScopeTerminalRead}, channel.BindingPolicyExplicitOnly)
 
@@ -387,7 +387,7 @@ func TestIsBound(t *testing.T) {
 	service := NewService(db, nil)
 	ctx := context.Background()
 
-	t.Run("returns true for bound sessions", func(t *testing.T) {
+	t.Run("returns true for bound pods", func(t *testing.T) {
 		service.CreateAutoBinding(ctx, 1, "bound-1", "bound-2",
 			[]string{channel.BindingScopeTerminalRead})
 
@@ -396,7 +396,7 @@ func TestIsBound(t *testing.T) {
 			t.Fatalf("failed: %v", err)
 		}
 		if !bound {
-			t.Error("expected sessions to be bound")
+			t.Error("expected pods to be bound")
 		}
 	})
 
@@ -409,33 +409,33 @@ func TestIsBound(t *testing.T) {
 			t.Fatalf("failed: %v", err)
 		}
 		if !bound {
-			t.Error("expected sessions to be bound in reverse")
+			t.Error("expected pods to be bound in reverse")
 		}
 	})
 
-	t.Run("returns false for unbound sessions", func(t *testing.T) {
+	t.Run("returns false for unbound pods", func(t *testing.T) {
 		bound, err := service.IsBound(ctx, "unbound-1", "unbound-2")
 		if err != nil {
 			t.Fatalf("failed: %v", err)
 		}
 		if bound {
-			t.Error("expected sessions to not be bound")
+			t.Error("expected pods to not be bound")
 		}
 	})
 }
 
-func TestGetBindingsForSession(t *testing.T) {
+func TestGetBindingsForPod(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil)
 	ctx := context.Background()
 
-	t.Run("returns all bindings for session", func(t *testing.T) {
+	t.Run("returns all bindings for pod", func(t *testing.T) {
 		service.CreateAutoBinding(ctx, 1, "list-main", "list-1",
 			[]string{channel.BindingScopeTerminalRead})
 		service.CreateAutoBinding(ctx, 1, "list-main", "list-2",
 			[]string{channel.BindingScopeTerminalRead})
 
-		bindings, err := service.GetBindingsForSession(ctx, "list-main", nil)
+		bindings, err := service.GetBindingsForPod(ctx, "list-main", nil)
 		if err != nil {
 			t.Fatalf("failed: %v", err)
 		}
@@ -451,7 +451,7 @@ func TestGetBindingsForSession(t *testing.T) {
 			[]string{channel.BindingScopeTerminalRead}, channel.BindingPolicyExplicitOnly)
 
 		activeStatus := channel.BindingStatusActive
-		bindings, err := service.GetBindingsForSession(ctx, "filter-main", &activeStatus)
+		bindings, err := service.GetBindingsForPod(ctx, "filter-main", &activeStatus)
 		if err != nil {
 			t.Fatalf("failed: %v", err)
 		}
@@ -461,33 +461,33 @@ func TestGetBindingsForSession(t *testing.T) {
 	})
 }
 
-func TestGetBoundSessions(t *testing.T) {
+func TestGetBoundPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil)
 	ctx := context.Background()
 
-	t.Run("returns bound session keys", func(t *testing.T) {
+	t.Run("returns bound pod keys", func(t *testing.T) {
 		service.CreateAutoBinding(ctx, 1, "hub", "spoke-1",
 			[]string{channel.BindingScopeTerminalRead})
 		service.CreateAutoBinding(ctx, 1, "hub", "spoke-2",
 			[]string{channel.BindingScopeTerminalRead})
 
-		sessions, err := service.GetBoundSessions(ctx, "hub")
+		pods, err := service.GetBoundPods(ctx, "hub")
 		if err != nil {
 			t.Fatalf("failed: %v", err)
 		}
-		if len(sessions) != 2 {
-			t.Errorf("expected 2 bound sessions, got %d", len(sessions))
+		if len(pods) != 2 {
+			t.Errorf("expected 2 bound pods, got %d", len(pods))
 		}
 	})
 
-	t.Run("returns empty for unbound session", func(t *testing.T) {
-		sessions, err := service.GetBoundSessions(ctx, "isolated")
+	t.Run("returns empty for unbound pod", func(t *testing.T) {
+		pods, err := service.GetBoundPods(ctx, "isolated")
 		if err != nil {
 			t.Fatalf("failed: %v", err)
 		}
-		if len(sessions) != 0 {
-			t.Errorf("expected 0 bound sessions, got %d", len(sessions))
+		if len(pods) != 0 {
+			t.Errorf("expected 0 bound pods, got %d", len(pods))
 		}
 	})
 }
@@ -533,7 +533,7 @@ func TestRequestScopes(t *testing.T) {
 		}
 	})
 
-	t.Run("wrong session returns error", func(t *testing.T) {
+	t.Run("wrong pod returns error", func(t *testing.T) {
 		binding, _ := service.CreateAutoBinding(ctx, 1, "scope-wrong-1", "scope-wrong-2",
 			[]string{channel.BindingScopeTerminalRead})
 
@@ -577,7 +577,7 @@ func TestApproveScopes(t *testing.T) {
 		}
 	})
 
-	t.Run("wrong session returns error", func(t *testing.T) {
+	t.Run("wrong pod returns error", func(t *testing.T) {
 		binding, _ := service.CreateAutoBinding(ctx, 1, "approve-wrong-1", "approve-wrong-2",
 			[]string{channel.BindingScopeTerminalRead})
 		binding, _ = service.RequestScopes(ctx, binding.ID, "approve-wrong-1",
@@ -654,7 +654,7 @@ func TestCleanupExpiredBindings(t *testing.T) {
 		service.RequestBinding(ctx, 1, "expired-1", "expired-2",
 			[]string{channel.BindingScopeTerminalRead}, channel.BindingPolicyExplicitOnly)
 
-		db.Exec("UPDATE session_bindings SET expires_at = datetime('now', '-1 day') WHERE initiator_session = ?", "expired-1")
+		db.Exec("UPDATE pod_bindings SET expires_at = datetime('now', '-1 day') WHERE initiator_pod = ?", "expired-1")
 
 		count, err := service.CleanupExpiredBindings(ctx)
 		if err != nil {
@@ -668,7 +668,7 @@ func TestCleanupExpiredBindings(t *testing.T) {
 
 func TestEvaluatePolicy(t *testing.T) {
 	db := setupTestDB(t)
-	querier := NewMockSessionQuerier()
+	querier := NewMockPodQuerier()
 	service := NewService(db, querier)
 	ctx := context.Background()
 
@@ -683,8 +683,8 @@ func TestEvaluatePolicy(t *testing.T) {
 	})
 
 	t.Run("same user auto approves", func(t *testing.T) {
-		querier.AddSession("same-user-1", map[string]interface{}{"user_id": int64(100)})
-		querier.AddSession("same-user-2", map[string]interface{}{"user_id": int64(100)})
+		querier.AddPod("same-user-1", map[string]interface{}{"user_id": int64(100)})
+		querier.AddPod("same-user-2", map[string]interface{}{"user_id": int64(100)})
 
 		autoApprove, status := service.evaluatePolicy(ctx, "same-user-1", "same-user-2", "")
 		if !autoApprove {
@@ -696,8 +696,8 @@ func TestEvaluatePolicy(t *testing.T) {
 	})
 
 	t.Run("same project auto approves with policy", func(t *testing.T) {
-		querier.AddSession("proj-1", map[string]interface{}{"user_id": int64(1), "project_id": int64(10)})
-		querier.AddSession("proj-2", map[string]interface{}{"user_id": int64(2), "project_id": int64(10)})
+		querier.AddPod("proj-1", map[string]interface{}{"user_id": int64(1), "project_id": int64(10)})
+		querier.AddPod("proj-2", map[string]interface{}{"user_id": int64(2), "project_id": int64(10)})
 
 		autoApprove, status := service.evaluatePolicy(ctx, "proj-1", "proj-2", channel.BindingPolicySameProjectAuto)
 		if !autoApprove {
@@ -716,7 +716,7 @@ func TestErrorVariables(t *testing.T) {
 	if ErrBindingExists.Error() != "binding already exists" {
 		t.Errorf("unexpected error message: %s", ErrBindingExists.Error())
 	}
-	if ErrSelfBinding.Error() != "cannot bind a session to itself" {
+	if ErrSelfBinding.Error() != "cannot bind a pod to itself" {
 		t.Errorf("unexpected error message: %s", ErrSelfBinding.Error())
 	}
 	if ErrInvalidScope.Error() != "invalid scope" {

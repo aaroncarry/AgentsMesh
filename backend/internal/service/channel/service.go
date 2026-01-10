@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/channel"
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +33,7 @@ type CreateChannelRequest struct {
 	Description      *string
 	RepositoryID     *int64
 	TicketID         *int64
-	CreatedBySession *string
+	CreatedByPod *string
 	CreatedByUserID  *int64
 }
 
@@ -53,7 +53,7 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 		Description:      req.Description,
 		RepositoryID:     req.RepositoryID,
 		TicketID:         req.TicketID,
-		CreatedBySession: req.CreatedBySession,
+		CreatedByPod: req.CreatedByPod,
 		CreatedByUserID:  req.CreatedByUserID,
 		IsArchived:       false,
 	}
@@ -154,7 +154,7 @@ func (s *Service) UnarchiveChannel(ctx context.Context, channelID int64) error {
 }
 
 // SendMessage sends a message to a channel
-func (s *Service) SendMessage(ctx context.Context, channelID int64, senderSession *string, senderUserID *int64, messageType, content string, metadata channel.MessageMetadata) (*channel.Message, error) {
+func (s *Service) SendMessage(ctx context.Context, channelID int64, senderPod *string, senderUserID *int64, messageType, content string, metadata channel.MessageMetadata) (*channel.Message, error) {
 	ch, err := s.GetChannel(ctx, channelID)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func (s *Service) SendMessage(ctx context.Context, channelID int64, senderSessio
 
 	msg := &channel.Message{
 		ChannelID:     channelID,
-		SenderSession: senderSession,
+		SenderPod: senderPod,
 		SenderUserID:  senderUserID,
 		MessageType:   messageType,
 		Content:       content,
@@ -218,14 +218,14 @@ func (s *Service) GetChannelsByTicket(ctx context.Context, ticketID int64) ([]*c
 	return channels, nil
 }
 
-// Session Binding operations
+// Pod Binding operations
 
-// CreateBinding creates a session binding request
-func (s *Service) CreateBinding(ctx context.Context, orgID int64, initiatorSession, targetSession string, scopes []string) (*channel.SessionBinding, error) {
-	binding := &channel.SessionBinding{
-		OrganizationID:   orgID,
-		InitiatorSession: initiatorSession,
-		TargetSession:    targetSession,
+// CreateBinding creates a pod binding request
+func (s *Service) CreateBinding(ctx context.Context, orgID int64, initiatorPod, targetPod string, scopes []string) (*channel.PodBinding, error) {
+	binding := &channel.PodBinding{
+		OrganizationID: orgID,
+		InitiatorPod:   initiatorPod,
+		TargetPod:      targetPod,
 		GrantedScopes:    scopes,
 		Status:           channel.BindingStatusPending,
 	}
@@ -238,30 +238,30 @@ func (s *Service) CreateBinding(ctx context.Context, orgID int64, initiatorSessi
 }
 
 // GetBinding returns a binding by ID
-func (s *Service) GetBinding(ctx context.Context, bindingID int64) (*channel.SessionBinding, error) {
-	var binding channel.SessionBinding
+func (s *Service) GetBinding(ctx context.Context, bindingID int64) (*channel.PodBinding, error) {
+	var binding channel.PodBinding
 	if err := s.db.WithContext(ctx).First(&binding, bindingID).Error; err != nil {
 		return nil, err
 	}
 	return &binding, nil
 }
 
-// GetBindingBySessions returns a binding between two sessions
-func (s *Service) GetBindingBySessions(ctx context.Context, initiator, target string) (*channel.SessionBinding, error) {
-	var binding channel.SessionBinding
+// GetBindingByPods returns a binding between two pods
+func (s *Service) GetBindingByPods(ctx context.Context, initiator, target string) (*channel.PodBinding, error) {
+	var binding channel.PodBinding
 	if err := s.db.WithContext(ctx).
-		Where("initiator_session = ? AND target_session = ?", initiator, target).
+		Where("initiator_pod = ? AND target_pod = ?", initiator, target).
 		First(&binding).Error; err != nil {
 		return nil, err
 	}
 	return &binding, nil
 }
 
-// ListBindingsForSession returns all bindings for a session (as initiator or target)
-func (s *Service) ListBindingsForSession(ctx context.Context, sessionKey string) ([]*channel.SessionBinding, error) {
-	var bindings []*channel.SessionBinding
+// ListBindingsForPod returns all bindings for a pod (as initiator or target)
+func (s *Service) ListBindingsForPod(ctx context.Context, podKey string) ([]*channel.PodBinding, error) {
+	var bindings []*channel.PodBinding
 	if err := s.db.WithContext(ctx).
-		Where("initiator_session = ? OR target_session = ?", sessionKey, sessionKey).
+		Where("initiator_pod = ? OR target_pod = ?", podKey, podKey).
 		Find(&bindings).Error; err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (s *Service) ListBindingsForSession(ctx context.Context, sessionKey string)
 
 // ApproveBinding approves a binding request
 func (s *Service) ApproveBinding(ctx context.Context, bindingID int64, scopes []string) error {
-	return s.db.WithContext(ctx).Model(&channel.SessionBinding{}).
+	return s.db.WithContext(ctx).Model(&channel.PodBinding{}).
 		Where("id = ?", bindingID).
 		Updates(map[string]interface{}{
 			"status":         channel.BindingStatusApproved,
@@ -280,73 +280,73 @@ func (s *Service) ApproveBinding(ctx context.Context, bindingID int64, scopes []
 
 // RejectBinding rejects a binding request
 func (s *Service) RejectBinding(ctx context.Context, bindingID int64) error {
-	return s.db.WithContext(ctx).Model(&channel.SessionBinding{}).
+	return s.db.WithContext(ctx).Model(&channel.PodBinding{}).
 		Where("id = ?", bindingID).
 		Update("status", channel.BindingStatusRejected).Error
 }
 
 // RevokeBinding revokes an approved binding
 func (s *Service) RevokeBinding(ctx context.Context, bindingID int64) error {
-	return s.db.WithContext(ctx).Model(&channel.SessionBinding{}).
+	return s.db.WithContext(ctx).Model(&channel.PodBinding{}).
 		Where("id = ?", bindingID).
 		Update("status", channel.BindingStatusRevoked).Error
 }
 
-// ChannelSession represents a session joined to a channel
-type ChannelSession struct {
-	ID         int64     `gorm:"primaryKey" json:"id"`
-	ChannelID  int64     `gorm:"not null;index" json:"channel_id"`
-	SessionKey string    `gorm:"size:100;not null" json:"session_key"`
-	JoinedAt   time.Time `gorm:"not null;default:now()" json:"joined_at"`
+// ChannelPod represents a pod joined to a channel
+type ChannelPod struct {
+	ID        int64     `gorm:"primaryKey" json:"id"`
+	ChannelID int64     `gorm:"not null;index" json:"channel_id"`
+	PodKey    string    `gorm:"size:100;not null" json:"pod_key"`
+	JoinedAt  time.Time `gorm:"not null;default:now()" json:"joined_at"`
 }
 
-func (ChannelSession) TableName() string {
-	return "channel_sessions"
+func (ChannelPod) TableName() string {
+	return "channel_pods"
 }
 
-// JoinChannel adds a session to a channel
-func (s *Service) JoinChannel(ctx context.Context, channelID int64, sessionKey string) error {
-	cs := &ChannelSession{
-		ChannelID:  channelID,
-		SessionKey: sessionKey,
-		JoinedAt:   time.Now(),
+// JoinChannel adds a pod to a channel
+func (s *Service) JoinChannel(ctx context.Context, channelID int64, podKey string) error {
+	cp := &ChannelPod{
+		ChannelID: channelID,
+		PodKey:    podKey,
+		JoinedAt:  time.Now(),
 	}
-	return s.db.WithContext(ctx).Create(cs).Error
+	return s.db.WithContext(ctx).Create(cp).Error
 }
 
-// LeaveChannel removes a session from a channel
-func (s *Service) LeaveChannel(ctx context.Context, channelID int64, sessionKey string) error {
+// LeaveChannel removes a pod from a channel
+func (s *Service) LeaveChannel(ctx context.Context, channelID int64, podKey string) error {
 	return s.db.WithContext(ctx).
-		Where("channel_id = ? AND session_key = ?", channelID, sessionKey).
-		Delete(&ChannelSession{}).Error
+		Where("channel_id = ? AND pod_key = ?", channelID, podKey).
+		Delete(&ChannelPod{}).Error
 }
 
-// GetChannelSessions returns sessions joined to a channel
-func (s *Service) GetChannelSessions(ctx context.Context, channelID int64) ([]*session.Session, error) {
-	var channelSessions []ChannelSession
+// GetChannelPods returns pods joined to a channel
+func (s *Service) GetChannelPods(ctx context.Context, channelID int64) ([]*agentpod.Pod, error) {
+	var channelPods []ChannelPod
 	if err := s.db.WithContext(ctx).
 		Where("channel_id = ?", channelID).
-		Find(&channelSessions).Error; err != nil {
+		Find(&channelPods).Error; err != nil {
 		return nil, err
 	}
 
-	if len(channelSessions) == 0 {
-		return []*session.Session{}, nil
+	if len(channelPods) == 0 {
+		return []*agentpod.Pod{}, nil
 	}
 
-	sessionKeys := make([]string, len(channelSessions))
-	for i, cs := range channelSessions {
-		sessionKeys[i] = cs.SessionKey
+	podKeys := make([]string, len(channelPods))
+	for i, cp := range channelPods {
+		podKeys[i] = cp.PodKey
 	}
 
-	var sessions []*session.Session
+	var pods []*agentpod.Pod
 	if err := s.db.WithContext(ctx).
-		Where("session_key IN ?", sessionKeys).
-		Find(&sessions).Error; err != nil {
+		Where("pod_key IN ?", podKeys).
+		Find(&pods).Error; err != nil {
 		return nil, err
 	}
 
-	return sessions, nil
+	return pods, nil
 }
 
 // ========== Enhanced Message Service ==========
@@ -361,16 +361,16 @@ func (s *Service) SendMessageAsUser(ctx context.Context, channelID int64, userID
 	return s.SendMessage(ctx, channelID, nil, &userID, channel.MessageTypeText, content, metadata)
 }
 
-// SendMessageAsSession sends a message as a session (agent) to a channel
-func (s *Service) SendMessageAsSession(ctx context.Context, channelID int64, sessionKey string, content string, metadata channel.MessageMetadata) (*channel.Message, error) {
-	return s.SendMessage(ctx, channelID, &sessionKey, nil, channel.MessageTypeText, content, metadata)
+// SendMessageAsPod sends a message as a pod (agent) to a channel
+func (s *Service) SendMessageAsPod(ctx context.Context, channelID int64, podKey string, content string, metadata channel.MessageMetadata) (*channel.Message, error) {
+	return s.SendMessage(ctx, channelID, &podKey, nil, channel.MessageTypeText, content, metadata)
 }
 
-// GetMessagesMentioning returns messages mentioning a specific session
-func (s *Service) GetMessagesMentioning(ctx context.Context, channelID int64, sessionKey string, limit int) ([]*channel.Message, error) {
+// GetMessagesMentioning returns messages mentioning a specific pod
+func (s *Service) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, error) {
 	var messages []*channel.Message
-	// Search in content for @session_key mentions
-	pattern := "@" + sessionKey
+	// Search in content for @pod_key mentions
+	pattern := "@" + podKey
 	if err := s.db.WithContext(ctx).
 		Where("channel_id = ? AND content LIKE ?", channelID, "%"+pattern+"%").
 		Order("created_at DESC").
@@ -402,33 +402,33 @@ func (s *Service) GetRecentMessages(ctx context.Context, channelID int64, limit 
 
 // ========== Access Tracking (Alternative to Explicit Join) ==========
 
-// ChannelAccess tracks session access to a channel
+// ChannelAccess tracks pod access to a channel
 type ChannelAccess struct {
-	ID         int64      `gorm:"primaryKey" json:"id"`
-	ChannelID  int64      `gorm:"not null;index" json:"channel_id"`
-	SessionKey *string    `gorm:"size:100;index" json:"session_key,omitempty"`
-	UserID     *int64     `gorm:"index" json:"user_id,omitempty"`
-	LastAccess time.Time  `gorm:"not null;default:now()" json:"last_access"`
+	ID         int64     `gorm:"primaryKey" json:"id"`
+	ChannelID  int64     `gorm:"not null;index" json:"channel_id"`
+	PodKey     *string   `gorm:"size:100;index" json:"pod_key,omitempty"`
+	UserID     *int64    `gorm:"index" json:"user_id,omitempty"`
+	LastAccess time.Time `gorm:"not null;default:now()" json:"last_access"`
 }
 
 func (ChannelAccess) TableName() string {
 	return "channel_access"
 }
 
-// TrackAccess records a session or user accessing a channel
-func (s *Service) TrackAccess(ctx context.Context, channelID int64, sessionKey *string, userID *int64) error {
+// TrackAccess records a pod or user accessing a channel
+func (s *Service) TrackAccess(ctx context.Context, channelID int64, podKey *string, userID *int64) error {
 	// Upsert: update if exists, create if not
 	access := &ChannelAccess{
 		ChannelID:  channelID,
-		SessionKey: sessionKey,
+		PodKey:     podKey,
 		UserID:     userID,
 		LastAccess: time.Now(),
 	}
 
 	// Try to find existing
 	query := s.db.WithContext(ctx).Where("channel_id = ?", channelID)
-	if sessionKey != nil {
-		query = query.Where("session_key = ?", *sessionKey)
+	if podKey != nil {
+		query = query.Where("pod_key = ?", *podKey)
 	}
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
@@ -444,11 +444,11 @@ func (s *Service) TrackAccess(ctx context.Context, channelID int64, sessionKey *
 	return s.db.WithContext(ctx).Create(access).Error
 }
 
-// GetChannelsForSession returns channels a session has accessed
-func (s *Service) GetChannelsForSession(ctx context.Context, sessionKey string) ([]*channel.Channel, error) {
+// GetChannelsForPod returns channels a pod has accessed
+func (s *Service) GetChannelsForPod(ctx context.Context, podKey string) ([]*channel.Channel, error) {
 	var accesses []ChannelAccess
 	if err := s.db.WithContext(ctx).
-		Where("session_key = ?", sessionKey).
+		Where("pod_key = ?", podKey).
 		Find(&accesses).Error; err != nil {
 		return nil, err
 	}
@@ -472,11 +472,11 @@ func (s *Service) GetChannelsForSession(ctx context.Context, sessionKey string) 
 	return channels, nil
 }
 
-// HasAccessed checks if a session has accessed a channel
-func (s *Service) HasAccessed(ctx context.Context, channelID int64, sessionKey string) (bool, error) {
+// HasAccessed checks if a pod has accessed a channel
+func (s *Service) HasAccessed(ctx context.Context, channelID int64, podKey string) (bool, error) {
 	var count int64
 	err := s.db.WithContext(ctx).Model(&ChannelAccess{}).
-		Where("channel_id = ? AND session_key = ?", channelID, sessionKey).
+		Where("channel_id = ? AND pod_key = ?", channelID, podKey).
 		Count(&count).Error
 	return count > 0, err
 }

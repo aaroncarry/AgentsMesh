@@ -122,8 +122,8 @@ export const apolloClient = new ApolloClient({
               };
             },
           },
-          // Merge paginated session results
-          sessions: {
+          // Merge paginated pod results
+          pods: {
             keyArgs: ["filter"],
             merge(existing, incoming, { args }) {
               if (!args?.filter?.offset || args.filter.offset === 0) {
@@ -131,7 +131,7 @@ export const apolloClient = new ApolloClient({
               }
               return {
                 ...incoming,
-                sessions: [...(existing?.sessions || []), ...incoming.sessions],
+                pods: [...(existing?.pods || []), ...incoming.pods],
               };
             },
           },
@@ -160,8 +160,8 @@ export const apolloClient = new ApolloClient({
       Runner: {
         keyFields: ["id"],
       },
-      Session: {
-        keyFields: ["sessionKey"],
+      Pod: {
+        keyFields: ["podKey"],
       },
       Channel: {
         keyFields: ["id"],

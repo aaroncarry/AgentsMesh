@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -18,9 +18,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	}
 
 	// Create tables
-	db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+	db.Exec(`CREATE TABLE IF NOT EXISTS pods (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_key TEXT NOT NULL UNIQUE,
+		pod_key TEXT NOT NULL UNIQUE,
 		organization_id INTEGER NOT NULL,
 		ticket_id INTEGER,
 		repository_id INTEGER,
@@ -28,10 +28,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		agent_type_id INTEGER,
 		custom_agent_type_id INTEGER,
 		created_by_id INTEGER NOT NULL,
-		pty_p_id INTEGER,
+		pty_pid INTEGER,
 		status TEXT NOT NULL DEFAULT 'pending',
 		agent_status TEXT NOT NULL DEFAULT 'unknown',
-		agent_p_id INTEGER,
+		agent_pid INTEGER,
 		started_at DATETIME,
 		finished_at DATETIME,
 		last_activity DATETIME,
@@ -45,10 +45,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
-	db.Exec(`CREATE TABLE IF NOT EXISTS channel_sessions (
+	db.Exec(`CREATE TABLE IF NOT EXISTS channel_pods (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id INTEGER NOT NULL,
-		session_key TEXT NOT NULL,
+		pod_key TEXT NOT NULL,
 		joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
@@ -62,7 +62,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS channel_access (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id INTEGER NOT NULL,
-		session_key TEXT,
+		pod_key TEXT,
 		user_id INTEGER,
 		last_access DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
@@ -82,15 +82,15 @@ func TestNewService(t *testing.T) {
 	}
 }
 
-func TestSessionToNode(t *testing.T) {
+func TestPodToNode(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 
 	ticketID := int64(100)
 	repoID := int64(200)
 	model := "claude-3-sonnet"
-	sess := &session.Session{
-		SessionKey:   "test-session-key",
+	pod := &agentpod.Pod{
+		PodKey:       "test-pod-key",
 		Status:       "running",
 		AgentStatus:  "working",
 		Model:        &model,
@@ -100,10 +100,10 @@ func TestSessionToNode(t *testing.T) {
 		RunnerID:     5,
 	}
 
-	node := service.sessionToNode(sess)
+	node := service.podToNode(pod)
 
-	if node.SessionKey != "test-session-key" {
-		t.Errorf("SessionKey = %s, want test-session-key", node.SessionKey)
+	if node.PodKey != "test-pod-key" {
+		t.Errorf("PodKey = %s, want test-pod-key", node.PodKey)
 	}
 	if node.Status != "running" {
 		t.Errorf("Status = %s, want running", node.Status)
@@ -122,15 +122,15 @@ func TestSessionToNode(t *testing.T) {
 	}
 }
 
-func TestGetChannelSessions(t *testing.T) {
+func TestGetChannelPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	// Add some channel sessions
-	db.Exec(`INSERT INTO channel_sessions (channel_id, session_key) VALUES (1, 'session-1'), (1, 'session-2'), (2, 'session-3')`)
+	// Add some channel pods
+	db.Exec(`INSERT INTO channel_pods (channel_id, pod_key) VALUES (1, 'pod-1'), (1, 'pod-2'), (2, 'pod-3')`)
 
-	keys := service.getChannelSessions(ctx, 1)
+	keys := service.getChannelPods(ctx, 1)
 	if len(keys) != 2 {
 		t.Errorf("len(keys) = %d, want 2", len(keys))
 	}
@@ -155,18 +155,18 @@ func TestJoinChannel(t *testing.T) {
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	err := service.JoinChannel(ctx, 1, "test-session")
+	err := service.JoinChannel(ctx, 1, "test-pod")
 	if err != nil {
 		t.Fatalf("JoinChannel() error = %v", err)
 	}
 
 	// Verify
-	var cs ChannelSession
-	if err := db.First(&cs).Error; err != nil {
-		t.Fatalf("failed to find channel session: %v", err)
+	var cp ChannelPod
+	if err := db.First(&cp).Error; err != nil {
+		t.Fatalf("failed to find channel pod: %v", err)
 	}
-	if cs.SessionKey != "test-session" {
-		t.Errorf("SessionKey = %s, want test-session", cs.SessionKey)
+	if cp.PodKey != "test-pod" {
+		t.Errorf("PodKey = %s, want test-pod", cp.PodKey)
 	}
 }
 
@@ -176,19 +176,19 @@ func TestLeaveChannel(t *testing.T) {
 	ctx := context.Background()
 
 	// Join first
-	service.JoinChannel(ctx, 1, "test-session")
+	service.JoinChannel(ctx, 1, "test-pod")
 
 	// Leave
-	err := service.LeaveChannel(ctx, 1, "test-session")
+	err := service.LeaveChannel(ctx, 1, "test-pod")
 	if err != nil {
 		t.Fatalf("LeaveChannel() error = %v", err)
 	}
 
 	// Verify removed
 	var count int64
-	db.Model(&ChannelSession{}).Count(&count)
+	db.Model(&ChannelPod{}).Count(&count)
 	if count != 0 {
-		t.Errorf("expected 0 channel sessions, got %d", count)
+		t.Errorf("expected 0 channel pods, got %d", count)
 	}
 }
 
@@ -197,10 +197,10 @@ func TestRecordChannelAccess(t *testing.T) {
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	sessionKey := "test-session"
+	podKey := "test-pod"
 	userID := int64(1)
 
-	err := service.RecordChannelAccess(ctx, 1, &sessionKey, &userID)
+	err := service.RecordChannelAccess(ctx, 1, &podKey, &userID)
 	if err != nil {
 		t.Fatalf("RecordChannelAccess() error = %v", err)
 	}
@@ -215,32 +215,32 @@ func TestRecordChannelAccess(t *testing.T) {
 	}
 }
 
-func TestBatchGetTicketSessions(t *testing.T) {
+func TestBatchGetTicketPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	// Create sessions
+	// Create pods
 	ticketID1 := int64(100)
 	ticketID2 := int64(200)
 
-	db.Create(&session.Session{SessionKey: "sess-1", OrganizationID: 1, TicketID: &ticketID1, Status: "running", CreatedByID: 1})
-	db.Create(&session.Session{SessionKey: "sess-2", OrganizationID: 1, TicketID: &ticketID1, Status: "terminated", CreatedByID: 1})
-	db.Create(&session.Session{SessionKey: "sess-3", OrganizationID: 1, TicketID: &ticketID2, Status: "running", CreatedByID: 1})
+	db.Create(&agentpod.Pod{PodKey: "pod-1", OrganizationID: 1, TicketID: &ticketID1, Status: "running", CreatedByID: 1})
+	db.Create(&agentpod.Pod{PodKey: "pod-2", OrganizationID: 1, TicketID: &ticketID1, Status: "terminated", CreatedByID: 1})
+	db.Create(&agentpod.Pod{PodKey: "pod-3", OrganizationID: 1, TicketID: &ticketID2, Status: "running", CreatedByID: 1})
 
-	result, err := service.BatchGetTicketSessions(ctx, []int64{100, 200, 300})
+	result, err := service.BatchGetTicketPods(ctx, []int64{100, 200, 300})
 	if err != nil {
-		t.Fatalf("BatchGetTicketSessions() error = %v", err)
+		t.Fatalf("BatchGetTicketPods() error = %v", err)
 	}
 
-	if len(result.TicketSessions[100]) != 2 {
-		t.Errorf("ticket 100 sessions = %d, want 2", len(result.TicketSessions[100]))
+	if len(result.TicketPods[100]) != 2 {
+		t.Errorf("ticket 100 pods = %d, want 2", len(result.TicketPods[100]))
 	}
-	if len(result.TicketSessions[200]) != 1 {
-		t.Errorf("ticket 200 sessions = %d, want 1", len(result.TicketSessions[200]))
+	if len(result.TicketPods[200]) != 1 {
+		t.Errorf("ticket 200 pods = %d, want 1", len(result.TicketPods[200]))
 	}
-	if len(result.TicketSessions[300]) != 0 {
-		t.Errorf("ticket 300 sessions = %d, want 0", len(result.TicketSessions[300]))
+	if len(result.TicketPods[300]) != 0 {
+		t.Errorf("ticket 300 pods = %d, want 0", len(result.TicketPods[300]))
 	}
 }
 
@@ -253,23 +253,23 @@ func TestErrorVariables(t *testing.T) {
 	}
 }
 
-// ChannelSession for testing (local type to avoid import cycle)
-type ChannelSession struct {
-	ID         int64  `gorm:"primaryKey"`
-	ChannelID  int64  `gorm:"not null"`
-	SessionKey string `gorm:"not null"`
+// ChannelPod for testing (local type to avoid import cycle)
+type ChannelPod struct {
+	ID        int64  `gorm:"primaryKey"`
+	ChannelID int64  `gorm:"not null"`
+	PodKey    string `gorm:"not null"`
 }
 
-func (ChannelSession) TableName() string {
-	return "channel_sessions"
+func (ChannelPod) TableName() string {
+	return "channel_pods"
 }
 
 // ChannelAccess for testing
 type ChannelAccess struct {
-	ID         int64   `gorm:"primaryKey"`
-	ChannelID  int64   `gorm:"not null"`
-	SessionKey *string
-	UserID     *int64
+	ID        int64   `gorm:"primaryKey"`
+	ChannelID int64   `gorm:"not null"`
+	PodKey    *string
+	UserID    *int64
 }
 
 func (ChannelAccess) TableName() string {
@@ -281,22 +281,22 @@ func init() {
 	// Register table name mapping if needed
 }
 
-func TestSessionToNode_NilValues(t *testing.T) {
+func TestPodToNode_NilValues(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 
-	// Test with minimal session (nil optional fields)
-	sess := &session.Session{
-		SessionKey:  "minimal-session",
+	// Test with minimal pod (nil optional fields)
+	pod := &agentpod.Pod{
+		PodKey:      "minimal-pod",
 		Status:      "pending",
 		AgentStatus: "unknown",
 		CreatedByID: 1,
 	}
 
-	node := service.sessionToNode(sess)
+	node := service.podToNode(pod)
 
-	if node.SessionKey != "minimal-session" {
-		t.Errorf("SessionKey = %s, want minimal-session", node.SessionKey)
+	if node.PodKey != "minimal-pod" {
+		t.Errorf("PodKey = %s, want minimal-pod", node.PodKey)
 	}
 	if node.Model != nil {
 		t.Error("expected Model to be nil")
@@ -309,12 +309,12 @@ func TestSessionToNode_NilValues(t *testing.T) {
 	}
 }
 
-func TestGetChannelSessions_Empty(t *testing.T) {
+func TestGetChannelPods_Empty(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	keys := service.getChannelSessions(ctx, 999)
+	keys := service.getChannelPods(ctx, 999)
 	if len(keys) != 0 {
 		t.Errorf("expected 0 keys for non-existent channel, got %d", len(keys))
 	}
@@ -337,16 +337,16 @@ func TestJoinChannel_Duplicate(t *testing.T) {
 	ctx := context.Background()
 
 	// Join twice - should create two records (no unique constraint in test)
-	service.JoinChannel(ctx, 1, "test-session")
-	err := service.JoinChannel(ctx, 1, "test-session")
+	service.JoinChannel(ctx, 1, "test-pod")
+	err := service.JoinChannel(ctx, 1, "test-pod")
 	if err != nil {
 		t.Fatalf("JoinChannel() duplicate error = %v", err)
 	}
 
 	var count int64
-	db.Model(&ChannelSession{}).Where("channel_id = ?", 1).Count(&count)
+	db.Model(&ChannelPod{}).Where("channel_id = ?", 1).Count(&count)
 	if count != 2 {
-		t.Errorf("expected 2 channel sessions, got %d", count)
+		t.Errorf("expected 2 channel pods, got %d", count)
 	}
 }
 
@@ -362,7 +362,7 @@ func TestLeaveChannel_NotExists(t *testing.T) {
 	}
 }
 
-func TestRecordChannelAccess_NilSession(t *testing.T) {
+func TestRecordChannelAccess_NilPod(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
@@ -375,8 +375,8 @@ func TestRecordChannelAccess_NilSession(t *testing.T) {
 
 	var ca ChannelAccess
 	db.First(&ca)
-	if ca.SessionKey != nil {
-		t.Error("expected SessionKey to be nil")
+	if ca.PodKey != nil {
+		t.Error("expected PodKey to be nil")
 	}
 	if ca.UserID == nil || *ca.UserID != 1 {
 		t.Error("expected UserID to be 1")
@@ -388,71 +388,71 @@ func TestRecordChannelAccess_NilUser(t *testing.T) {
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	sessionKey := "session-key"
-	err := service.RecordChannelAccess(ctx, 2, &sessionKey, nil)
+	podKey := "pod-key"
+	err := service.RecordChannelAccess(ctx, 2, &podKey, nil)
 	if err != nil {
 		t.Fatalf("RecordChannelAccess() error = %v", err)
 	}
 
 	var ca ChannelAccess
 	db.Where("channel_id = ?", 2).First(&ca)
-	if ca.SessionKey == nil || *ca.SessionKey != "session-key" {
-		t.Error("expected SessionKey to be 'session-key'")
+	if ca.PodKey == nil || *ca.PodKey != "pod-key" {
+		t.Error("expected PodKey to be 'pod-key'")
 	}
 	if ca.UserID != nil {
 		t.Error("expected UserID to be nil")
 	}
 }
 
-func TestBatchGetTicketSessions_Empty(t *testing.T) {
+func TestBatchGetTicketPods_Empty(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	result, err := service.BatchGetTicketSessions(ctx, []int64{})
+	result, err := service.BatchGetTicketPods(ctx, []int64{})
 	if err != nil {
-		t.Fatalf("BatchGetTicketSessions() error = %v", err)
+		t.Fatalf("BatchGetTicketPods() error = %v", err)
 	}
-	if len(result.TicketSessions) != 0 {
-		t.Errorf("expected 0 entries, got %d", len(result.TicketSessions))
+	if len(result.TicketPods) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(result.TicketPods))
 	}
 }
 
-func TestBatchGetTicketSessions_NoSessions(t *testing.T) {
+func TestBatchGetTicketPods_NoPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	result, err := service.BatchGetTicketSessions(ctx, []int64{1, 2, 3})
+	result, err := service.BatchGetTicketPods(ctx, []int64{1, 2, 3})
 	if err != nil {
-		t.Fatalf("BatchGetTicketSessions() error = %v", err)
+		t.Fatalf("BatchGetTicketPods() error = %v", err)
 	}
 	// Should have entries for all requested IDs even if empty
 	for _, id := range []int64{1, 2, 3} {
-		if _, ok := result.TicketSessions[id]; !ok {
+		if _, ok := result.TicketPods[id]; !ok {
 			t.Errorf("expected entry for ticket ID %d", id)
 		}
-		if len(result.TicketSessions[id]) != 0 {
-			t.Errorf("expected 0 sessions for ticket %d, got %d", id, len(result.TicketSessions[id]))
+		if len(result.TicketPods[id]) != 0 {
+			t.Errorf("expected 0 pods for ticket %d, got %d", id, len(result.TicketPods[id]))
 		}
 	}
 }
 
-func TestBatchGetTicketSessions_SessionWithNilTicket(t *testing.T) {
+func TestBatchGetTicketPods_PodWithNilTicket(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db, nil, nil, nil)
 	ctx := context.Background()
 
-	// Create session with nil ticket_id
-	db.Create(&session.Session{SessionKey: "no-ticket", OrganizationID: 1, Status: "running", CreatedByID: 1})
+	// Create pod with nil ticket_id
+	db.Create(&agentpod.Pod{PodKey: "no-ticket", OrganizationID: 1, Status: "running", CreatedByID: 1})
 
-	result, err := service.BatchGetTicketSessions(ctx, []int64{100})
+	result, err := service.BatchGetTicketPods(ctx, []int64{100})
 	if err != nil {
-		t.Fatalf("BatchGetTicketSessions() error = %v", err)
+		t.Fatalf("BatchGetTicketPods() error = %v", err)
 	}
-	// Session with nil ticket_id should not be included
-	if len(result.TicketSessions[100]) != 0 {
-		t.Errorf("expected 0 sessions for ticket 100, got %d", len(result.TicketSessions[100]))
+	// Pod with nil ticket_id should not be included
+	if len(result.TicketPods[100]) != 0 {
+		t.Errorf("expected 0 pods for ticket 100, got %d", len(result.TicketPods[100]))
 	}
 }
 
@@ -461,8 +461,8 @@ func TestServiceFields(t *testing.T) {
 	service := NewService(db, nil, nil, nil)
 
 	// Verify nil services are accepted
-	if service.sessionService != nil {
-		t.Error("expected sessionService to be nil")
+	if service.podService != nil {
+		t.Error("expected podService to be nil")
 	}
 	if service.channelService != nil {
 		t.Error("expected channelService to be nil")

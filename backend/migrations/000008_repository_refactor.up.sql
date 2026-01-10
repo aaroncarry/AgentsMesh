@@ -23,9 +23,9 @@ SET
     END,
     -- Set imported_by to first org member with owner role if available, otherwise NULL
     imported_by_user_id = (
-        SELECT user_id FROM organization_members
-        WHERE organization_id = r.organization_id AND role = 'owner'
-        ORDER BY created_at ASC LIMIT 1
+        SELECT om.user_id FROM organization_members om
+        WHERE om.organization_id = r.organization_id AND om.role = 'owner'
+        ORDER BY om.joined_at ASC LIMIT 1
     )
 FROM git_providers gp
 WHERE r.git_provider_id = gp.id;

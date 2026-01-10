@@ -35,20 +35,20 @@ func TestConnectionManagerSetCallbacks(t *testing.T) {
 		t.Error("onHeartbeat should be set")
 	}
 
-	sessionCreatedCalled := false
-	cm.SetSessionCreatedCallback(func(runnerID int64, data *SessionCreatedData) {
-		sessionCreatedCalled = true
+	podCreatedCalled := false
+	cm.SetPodCreatedCallback(func(runnerID int64, data *PodCreatedData) {
+		podCreatedCalled = true
 	})
-	if cm.onSessionCreated == nil {
-		t.Error("onSessionCreated should be set")
+	if cm.onPodCreated == nil {
+		t.Error("onPodCreated should be set")
 	}
 
-	sessionTerminatedCalled := false
-	cm.SetSessionTerminatedCallback(func(runnerID int64, data *SessionTerminatedData) {
-		sessionTerminatedCalled = true
+	podTerminatedCalled := false
+	cm.SetPodTerminatedCallback(func(runnerID int64, data *PodTerminatedData) {
+		podTerminatedCalled = true
 	})
-	if cm.onSessionTerminated == nil {
-		t.Error("onSessionTerminated should be set")
+	if cm.onPodTerminated == nil {
+		t.Error("onPodTerminated should be set")
 	}
 
 	terminalOutputCalled := false
@@ -84,7 +84,7 @@ func TestConnectionManagerSetCallbacks(t *testing.T) {
 	}
 
 	// Test they are not called yet
-	if heartbeatCalled || sessionCreatedCalled || sessionTerminatedCalled ||
+	if heartbeatCalled || podCreatedCalled || podTerminatedCalled ||
 		terminalOutputCalled || agentStatusCalled || ptyResizedCalled || disconnectCalled {
 		t.Error("callbacks should not be called yet")
 	}
@@ -238,7 +238,7 @@ func TestConnectionManagerHandleMessageHeartbeat(t *testing.T) {
 
 	hbData := HeartbeatData{
 		RunnerVersion: "1.0.0",
-		Sessions:      []HeartbeatSession{{SessionKey: "s1"}},
+		Pods:          []HeartbeatPod{{PodKey: "s1"}},
 	}
 	dataBytes, _ := json.Marshal(hbData)
 	msg := RunnerMessage{
@@ -257,43 +257,43 @@ func TestConnectionManagerHandleMessageHeartbeat(t *testing.T) {
 	}
 }
 
-func TestConnectionManagerHandleMessageSessionCreated(t *testing.T) {
+func TestConnectionManagerHandleMessagePodCreated(t *testing.T) {
 	cm := NewConnectionManager(newTestLogger())
 
-	sessionCreatedCalled := false
-	cm.SetSessionCreatedCallback(func(runnerID int64, data *SessionCreatedData) {
-		sessionCreatedCalled = true
+	podCreatedCalled := false
+	cm.SetPodCreatedCallback(func(runnerID int64, data *PodCreatedData) {
+		podCreatedCalled = true
 	})
 
-	scData := SessionCreatedData{SessionID: "s1", Pid: 12345}
+	scData := PodCreatedData{PodKey: "s1", Pid: 12345}
 	dataBytes, _ := json.Marshal(scData)
-	msg := RunnerMessage{Type: MsgTypeSessionCreated, Data: dataBytes}
+	msg := RunnerMessage{Type: MsgTypePodCreated, Data: dataBytes}
 	msgBytes, _ := json.Marshal(msg)
 
 	cm.HandleMessage(1, websocket.TextMessage, msgBytes)
 
-	if !sessionCreatedCalled {
-		t.Error("session created callback should be called")
+	if !podCreatedCalled {
+		t.Error("pod created callback should be called")
 	}
 }
 
-func TestConnectionManagerHandleMessageSessionTerminated(t *testing.T) {
+func TestConnectionManagerHandleMessagePodTerminated(t *testing.T) {
 	cm := NewConnectionManager(newTestLogger())
 
-	sessionTerminatedCalled := false
-	cm.SetSessionTerminatedCallback(func(runnerID int64, data *SessionTerminatedData) {
-		sessionTerminatedCalled = true
+	podTerminatedCalled := false
+	cm.SetPodTerminatedCallback(func(runnerID int64, data *PodTerminatedData) {
+		podTerminatedCalled = true
 	})
 
-	stData := SessionTerminatedData{SessionID: "s1", ExitCode: 0}
+	stData := PodTerminatedData{PodKey: "s1", ExitCode: 0}
 	dataBytes, _ := json.Marshal(stData)
-	msg := RunnerMessage{Type: MsgTypeSessionTerminated, Data: dataBytes}
+	msg := RunnerMessage{Type: MsgTypePodTerminated, Data: dataBytes}
 	msgBytes, _ := json.Marshal(msg)
 
 	cm.HandleMessage(1, websocket.TextMessage, msgBytes)
 
-	if !sessionTerminatedCalled {
-		t.Error("session terminated callback should be called")
+	if !podTerminatedCalled {
+		t.Error("pod terminated callback should be called")
 	}
 }
 
@@ -305,7 +305,7 @@ func TestConnectionManagerHandleMessageTerminalOutput(t *testing.T) {
 		terminalOutputCalled = true
 	})
 
-	toData := TerminalOutputData{SessionID: "s1", Data: []byte("output")}
+	toData := TerminalOutputData{PodKey: "s1", Data: []byte("output")}
 	dataBytes, _ := json.Marshal(toData)
 	msg := RunnerMessage{Type: MsgTypeTerminalOutput, Data: dataBytes}
 	msgBytes, _ := json.Marshal(msg)
@@ -325,7 +325,7 @@ func TestConnectionManagerHandleMessageAgentStatus(t *testing.T) {
 		agentStatusCalled = true
 	})
 
-	asData := AgentStatusData{SessionID: "s1", Status: "running"}
+	asData := AgentStatusData{PodKey: "s1", Status: "running"}
 	dataBytes, _ := json.Marshal(asData)
 	msg := RunnerMessage{Type: MsgTypeAgentStatus, Data: dataBytes}
 	msgBytes, _ := json.Marshal(msg)
@@ -345,7 +345,7 @@ func TestConnectionManagerHandleMessagePtyResized(t *testing.T) {
 		ptyResizedCalled = true
 	})
 
-	prData := PtyResizedData{SessionID: "s1", Cols: 80, Rows: 24}
+	prData := PtyResizedData{PodKey: "s1", Cols: 80, Rows: 24}
 	dataBytes, _ := json.Marshal(prData)
 	msg := RunnerMessage{Type: MsgTypePtyResized, Data: dataBytes}
 	msgBytes, _ := json.Marshal(msg)
@@ -370,7 +370,7 @@ func TestConnectionManagerHandleMessageUnknown(t *testing.T) {
 func TestConnectionManagerSendMessageNotConnected(t *testing.T) {
 	cm := NewConnectionManager(newTestLogger())
 
-	err := cm.SendMessage(nil, 1, &RunnerMessage{Type: MsgTypeCreateSession})
+	err := cm.SendMessage(nil, 1, &RunnerMessage{Type: MsgTypeCreatePod})
 	if err != ErrRunnerNotConnected {
 		t.Errorf("err = %v, want ErrRunnerNotConnected", err)
 	}
@@ -383,7 +383,7 @@ func TestRunnerConnectionSendMessage(t *testing.T) {
 	}
 
 	// Connection nil
-	err := rc.SendMessage(&RunnerMessage{Type: MsgTypeCreateSession})
+	err := rc.SendMessage(&RunnerMessage{Type: MsgTypeCreatePod})
 	if err != ErrConnectionClosed {
 		t.Errorf("err = %v, want ErrConnectionClosed", err)
 	}
@@ -403,7 +403,7 @@ func TestRunnerConnectionClose(t *testing.T) {
 func TestRunnerMessageStruct(t *testing.T) {
 	msg := RunnerMessage{
 		Type:      MsgTypeHeartbeat,
-		SessionID: "session-1",
+		PodKey: "pod-1",
 		Timestamp: time.Now().UnixMilli(),
 	}
 
@@ -417,11 +417,11 @@ func TestMessageTypeConstants(t *testing.T) {
 	if MsgTypeHeartbeat != "heartbeat" {
 		t.Errorf("MsgTypeHeartbeat = %s, want heartbeat", MsgTypeHeartbeat)
 	}
-	if MsgTypeSessionCreated != "session_created" {
-		t.Errorf("MsgTypeSessionCreated = %s, want session_created", MsgTypeSessionCreated)
+	if MsgTypePodCreated != "pod_created" {
+		t.Errorf("MsgTypePodCreated = %s, want pod_created", MsgTypePodCreated)
 	}
-	if MsgTypeSessionTerminated != "session_terminated" {
-		t.Errorf("MsgTypeSessionTerminated = %s, want session_terminated", MsgTypeSessionTerminated)
+	if MsgTypePodTerminated != "pod_terminated" {
+		t.Errorf("MsgTypePodTerminated = %s, want pod_terminated", MsgTypePodTerminated)
 	}
 	if MsgTypeTerminalOutput != "terminal_output" {
 		t.Errorf("MsgTypeTerminalOutput = %s, want terminal_output", MsgTypeTerminalOutput)
@@ -437,11 +437,11 @@ func TestMessageTypeConstants(t *testing.T) {
 	}
 
 	// To runner
-	if MsgTypeCreateSession != "create_session" {
-		t.Errorf("MsgTypeCreateSession = %s, want create_session", MsgTypeCreateSession)
+	if MsgTypeCreatePod != "create_pod" {
+		t.Errorf("MsgTypeCreatePod = %s, want create_pod", MsgTypeCreatePod)
 	}
-	if MsgTypeTerminateSession != "terminate_session" {
-		t.Errorf("MsgTypeTerminateSession = %s, want terminate_session", MsgTypeTerminateSession)
+	if MsgTypeTerminatePod != "terminate_pod" {
+		t.Errorf("MsgTypeTerminatePod = %s, want terminate_pod", MsgTypeTerminatePod)
 	}
 	if MsgTypeTerminalInput != "terminal_input" {
 		t.Errorf("MsgTypeTerminalInput = %s, want terminal_input", MsgTypeTerminalInput)
@@ -457,59 +457,59 @@ func TestMessageTypeConstants(t *testing.T) {
 func TestDataStructs(t *testing.T) {
 	t.Run("HeartbeatData", func(t *testing.T) {
 		data := HeartbeatData{
-			Sessions:      []HeartbeatSession{{SessionKey: "s1"}},
+			Pods:          []HeartbeatPod{{PodKey: "s1"}},
 			RunnerVersion: "1.0.0",
 		}
-		if len(data.Sessions) != 1 {
-			t.Error("Sessions not set correctly")
+		if len(data.Pods) != 1 {
+			t.Error("Pods not set correctly")
 		}
 	})
 
-	t.Run("SessionCreatedData", func(t *testing.T) {
-		data := SessionCreatedData{
-			SessionID:    "s1",
+	t.Run("PodCreatedData", func(t *testing.T) {
+		data := PodCreatedData{
+			PodKey:       "s1",
 			Pid:          12345,
 			BranchName:   "main",
 			WorktreePath: "/path/to/worktree",
 			Cols:         80,
 			Rows:         24,
 		}
-		if data.SessionID != "s1" || data.Pid != 12345 {
+		if data.PodKey != "s1" || data.Pid != 12345 {
 			t.Error("fields not set correctly")
 		}
 	})
 
-	t.Run("SessionTerminatedData", func(t *testing.T) {
-		data := SessionTerminatedData{SessionID: "s1", ExitCode: 1}
+	t.Run("PodTerminatedData", func(t *testing.T) {
+		data := PodTerminatedData{PodKey: "s1", ExitCode: 1}
 		if data.ExitCode != 1 {
 			t.Error("ExitCode not set correctly")
 		}
 	})
 
 	t.Run("TerminalOutputData", func(t *testing.T) {
-		data := TerminalOutputData{SessionID: "s1", Data: []byte("output")}
+		data := TerminalOutputData{PodKey: "s1", Data: []byte("output")}
 		if string(data.Data) != "output" {
 			t.Error("Data not set correctly")
 		}
 	})
 
 	t.Run("AgentStatusData", func(t *testing.T) {
-		data := AgentStatusData{SessionID: "s1", Status: "running", Pid: 123}
+		data := AgentStatusData{PodKey: "s1", Status: "running", Pid: 123}
 		if data.Status != "running" {
 			t.Error("Status not set correctly")
 		}
 	})
 
 	t.Run("PtyResizedData", func(t *testing.T) {
-		data := PtyResizedData{SessionID: "s1", Cols: 80, Rows: 24}
+		data := PtyResizedData{PodKey: "s1", Cols: 80, Rows: 24}
 		if data.Cols != 80 || data.Rows != 24 {
 			t.Error("dimensions not set correctly")
 		}
 	})
 
-	t.Run("CreateSessionRequest", func(t *testing.T) {
-		req := CreateSessionRequest{
-			SessionID:      "s1",
+	t.Run("CreatePodRequest", func(t *testing.T) {
+		req := CreatePodRequest{
+			PodKey:      "s1",
 			InitialCommand: "claude",
 			InitialPrompt:  "hello",
 			PermissionMode: "plan",
@@ -528,14 +528,14 @@ func TestDataStructs(t *testing.T) {
 	})
 
 	t.Run("TerminalInputRequest", func(t *testing.T) {
-		req := TerminalInputRequest{SessionID: "s1", Data: []byte("input")}
+		req := TerminalInputRequest{PodKey: "s1", Data: []byte("input")}
 		if string(req.Data) != "input" {
 			t.Error("Data not set correctly")
 		}
 	})
 
 	t.Run("TerminalResizeRequest", func(t *testing.T) {
-		req := TerminalResizeRequest{SessionID: "s1", Cols: 100, Rows: 50}
+		req := TerminalResizeRequest{PodKey: "s1", Cols: 100, Rows: 50}
 		if req.Cols != 100 || req.Rows != 50 {
 			t.Error("dimensions not set correctly")
 		}

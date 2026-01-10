@@ -1,52 +1,14 @@
 import { create } from "zustand";
-import { devmeshApi } from "@/lib/api/client";
+import { devmeshApi, DevMeshNodeData, DevMeshEdgeData, ChannelInfoData, DevMeshTopologyData } from "@/lib/api/client";
 
-// DevMesh node representing a session in the topology
-export interface DevMeshNode {
-  session_key: string;
-  status: string;
-  agent_status: string;
-  model?: string;
-  ticket_id?: number;
-  repository_id?: number;
-  created_by_id: number;
-  runner_id: number;
-  started_at?: string;
-  position?: {
-    x: number;
-    y: number;
-  };
-}
+// Re-export API types for use in components
+export type DevMeshNode = DevMeshNodeData;
+export type DevMeshEdge = DevMeshEdgeData;
+export type ChannelInfo = ChannelInfoData;
+export type DevMeshTopology = DevMeshTopologyData;
 
-// DevMesh edge representing a binding between sessions
-export interface DevMeshEdge {
-  id: number;
-  source: string;
-  target: string;
-  granted_scopes: string[];
-  pending_scopes?: string[];
-  status: string;
-}
-
-// Channel information for DevMesh visualization
-export interface ChannelInfo {
-  id: number;
-  name: string;
-  description?: string;
-  session_keys: string[];
-  message_count: number;
-  is_archived: boolean;
-}
-
-// Complete topology data
-export interface DevMeshTopology {
-  nodes: DevMeshNode[];
-  edges: DevMeshEdge[];
-  channels: ChannelInfo[];
-}
-
-// Request to create a session for a ticket
-export interface CreateSessionForTicketRequest {
+// Request to create a pod for a ticket
+export interface CreatePodForTicketRequest {
   runner_id: number;
   initial_prompt?: string;
   model?: string;
@@ -65,16 +27,16 @@ interface DevMeshState {
 
   // Actions
   fetchTopology: () => Promise<void>;
-  selectNode: (sessionKey: string | null) => void;
+  selectNode: (podKey: string | null) => void;
   selectChannel: (channelId: number | null) => void;
   startPolling: (interval?: number) => void;
   stopPolling: () => void;
   clearError: () => void;
 
   // Node helpers
-  getNodeByKey: (sessionKey: string) => DevMeshNode | undefined;
-  getEdgesForNode: (sessionKey: string) => DevMeshEdge[];
-  getChannelsForNode: (sessionKey: string) => ChannelInfo[];
+  getNodeByKey: (podKey: string) => DevMeshNode | undefined;
+  getEdgesForNode: (podKey: string) => DevMeshEdge[];
+  getChannelsForNode: (podKey: string) => ChannelInfo[];
   getActiveNodes: () => DevMeshNode[];
 }
 
@@ -99,8 +61,8 @@ export const useDevMeshStore = create<DevMeshState>((set, get) => ({
     }
   },
 
-  selectNode: (sessionKey) => {
-    set({ selectedNode: sessionKey, selectedChannel: null });
+  selectNode: (podKey) => {
+    set({ selectedNode: podKey, selectedChannel: null });
   },
 
   selectChannel: (channelId) => {
@@ -138,24 +100,24 @@ export const useDevMeshStore = create<DevMeshState>((set, get) => ({
     set({ error: null });
   },
 
-  getNodeByKey: (sessionKey) => {
+  getNodeByKey: (podKey) => {
     const { topology } = get();
-    return topology?.nodes.find((n) => n.session_key === sessionKey);
+    return topology?.nodes.find((n) => n.pod_key === podKey);
   },
 
-  getEdgesForNode: (sessionKey) => {
+  getEdgesForNode: (podKey) => {
     const { topology } = get();
     if (!topology) return [];
     return topology.edges.filter(
-      (e) => e.source === sessionKey || e.target === sessionKey
+      (e) => e.source === podKey || e.target === podKey
     );
   },
 
-  getChannelsForNode: (sessionKey) => {
+  getChannelsForNode: (podKey) => {
     const { topology } = get();
     if (!topology) return [];
     return topology.channels.filter((c) =>
-      c.session_keys.includes(sessionKey)
+      c.pod_keys.includes(podKey)
     );
   },
 
@@ -168,8 +130,8 @@ export const useDevMeshStore = create<DevMeshState>((set, get) => ({
   },
 }));
 
-// Helper function to get session status display info
-export const getSessionStatusInfo = (status: string) => {
+// Helper function to get pod status display info
+export const getPodStatusInfo = (status: string) => {
   const statusMap: Record<
     string,
     { label: string; color: string; bgColor: string }

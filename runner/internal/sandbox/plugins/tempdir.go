@@ -9,7 +9,7 @@ import (
 )
 
 // TempDirPlugin creates a temporary working directory when no WorkDir is set.
-// This is used for sessions without a git repository (e.g., operations tasks).
+// This is used for pods without a git repository (e.g., operations tasks).
 type TempDirPlugin struct{}
 
 // NewTempDirPlugin creates a new TempDirPlugin.

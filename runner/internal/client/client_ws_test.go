@@ -377,21 +377,21 @@ func TestClientCloseStopsLoops(t *testing.T) {
 }
 
 // Test message_router error handling
-func TestMessageRouterHandleTerminateSessionError(t *testing.T) {
+func TestMessageRouterHandleTerminatePodError(t *testing.T) {
 	handler := &mockHandler{}
 	sender := &mockEventSender{}
 	router := NewMessageRouter(handler, sender)
 
-	// Invalid JSON for terminate session
+	// Invalid JSON for terminate pod
 	msg := ProtocolMessage{
-		Type: MsgTypeTerminateSession,
+		Type: MsgTypeTerminatePod,
 		Data: json.RawMessage(`invalid json`),
 	}
 
 	// Should not panic
 	router.Route(msg)
 
-	if handler.terminateSessionCalled {
+	if handler.terminatePodCalled {
 		t.Error("handler should not be called for invalid JSON")
 	}
 }
@@ -443,18 +443,18 @@ type mockHandlerWithError struct {
 	resizeError    error
 }
 
-func (m *mockHandlerWithError) OnCreateSession(req CreateSessionRequest) error {
+func (m *mockHandlerWithError) OnCreatePod(req CreatePodRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.createSessionCalled = true
+	m.createPodCalled = true
 	m.lastCreateReq = req
 	return m.createError
 }
 
-func (m *mockHandlerWithError) OnTerminateSession(req TerminateSessionRequest) error {
+func (m *mockHandlerWithError) OnTerminatePod(req TerminatePodRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.terminateSessionCalled = true
+	m.terminatePodCalled = true
 	m.lastTerminateReq = req
 	return m.terminateError
 }
@@ -476,43 +476,43 @@ func (m *mockHandlerWithError) OnTerminalResize(req TerminalResizeRequest) error
 }
 
 func TestMessageRouterHandlerReturnsError(t *testing.T) {
-	t.Run("CreateSession error", func(t *testing.T) {
+	t.Run("CreatePod error", func(t *testing.T) {
 		handler := &mockHandlerWithError{
 			createError: context.DeadlineExceeded,
 		}
 		sender := &mockEventSender{}
 		router := NewMessageRouter(handler, sender)
 
-		reqData, _ := json.Marshal(CreateSessionRequest{SessionID: "s1"})
+		reqData, _ := json.Marshal(CreatePodRequest{PodKey: "p1"})
 		msg := ProtocolMessage{
-			Type: MsgTypeCreateSession,
+			Type: MsgTypeCreatePod,
 			Data: reqData,
 		}
 
 		// Should not panic, error is logged
 		router.Route(msg)
 
-		if !handler.createSessionCalled {
+		if !handler.createPodCalled {
 			t.Error("handler should be called")
 		}
 	})
 
-	t.Run("TerminateSession error", func(t *testing.T) {
+	t.Run("TerminatePod error", func(t *testing.T) {
 		handler := &mockHandlerWithError{
 			terminateError: context.DeadlineExceeded,
 		}
 		sender := &mockEventSender{}
 		router := NewMessageRouter(handler, sender)
 
-		reqData, _ := json.Marshal(TerminateSessionRequest{SessionID: "s1"})
+		reqData, _ := json.Marshal(TerminatePodRequest{PodKey: "p1"})
 		msg := ProtocolMessage{
-			Type: MsgTypeTerminateSession,
+			Type: MsgTypeTerminatePod,
 			Data: reqData,
 		}
 
 		router.Route(msg)
 
-		if !handler.terminateSessionCalled {
+		if !handler.terminatePodCalled {
 			t.Error("handler should be called")
 		}
 	})
@@ -524,7 +524,7 @@ func TestMessageRouterHandlerReturnsError(t *testing.T) {
 		sender := &mockEventSender{}
 		router := NewMessageRouter(handler, sender)
 
-		reqData, _ := json.Marshal(TerminalInputRequest{SessionID: "s1"})
+		reqData, _ := json.Marshal(TerminalInputRequest{PodKey: "p1"})
 		msg := ProtocolMessage{
 			Type: MsgTypeTerminalInput,
 			Data: reqData,
@@ -544,7 +544,7 @@ func TestMessageRouterHandlerReturnsError(t *testing.T) {
 		sender := &mockEventSender{}
 		router := NewMessageRouter(handler, sender)
 
-		reqData, _ := json.Marshal(TerminalResizeRequest{SessionID: "s1"})
+		reqData, _ := json.Marshal(TerminalResizeRequest{PodKey: "p1"})
 		msg := ProtocolMessage{
 			Type: MsgTypeTerminalResize,
 			Data: reqData,

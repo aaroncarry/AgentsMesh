@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/infra/git"
@@ -142,7 +143,7 @@ func (s *Service) Update(ctx context.Context, id int64, updates map[string]inter
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	return s.db.WithContext(ctx).Model(&gitprovider.Repository{}).
 		Where("id = ?", id).
-		Update("deleted_at", gorm.Expr("NOW()")).Error
+		Update("deleted_at", time.Now()).Error
 }
 
 // HardDelete permanently deletes a repository

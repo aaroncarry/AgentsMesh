@@ -8,8 +8,8 @@ interface Message {
   messageType: "text" | "system" | "code" | "command";
   metadata?: Record<string, any>;
   createdAt: string;
-  session?: {
-    sessionKey: string;
+  pod?: {
+    podKey: string;
     agentType?: {
       name: string;
     };
@@ -79,7 +79,7 @@ export function MessageList({
   });
 
   const renderMessage = (message: Message) => {
-    const isAgent = !!message.session;
+    const isAgent = !!message.pod;
     const isSystem = message.messageType === "system";
     const isCode = message.messageType === "code";
     const isCommand = message.messageType === "command";
@@ -137,12 +137,12 @@ export function MessageList({
           <div className="flex items-baseline gap-2">
             <span className="font-medium text-sm">
               {isAgent
-                ? message.session?.agentType?.name || "Agent"
+                ? message.pod?.agentType?.name || "Agent"
                 : message.user?.name || message.user?.username || "Unknown"}
             </span>
             {isAgent && (
               <span className="text-xs text-muted-foreground">
-                {message.session?.sessionKey.slice(0, 8)}
+                {message.pod?.podKey.slice(0, 8)}
               </span>
             )}
             <span className="text-xs text-muted-foreground">

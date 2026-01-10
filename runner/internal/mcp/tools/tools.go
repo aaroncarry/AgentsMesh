@@ -1,4 +1,4 @@
-// Package tools provides MCP tools for collaboration and session management.
+// Package tools provides MCP tools for collaboration and pod management.
 package tools
 
 import (

@@ -16,7 +16,7 @@ type RegistrationRequest struct {
 	NodeID            string
 	RegistrationToken string
 	Description       string
-	MaxSessions       int
+	MaxPods           int
 }
 
 // RegistrationResponse contains registration result.
@@ -33,10 +33,10 @@ func Register(ctx context.Context, req RegistrationRequest) (*RegistrationRespon
 
 	// Build request body
 	body := map[string]interface{}{
-		"node_id":                 req.NodeID,
-		"description":             req.Description,
-		"registration_token":      req.RegistrationToken,
-		"max_concurrent_sessions": req.MaxSessions,
+		"node_id":             req.NodeID,
+		"description":         req.Description,
+		"registration_token":  req.RegistrationToken,
+		"max_concurrent_pods": req.MaxPods,
 	}
 
 	bodyBytes, err := json.Marshal(body)

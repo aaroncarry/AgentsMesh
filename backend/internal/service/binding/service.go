@@ -13,7 +13,7 @@ import (
 var (
 	ErrBindingNotFound      = errors.New("binding not found")
 	ErrBindingExists        = errors.New("binding already exists")
-	ErrSelfBinding          = errors.New("cannot bind a session to itself")
+	ErrSelfBinding          = errors.New("cannot bind a pod to itself")
 	ErrInvalidScope         = errors.New("invalid scope")
 	ErrNotAuthorized        = errors.New("not authorized for this operation")
 	ErrBindingNotPending    = errors.New("binding is not pending")
@@ -24,22 +24,22 @@ var (
 // Default expiry for pending bindings (24 hours)
 const PendingExpiryHours = 24
 
-// Service handles session binding operations
+// Service handles pod binding operations
 type Service struct {
-	db             *gorm.DB
-	sessionQuerier SessionQuerier
+	db         *gorm.DB
+	podQuerier PodQuerier
 }
 
-// SessionQuerier provides session information for policy evaluation
-type SessionQuerier interface {
-	GetSessionInfo(ctx context.Context, sessionKey string) (map[string]interface{}, error)
+// PodQuerier provides pod information for policy evaluation
+type PodQuerier interface {
+	GetPodInfo(ctx context.Context, podKey string) (map[string]interface{}, error)
 }
 
 // NewService creates a new binding service
-func NewService(db *gorm.DB, sessionQuerier SessionQuerier) *Service {
+func NewService(db *gorm.DB, podQuerier PodQuerier) *Service {
 	return &Service{
-		db:             db,
-		sessionQuerier: sessionQuerier,
+		db:         db,
+		podQuerier: podQuerier,
 	}
 }
 
@@ -53,26 +53,26 @@ func (s *Service) validateScopes(scopes []string) error {
 	return nil
 }
 
-// RequestBinding creates a binding request between two sessions
-func (s *Service) RequestBinding(ctx context.Context, orgID int64, initiatorSession, targetSession string, scopes []string, policy string) (*channel.SessionBinding, error) {
+// RequestBinding creates a binding request between two pods
+func (s *Service) RequestBinding(ctx context.Context, orgID int64, initiatorPod, targetPod string, scopes []string, policy string) (*channel.PodBinding, error) {
 	// Validate scopes
 	if err := s.validateScopes(scopes); err != nil {
 		return nil, err
 	}
 
 	// Prevent self-binding
-	if initiatorSession == targetSession {
+	if initiatorPod == targetPod {
 		return nil, ErrSelfBinding
 	}
 
 	// Check for existing binding (active or pending)
-	existing, err := s.GetExistingBinding(ctx, initiatorSession, targetSession)
+	existing, err := s.GetExistingBinding(ctx, initiatorPod, targetPod)
 	if err == nil && existing != nil {
 		return existing, nil
 	}
 
 	// Evaluate policy to determine if auto-approve
-	autoApprove, initialStatus := s.evaluatePolicy(ctx, initiatorSession, targetSession, policy)
+	autoApprove, initialStatus := s.evaluatePolicy(ctx, initiatorPod, targetPod, policy)
 
 	// Calculate expiry for pending bindings
 	var expiresAt *time.Time
@@ -92,10 +92,10 @@ func (s *Service) RequestBinding(ctx context.Context, orgID int64, initiatorSess
 	}
 
 	now := time.Now()
-	binding := &channel.SessionBinding{
+	binding := &channel.PodBinding{
 		OrganizationID:   orgID,
-		InitiatorSession: initiatorSession,
-		TargetSession:    targetSession,
+		InitiatorPod: initiatorPod,
+		TargetPod:    targetPod,
 		GrantedScopes:    pq.StringArray(grantedScopes),
 		PendingScopes:    pq.StringArray(pendingScopes),
 		Status:           initialStatus,
@@ -115,7 +115,7 @@ func (s *Service) RequestBinding(ctx context.Context, orgID int64, initiatorSess
 }
 
 // RequestScopes requests additional scopes on an existing binding
-func (s *Service) RequestScopes(ctx context.Context, bindingID int64, requesterSession string, scopes []string) (*channel.SessionBinding, error) {
+func (s *Service) RequestScopes(ctx context.Context, bindingID int64, requesterPod string, scopes []string) (*channel.PodBinding, error) {
 	if err := s.validateScopes(scopes); err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (s *Service) RequestScopes(ctx context.Context, bindingID int64, requesterS
 		return nil, err
 	}
 
-	if binding.InitiatorSession != requesterSession {
+	if binding.InitiatorPod != requesterPod {
 		return nil, ErrNotAuthorized
 	}
 
@@ -146,7 +146,7 @@ func (s *Service) RequestScopes(ctx context.Context, bindingID int64, requesterS
 	}
 
 	// Check if we can auto-approve
-	autoApprove, _ := s.evaluatePolicy(ctx, binding.InitiatorSession, binding.TargetSession, "")
+	autoApprove, _ := s.evaluatePolicy(ctx, binding.InitiatorPod, binding.TargetPod, "")
 
 	if autoApprove {
 		binding.GrantedScopes = append(binding.GrantedScopes, newScopes...)
@@ -162,13 +162,13 @@ func (s *Service) RequestScopes(ctx context.Context, bindingID int64, requesterS
 }
 
 // ApproveScopes approves pending scope requests
-func (s *Service) ApproveScopes(ctx context.Context, bindingID int64, approverSession string, scopes []string) (*channel.SessionBinding, error) {
+func (s *Service) ApproveScopes(ctx context.Context, bindingID int64, approverPod string, scopes []string) (*channel.PodBinding, error) {
 	binding, err := s.GetBinding(ctx, bindingID)
 	if err != nil {
 		return nil, err
 	}
 
-	if binding.TargetSession != approverSession {
+	if binding.TargetPod != approverPod {
 		return nil, ErrNotAuthorized
 	}
 
@@ -213,13 +213,13 @@ func (s *Service) ApproveScopes(ctx context.Context, bindingID int64, approverSe
 }
 
 // AcceptBinding accepts a pending binding request (moves all pending scopes to granted)
-func (s *Service) AcceptBinding(ctx context.Context, bindingID int64, targetSession string) (*channel.SessionBinding, error) {
+func (s *Service) AcceptBinding(ctx context.Context, bindingID int64, targetPod string) (*channel.PodBinding, error) {
 	binding, err := s.GetBinding(ctx, bindingID)
 	if err != nil {
 		return nil, err
 	}
 
-	if binding.TargetSession != targetSession {
+	if binding.TargetPod != targetPod {
 		return nil, ErrNotAuthorized
 	}
 
@@ -246,13 +246,13 @@ func (s *Service) AcceptBinding(ctx context.Context, bindingID int64, targetSess
 }
 
 // RejectBinding rejects a pending binding request
-func (s *Service) RejectBinding(ctx context.Context, bindingID int64, targetSession string, reason string) (*channel.SessionBinding, error) {
+func (s *Service) RejectBinding(ctx context.Context, bindingID int64, targetPod string, reason string) (*channel.PodBinding, error) {
 	binding, err := s.GetBinding(ctx, bindingID)
 	if err != nil {
 		return nil, err
 	}
 
-	if binding.TargetSession != targetSession {
+	if binding.TargetPod != targetPod {
 		return nil, ErrNotAuthorized
 	}
 
@@ -274,12 +274,12 @@ func (s *Service) RejectBinding(ctx context.Context, bindingID int64, targetSess
 	return binding, nil
 }
 
-// Unbind removes an active binding between two sessions
-func (s *Service) Unbind(ctx context.Context, initiatorSession, targetSession string) (bool, error) {
+// Unbind removes an active binding between two pods
+func (s *Service) Unbind(ctx context.Context, initiatorPod, targetPod string) (bool, error) {
 	// Try both directions
-	binding, err := s.GetActiveBinding(ctx, initiatorSession, targetSession)
+	binding, err := s.GetActiveBinding(ctx, initiatorPod, targetPod)
 	if err != nil {
-		binding, err = s.GetActiveBinding(ctx, targetSession, initiatorSession)
+		binding, err = s.GetActiveBinding(ctx, targetPod, initiatorPod)
 		if err != nil {
 			return false, nil
 		}
@@ -294,26 +294,26 @@ func (s *Service) Unbind(ctx context.Context, initiatorSession, targetSession st
 }
 
 // CreateAutoBinding creates a binding that is immediately active without approval
-func (s *Service) CreateAutoBinding(ctx context.Context, orgID int64, initiatorSession, targetSession string, scopes []string) (*channel.SessionBinding, error) {
+func (s *Service) CreateAutoBinding(ctx context.Context, orgID int64, initiatorPod, targetPod string, scopes []string) (*channel.PodBinding, error) {
 	if err := s.validateScopes(scopes); err != nil {
 		return nil, err
 	}
 
-	if initiatorSession == targetSession {
+	if initiatorPod == targetPod {
 		return nil, ErrSelfBinding
 	}
 
 	// Check for existing binding
-	existing, err := s.GetExistingBinding(ctx, initiatorSession, targetSession)
+	existing, err := s.GetExistingBinding(ctx, initiatorPod, targetPod)
 	if err == nil && existing != nil {
 		return existing, nil
 	}
 
 	now := time.Now()
-	binding := &channel.SessionBinding{
+	binding := &channel.PodBinding{
 		OrganizationID:   orgID,
-		InitiatorSession: initiatorSession,
-		TargetSession:    targetSession,
+		InitiatorPod: initiatorPod,
+		TargetPod:    targetPod,
 		GrantedScopes:    pq.StringArray(scopes),
 		PendingScopes:    pq.StringArray([]string{}),
 		Status:           channel.BindingStatusActive,
@@ -330,8 +330,8 @@ func (s *Service) CreateAutoBinding(ctx context.Context, orgID int64, initiatorS
 }
 
 // GetBinding returns a binding by ID
-func (s *Service) GetBinding(ctx context.Context, bindingID int64) (*channel.SessionBinding, error) {
-	var binding channel.SessionBinding
+func (s *Service) GetBinding(ctx context.Context, bindingID int64) (*channel.PodBinding, error) {
+	var binding channel.PodBinding
 	if err := s.db.WithContext(ctx).First(&binding, bindingID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrBindingNotFound
@@ -341,12 +341,12 @@ func (s *Service) GetBinding(ctx context.Context, bindingID int64) (*channel.Ses
 	return &binding, nil
 }
 
-// GetActiveBinding returns an active binding between two sessions
-func (s *Service) GetActiveBinding(ctx context.Context, initiatorSession, targetSession string) (*channel.SessionBinding, error) {
-	var binding channel.SessionBinding
+// GetActiveBinding returns an active binding between two pods
+func (s *Service) GetActiveBinding(ctx context.Context, initiatorPod, targetPod string) (*channel.PodBinding, error) {
+	var binding channel.PodBinding
 	if err := s.db.WithContext(ctx).
-		Where("initiator_session = ? AND target_session = ? AND status = ?",
-			initiatorSession, targetSession, channel.BindingStatusActive).
+		Where("initiator_pod = ? AND target_pod = ? AND status = ?",
+			initiatorPod, targetPod, channel.BindingStatusActive).
 		First(&binding).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrBindingNotFound
@@ -356,12 +356,12 @@ func (s *Service) GetActiveBinding(ctx context.Context, initiatorSession, target
 	return &binding, nil
 }
 
-// GetExistingBinding returns any existing binding (active or pending) between two sessions
-func (s *Service) GetExistingBinding(ctx context.Context, initiatorSession, targetSession string) (*channel.SessionBinding, error) {
-	var binding channel.SessionBinding
+// GetExistingBinding returns any existing binding (active or pending) between two pods
+func (s *Service) GetExistingBinding(ctx context.Context, initiatorPod, targetPod string) (*channel.PodBinding, error) {
+	var binding channel.PodBinding
 	if err := s.db.WithContext(ctx).
-		Where("initiator_session = ? AND target_session = ? AND status IN ?",
-			initiatorSession, targetSession, []string{channel.BindingStatusActive, channel.BindingStatusPending}).
+		Where("initiator_pod = ? AND target_pod = ? AND status IN ?",
+			initiatorPod, targetPod, []string{channel.BindingStatusActive, channel.BindingStatusPending}).
 		First(&binding).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrBindingNotFound
@@ -371,50 +371,50 @@ func (s *Service) GetExistingBinding(ctx context.Context, initiatorSession, targ
 	return &binding, nil
 }
 
-// GetBindingsForSession returns all bindings for a session (as initiator or target)
-func (s *Service) GetBindingsForSession(ctx context.Context, sessionKey string, status *string) ([]*channel.SessionBinding, error) {
+// GetBindingsForPod returns all bindings for a pod (as initiator or target)
+func (s *Service) GetBindingsForPod(ctx context.Context, podKey string, status *string) ([]*channel.PodBinding, error) {
 	query := s.db.WithContext(ctx).
-		Where("initiator_session = ? OR target_session = ?", sessionKey, sessionKey)
+		Where("initiator_pod = ? OR target_pod = ?", podKey, podKey)
 
 	if status != nil {
 		query = query.Where("status = ?", *status)
 	}
 
-	var bindings []*channel.SessionBinding
+	var bindings []*channel.PodBinding
 	if err := query.Order("created_at DESC").Find(&bindings).Error; err != nil {
 		return nil, err
 	}
 	return bindings, nil
 }
 
-// GetBoundSessions returns session keys that are bound to a session
-func (s *Service) GetBoundSessions(ctx context.Context, sessionKey string) ([]string, error) {
+// GetBoundPods returns pod keys that are bound to a pod
+func (s *Service) GetBoundPods(ctx context.Context, podKey string) ([]string, error) {
 	active := channel.BindingStatusActive
-	bindings, err := s.GetBindingsForSession(ctx, sessionKey, &active)
+	bindings, err := s.GetBindingsForPod(ctx, podKey, &active)
 	if err != nil {
 		return nil, err
 	}
 
-	var boundSessions []string
+	var boundPods []string
 	for _, binding := range bindings {
-		if binding.InitiatorSession == sessionKey {
-			boundSessions = append(boundSessions, binding.TargetSession)
+		if binding.InitiatorPod == podKey {
+			boundPods = append(boundPods, binding.TargetPod)
 		} else {
-			boundSessions = append(boundSessions, binding.InitiatorSession)
+			boundPods = append(boundPods, binding.InitiatorPod)
 		}
 	}
 
-	return boundSessions, nil
+	return boundPods, nil
 }
 
-// IsBound checks if two sessions are bound
-func (s *Service) IsBound(ctx context.Context, sessionA, sessionB string) (bool, error) {
-	_, err := s.GetActiveBinding(ctx, sessionA, sessionB)
+// IsBound checks if two pods are bound
+func (s *Service) IsBound(ctx context.Context, podA, podB string) (bool, error) {
+	_, err := s.GetActiveBinding(ctx, podA, podB)
 	if err == nil {
 		return true, nil
 	}
 
-	_, err = s.GetActiveBinding(ctx, sessionB, sessionA)
+	_, err = s.GetActiveBinding(ctx, podB, podA)
 	if err == nil {
 		return true, nil
 	}
@@ -426,11 +426,11 @@ func (s *Service) IsBound(ctx context.Context, sessionA, sessionB string) (bool,
 	return false, err
 }
 
-// GetPendingRequests returns pending binding requests for a target session
-func (s *Service) GetPendingRequests(ctx context.Context, targetSession string) ([]*channel.SessionBinding, error) {
-	var bindings []*channel.SessionBinding
+// GetPendingRequests returns pending binding requests for a target pod
+func (s *Service) GetPendingRequests(ctx context.Context, targetPod string) ([]*channel.PodBinding, error) {
+	var bindings []*channel.PodBinding
 	if err := s.db.WithContext(ctx).
-		Where("target_session = ? AND status = ?", targetSession, channel.BindingStatusPending).
+		Where("target_pod = ? AND status = ?", targetPod, channel.BindingStatusPending).
 		Order("created_at ASC").
 		Find(&bindings).Error; err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func (s *Service) GetPendingRequests(ctx context.Context, targetSession string) 
 // CleanupExpiredBindings marks expired pending bindings as expired
 func (s *Service) CleanupExpiredBindings(ctx context.Context) (int64, error) {
 	result := s.db.WithContext(ctx).
-		Model(&channel.SessionBinding{}).
+		Model(&channel.PodBinding{}).
 		Where("status = ? AND expires_at IS NOT NULL AND expires_at < ?",
 			channel.BindingStatusPending, time.Now()).
 		Update("status", channel.BindingStatusExpired)
@@ -450,24 +450,24 @@ func (s *Service) CleanupExpiredBindings(ctx context.Context) (int64, error) {
 }
 
 // evaluatePolicy evaluates the binding policy to determine if auto-approve
-func (s *Service) evaluatePolicy(ctx context.Context, initiatorSession, targetSession, policy string) (bool, string) {
+func (s *Service) evaluatePolicy(ctx context.Context, initiatorPod, targetPod, policy string) (bool, string) {
 	// If explicit policy is set, use it
 	if policy == channel.BindingPolicyExplicitOnly {
 		return false, channel.BindingStatusPending
 	}
 
-	// If no session querier available, require explicit confirmation
-	if s.sessionQuerier == nil {
+	// If no pod querier available, require explicit confirmation
+	if s.podQuerier == nil {
 		return false, channel.BindingStatusPending
 	}
 
-	// Get session info
-	initiatorInfo, err := s.sessionQuerier.GetSessionInfo(ctx, initiatorSession)
+	// Get pod info
+	initiatorInfo, err := s.podQuerier.GetPodInfo(ctx, initiatorPod)
 	if err != nil {
 		return false, channel.BindingStatusPending
 	}
 
-	targetInfo, err := s.sessionQuerier.GetSessionInfo(ctx, targetSession)
+	targetInfo, err := s.podQuerier.GetPodInfo(ctx, targetPod)
 	if err != nil {
 		return false, channel.BindingStatusPending
 	}
@@ -493,8 +493,8 @@ func (s *Service) evaluatePolicy(ctx context.Context, initiatorSession, targetSe
 }
 
 // HasScope checks if initiator has a specific scope on target
-func (s *Service) HasScope(ctx context.Context, initiatorSession, targetSession, scope string) (bool, error) {
-	binding, err := s.GetActiveBinding(ctx, initiatorSession, targetSession)
+func (s *Service) HasScope(ctx context.Context, initiatorPod, targetPod, scope string) (bool, error) {
+	binding, err := s.GetActiveBinding(ctx, initiatorPod, targetPod)
 	if err != nil {
 		if errors.Is(err, ErrBindingNotFound) {
 			return false, nil

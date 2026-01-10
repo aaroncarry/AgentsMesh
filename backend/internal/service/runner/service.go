@@ -31,9 +31,9 @@ type Service struct {
 
 // ActiveRunner represents an active runner connection
 type ActiveRunner struct {
-	Runner       *runner.Runner
-	LastPing     time.Time
-	SessionCount int
+	Runner   *runner.Runner
+	LastPing time.Time
+	PodCount int
 }
 
 // NewService creates a new runner service
@@ -103,7 +103,7 @@ func (s *Service) ValidateRegistrationToken(ctx context.Context, token string) (
 }
 
 // RegisterRunner registers a new runner
-func (s *Service) RegisterRunner(ctx context.Context, token, nodeID, description string, maxSessions int) (*runner.Runner, string, error) {
+func (s *Service) RegisterRunner(ctx context.Context, token, nodeID, description string, maxPods int) (*runner.Runner, string, error) {
 	// Validate token
 	regToken, err := s.ValidateRegistrationToken(ctx, token)
 	if err != nil {
@@ -135,7 +135,7 @@ func (s *Service) RegisterRunner(ctx context.Context, token, nodeID, description
 		Description:           description,
 		AuthTokenHash:         string(authTokenHash),
 		Status:                runner.RunnerStatusOffline,
-		MaxConcurrentSessions: maxSessions,
+		MaxConcurrentPods: maxPods,
 	}
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -178,11 +178,11 @@ func (s *Service) UpdateRunnerStatus(ctx context.Context, runnerID int64, status
 }
 
 // Heartbeat updates runner heartbeat
-func (s *Service) Heartbeat(ctx context.Context, runnerID int64, currentSessions int) error {
+func (s *Service) Heartbeat(ctx context.Context, runnerID int64, currentPods int) error {
 	now := time.Now()
 	return s.db.WithContext(ctx).Model(&runner.Runner{}).Where("id = ?", runnerID).Updates(map[string]interface{}{
 		"last_heartbeat":   now,
-		"current_sessions": currentSessions,
+		"current_pods": currentPods,
 		"status":           runner.RunnerStatusOnline,
 	}).Error
 }
@@ -205,11 +205,11 @@ func (s *Service) ListRunners(ctx context.Context, orgID int64) ([]*runner.Runne
 	return runners, nil
 }
 
-// ListAvailableRunners returns online runners that can accept sessions
+// ListAvailableRunners returns online runners that can accept pods
 func (s *Service) ListAvailableRunners(ctx context.Context, orgID int64) ([]*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := s.db.WithContext(ctx).
-		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_sessions < max_concurrent_sessions", orgID, runner.RunnerStatusOnline, true).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods", orgID, runner.RunnerStatusOnline, true).
 		Find(&runners).Error; err != nil {
 		return nil, err
 	}
@@ -223,9 +223,9 @@ func (s *Service) DeleteRunner(ctx context.Context, runnerID int64) error {
 
 // RunnerUpdateInput represents input for updating a runner
 type RunnerUpdateInput struct {
-	Description           *string `json:"description"`
-	MaxConcurrentSessions *int    `json:"max_concurrent_sessions"`
-	IsEnabled             *bool   `json:"is_enabled"`
+	Description       *string `json:"description"`
+	MaxConcurrentPods *int    `json:"max_concurrent_pods"`
+	IsEnabled         *bool   `json:"is_enabled"`
 }
 
 // UpdateRunner updates a runner's configuration
@@ -239,8 +239,8 @@ func (s *Service) UpdateRunner(ctx context.Context, runnerID int64, input Runner
 	if input.Description != nil {
 		updates["description"] = *input.Description
 	}
-	if input.MaxConcurrentSessions != nil {
-		updates["max_concurrent_sessions"] = *input.MaxConcurrentSessions
+	if input.MaxConcurrentPods != nil {
+		updates["max_concurrent_pods"] = *input.MaxConcurrentPods
 	}
 	if input.IsEnabled != nil {
 		updates["is_enabled"] = *input.IsEnabled
@@ -312,7 +312,7 @@ func (s *Service) RevokeRegistrationToken(ctx context.Context, tokenID int64) er
 }
 
 // UpdateHeartbeat updates runner heartbeat with authentication
-func (s *Service) UpdateHeartbeat(ctx context.Context, runnerID int64, authToken string, currentSessions int, version string) error {
+func (s *Service) UpdateHeartbeat(ctx context.Context, runnerID int64, authToken string, currentPods int, version string) error {
 	// Verify runner authentication
 	r, err := s.AuthenticateRunner(ctx, runnerID, authToken)
 	if err != nil {
@@ -325,7 +325,7 @@ func (s *Service) UpdateHeartbeat(ctx context.Context, runnerID int64, authToken
 	now := time.Now()
 	updates := map[string]interface{}{
 		"last_heartbeat":   now,
-		"current_sessions": currentSessions,
+		"current_pods": currentPods,
 		"status":           runner.RunnerStatusOnline,
 	}
 	if version != "" {
@@ -335,15 +335,16 @@ func (s *Service) UpdateHeartbeat(ctx context.Context, runnerID int64, authToken
 	return s.db.WithContext(ctx).Model(r).Updates(updates).Error
 }
 
-// HeartbeatSession represents a session reported in heartbeat
-type HeartbeatSession struct {
-	SessionKey  string `json:"session_id"`
+// HeartbeatPodInfo represents a pod reported in heartbeat
+// Note: This is a duplicate of HeartbeatPod in connection_manager.go for legacy API compatibility
+type HeartbeatPodInfo struct {
+	PodKey      string `json:"pod_key"`
 	Status      string `json:"status,omitempty"`
 	AgentStatus string `json:"agent_status,omitempty"`
 }
 
-// UpdateHeartbeatWithSessions updates runner heartbeat with session reconciliation
-func (s *Service) UpdateHeartbeatWithSessions(ctx context.Context, runnerID int64, sessions []HeartbeatSession, version string) error {
+// UpdateHeartbeatWithPods updates runner heartbeat with pod reconciliation
+func (s *Service) UpdateHeartbeatWithPods(ctx context.Context, runnerID int64, pods []HeartbeatPodInfo, version string) error {
 	var r runner.Runner
 	if err := s.db.WithContext(ctx).First(&r, runnerID).Error; err != nil {
 		return ErrRunnerNotFound
@@ -351,9 +352,9 @@ func (s *Service) UpdateHeartbeatWithSessions(ctx context.Context, runnerID int6
 
 	now := time.Now()
 	updates := map[string]interface{}{
-		"last_heartbeat":   now,
-		"current_sessions": len(sessions),
-		"status":           runner.RunnerStatusOnline,
+		"last_heartbeat": now,
+		"current_pods":   len(pods),
+		"status":         runner.RunnerStatusOnline,
 	}
 	if version != "" {
 		updates["runner_version"] = version
@@ -361,20 +362,20 @@ func (s *Service) UpdateHeartbeatWithSessions(ctx context.Context, runnerID int6
 
 	// Update active runner in memory
 	s.activeRunners.Store(runnerID, &ActiveRunner{
-		Runner:       &r,
-		LastPing:     now,
-		SessionCount: len(sessions),
+		Runner:   &r,
+		LastPing: now,
+		PodCount: len(pods),
 	})
 
 	return s.db.WithContext(ctx).Model(&r).Updates(updates).Error
 }
 
-// SelectAvailableRunner selects an available runner using least-connections strategy
+// SelectAvailableRunner selects an available runner using least-pods strategy
 func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64) (*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := s.db.WithContext(ctx).
-		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_sessions < max_concurrent_sessions", orgID, runner.RunnerStatusOnline, true).
-		Order("current_sessions ASC").
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods", orgID, runner.RunnerStatusOnline, true).
+		Order("current_pods ASC").
 		Find(&runners).Error; err != nil {
 		return nil, err
 	}
@@ -383,22 +384,22 @@ func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64) (*runn
 		return nil, ErrRunnerOffline
 	}
 
-	// Return the runner with least sessions
+	// Return the runner with least pods
 	return runners[0], nil
 }
 
-// IncrementSessions increments the session count for a runner
-func (s *Service) IncrementSessions(ctx context.Context, runnerID int64) error {
+// IncrementPods increments the pod count for a runner
+func (s *Service) IncrementPods(ctx context.Context, runnerID int64) error {
 	return s.db.WithContext(ctx).Exec(
-		"UPDATE runners SET current_sessions = current_sessions + 1 WHERE id = ?",
+		"UPDATE runners SET current_pods = current_pods + 1 WHERE id = ?",
 		runnerID,
 	).Error
 }
 
-// DecrementSessions decrements the session count for a runner
-func (s *Service) DecrementSessions(ctx context.Context, runnerID int64) error {
+// DecrementPods decrements the pod count for a runner
+func (s *Service) DecrementPods(ctx context.Context, runnerID int64) error {
 	return s.db.WithContext(ctx).Exec(
-		"UPDATE runners SET current_sessions = GREATEST(current_sessions - 1, 0) WHERE id = ?",
+		"UPDATE runners SET current_pods = GREATEST(current_pods - 1, 0) WHERE id = ?",
 		runnerID,
 	).Error
 }
@@ -418,9 +419,9 @@ func (s *Service) MarkConnected(ctx context.Context, runnerID int64) error {
 
 	now := time.Now()
 	s.activeRunners.Store(runnerID, &ActiveRunner{
-		Runner:       r,
-		LastPing:     now,
-		SessionCount: r.CurrentSessions,
+		Runner:   r,
+		LastPing: now,
+		PodCount: r.CurrentPods,
 	})
 
 	return s.UpdateRunnerStatus(ctx, runnerID, runner.RunnerStatusOnline)

@@ -5,12 +5,12 @@ import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   useDevMeshStore,
-  getSessionStatusInfo,
+  getPodStatusInfo,
   getAgentStatusInfo,
   type DevMeshNode,
   type ChannelInfo,
 } from "@/stores/devmesh";
-import { sessionApi, channelApi } from "@/lib/api/client";
+import { podApi, channelApi } from "@/lib/api/client";
 
 interface DevMeshSidebarProps {
   onClose: () => void;
@@ -34,7 +34,7 @@ export default function DevMeshSidebar({ onClose }: DevMeshSidebarProps) {
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between">
         <h3 className="font-semibold">
-          {node ? "Session Details" : "Channel Details"}
+          {node ? "Pod Details" : "Channel Details"}
         </h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,44 +45,44 @@ export default function DevMeshSidebar({ onClose }: DevMeshSidebarProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {node && <SessionDetails node={node} />}
+        {node && <PodDetails node={node} />}
         {channel && <ChannelDetails channel={channel} />}
       </div>
     </div>
   );
 }
 
-function SessionDetails({ node }: { node: DevMeshNode }) {
+function PodDetails({ node }: { node: DevMeshNode }) {
   const router = useRouter();
   const params = useParams();
   const org = params.org as string;
   const { getEdgesForNode, getChannelsForNode, fetchTopology } = useDevMeshStore();
-  const edges = getEdgesForNode(node.session_key);
-  const channels = getChannelsForNode(node.session_key);
-  const statusInfo = getSessionStatusInfo(node.status);
+  const edges = getEdgesForNode(node.pod_key);
+  const channels = getChannelsForNode(node.pod_key);
+  const statusInfo = getPodStatusInfo(node.status);
   const agentInfo = getAgentStatusInfo(node.agent_status);
 
   const [terminating, setTerminating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleConnectToSession = () => {
-    router.push(`/${org}/devpod/${node.session_key}`);
+  const handleConnectToPod = () => {
+    router.push(`/${org}/agentpod/${node.pod_key}`);
   };
 
-  const handleTerminateSession = async () => {
-    if (!confirm("Are you sure you want to terminate this session?")) {
+  const handleTerminatePod = async () => {
+    if (!confirm("Are you sure you want to terminate this pod?")) {
       return;
     }
 
     setTerminating(true);
     setError(null);
     try {
-      await sessionApi.terminate(node.session_key);
+      await podApi.terminate(node.pod_key);
       // Refresh topology after termination
       await fetchTopology();
     } catch (err) {
-      console.error("Failed to terminate session:", err);
-      setError("Failed to terminate session");
+      console.error("Failed to terminate pod:", err);
+      setError("Failed to terminate pod");
     } finally {
       setTerminating(false);
     }
@@ -99,11 +99,11 @@ function SessionDetails({ node }: { node: DevMeshNode }) {
         </div>
       )}
 
-      {/* Session Key */}
+      {/* Pod Key */}
       <div>
-        <label className="text-xs text-muted-foreground">Session Key</label>
+        <label className="text-xs text-muted-foreground">Pod Key</label>
         <code className="block mt-1 text-sm font-mono bg-muted px-2 py-1 rounded break-all">
-          {node.session_key}
+          {node.pod_key}
         </code>
       </div>
 
@@ -171,7 +171,7 @@ function SessionDetails({ node }: { node: DevMeshNode }) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-mono">
-                    {edge.source === node.session_key
+                    {edge.source === node.pod_key
                       ? `→ ${edge.target.substring(0, 8)}...`
                       : `← ${edge.source.substring(0, 8)}...`}
                   </span>
@@ -225,19 +225,19 @@ function SessionDetails({ node }: { node: DevMeshNode }) {
           className="w-full"
           variant="outline"
           size="sm"
-          onClick={handleConnectToSession}
+          onClick={handleConnectToPod}
           disabled={!isActive}
         >
-          {isActive ? "Connect to Session" : "Session Inactive"}
+          {isActive ? "Connect to Pod" : "Pod Inactive"}
         </Button>
         <Button
           className="w-full"
           variant="destructive"
           size="sm"
-          onClick={handleTerminateSession}
+          onClick={handleTerminatePod}
           disabled={terminating || node.status === "terminated"}
         >
-          {terminating ? "Terminating..." : "Terminate Session"}
+          {terminating ? "Terminating..." : "Terminate Pod"}
         </Button>
       </div>
     </div>
@@ -253,9 +253,9 @@ function ChannelDetails({ channel }: { channel: ChannelInfo }) {
   const [archiving, setArchiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get session details for sessions in this channel
-  const sessionsInChannel = topology?.nodes.filter((n) =>
-    channel.session_keys.includes(n.session_key)
+  // Get pod details for pods in this channel
+  const podsInChannel = topology?.nodes.filter((n) =>
+    channel.pod_keys.includes(n.pod_key)
   ) || [];
 
   const handleViewMessages = () => {
@@ -315,8 +315,8 @@ function ChannelDetails({ channel }: { channel: ChannelInfo }) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
         <div className="p-3 border border-border rounded-md text-center">
-          <p className="text-2xl font-bold">{channel.session_keys.length}</p>
-          <p className="text-xs text-muted-foreground">Sessions</p>
+          <p className="text-2xl font-bold">{channel.pod_keys.length}</p>
+          <p className="text-xs text-muted-foreground">Pods</p>
         </div>
         <div className="p-3 border border-border rounded-md text-center">
           <p className="text-2xl font-bold">{channel.message_count}</p>
@@ -324,24 +324,24 @@ function ChannelDetails({ channel }: { channel: ChannelInfo }) {
         </div>
       </div>
 
-      {/* Sessions in Channel */}
+      {/* Pods in Channel */}
       <div>
         <label className="text-xs text-muted-foreground mb-2 block">
-          Connected Sessions
+          Connected Pods
         </label>
-        {sessionsInChannel.length > 0 ? (
+        {podsInChannel.length > 0 ? (
           <div className="space-y-2">
-            {sessionsInChannel.map((session) => {
-              const statusInfo = getSessionStatusInfo(session.status);
+            {podsInChannel.map((pod) => {
+              const statusInfo = getPodStatusInfo(pod.status);
               return (
                 <button
-                  key={session.session_key}
-                  onClick={() => router.push(`/${org}/devpod/${session.session_key}`)}
+                  key={pod.pod_key}
+                  onClick={() => router.push(`/${org}/agentpod/${pod.pod_key}`)}
                   className="w-full p-2 border border-border rounded-md hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <code className="text-xs font-mono">
-                      {session.session_key.substring(0, 12)}...
+                      {pod.pod_key.substring(0, 12)}...
                     </code>
                     <span
                       className={`px-1.5 py-0.5 text-xs rounded ${statusInfo.bgColor} ${statusInfo.color}`}
@@ -354,7 +354,7 @@ function ChannelDetails({ channel }: { channel: ChannelInfo }) {
             })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No sessions connected</p>
+          <p className="text-sm text-muted-foreground">No pods connected</p>
         )}
       </div>
 

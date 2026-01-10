@@ -5,9 +5,9 @@
 DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
 DROP TRIGGER IF EXISTS update_ticket_merge_requests_updated_at ON ticket_merge_requests;
 DROP TRIGGER IF EXISTS update_tickets_updated_at ON tickets;
-DROP TRIGGER IF EXISTS update_session_bindings_updated_at ON session_bindings;
+DROP TRIGGER IF EXISTS update_pod_bindings_updated_at ON pod_bindings;
 DROP TRIGGER IF EXISTS update_channels_updated_at ON channels;
-DROP TRIGGER IF EXISTS update_sessions_updated_at ON sessions;
+DROP TRIGGER IF EXISTS update_pods_updated_at ON pods;
 DROP TRIGGER IF EXISTS update_runners_updated_at ON runners;
 DROP TRIGGER IF EXISTS update_custom_agent_types_updated_at ON custom_agent_types;
 DROP TRIGGER IF EXISTS update_user_agent_credentials_updated_at ON user_agent_credentials;
@@ -40,16 +40,16 @@ DROP TABLE IF EXISTS labels;
 DROP TABLE IF EXISTS ticket_assignees;
 
 -- Remove foreign key constraints before dropping tickets
-ALTER TABLE IF EXISTS sessions DROP CONSTRAINT IF EXISTS fk_sessions_ticket;
+ALTER TABLE IF EXISTS pods DROP CONSTRAINT IF EXISTS fk_pods_ticket;
 ALTER TABLE IF EXISTS channels DROP CONSTRAINT IF EXISTS fk_channels_ticket;
 
 DROP TABLE IF EXISTS tickets;
 
--- 4. DevPod/AgentMesh Tables
-DROP TABLE IF EXISTS session_bindings;
+-- 4. AgentPod Tables
+DROP TABLE IF EXISTS pod_bindings;
 DROP TABLE IF EXISTS channel_messages;
 DROP TABLE IF EXISTS channels;
-DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS pods;
 DROP TABLE IF EXISTS runners;
 DROP TABLE IF EXISTS runner_registration_tokens;
 

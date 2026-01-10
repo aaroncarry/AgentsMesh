@@ -23,11 +23,11 @@ func NewMessageHandler(msgSvc *agentSvc.MessageService) *MessageHandler {
 
 // AgentSendMessageRequest represents a request to send an agent message
 type AgentSendMessageRequest struct {
-	ReceiverSession string                 `json:"receiver_session" binding:"required"`
-	MessageType     string                 `json:"message_type" binding:"required"`
-	Content         map[string]interface{} `json:"content" binding:"required"`
-	CorrelationID   *string                `json:"correlation_id,omitempty"`
-	ReplyToID       *int64                 `json:"reply_to_id,omitempty"`
+	ReceiverPod   string                 `json:"receiver_pod" binding:"required"`
+	MessageType   string                 `json:"message_type" binding:"required"`
+	Content       map[string]interface{} `json:"content" binding:"required"`
+	CorrelationID *string                `json:"correlation_id,omitempty"`
+	ReplyToID     *int64                 `json:"reply_to_id,omitempty"`
 }
 
 // MarkReadRequest represents a request to mark messages as read
@@ -36,19 +36,19 @@ type MarkReadRequest struct {
 }
 
 // SendMessage handles POST /messages
-// @Summary Send a message to another session
+// @Summary Send a message to another pod
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body SendMessageRequest true "Message request"
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /messages [post]
 func (h *MessageHandler) SendMessage(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -60,8 +60,8 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 
 	message, err := h.msgSvc.SendMessage(
 		c.Request.Context(),
-		sessionKey,
-		req.ReceiverSession,
+		podKey,
+		req.ReceiverPod,
 		req.MessageType,
 		agent.MessageContent(req.Content),
 		req.CorrelationID,
@@ -76,11 +76,11 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 }
 
 // GetMessages handles GET /messages
-// @Summary Get messages for the current session
+// @Summary Get messages for the current pod
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param unread_only query bool false "Only return unread messages"
 // @Param message_types query []string false "Filter by message types"
 // @Param limit query int false "Maximum messages to return" default(50)
@@ -88,9 +88,9 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /messages [get]
 func (h *MessageHandler) GetMessages(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -111,13 +111,13 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 		}
 	}
 
-	messages, err := h.msgSvc.GetMessages(c.Request.Context(), sessionKey, unreadOnly, messageTypes, limit, offset)
+	messages, err := h.msgSvc.GetMessages(c.Request.Context(), podKey, unreadOnly, messageTypes, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	unreadCount, _ := h.msgSvc.GetUnreadCount(c.Request.Context(), sessionKey)
+	unreadCount, _ := h.msgSvc.GetUnreadCount(c.Request.Context(), podKey)
 
 	c.JSON(http.StatusOK, gin.H{
 		"messages":     messages,
@@ -131,17 +131,17 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Success 200 {object} map[string]interface{}
 // @Router /messages/unread-count [get]
 func (h *MessageHandler) GetUnreadCount(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
-	count, err := h.msgSvc.GetUnreadCount(c.Request.Context(), sessionKey)
+	count, err := h.msgSvc.GetUnreadCount(c.Request.Context(), podKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -155,14 +155,14 @@ func (h *MessageHandler) GetUnreadCount(c *gin.Context) {
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body MarkReadRequest true "Mark read request"
 // @Success 200 {object} map[string]interface{}
 // @Router /messages/mark-read [post]
 func (h *MessageHandler) MarkRead(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -174,7 +174,7 @@ func (h *MessageHandler) MarkRead(c *gin.Context) {
 
 	markedCount := 0
 	for _, messageID := range req.MessageIDs {
-		if err := h.msgSvc.MarkRead(c.Request.Context(), messageID, sessionKey); err == nil {
+		if err := h.msgSvc.MarkRead(c.Request.Context(), messageID, podKey); err == nil {
 			markedCount++
 		}
 	}
@@ -183,21 +183,21 @@ func (h *MessageHandler) MarkRead(c *gin.Context) {
 }
 
 // MarkAllRead handles POST /messages/mark-all-read
-// @Summary Mark all messages for this session as read
+// @Summary Mark all messages for this pod as read
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Success 200 {object} map[string]interface{}
 // @Router /messages/mark-all-read [post]
 func (h *MessageHandler) MarkAllRead(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
-	count, err := h.msgSvc.MarkAllRead(c.Request.Context(), sessionKey)
+	count, err := h.msgSvc.MarkAllRead(c.Request.Context(), podKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -211,15 +211,15 @@ func (h *MessageHandler) MarkAllRead(c *gin.Context) {
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param id path int true "Message ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} ErrorResponse
 // @Router /messages/{id} [get]
 func (h *MessageHandler) GetMessage(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -236,7 +236,7 @@ func (h *MessageHandler) GetMessage(c *gin.Context) {
 	}
 
 	// Check access
-	if message.SenderSession != sessionKey && message.ReceiverSession != sessionKey {
+	if message.SenderPod != podKey && message.ReceiverPod != podKey {
 		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized to view this message"})
 		return
 	}
@@ -249,15 +249,15 @@ func (h *MessageHandler) GetMessage(c *gin.Context) {
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param correlation_id path string true "Correlation ID"
 // @Param limit query int false "Maximum messages to return" default(100)
 // @Success 200 {object} map[string]interface{}
 // @Router /messages/conversation/{correlation_id} [get]
 func (h *MessageHandler) GetConversation(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -280,10 +280,10 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 		return
 	}
 
-	// Filter to messages involving this session
+	// Filter to messages involving this pod
 	var filtered []*agent.AgentMessage
 	for _, m := range messages {
-		if m.SenderSession == sessionKey || m.ReceiverSession == sessionKey {
+		if m.SenderPod == podKey || m.ReceiverPod == podKey {
 			filtered = append(filtered, m)
 		}
 	}
@@ -295,19 +295,19 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 }
 
 // GetSentMessages handles GET /messages/sent
-// @Summary Get messages sent by this session
+// @Summary Get messages sent by this pod
 // @Tags messages
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param limit query int false "Maximum messages to return" default(50)
 // @Param offset query int false "Offset for pagination" default(0)
 // @Success 200 {object} map[string]interface{}
 // @Router /messages/sent [get]
 func (h *MessageHandler) GetSentMessages(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -325,7 +325,7 @@ func (h *MessageHandler) GetSentMessages(c *gin.Context) {
 		}
 	}
 
-	messages, err := h.msgSvc.GetSentMessages(c.Request.Context(), sessionKey, limit, offset)
+	messages, err := h.msgSvc.GetSentMessages(c.Request.Context(), podKey, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

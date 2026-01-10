@@ -54,7 +54,7 @@ func (p *MCPPlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config map[s
 				Type: "http",
 				URL:  fmt.Sprintf("http://127.0.0.1:%d/mcp", p.mcpPort),
 				Headers: map[string]string{
-					"X-Session-Key": sb.SessionKey,
+					"X-Pod-Key": sb.PodKey,
 				},
 			},
 		},

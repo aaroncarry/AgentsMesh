@@ -22,7 +22,7 @@ func TestChannelStruct(t *testing.T) {
 	doc := "Shared doc content"
 	repoID := int64(5)
 	ticketID := int64(20)
-	createdBySession := "sess-123"
+	createdByPod := "pod-123"
 	createdByUserID := int64(50)
 
 	c := Channel{
@@ -33,7 +33,7 @@ func TestChannelStruct(t *testing.T) {
 		Document:         &doc,
 		RepositoryID:     &repoID,
 		TicketID:         &ticketID,
-		CreatedBySession: &createdBySession,
+		CreatedByPod: &createdByPod,
 		CreatedByUserID:  &createdByUserID,
 		IsArchived:       false,
 		CreatedAt:        now,
@@ -136,14 +136,14 @@ func TestMessageTableName(t *testing.T) {
 
 func TestMessageStruct(t *testing.T) {
 	now := time.Now()
-	senderSession := "sess-sender"
+	senderPod := "pod-sender"
 	senderUserID := int64(50)
 
 	m := Message{
-		ID:            1,
-		ChannelID:     10,
-		SenderSession: &senderSession,
-		SenderUserID:  &senderUserID,
+		ID:           1,
+		ChannelID:    10,
+		SenderPod:    &senderPod,
+		SenderUserID: &senderUserID,
 		MessageType:   MessageTypeText,
 		Content:       "Hello, world!",
 		Metadata:      MessageMetadata{"mention": "@user"},
@@ -236,45 +236,45 @@ func TestBindingPolicyConstants(t *testing.T) {
 	}
 }
 
-// --- Test SessionBinding ---
+// --- Test PodBinding ---
 
-func TestSessionBindingTableName(t *testing.T) {
-	sb := SessionBinding{}
-	if sb.TableName() != "session_bindings" {
-		t.Errorf("expected 'session_bindings', got %s", sb.TableName())
+func TestPodBindingTableName(t *testing.T) {
+	pb := PodBinding{}
+	if pb.TableName() != "pod_bindings" {
+		t.Errorf("expected 'pod_bindings', got %s", pb.TableName())
 	}
 }
 
-func TestSessionBindingHasScope(t *testing.T) {
-	sb := &SessionBinding{
+func TestPodBindingHasScope(t *testing.T) {
+	pb := &PodBinding{
 		GrantedScopes: pq.StringArray{BindingScopeTerminalRead, BindingScopeTerminalWrite},
 	}
 
-	if !sb.HasScope(BindingScopeTerminalRead) {
+	if !pb.HasScope(BindingScopeTerminalRead) {
 		t.Error("expected HasScope(terminal:read) = true")
 	}
-	if !sb.HasScope(BindingScopeTerminalWrite) {
+	if !pb.HasScope(BindingScopeTerminalWrite) {
 		t.Error("expected HasScope(terminal:write) = true")
 	}
-	if sb.HasScope("invalid:scope") {
+	if pb.HasScope("invalid:scope") {
 		t.Error("expected HasScope(invalid:scope) = false")
 	}
 }
 
-func TestSessionBindingHasPendingScope(t *testing.T) {
-	sb := &SessionBinding{
+func TestPodBindingHasPendingScope(t *testing.T) {
+	pb := &PodBinding{
 		PendingScopes: pq.StringArray{BindingScopeTerminalWrite},
 	}
 
-	if !sb.HasPendingScope(BindingScopeTerminalWrite) {
+	if !pb.HasPendingScope(BindingScopeTerminalWrite) {
 		t.Error("expected HasPendingScope(terminal:write) = true")
 	}
-	if sb.HasPendingScope(BindingScopeTerminalRead) {
+	if pb.HasPendingScope(BindingScopeTerminalRead) {
 		t.Error("expected HasPendingScope(terminal:read) = false")
 	}
 }
 
-func TestSessionBindingIsActive(t *testing.T) {
+func TestPodBindingIsActive(t *testing.T) {
 	tests := []struct {
 		status   string
 		expected bool
@@ -286,14 +286,14 @@ func TestSessionBindingIsActive(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		sb := &SessionBinding{Status: tt.status}
-		if sb.IsActive() != tt.expected {
+		pb := &PodBinding{Status: tt.status}
+		if pb.IsActive() != tt.expected {
 			t.Errorf("status %s: expected IsActive() = %v", tt.status, tt.expected)
 		}
 	}
 }
 
-func TestSessionBindingIsPending(t *testing.T) {
+func TestPodBindingIsPending(t *testing.T) {
 	tests := []struct {
 		status   string
 		expected bool
@@ -304,14 +304,14 @@ func TestSessionBindingIsPending(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		sb := &SessionBinding{Status: tt.status}
-		if sb.IsPending() != tt.expected {
+		pb := &PodBinding{Status: tt.status}
+		if pb.IsPending() != tt.expected {
 			t.Errorf("status %s: expected IsPending() = %v", tt.status, tt.expected)
 		}
 	}
 }
 
-func TestSessionBindingCanObserve(t *testing.T) {
+func TestPodBindingCanObserve(t *testing.T) {
 	tests := []struct {
 		name          string
 		status        string
@@ -326,18 +326,18 @@ func TestSessionBindingCanObserve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sb := &SessionBinding{
+			pb := &PodBinding{
 				Status:        tt.status,
 				GrantedScopes: pq.StringArray(tt.grantedScopes),
 			}
-			if sb.CanObserve() != tt.expected {
-				t.Errorf("expected CanObserve() = %v, got %v", tt.expected, sb.CanObserve())
+			if pb.CanObserve() != tt.expected {
+				t.Errorf("expected CanObserve() = %v, got %v", tt.expected, pb.CanObserve())
 			}
 		})
 	}
 }
 
-func TestSessionBindingCanControl(t *testing.T) {
+func TestPodBindingCanControl(t *testing.T) {
 	tests := []struct {
 		name          string
 		status        string
@@ -352,71 +352,71 @@ func TestSessionBindingCanControl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sb := &SessionBinding{
+			pb := &PodBinding{
 				Status:        tt.status,
 				GrantedScopes: pq.StringArray(tt.grantedScopes),
 			}
-			if sb.CanControl() != tt.expected {
-				t.Errorf("expected CanControl() = %v, got %v", tt.expected, sb.CanControl())
+			if pb.CanControl() != tt.expected {
+				t.Errorf("expected CanControl() = %v, got %v", tt.expected, pb.CanControl())
 			}
 		})
 	}
 }
 
-func TestSessionBindingStruct(t *testing.T) {
+func TestPodBindingStruct(t *testing.T) {
 	now := time.Now()
 	reason := "User declined"
 
-	sb := SessionBinding{
-		ID:               1,
-		OrganizationID:   100,
-		InitiatorSession: "sess-init",
-		TargetSession:    "sess-target",
-		GrantedScopes:    pq.StringArray{BindingScopeTerminalRead},
-		PendingScopes:    pq.StringArray{BindingScopeTerminalWrite},
-		Status:           BindingStatusPending,
-		RequestedAt:      &now,
-		RejectionReason:  &reason,
-		CreatedAt:        now,
-		UpdatedAt:        now,
+	pb := PodBinding{
+		ID:              1,
+		OrganizationID:  100,
+		InitiatorPod:    "pod-init",
+		TargetPod:       "pod-target",
+		GrantedScopes:   pq.StringArray{BindingScopeTerminalRead},
+		PendingScopes:   pq.StringArray{BindingScopeTerminalWrite},
+		Status:          BindingStatusPending,
+		RequestedAt:     &now,
+		RejectionReason: &reason,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
-	if sb.ID != 1 {
-		t.Errorf("expected ID 1, got %d", sb.ID)
+	if pb.ID != 1 {
+		t.Errorf("expected ID 1, got %d", pb.ID)
 	}
-	if sb.InitiatorSession != "sess-init" {
-		t.Errorf("expected InitiatorSession 'sess-init', got %s", sb.InitiatorSession)
+	if pb.InitiatorPod != "pod-init" {
+		t.Errorf("expected InitiatorPod 'pod-init', got %s", pb.InitiatorPod)
 	}
-	if sb.TargetSession != "sess-target" {
-		t.Errorf("expected TargetSession 'sess-target', got %s", sb.TargetSession)
+	if pb.TargetPod != "pod-target" {
+		t.Errorf("expected TargetPod 'pod-target', got %s", pb.TargetPod)
 	}
 }
 
 // --- Benchmark Tests ---
 
-func BenchmarkSessionBindingHasScope(b *testing.B) {
-	sb := &SessionBinding{
+func BenchmarkPodBindingHasScope(b *testing.B) {
+	pb := &PodBinding{
 		GrantedScopes: pq.StringArray{BindingScopeTerminalRead, BindingScopeTerminalWrite},
 	}
 	for i := 0; i < b.N; i++ {
-		sb.HasScope(BindingScopeTerminalRead)
+		pb.HasScope(BindingScopeTerminalRead)
 	}
 }
 
-func BenchmarkSessionBindingIsActive(b *testing.B) {
-	sb := &SessionBinding{Status: BindingStatusActive}
+func BenchmarkPodBindingIsActive(b *testing.B) {
+	pb := &PodBinding{Status: BindingStatusActive}
 	for i := 0; i < b.N; i++ {
-		sb.IsActive()
+		pb.IsActive()
 	}
 }
 
-func BenchmarkSessionBindingCanObserve(b *testing.B) {
-	sb := &SessionBinding{
+func BenchmarkPodBindingCanObserve(b *testing.B) {
+	pb := &PodBinding{
 		Status:        BindingStatusActive,
 		GrantedScopes: pq.StringArray{BindingScopeTerminalRead},
 	}
 	for i := 0; i < b.N; i++ {
-		sb.CanObserve()
+		pb.CanObserve()
 	}
 }
 

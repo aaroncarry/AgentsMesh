@@ -43,10 +43,10 @@ const (
 	ActionRunnerOnline       = "runner.online"
 	ActionRunnerOffline      = "runner.offline"
 
-	// Session actions
-	ActionSessionCreated    = "session.created"
-	ActionSessionStarted    = "session.started"
-	ActionSessionTerminated = "session.terminated"
+	// Pod actions
+	ActionPodCreated    = "pod.created"
+	ActionPodStarted    = "pod.started"
+	ActionPodTerminated = "pod.terminated"
 
 	// Channel actions
 	ActionChannelCreated  = "channel.created"
@@ -82,7 +82,7 @@ const (
 	ResourceTeam         = "team"
 	ResourceUser         = "user"
 	ResourceRunner       = "runner"
-	ResourceSession      = "session"
+	ResourcePod          = "pod"
 	ResourceChannel      = "channel"
 	ResourceTicket       = "ticket"
 	ResourceSubscription = "subscription"

@@ -95,24 +95,24 @@ func TestManagerCreate(t *testing.T) {
 	m.RegisterPlugin(p)
 
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 	config := map[string]interface{}{
 		"test_key": "test_value",
 	}
 
 	// Create sandbox
-	sb, err := m.Create(ctx, sessionKey, config)
+	sb, err := m.Create(ctx, podKey, config)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
 
 	// Verify sandbox was created
-	if sb.SessionKey != sessionKey {
-		t.Errorf("SessionKey = %q, want %q", sb.SessionKey, sessionKey)
+	if sb.PodKey != podKey {
+		t.Errorf("PodKey = %q, want %q", sb.PodKey, podKey)
 	}
 
 	// Verify sandbox directory exists
-	expectedPath := filepath.Join(tmpDir, "sandboxes", sessionKey)
+	expectedPath := filepath.Join(tmpDir, "sandboxes", podKey)
 	if sb.RootPath != expectedPath {
 		t.Errorf("RootPath = %q, want %q", sb.RootPath, expectedPath)
 	}
@@ -140,16 +140,16 @@ func TestManagerCreateDuplicate(t *testing.T) {
 
 	m := NewManager(tmpDir, 19000)
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create first sandbox
-	sb1, err := m.Create(ctx, sessionKey, nil)
+	sb1, err := m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("First Create() failed: %v", err)
 	}
 
 	// Create second sandbox with same key - should return existing
-	sb2, err := m.Create(ctx, sessionKey, nil)
+	sb2, err := m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Second Create() failed: %v", err)
 	}
@@ -173,16 +173,16 @@ func TestManagerCreatePluginFailure(t *testing.T) {
 	m.RegisterPlugin(p)
 
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create should fail
-	_, err = m.Create(ctx, sessionKey, nil)
+	_, err = m.Create(ctx, podKey, nil)
 	if err == nil {
 		t.Error("Create() should fail when plugin fails")
 	}
 
 	// Sandbox directory should be cleaned up
-	sandboxPath := filepath.Join(tmpDir, "sandboxes", sessionKey)
+	sandboxPath := filepath.Join(tmpDir, "sandboxes", podKey)
 	if _, err := os.Stat(sandboxPath); !os.IsNotExist(err) {
 		t.Error("Sandbox directory should be removed after plugin failure")
 	}
@@ -197,27 +197,27 @@ func TestManagerGet(t *testing.T) {
 
 	m := NewManager(tmpDir, 19000)
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Get non-existent sandbox
-	_, exists := m.Get(sessionKey)
+	_, exists := m.Get(podKey)
 	if exists {
 		t.Error("Get() should return false for non-existent sandbox")
 	}
 
 	// Create sandbox
-	_, err = m.Create(ctx, sessionKey, nil)
+	_, err = m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
 
 	// Get existing sandbox
-	sb, exists := m.Get(sessionKey)
+	sb, exists := m.Get(podKey)
 	if !exists {
 		t.Error("Get() should return true for existing sandbox")
 	}
-	if sb.SessionKey != sessionKey {
-		t.Errorf("SessionKey = %q, want %q", sb.SessionKey, sessionKey)
+	if sb.PodKey != podKey {
+		t.Errorf("PodKey = %q, want %q", sb.PodKey, podKey)
 	}
 }
 
@@ -234,10 +234,10 @@ func TestManagerCleanup(t *testing.T) {
 	m.RegisterPlugin(p)
 
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create sandbox
-	sb, err := m.Create(ctx, sessionKey, nil)
+	sb, err := m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestManagerCleanup(t *testing.T) {
 	sandboxPath := sb.RootPath
 
 	// Cleanup
-	if err := m.Cleanup(sessionKey); err != nil {
+	if err := m.Cleanup(podKey); err != nil {
 		t.Fatalf("Cleanup() failed: %v", err)
 	}
 
@@ -260,7 +260,7 @@ func TestManagerCleanup(t *testing.T) {
 	}
 
 	// Verify sandbox was removed from map
-	_, exists := m.Get(sessionKey)
+	_, exists := m.Get(podKey)
 	if exists {
 		t.Error("Sandbox should be removed from map after cleanup")
 	}
@@ -291,8 +291,8 @@ func TestManagerList(t *testing.T) {
 	}
 
 	// Create sandboxes
-	m.Create(ctx, "session-1", nil)
-	m.Create(ctx, "session-2", nil)
+	m.Create(ctx, "pod-1", nil)
+	m.Create(ctx, "pod-2", nil)
 
 	// Verify list
 	list := m.List()
@@ -322,7 +322,7 @@ func TestManagerPluginOrder(t *testing.T) {
 	m.RegisterPlugin(p2)
 
 	ctx := context.Background()
-	_, err = m.Create(ctx, "test-session", nil)
+	_, err = m.Create(ctx, "test-pod", nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -397,10 +397,10 @@ func TestManagerLoadExisting(t *testing.T) {
 
 	m := NewManager(tmpDir, 19000)
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create sandbox first
-	sb, err := m.Create(ctx, sessionKey, nil)
+	sb, err := m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -412,17 +412,17 @@ func TestManagerLoadExisting(t *testing.T) {
 
 	// Remove from manager's map to simulate restart
 	m.mu.Lock()
-	delete(m.sandboxes, sessionKey)
+	delete(m.sandboxes, podKey)
 	m.mu.Unlock()
 
 	// LoadExisting should restore from disk
-	sb2, err := m.LoadExisting(sessionKey)
+	sb2, err := m.LoadExisting(podKey)
 	if err != nil {
 		t.Fatalf("LoadExisting() failed: %v", err)
 	}
 
-	if sb2.SessionKey != sessionKey {
-		t.Errorf("SessionKey = %q, want %q", sb2.SessionKey, sessionKey)
+	if sb2.PodKey != podKey {
+		t.Errorf("PodKey = %q, want %q", sb2.PodKey, podKey)
 	}
 	if sb2.WorkDir != "/some/work/dir" {
 		t.Errorf("WorkDir = %q, want %q", sb2.WorkDir, "/some/work/dir")
@@ -441,16 +441,16 @@ func TestManagerLoadExistingAlreadyLoaded(t *testing.T) {
 
 	m := NewManager(tmpDir, 19000)
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create sandbox
-	sb1, err := m.Create(ctx, sessionKey, nil)
+	sb1, err := m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
 
 	// LoadExisting should return the same sandbox
-	sb2, err := m.LoadExisting(sessionKey)
+	sb2, err := m.LoadExisting(podKey)
 	if err != nil {
 		t.Fatalf("LoadExisting() failed: %v", err)
 	}
@@ -490,16 +490,16 @@ func TestManagerTeardownPluginError(t *testing.T) {
 	m.RegisterPlugin(p)
 
 	ctx := context.Background()
-	sessionKey := "test-session"
+	podKey := "test-pod"
 
 	// Create sandbox
-	_, err = m.Create(ctx, sessionKey, nil)
+	_, err = m.Create(ctx, podKey, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
 
 	// Cleanup should still succeed (teardown errors are logged but not fatal)
-	if err := m.Cleanup(sessionKey); err != nil {
+	if err := m.Cleanup(podKey); err != nil {
 		t.Errorf("Cleanup() failed: %v", err)
 	}
 }

@@ -4,7 +4,7 @@ export default function ChannelsPage() {
       <h1 className="text-4xl font-bold mb-8">Channels</h1>
 
       <p className="text-muted-foreground leading-relaxed mb-8">
-        Channels provide communication hubs for AI agents. Multiple sessions can
+        Channels provide communication hubs for AI agents. Multiple Pods can
         join a channel to collaborate on tasks, share information, and
         coordinate work.
       </p>
@@ -19,7 +19,7 @@ export default function ChannelsPage() {
           <li>Send and receive messages</li>
           <li>Share code snippets and documents</li>
           <li>Coordinate on complex tasks</li>
-          <li>Maintain context across sessions</li>
+          <li>Maintain context across pods</li>
         </ul>
       </section>
 
@@ -96,7 +96,7 @@ export default function ChannelsPage() {
               <code className="bg-muted px-1 rounded">system</code>
             </h3>
             <p className="text-sm text-muted-foreground">
-              System notifications like session joins, leaves, and status
+              System notifications like Pod joins, leaves, and status
               updates.
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function ChannelsPage() {
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-4">Mentions</h2>
         <p className="text-muted-foreground leading-relaxed mb-4">
-          Messages can mention specific sessions to get their attention:
+          Messages can mention specific Pods to get their attention:
         </p>
         <div className="bg-[#1a1a1a] rounded-lg p-4 font-mono text-sm">
           <pre className="text-green-400">{`// Send a message with mentions
@@ -123,12 +123,12 @@ send_channel_message({
   channel_id: 123,
   content: "Can you review this implementation?",
   message_type: "text",
-  mentions: ["session-abc", "session-xyz"]
+  mentions: ["pod-abc", "pod-xyz"]
 })`}</pre>
         </div>
         <p className="text-sm text-muted-foreground mt-4">
-          Mentioned sessions can filter messages using the{" "}
-          <code className="bg-muted px-1 rounded">mentioned_session</code>{" "}
+          Mentioned Pods can filter messages using the{" "}
+          <code className="bg-muted px-1 rounded">mentioned_pod</code>{" "}
           parameter when fetching messages.
         </p>
       </section>

@@ -22,8 +22,8 @@ func setupMessageTestDB(t *testing.T) *gorm.DB {
 	// Create agent_messages table
 	db.Exec(`CREATE TABLE IF NOT EXISTS agent_messages (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		sender_session TEXT NOT NULL,
-		receiver_session TEXT NOT NULL,
+		sender_pod TEXT NOT NULL,
+		receiver_pod TEXT NOT NULL,
 		message_type TEXT NOT NULL,
 		content BLOB,
 		status TEXT NOT NULL DEFAULT 'pending',
@@ -77,16 +77,16 @@ func TestSendMessage(t *testing.T) {
 			"text": "Hello, World!",
 		}
 
-		msg, err := svc.SendMessage(ctx, "session-sender", "session-receiver", "text", content, nil, nil)
+		msg, err := svc.SendMessage(ctx, "pod-sender", "pod-receiver", "text", content, nil, nil)
 		if err != nil {
 			t.Fatalf("SendMessage failed: %v", err)
 		}
 
-		if msg.SenderSession != "session-sender" {
-			t.Errorf("SenderSession = %s, want session-sender", msg.SenderSession)
+		if msg.SenderPod != "pod-sender" {
+			t.Errorf("SenderPod = %s, want pod-sender", msg.SenderPod)
 		}
-		if msg.ReceiverSession != "session-receiver" {
-			t.Errorf("ReceiverSession = %s, want session-receiver", msg.ReceiverSession)
+		if msg.ReceiverPod != "pod-receiver" {
+			t.Errorf("ReceiverPod = %s, want pod-receiver", msg.ReceiverPod)
 		}
 		if msg.MessageType != "text" {
 			t.Errorf("MessageType = %s, want text", msg.MessageType)
@@ -269,7 +269,7 @@ func TestMarkRead(t *testing.T) {
 
 	t.Run("unauthorized mark read", func(t *testing.T) {
 		msg2, _ := svc.SendMessage(ctx, "sender", "receiver", "text", agent.MessageContent{}, nil, nil)
-		err := svc.MarkRead(ctx, msg2.ID, "other-session")
+		err := svc.MarkRead(ctx, msg2.ID, "other-pod")
 		if err == nil {
 			t.Error("Expected error for unauthorized mark read")
 		}

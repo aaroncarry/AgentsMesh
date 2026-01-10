@@ -16,8 +16,8 @@ func TestConfigDefaults(t *testing.T) {
 		t.Errorf("ServerURL: got %v, want https://api.agentmesh.dev", cfg.ServerURL)
 	}
 
-	if cfg.MaxConcurrentSessions != 5 {
-		t.Errorf("MaxConcurrentSessions: got %v, want 5", cfg.MaxConcurrentSessions)
+	if cfg.MaxConcurrentPods != 5 {
+		t.Errorf("MaxConcurrentPods: got %v, want 5", cfg.MaxConcurrentPods)
 	}
 
 	if cfg.WorkspaceRoot != "/workspace" {
@@ -80,7 +80,7 @@ func TestConfigValidateWithAuthToken(t *testing.T) {
 	cfg := &Config{
 		ServerURL:             "http://localhost",
 		AuthToken:             "test-token",
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 		WorkspaceRoot:         tmpDir,
 	}
 
@@ -96,7 +96,7 @@ func TestConfigValidateWithRegistrationToken(t *testing.T) {
 	cfg := &Config{
 		ServerURL:             "http://localhost",
 		RegistrationToken:     "reg-token",
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 		WorkspaceRoot:         tmpDir,
 	}
 
@@ -106,16 +106,16 @@ func TestConfigValidateWithRegistrationToken(t *testing.T) {
 	}
 }
 
-func TestConfigValidateInvalidMaxSessions(t *testing.T) {
+func TestConfigValidateInvalidMaxPods(t *testing.T) {
 	cfg := &Config{
 		ServerURL:             "http://localhost",
 		AuthToken:             "test-token",
-		MaxConcurrentSessions: 0,
+		MaxConcurrentPods: 0,
 	}
 
 	err := cfg.Validate()
 	if err == nil {
-		t.Error("expected error for invalid max_concurrent_sessions")
+		t.Error("expected error for invalid max_concurrent_pods")
 	}
 }
 
@@ -126,7 +126,7 @@ func TestConfigValidateCreatesWorkspaceDir(t *testing.T) {
 	cfg := &Config{
 		ServerURL:             "http://localhost",
 		AuthToken:             "test-token",
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 		WorkspaceRoot:         workspaceDir,
 	}
 
@@ -210,7 +210,7 @@ func TestConfigFromFile(t *testing.T) {
 server_url: http://test.example.com
 node_id: test-node
 auth_token: test-token
-max_concurrent_sessions: 10
+max_concurrent_pods: 10
 workspace_root: /tmp/test
 `
 	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
@@ -234,8 +234,8 @@ workspace_root: /tmp/test
 		t.Errorf("AuthToken: got %v, want test-token", cfg.AuthToken)
 	}
 
-	if cfg.MaxConcurrentSessions != 10 {
-		t.Errorf("MaxConcurrentSessions: got %v, want 10", cfg.MaxConcurrentSessions)
+	if cfg.MaxConcurrentPods != 10 {
+		t.Errorf("MaxConcurrentPods: got %v, want 10", cfg.MaxConcurrentPods)
 	}
 }
 
@@ -289,7 +289,7 @@ func TestConfigStruct(t *testing.T) {
 		Description:           "Test runner",
 		AuthToken:             "token",
 		RegistrationToken:     "reg-token",
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 		WorkspaceRoot:         "/workspace",
 		GitConfigPath:         "/git/config",
 		RepositoryPath:        "/repo",

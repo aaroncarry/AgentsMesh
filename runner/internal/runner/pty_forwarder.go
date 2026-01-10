@@ -14,15 +14,15 @@ import (
 type OutputHandler interface {
 	// SendOutput sends output data to the destination.
 	// Returns false if the send should be throttled (backpressure).
-	SendOutput(sessionKey string, data []byte) bool
+	SendOutput(podKey string, data []byte) bool
 }
 
 // PTYForwarder forwards PTY output with backpressure control.
 // It buffers output when the downstream is slow to prevent data loss.
 type PTYForwarder struct {
-	session     *terminal.Session
-	sessionKey  string
-	handler     OutputHandler
+	session  *terminal.Session
+	podKey   string
+	handler  OutputHandler
 	outputBuf   *buffer.Ring
 	mu          sync.Mutex
 	done        chan struct{}
@@ -38,9 +38,9 @@ type PTYForwarder struct {
 
 // PTYForwarderConfig holds configuration for PTYForwarder.
 type PTYForwarderConfig struct {
-	Session          *terminal.Session
-	SessionKey       string
-	Handler          OutputHandler
+	Session    *terminal.Session
+	PodKey     string
+	Handler    OutputHandler
 	BufferSize       int           // Size of output buffer (default: 64KB)
 	FlushInterval    time.Duration // How often to flush buffered data (default: 50ms)
 	BackpressureWait time.Duration // How long to wait when backpressure is detected (default: 100ms)
@@ -65,7 +65,7 @@ func NewPTYForwarder(cfg *PTYForwarderConfig) *PTYForwarder {
 
 	return &PTYForwarder{
 		session:          cfg.Session,
-		sessionKey:       cfg.SessionKey,
+		podKey:           cfg.PodKey,
 		handler:          cfg.Handler,
 		outputBuf:        buffer.NewRing(bufSize),
 		done:             make(chan struct{}),
@@ -83,7 +83,7 @@ func (f *PTYForwarder) Start() {
 	go f.readLoop()
 	go f.flushLoop()
 
-	log.Printf("[pty_forwarder] Started forwarding: session_key=%s", f.sessionKey)
+	log.Printf("[pty_forwarder] Started forwarding: pod_key=%s", f.podKey)
 }
 
 // Stop stops the forwarder.
@@ -92,14 +92,14 @@ func (f *PTYForwarder) Stop() {
 	if f.flushTicker != nil {
 		f.flushTicker.Stop()
 	}
-	log.Printf("[pty_forwarder] Stopped forwarding: session_key=%s", f.sessionKey)
+	log.Printf("[pty_forwarder] Stopped forwarding: pod_key=%s", f.podKey)
 }
 
 // readLoop continuously reads from PTY and buffers output.
 func (f *PTYForwarder) readLoop() {
 	// Guard against nil session
 	if f.session == nil {
-		log.Printf("[pty_forwarder] Read loop exiting: session is nil, session_key=%s", f.sessionKey)
+		log.Printf("[pty_forwarder] Read loop exiting: session is nil, pod_key=%s", f.podKey)
 		return
 	}
 
@@ -115,8 +115,8 @@ func (f *PTYForwarder) readLoop() {
 		n, err := f.session.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("[pty_forwarder] Read error: session_key=%s, error=%v",
-					f.sessionKey, err)
+				log.Printf("[pty_forwarder] Read error: pod_key=%s, error=%v",
+					f.podKey, err)
 			}
 			return
 		}
@@ -175,16 +175,16 @@ func (f *PTYForwarder) flushLocked() {
 		time.Sleep(f.backpressureWait)
 		if f.isBackpressure() {
 			// Still backpressure, skip this flush
-			log.Printf("[pty_forwarder] Backpressure detected, skipping flush: session_key=%s, buffered=%d",
-				f.sessionKey, len(data))
+			log.Printf("[pty_forwarder] Backpressure detected, skipping flush: pod_key=%s, buffered=%d",
+				f.podKey, len(data))
 			return
 		}
 	}
 
 	// Send output
-	if !f.handler.SendOutput(f.sessionKey, data) {
+	if !f.handler.SendOutput(f.podKey, data) {
 		f.setBackpressure(true)
-		log.Printf("[pty_forwarder] Backpressure signal received: session_key=%s", f.sessionKey)
+		log.Printf("[pty_forwarder] Backpressure signal received: pod_key=%s", f.podKey)
 		return
 	}
 

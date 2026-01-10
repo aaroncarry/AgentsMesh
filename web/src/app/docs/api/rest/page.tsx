@@ -35,9 +35,9 @@ X-Organization-Slug: <org-slug>`}</pre>
         </p>
       </section>
 
-      {/* Sessions API */}
+      {/* Pods API */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Sessions</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pods</h2>
 
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
@@ -45,10 +45,10 @@ X-Organization-Slug: <org-slug>`}</pre>
               <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-mono">
                 GET
               </span>
-              <code className="text-sm">/organizations/:slug/sessions</code>
+              <code className="text-sm">/organizations/:slug/pods</code>
             </div>
             <p className="text-sm text-muted-foreground">
-              List all sessions in the organization
+              List all Pods in the organization
             </p>
           </div>
 
@@ -57,10 +57,10 @@ X-Organization-Slug: <org-slug>`}</pre>
               <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-mono">
                 POST
               </span>
-              <code className="text-sm">/organizations/:slug/sessions</code>
+              <code className="text-sm">/organizations/:slug/pods</code>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Create a new session
+              Create a new Pod
             </p>
             <div className="bg-[#1a1a1a] rounded-lg p-3 font-mono text-xs overflow-x-auto">
               <pre className="text-green-400">{`{
@@ -80,10 +80,10 @@ X-Organization-Slug: <org-slug>`}</pre>
               <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-mono">
                 GET
               </span>
-              <code className="text-sm">/organizations/:slug/sessions/:key</code>
+              <code className="text-sm">/organizations/:slug/pods/:key</code>
             </div>
             <p className="text-sm text-muted-foreground">
-              Get session details by key
+              Get Pod details by key
             </p>
           </div>
 
@@ -93,10 +93,10 @@ X-Organization-Slug: <org-slug>`}</pre>
                 POST
               </span>
               <code className="text-sm">
-                /organizations/:slug/sessions/:key/terminate
+                /organizations/:slug/pods/:key/terminate
               </code>
             </div>
-            <p className="text-sm text-muted-foreground">Terminate a session</p>
+            <p className="text-sm text-muted-foreground">Terminate a Pod</p>
           </div>
         </div>
       </section>
@@ -289,10 +289,10 @@ X-Organization-Slug: <org-slug>`}</pre>
               <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-mono">
                 WS
               </span>
-              <code className="text-sm">/ws/terminal/:sessionKey</code>
+              <code className="text-sm">/ws/terminal/:podKey</code>
             </div>
             <p className="text-sm text-muted-foreground">
-              Connect to session terminal for real-time interaction
+              Connect to Pod terminal for real-time interaction
             </p>
           </div>
 
@@ -304,7 +304,7 @@ X-Organization-Slug: <org-slug>`}</pre>
               <code className="text-sm">/ws/events</code>
             </div>
             <p className="text-sm text-muted-foreground">
-              Subscribe to real-time events (session updates, messages, etc.)
+              Subscribe to real-time events (Pod updates, messages, etc.)
             </p>
           </div>
         </div>

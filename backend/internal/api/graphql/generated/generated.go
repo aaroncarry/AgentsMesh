@@ -15,11 +15,11 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/anthropics/agentmesh/backend/internal/domain/agent"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/channel"
 	"github.com/anthropics/agentmesh/backend/internal/domain/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/domain/organization"
 	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
 	"github.com/anthropics/agentmesh/backend/internal/domain/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/domain/user"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -51,9 +51,9 @@ type ResolverRoot interface {
 	CustomAgentType() CustomAgentTypeResolver
 	Mutation() MutationResolver
 	Organization() OrganizationResolver
+	Pod() PodResolver
 	Query() QueryResolver
 	Runner() RunnerResolver
-	Session() SessionResolver
 	Subscription() SubscriptionResolver
 	Ticket() TicketResolver
 	User() UserResolver
@@ -83,7 +83,7 @@ type ComplexityRoot struct {
 		IsArchived  func(childComplexity int) int
 		Messages    func(childComplexity int, limit *int, offset *int) int
 		Name        func(childComplexity int) int
-		Sessions    func(childComplexity int) int
+		Pods        func(childComplexity int) int
 		UpdatedAt   func(childComplexity int) int
 	}
 
@@ -93,7 +93,7 @@ type ComplexityRoot struct {
 		ID          func(childComplexity int) int
 		MessageType func(childComplexity int) int
 		Metadata    func(childComplexity int) int
-		Session     func(childComplexity int) int
+		Pod         func(childComplexity int) int
 		User        func(childComplexity int) int
 	}
 
@@ -140,14 +140,14 @@ type ComplexityRoot struct {
 		ArchiveChannel     func(childComplexity int, id int64) int
 		CreateChannel      func(childComplexity int, input CreateChannelInput) int
 		CreateLabel        func(childComplexity int, name string, color string, repositoryID *int64) int
-		CreateSession      func(childComplexity int, input CreateSessionInput) int
+		CreatePod          func(childComplexity int, input CreatePodInput) int
 		CreateTicket       func(childComplexity int, input CreateTicketInput) int
 		DeleteLabel        func(childComplexity int, id int64) int
 		DeleteTicket       func(childComplexity int, identifier string) int
-		JoinChannel        func(childComplexity int, channelID int64, sessionKey string) int
-		LeaveChannel       func(childComplexity int, channelID int64, sessionKey string) int
-		SendMessage        func(childComplexity int, channelID int64, content string, sessionKey *string) int
-		TerminateSession   func(childComplexity int, key string) int
+		JoinChannel        func(childComplexity int, channelID int64, podKey string) int
+		LeaveChannel       func(childComplexity int, channelID int64, podKey string) int
+		SendMessage        func(childComplexity int, channelID int64, content string, podKey *string) int
+		TerminatePod       func(childComplexity int, key string) int
 		UnarchiveChannel   func(childComplexity int, id int64) int
 		UpdateChannel      func(childComplexity int, id int64, input UpdateChannelInput) int
 		UpdateTicket       func(childComplexity int, identifier string, input UpdateTicketInput) int
@@ -181,6 +181,37 @@ type ComplexityRoot struct {
 		StartCursor     func(childComplexity int) int
 	}
 
+	Pod struct {
+		AgentStatus   func(childComplexity int) int
+		AgentType     func(childComplexity int) int
+		BranchName    func(childComplexity int) int
+		CreatedAt     func(childComplexity int) int
+		CreatedBy     func(childComplexity int) int
+		FinishedAt    func(childComplexity int) int
+		ID            func(childComplexity int) int
+		InitialPrompt func(childComplexity int) int
+		LastActivity  func(childComplexity int) int
+		PodKey        func(childComplexity int) int
+		Repository    func(childComplexity int) int
+		Runner        func(childComplexity int) int
+		StartedAt     func(childComplexity int) int
+		Status        func(childComplexity int) int
+		Ticket        func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
+		WorktreePath  func(childComplexity int) int
+	}
+
+	PodConnection struct {
+		Edges      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	PodEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	Query struct {
 		AgentType        func(childComplexity int, id int64) int
 		AgentTypes       func(childComplexity int) int
@@ -193,12 +224,12 @@ type ComplexityRoot struct {
 		Me               func(childComplexity int) int
 		MyOrganizations  func(childComplexity int) int
 		Organization     func(childComplexity int, slug string) int
+		Pod              func(childComplexity int, key string) int
+		Pods             func(childComplexity int, filter *PodFilter, first *int, after *string) int
 		Repositories     func(childComplexity int) int
 		Repository       func(childComplexity int, id int64) int
 		Runner           func(childComplexity int, id int64) int
 		Runners          func(childComplexity int, status *RunnerStatus) int
-		Session          func(childComplexity int, key string) int
-		Sessions         func(childComplexity int, filter *SessionFilter, first *int, after *string) int
 		Ticket           func(childComplexity int, identifier string) int
 		Tickets          func(childComplexity int, filter *TicketFilter, first *int, after *string) int
 		User             func(childComplexity int, id int64) int
@@ -220,55 +251,24 @@ type ComplexityRoot struct {
 	}
 
 	Runner struct {
-		ActiveSessions        func(childComplexity int) int
-		CreatedAt             func(childComplexity int) int
-		CurrentSessions       func(childComplexity int) int
-		Description           func(childComplexity int) int
-		HostInfo              func(childComplexity int) int
-		ID                    func(childComplexity int) int
-		LastHeartbeat         func(childComplexity int) int
-		MaxConcurrentSessions func(childComplexity int) int
-		NodeID                func(childComplexity int) int
-		RunnerVersion         func(childComplexity int) int
-		Status                func(childComplexity int) int
-		UpdatedAt             func(childComplexity int) int
-	}
-
-	Session struct {
-		AgentStatus   func(childComplexity int) int
-		AgentType     func(childComplexity int) int
-		BranchName    func(childComplexity int) int
-		CreatedAt     func(childComplexity int) int
-		CreatedBy     func(childComplexity int) int
-		FinishedAt    func(childComplexity int) int
-		ID            func(childComplexity int) int
-		InitialPrompt func(childComplexity int) int
-		LastActivity  func(childComplexity int) int
-		Repository    func(childComplexity int) int
-		Runner        func(childComplexity int) int
-		SessionKey    func(childComplexity int) int
-		StartedAt     func(childComplexity int) int
-		Status        func(childComplexity int) int
-		Ticket        func(childComplexity int) int
-		UpdatedAt     func(childComplexity int) int
-		WorktreePath  func(childComplexity int) int
-	}
-
-	SessionConnection struct {
-		Edges      func(childComplexity int) int
-		PageInfo   func(childComplexity int) int
-		TotalCount func(childComplexity int) int
-	}
-
-	SessionEdge struct {
-		Cursor func(childComplexity int) int
-		Node   func(childComplexity int) int
+		ActivePods        func(childComplexity int) int
+		CreatedAt         func(childComplexity int) int
+		CurrentPods       func(childComplexity int) int
+		Description       func(childComplexity int) int
+		HostInfo          func(childComplexity int) int
+		ID                func(childComplexity int) int
+		LastHeartbeat     func(childComplexity int) int
+		MaxConcurrentPods func(childComplexity int) int
+		NodeID            func(childComplexity int) int
+		RunnerVersion     func(childComplexity int) int
+		Status            func(childComplexity int) int
+		UpdatedAt         func(childComplexity int) int
 	}
 
 	Subscription struct {
 		MessageReceived     func(childComplexity int, channelID int64) int
+		PodUpdated          func(childComplexity int, key string) int
 		RunnerStatusChanged func(childComplexity int) int
-		SessionUpdated      func(childComplexity int, key string) int
 	}
 
 	Ticket struct {
@@ -285,9 +285,9 @@ type ComplexityRoot struct {
 		MergeRequests func(childComplexity int) int
 		Number        func(childComplexity int) int
 		ParentTicket  func(childComplexity int) int
+		Pods          func(childComplexity int) int
 		Priority      func(childComplexity int) int
 		Reporter      func(childComplexity int) int
-		Sessions      func(childComplexity int) int
 		StartedAt     func(childComplexity int) int
 		Status        func(childComplexity int) int
 		Title         func(childComplexity int) int
@@ -325,15 +325,15 @@ type AgentTypeResolver interface {
 }
 type ChannelResolver interface {
 	Messages(ctx context.Context, obj *channel.Channel, limit *int, offset *int) ([]ChannelMessage, error)
-	Sessions(ctx context.Context, obj *channel.Channel) ([]session.Session, error)
+	Pods(ctx context.Context, obj *channel.Channel) ([]agentpod.Pod, error)
 }
 type CustomAgentTypeResolver interface {
 	CredentialSchema(ctx context.Context, obj *agent.CustomAgentType) (map[string]any, error)
 	StatusDetection(ctx context.Context, obj *agent.CustomAgentType) (map[string]any, error)
 }
 type MutationResolver interface {
-	CreateSession(ctx context.Context, input CreateSessionInput) (*session.Session, error)
-	TerminateSession(ctx context.Context, key string) (*session.Session, error)
+	CreatePod(ctx context.Context, input CreatePodInput) (*agentpod.Pod, error)
+	TerminatePod(ctx context.Context, key string) (*agentpod.Pod, error)
 	CreateTicket(ctx context.Context, input CreateTicketInput) (*ticket.Ticket, error)
 	UpdateTicket(ctx context.Context, identifier string, input UpdateTicketInput) (*ticket.Ticket, error)
 	DeleteTicket(ctx context.Context, identifier string) (bool, error)
@@ -344,13 +344,20 @@ type MutationResolver interface {
 	UpdateChannel(ctx context.Context, id int64, input UpdateChannelInput) (*channel.Channel, error)
 	ArchiveChannel(ctx context.Context, id int64) (*channel.Channel, error)
 	UnarchiveChannel(ctx context.Context, id int64) (*channel.Channel, error)
-	SendMessage(ctx context.Context, channelID int64, content string, sessionKey *string) (*ChannelMessage, error)
-	JoinChannel(ctx context.Context, channelID int64, sessionKey string) (bool, error)
-	LeaveChannel(ctx context.Context, channelID int64, sessionKey string) (bool, error)
+	SendMessage(ctx context.Context, channelID int64, content string, podKey *string) (*ChannelMessage, error)
+	JoinChannel(ctx context.Context, channelID int64, podKey string) (bool, error)
+	LeaveChannel(ctx context.Context, channelID int64, podKey string) (bool, error)
 }
 type OrganizationResolver interface {
 	Members(ctx context.Context, obj *organization.Organization) ([]OrganizationMember, error)
 	Runners(ctx context.Context, obj *organization.Organization) ([]runner.Runner, error)
+}
+type PodResolver interface {
+	Status(ctx context.Context, obj *agentpod.Pod) (PodStatus, error)
+
+	Repository(ctx context.Context, obj *agentpod.Pod) (*gitprovider.Repository, error)
+	Ticket(ctx context.Context, obj *agentpod.Pod) (*ticket.Ticket, error)
+	CreatedBy(ctx context.Context, obj *agentpod.Pod) (*user.User, error)
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (*user.User, error)
@@ -360,8 +367,8 @@ type QueryResolver interface {
 	Runner(ctx context.Context, id int64) (*runner.Runner, error)
 	Runners(ctx context.Context, status *RunnerStatus) ([]runner.Runner, error)
 	AvailableRunners(ctx context.Context) ([]runner.Runner, error)
-	Session(ctx context.Context, key string) (*session.Session, error)
-	Sessions(ctx context.Context, filter *SessionFilter, first *int, after *string) (*SessionConnection, error)
+	Pod(ctx context.Context, key string) (*agentpod.Pod, error)
+	Pods(ctx context.Context, filter *PodFilter, first *int, after *string) (*PodConnection, error)
 	AgentTypes(ctx context.Context) ([]agent.AgentType, error)
 	AgentType(ctx context.Context, id int64) (*agent.AgentType, error)
 	CustomAgentTypes(ctx context.Context) ([]agent.CustomAgentType, error)
@@ -379,17 +386,10 @@ type RunnerResolver interface {
 
 	HostInfo(ctx context.Context, obj *runner.Runner) (map[string]any, error)
 
-	ActiveSessions(ctx context.Context, obj *runner.Runner) ([]session.Session, error)
-}
-type SessionResolver interface {
-	Status(ctx context.Context, obj *session.Session) (SessionStatus, error)
-
-	Repository(ctx context.Context, obj *session.Session) (*gitprovider.Repository, error)
-	Ticket(ctx context.Context, obj *session.Session) (*ticket.Ticket, error)
-	CreatedBy(ctx context.Context, obj *session.Session) (*user.User, error)
+	ActivePods(ctx context.Context, obj *runner.Runner) ([]agentpod.Pod, error)
 }
 type SubscriptionResolver interface {
-	SessionUpdated(ctx context.Context, key string) (<-chan *session.Session, error)
+	PodUpdated(ctx context.Context, key string) (<-chan *agentpod.Pod, error)
 	MessageReceived(ctx context.Context, channelID int64) (<-chan *ChannelMessage, error)
 	RunnerStatusChanged(ctx context.Context) (<-chan *runner.Runner, error)
 }
@@ -402,7 +402,7 @@ type TicketResolver interface {
 	Reporter(ctx context.Context, obj *ticket.Ticket) (*user.User, error)
 	Assignees(ctx context.Context, obj *ticket.Ticket) ([]user.User, error)
 
-	Sessions(ctx context.Context, obj *ticket.Ticket) ([]session.Session, error)
+	Pods(ctx context.Context, obj *ticket.Ticket) ([]agentpod.Pod, error)
 
 	ChildTickets(ctx context.Context, obj *ticket.Ticket) ([]ticket.Ticket, error)
 	ParentTicket(ctx context.Context, obj *ticket.Ticket) (*ticket.Ticket, error)
@@ -532,12 +532,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Channel.Name(childComplexity), true
-	case "Channel.sessions":
-		if e.complexity.Channel.Sessions == nil {
+	case "Channel.pods":
+		if e.complexity.Channel.Pods == nil {
 			break
 		}
 
-		return e.complexity.Channel.Sessions(childComplexity), true
+		return e.complexity.Channel.Pods(childComplexity), true
 	case "Channel.updatedAt":
 		if e.complexity.Channel.UpdatedAt == nil {
 			break
@@ -575,12 +575,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.ChannelMessage.Metadata(childComplexity), true
-	case "ChannelMessage.session":
-		if e.complexity.ChannelMessage.Session == nil {
+	case "ChannelMessage.pod":
+		if e.complexity.ChannelMessage.Pod == nil {
 			break
 		}
 
-		return e.complexity.ChannelMessage.Session(childComplexity), true
+		return e.complexity.ChannelMessage.Pod(childComplexity), true
 	case "ChannelMessage.user":
 		if e.complexity.ChannelMessage.User == nil {
 			break
@@ -787,17 +787,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateLabel(childComplexity, args["name"].(string), args["color"].(string), args["repositoryID"].(*int64)), true
-	case "Mutation.createSession":
-		if e.complexity.Mutation.CreateSession == nil {
+	case "Mutation.createPod":
+		if e.complexity.Mutation.CreatePod == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_createSession_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_createPod_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateSession(childComplexity, args["input"].(CreateSessionInput)), true
+		return e.complexity.Mutation.CreatePod(childComplexity, args["input"].(CreatePodInput)), true
 	case "Mutation.createTicket":
 		if e.complexity.Mutation.CreateTicket == nil {
 			break
@@ -841,7 +841,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.JoinChannel(childComplexity, args["channelID"].(int64), args["sessionKey"].(string)), true
+		return e.complexity.Mutation.JoinChannel(childComplexity, args["channelID"].(int64), args["podKey"].(string)), true
 	case "Mutation.leaveChannel":
 		if e.complexity.Mutation.LeaveChannel == nil {
 			break
@@ -852,7 +852,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.LeaveChannel(childComplexity, args["channelID"].(int64), args["sessionKey"].(string)), true
+		return e.complexity.Mutation.LeaveChannel(childComplexity, args["channelID"].(int64), args["podKey"].(string)), true
 	case "Mutation.sendMessage":
 		if e.complexity.Mutation.SendMessage == nil {
 			break
@@ -863,18 +863,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.SendMessage(childComplexity, args["channelID"].(int64), args["content"].(string), args["sessionKey"].(*string)), true
-	case "Mutation.terminateSession":
-		if e.complexity.Mutation.TerminateSession == nil {
+		return e.complexity.Mutation.SendMessage(childComplexity, args["channelID"].(int64), args["content"].(string), args["podKey"].(*string)), true
+	case "Mutation.terminatePod":
+		if e.complexity.Mutation.TerminatePod == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_terminateSession_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_terminatePod_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.TerminateSession(childComplexity, args["key"].(string)), true
+		return e.complexity.Mutation.TerminatePod(childComplexity, args["key"].(string)), true
 	case "Mutation.unarchiveChannel":
 		if e.complexity.Mutation.UnarchiveChannel == nil {
 			break
@@ -1031,6 +1031,141 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.PageInfo.StartCursor(childComplexity), true
 
+	case "Pod.agentStatus":
+		if e.complexity.Pod.AgentStatus == nil {
+			break
+		}
+
+		return e.complexity.Pod.AgentStatus(childComplexity), true
+	case "Pod.agentType":
+		if e.complexity.Pod.AgentType == nil {
+			break
+		}
+
+		return e.complexity.Pod.AgentType(childComplexity), true
+	case "Pod.branchName":
+		if e.complexity.Pod.BranchName == nil {
+			break
+		}
+
+		return e.complexity.Pod.BranchName(childComplexity), true
+	case "Pod.createdAt":
+		if e.complexity.Pod.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.Pod.CreatedAt(childComplexity), true
+	case "Pod.createdBy":
+		if e.complexity.Pod.CreatedBy == nil {
+			break
+		}
+
+		return e.complexity.Pod.CreatedBy(childComplexity), true
+	case "Pod.finishedAt":
+		if e.complexity.Pod.FinishedAt == nil {
+			break
+		}
+
+		return e.complexity.Pod.FinishedAt(childComplexity), true
+	case "Pod.id":
+		if e.complexity.Pod.ID == nil {
+			break
+		}
+
+		return e.complexity.Pod.ID(childComplexity), true
+	case "Pod.initialPrompt":
+		if e.complexity.Pod.InitialPrompt == nil {
+			break
+		}
+
+		return e.complexity.Pod.InitialPrompt(childComplexity), true
+	case "Pod.lastActivity":
+		if e.complexity.Pod.LastActivity == nil {
+			break
+		}
+
+		return e.complexity.Pod.LastActivity(childComplexity), true
+	case "Pod.podKey":
+		if e.complexity.Pod.PodKey == nil {
+			break
+		}
+
+		return e.complexity.Pod.PodKey(childComplexity), true
+	case "Pod.repository":
+		if e.complexity.Pod.Repository == nil {
+			break
+		}
+
+		return e.complexity.Pod.Repository(childComplexity), true
+	case "Pod.runner":
+		if e.complexity.Pod.Runner == nil {
+			break
+		}
+
+		return e.complexity.Pod.Runner(childComplexity), true
+	case "Pod.startedAt":
+		if e.complexity.Pod.StartedAt == nil {
+			break
+		}
+
+		return e.complexity.Pod.StartedAt(childComplexity), true
+	case "Pod.status":
+		if e.complexity.Pod.Status == nil {
+			break
+		}
+
+		return e.complexity.Pod.Status(childComplexity), true
+	case "Pod.ticket":
+		if e.complexity.Pod.Ticket == nil {
+			break
+		}
+
+		return e.complexity.Pod.Ticket(childComplexity), true
+	case "Pod.updatedAt":
+		if e.complexity.Pod.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.Pod.UpdatedAt(childComplexity), true
+	case "Pod.worktreePath":
+		if e.complexity.Pod.WorktreePath == nil {
+			break
+		}
+
+		return e.complexity.Pod.WorktreePath(childComplexity), true
+
+	case "PodConnection.edges":
+		if e.complexity.PodConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.PodConnection.Edges(childComplexity), true
+	case "PodConnection.pageInfo":
+		if e.complexity.PodConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.PodConnection.PageInfo(childComplexity), true
+	case "PodConnection.totalCount":
+		if e.complexity.PodConnection.TotalCount == nil {
+			break
+		}
+
+		return e.complexity.PodConnection.TotalCount(childComplexity), true
+
+	case "PodEdge.cursor":
+		if e.complexity.PodEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.PodEdge.Cursor(childComplexity), true
+	case "PodEdge.node":
+		if e.complexity.PodEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.PodEdge.Node(childComplexity), true
+
 	case "Query.agentType":
 		if e.complexity.Query.AgentType == nil {
 			break
@@ -1122,6 +1257,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Organization(childComplexity, args["slug"].(string)), true
+	case "Query.pod":
+		if e.complexity.Query.Pod == nil {
+			break
+		}
+
+		args, err := ec.field_Query_pod_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Pod(childComplexity, args["key"].(string)), true
+	case "Query.pods":
+		if e.complexity.Query.Pods == nil {
+			break
+		}
+
+		args, err := ec.field_Query_pods_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Pods(childComplexity, args["filter"].(*PodFilter), args["first"].(*int), args["after"].(*string)), true
 	case "Query.repositories":
 		if e.complexity.Query.Repositories == nil {
 			break
@@ -1161,28 +1318,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Runners(childComplexity, args["status"].(*RunnerStatus)), true
-	case "Query.session":
-		if e.complexity.Query.Session == nil {
-			break
-		}
-
-		args, err := ec.field_Query_session_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Session(childComplexity, args["key"].(string)), true
-	case "Query.sessions":
-		if e.complexity.Query.Sessions == nil {
-			break
-		}
-
-		args, err := ec.field_Query_sessions_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Sessions(childComplexity, args["filter"].(*SessionFilter), args["first"].(*int), args["after"].(*string)), true
 	case "Query.ticket":
 		if e.complexity.Query.Ticket == nil {
 			break
@@ -1290,24 +1425,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Repository.Visibility(childComplexity), true
 
-	case "Runner.activeSessions":
-		if e.complexity.Runner.ActiveSessions == nil {
+	case "Runner.activePods":
+		if e.complexity.Runner.ActivePods == nil {
 			break
 		}
 
-		return e.complexity.Runner.ActiveSessions(childComplexity), true
+		return e.complexity.Runner.ActivePods(childComplexity), true
 	case "Runner.createdAt":
 		if e.complexity.Runner.CreatedAt == nil {
 			break
 		}
 
 		return e.complexity.Runner.CreatedAt(childComplexity), true
-	case "Runner.currentSessions":
-		if e.complexity.Runner.CurrentSessions == nil {
+	case "Runner.currentPods":
+		if e.complexity.Runner.CurrentPods == nil {
 			break
 		}
 
-		return e.complexity.Runner.CurrentSessions(childComplexity), true
+		return e.complexity.Runner.CurrentPods(childComplexity), true
 	case "Runner.description":
 		if e.complexity.Runner.Description == nil {
 			break
@@ -1332,12 +1467,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Runner.LastHeartbeat(childComplexity), true
-	case "Runner.maxConcurrentSessions":
-		if e.complexity.Runner.MaxConcurrentSessions == nil {
+	case "Runner.maxConcurrentPods":
+		if e.complexity.Runner.MaxConcurrentPods == nil {
 			break
 		}
 
-		return e.complexity.Runner.MaxConcurrentSessions(childComplexity), true
+		return e.complexity.Runner.MaxConcurrentPods(childComplexity), true
 	case "Runner.nodeID":
 		if e.complexity.Runner.NodeID == nil {
 			break
@@ -1363,141 +1498,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Runner.UpdatedAt(childComplexity), true
 
-	case "Session.agentStatus":
-		if e.complexity.Session.AgentStatus == nil {
-			break
-		}
-
-		return e.complexity.Session.AgentStatus(childComplexity), true
-	case "Session.agentType":
-		if e.complexity.Session.AgentType == nil {
-			break
-		}
-
-		return e.complexity.Session.AgentType(childComplexity), true
-	case "Session.branchName":
-		if e.complexity.Session.BranchName == nil {
-			break
-		}
-
-		return e.complexity.Session.BranchName(childComplexity), true
-	case "Session.createdAt":
-		if e.complexity.Session.CreatedAt == nil {
-			break
-		}
-
-		return e.complexity.Session.CreatedAt(childComplexity), true
-	case "Session.createdBy":
-		if e.complexity.Session.CreatedBy == nil {
-			break
-		}
-
-		return e.complexity.Session.CreatedBy(childComplexity), true
-	case "Session.finishedAt":
-		if e.complexity.Session.FinishedAt == nil {
-			break
-		}
-
-		return e.complexity.Session.FinishedAt(childComplexity), true
-	case "Session.id":
-		if e.complexity.Session.ID == nil {
-			break
-		}
-
-		return e.complexity.Session.ID(childComplexity), true
-	case "Session.initialPrompt":
-		if e.complexity.Session.InitialPrompt == nil {
-			break
-		}
-
-		return e.complexity.Session.InitialPrompt(childComplexity), true
-	case "Session.lastActivity":
-		if e.complexity.Session.LastActivity == nil {
-			break
-		}
-
-		return e.complexity.Session.LastActivity(childComplexity), true
-	case "Session.repository":
-		if e.complexity.Session.Repository == nil {
-			break
-		}
-
-		return e.complexity.Session.Repository(childComplexity), true
-	case "Session.runner":
-		if e.complexity.Session.Runner == nil {
-			break
-		}
-
-		return e.complexity.Session.Runner(childComplexity), true
-	case "Session.sessionKey":
-		if e.complexity.Session.SessionKey == nil {
-			break
-		}
-
-		return e.complexity.Session.SessionKey(childComplexity), true
-	case "Session.startedAt":
-		if e.complexity.Session.StartedAt == nil {
-			break
-		}
-
-		return e.complexity.Session.StartedAt(childComplexity), true
-	case "Session.status":
-		if e.complexity.Session.Status == nil {
-			break
-		}
-
-		return e.complexity.Session.Status(childComplexity), true
-	case "Session.ticket":
-		if e.complexity.Session.Ticket == nil {
-			break
-		}
-
-		return e.complexity.Session.Ticket(childComplexity), true
-	case "Session.updatedAt":
-		if e.complexity.Session.UpdatedAt == nil {
-			break
-		}
-
-		return e.complexity.Session.UpdatedAt(childComplexity), true
-	case "Session.worktreePath":
-		if e.complexity.Session.WorktreePath == nil {
-			break
-		}
-
-		return e.complexity.Session.WorktreePath(childComplexity), true
-
-	case "SessionConnection.edges":
-		if e.complexity.SessionConnection.Edges == nil {
-			break
-		}
-
-		return e.complexity.SessionConnection.Edges(childComplexity), true
-	case "SessionConnection.pageInfo":
-		if e.complexity.SessionConnection.PageInfo == nil {
-			break
-		}
-
-		return e.complexity.SessionConnection.PageInfo(childComplexity), true
-	case "SessionConnection.totalCount":
-		if e.complexity.SessionConnection.TotalCount == nil {
-			break
-		}
-
-		return e.complexity.SessionConnection.TotalCount(childComplexity), true
-
-	case "SessionEdge.cursor":
-		if e.complexity.SessionEdge.Cursor == nil {
-			break
-		}
-
-		return e.complexity.SessionEdge.Cursor(childComplexity), true
-	case "SessionEdge.node":
-		if e.complexity.SessionEdge.Node == nil {
-			break
-		}
-
-		return e.complexity.SessionEdge.Node(childComplexity), true
-
 	case "Subscription.messageReceived":
 		if e.complexity.Subscription.MessageReceived == nil {
 			break
@@ -1509,23 +1509,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Subscription.MessageReceived(childComplexity, args["channelID"].(int64)), true
+	case "Subscription.podUpdated":
+		if e.complexity.Subscription.PodUpdated == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_podUpdated_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.PodUpdated(childComplexity, args["key"].(string)), true
 	case "Subscription.runnerStatusChanged":
 		if e.complexity.Subscription.RunnerStatusChanged == nil {
 			break
 		}
 
 		return e.complexity.Subscription.RunnerStatusChanged(childComplexity), true
-	case "Subscription.sessionUpdated":
-		if e.complexity.Subscription.SessionUpdated == nil {
-			break
-		}
-
-		args, err := ec.field_Subscription_sessionUpdated_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Subscription.SessionUpdated(childComplexity, args["key"].(string)), true
 
 	case "Ticket.assignees":
 		if e.complexity.Ticket.Assignees == nil {
@@ -1605,6 +1605,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Ticket.ParentTicket(childComplexity), true
+	case "Ticket.pods":
+		if e.complexity.Ticket.Pods == nil {
+			break
+		}
+
+		return e.complexity.Ticket.Pods(childComplexity), true
 	case "Ticket.priority":
 		if e.complexity.Ticket.Priority == nil {
 			break
@@ -1617,12 +1623,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Ticket.Reporter(childComplexity), true
-	case "Ticket.sessions":
-		if e.complexity.Ticket.Sessions == nil {
-			break
-		}
-
-		return e.complexity.Ticket.Sessions(childComplexity), true
 	case "Ticket.startedAt":
 		if e.complexity.Ticket.StartedAt == nil {
 			break
@@ -1756,9 +1756,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputCreateChannelInput,
-		ec.unmarshalInputCreateSessionInput,
+		ec.unmarshalInputCreatePodInput,
 		ec.unmarshalInputCreateTicketInput,
-		ec.unmarshalInputSessionFilter,
+		ec.unmarshalInputPodFilter,
 		ec.unmarshalInputTicketFilter,
 		ec.unmarshalInputUpdateChannelInput,
 		ec.unmarshalInputUpdateTicketInput,
@@ -1948,13 +1948,13 @@ type Runner {
   description: String
   status: RunnerStatus!
   lastHeartbeat: Time
-  currentSessions: Int!
-  maxConcurrentSessions: Int!
+  currentPods: Int!
+  maxConcurrentPods: Int!
   runnerVersion: String
   hostInfo: JSON
   createdAt: Time!
   updatedAt: Time!
-  activeSessions: [Session!]!
+  activePods: [Pod!]!
 }
 
 enum RunnerStatus {
@@ -1963,10 +1963,10 @@ enum RunnerStatus {
   MAINTENANCE
 }
 
-type Session {
+type Pod {
   id: ID!
-  sessionKey: String!
-  status: SessionStatus!
+  podKey: String!
+  status: PodStatus!
   agentStatus: String!
   startedAt: Time
   finishedAt: Time
@@ -1983,7 +1983,7 @@ type Session {
   createdBy: User!
 }
 
-enum SessionStatus {
+enum PodStatus {
   INITIALIZING
   RUNNING
   PAUSED
@@ -2033,7 +2033,7 @@ type Ticket {
   reporter: User!
   assignees: [User!]!
   labels: [Label!]!
-  sessions: [Session!]!
+  pods: [Pod!]!
   mergeRequests: [MergeRequest!]!
   childTickets: [Ticket!]!
   parentTicket: Ticket
@@ -2090,7 +2090,7 @@ type Channel {
   createdAt: Time!
   updatedAt: Time!
   messages(limit: Int, offset: Int): [ChannelMessage!]!
-  sessions: [Session!]!
+  pods: [Pod!]!
 }
 
 type ChannelMessage {
@@ -2099,7 +2099,7 @@ type ChannelMessage {
   messageType: String!
   metadata: JSON
   createdAt: Time!
-  session: Session
+  pod: Pod
   user: User
 }
 
@@ -2122,14 +2122,14 @@ type TicketEdge {
   cursor: String!
 }
 
-type SessionConnection {
-  edges: [SessionEdge!]!
+type PodConnection {
+  edges: [PodEdge!]!
   pageInfo: PageInfo!
   totalCount: Int!
 }
 
-type SessionEdge {
-  node: Session!
+type PodEdge {
+  node: Pod!
   cursor: String!
 }
 
@@ -2162,7 +2162,7 @@ input UpdateTicketInput {
   dueDate: Time
 }
 
-input CreateSessionInput {
+input CreatePodInput {
   runnerID: ID!
   agentTypeID: ID
   customAgentTypeID: ID
@@ -2196,9 +2196,9 @@ input TicketFilter {
   search: String
 }
 
-input SessionFilter {
+input PodFilter {
   runnerID: ID
-  status: SessionStatus
+  status: PodStatus
   ticketID: ID
 }
 
@@ -2220,9 +2220,9 @@ type Query {
   runners(status: RunnerStatus): [Runner!]!
   availableRunners: [Runner!]!
 
-  # Sessions
-  session(key: String!): Session
-  sessions(filter: SessionFilter, first: Int, after: String): SessionConnection!
+  # Pods
+  pod(key: String!): Pod
+  pods(filter: PodFilter, first: Int, after: String): PodConnection!
 
   # Agent Types
   agentTypes: [AgentType!]!
@@ -2253,9 +2253,9 @@ type Query {
 # =============================================================================
 
 type Mutation {
-  # Sessions
-  createSession(input: CreateSessionInput!): Session!
-  terminateSession(key: String!): Session!
+  # Pods
+  createPod(input: CreatePodInput!): Pod!
+  terminatePod(key: String!): Pod!
 
   # Tickets
   createTicket(input: CreateTicketInput!): Ticket!
@@ -2272,11 +2272,11 @@ type Mutation {
   updateChannel(id: ID!, input: UpdateChannelInput!): Channel!
   archiveChannel(id: ID!): Channel!
   unarchiveChannel(id: ID!): Channel!
-  sendMessage(channelID: ID!, content: String!, sessionKey: String): ChannelMessage!
+  sendMessage(channelID: ID!, content: String!, podKey: String): ChannelMessage!
 
-  # Channel Session Management
-  joinChannel(channelID: ID!, sessionKey: String!): Boolean!
-  leaveChannel(channelID: ID!, sessionKey: String!): Boolean!
+  # Channel Pod Management
+  joinChannel(channelID: ID!, podKey: String!): Boolean!
+  leaveChannel(channelID: ID!, podKey: String!): Boolean!
 }
 
 # =============================================================================
@@ -2284,8 +2284,8 @@ type Mutation {
 # =============================================================================
 
 type Subscription {
-  # Session updates
-  sessionUpdated(key: String!): Session!
+  # Pod updates
+  podUpdated(key: String!): Pod!
 
   # Channel messages
   messageReceived(channelID: ID!): ChannelMessage!
@@ -2360,10 +2360,10 @@ func (ec *executionContext) field_Mutation_createLabel_args(ctx context.Context,
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_createSession_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_createPod_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreateSessionInput2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐCreateSessionInput)
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCreatePodInput2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐCreatePodInput)
 	if err != nil {
 		return nil, err
 	}
@@ -2412,11 +2412,11 @@ func (ec *executionContext) field_Mutation_joinChannel_args(ctx context.Context,
 		return nil, err
 	}
 	args["channelID"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "sessionKey", ec.unmarshalNString2string)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "podKey", ec.unmarshalNString2string)
 	if err != nil {
 		return nil, err
 	}
-	args["sessionKey"] = arg1
+	args["podKey"] = arg1
 	return args, nil
 }
 
@@ -2428,11 +2428,11 @@ func (ec *executionContext) field_Mutation_leaveChannel_args(ctx context.Context
 		return nil, err
 	}
 	args["channelID"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "sessionKey", ec.unmarshalNString2string)
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "podKey", ec.unmarshalNString2string)
 	if err != nil {
 		return nil, err
 	}
-	args["sessionKey"] = arg1
+	args["podKey"] = arg1
 	return args, nil
 }
 
@@ -2449,15 +2449,15 @@ func (ec *executionContext) field_Mutation_sendMessage_args(ctx context.Context,
 		return nil, err
 	}
 	args["content"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "sessionKey", ec.unmarshalOString2ᚖstring)
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "podKey", ec.unmarshalOString2ᚖstring)
 	if err != nil {
 		return nil, err
 	}
-	args["sessionKey"] = arg2
+	args["podKey"] = arg2
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_terminateSession_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_terminatePod_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
@@ -2593,6 +2593,38 @@ func (ec *executionContext) field_Query_organization_args(ctx context.Context, r
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_pod_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["key"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_pods_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter", ec.unmarshalOPodFilter2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodFilter)
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "first", ec.unmarshalOInt2ᚖint)
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_repository_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2623,38 +2655,6 @@ func (ec *executionContext) field_Query_runners_args(ctx context.Context, rawArg
 		return nil, err
 	}
 	args["status"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_session_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
-	if err != nil {
-		return nil, err
-	}
-	args["key"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_sessions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter", ec.unmarshalOSessionFilter2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionFilter)
-	if err != nil {
-		return nil, err
-	}
-	args["filter"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "first", ec.unmarshalOInt2ᚖint)
-	if err != nil {
-		return nil, err
-	}
-	args["first"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after", ec.unmarshalOString2ᚖstring)
-	if err != nil {
-		return nil, err
-	}
-	args["after"] = arg2
 	return args, nil
 }
 
@@ -2712,7 +2712,7 @@ func (ec *executionContext) field_Subscription_messageReceived_args(ctx context.
 	return args, nil
 }
 
-func (ec *executionContext) field_Subscription_sessionUpdated_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Subscription_podUpdated_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "key", ec.unmarshalNString2string)
@@ -3274,8 +3274,8 @@ func (ec *executionContext) fieldContext_Channel_messages(ctx context.Context, f
 				return ec.fieldContext_ChannelMessage_metadata(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_ChannelMessage_createdAt(ctx, field)
-			case "session":
-				return ec.fieldContext_ChannelMessage_session(ctx, field)
+			case "pod":
+				return ec.fieldContext_ChannelMessage_pod(ctx, field)
 			case "user":
 				return ec.fieldContext_ChannelMessage_user(ctx, field)
 			}
@@ -3296,23 +3296,23 @@ func (ec *executionContext) fieldContext_Channel_messages(ctx context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Channel_sessions(ctx context.Context, field graphql.CollectedField, obj *channel.Channel) (ret graphql.Marshaler) {
+func (ec *executionContext) _Channel_pods(ctx context.Context, field graphql.CollectedField, obj *channel.Channel) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Channel_sessions,
+		ec.fieldContext_Channel_pods,
 		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Channel().Sessions(ctx, obj)
+			return ec.resolvers.Channel().Pods(ctx, obj)
 		},
 		nil,
-		ec.marshalNSession2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSessionᚄ,
+		ec.marshalNPod2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPodᚄ,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Channel_sessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Channel_pods(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Channel",
 		Field:      field,
@@ -3321,41 +3321,41 @@ func (ec *executionContext) fieldContext_Channel_sessions(_ context.Context, fie
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	return fc, nil
@@ -3506,23 +3506,23 @@ func (ec *executionContext) fieldContext_ChannelMessage_createdAt(_ context.Cont
 	return fc, nil
 }
 
-func (ec *executionContext) _ChannelMessage_session(ctx context.Context, field graphql.CollectedField, obj *ChannelMessage) (ret graphql.Marshaler) {
+func (ec *executionContext) _ChannelMessage_pod(ctx context.Context, field graphql.CollectedField, obj *ChannelMessage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_ChannelMessage_session,
+		ec.fieldContext_ChannelMessage_pod,
 		func(ctx context.Context) (any, error) {
-			return obj.Session, nil
+			return obj.Pod, nil
 		},
 		nil,
-		ec.marshalOSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
+		ec.marshalOPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
 		true,
 		false,
 	)
 }
 
-func (ec *executionContext) fieldContext_ChannelMessage_session(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ChannelMessage_pod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ChannelMessage",
 		Field:      field,
@@ -3531,41 +3531,41 @@ func (ec *executionContext) fieldContext_ChannelMessage_session(_ context.Contex
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	return fc, nil
@@ -4405,24 +4405,24 @@ func (ec *executionContext) fieldContext_MergeRequest_updatedAt(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_createSession(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_createPod(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Mutation_createSession,
+		ec.fieldContext_Mutation_createPod,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().CreateSession(ctx, fc.Args["input"].(CreateSessionInput))
+			return ec.resolvers.Mutation().CreatePod(ctx, fc.Args["input"].(CreatePodInput))
 		},
 		nil,
-		ec.marshalNSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
+		ec.marshalNPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Mutation_createSession(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_createPod(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -4431,41 +4431,41 @@ func (ec *executionContext) fieldContext_Mutation_createSession(ctx context.Cont
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	defer func() {
@@ -4475,31 +4475,31 @@ func (ec *executionContext) fieldContext_Mutation_createSession(ctx context.Cont
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createSession_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_createPod_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_terminateSession(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_terminatePod(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Mutation_terminateSession,
+		ec.fieldContext_Mutation_terminatePod,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().TerminateSession(ctx, fc.Args["key"].(string))
+			return ec.resolvers.Mutation().TerminatePod(ctx, fc.Args["key"].(string))
 		},
 		nil,
-		ec.marshalNSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
+		ec.marshalNPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Mutation_terminateSession(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_terminatePod(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -4508,41 +4508,41 @@ func (ec *executionContext) fieldContext_Mutation_terminateSession(ctx context.C
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	defer func() {
@@ -4552,7 +4552,7 @@ func (ec *executionContext) fieldContext_Mutation_terminateSession(ctx context.C
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_terminateSession_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_terminatePod_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4618,8 +4618,8 @@ func (ec *executionContext) fieldContext_Mutation_createTicket(ctx context.Conte
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -4703,8 +4703,8 @@ func (ec *executionContext) fieldContext_Mutation_updateTicket(ctx context.Conte
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -4829,8 +4829,8 @@ func (ec *executionContext) fieldContext_Mutation_updateTicketStatus(ctx context
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -4986,8 +4986,8 @@ func (ec *executionContext) fieldContext_Mutation_createChannel(ctx context.Cont
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -5047,8 +5047,8 @@ func (ec *executionContext) fieldContext_Mutation_updateChannel(ctx context.Cont
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -5108,8 +5108,8 @@ func (ec *executionContext) fieldContext_Mutation_archiveChannel(ctx context.Con
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -5169,8 +5169,8 @@ func (ec *executionContext) fieldContext_Mutation_unarchiveChannel(ctx context.C
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -5197,7 +5197,7 @@ func (ec *executionContext) _Mutation_sendMessage(ctx context.Context, field gra
 		ec.fieldContext_Mutation_sendMessage,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().SendMessage(ctx, fc.Args["channelID"].(int64), fc.Args["content"].(string), fc.Args["sessionKey"].(*string))
+			return ec.resolvers.Mutation().SendMessage(ctx, fc.Args["channelID"].(int64), fc.Args["content"].(string), fc.Args["podKey"].(*string))
 		},
 		nil,
 		ec.marshalNChannelMessage2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐChannelMessage,
@@ -5224,8 +5224,8 @@ func (ec *executionContext) fieldContext_Mutation_sendMessage(ctx context.Contex
 				return ec.fieldContext_ChannelMessage_metadata(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_ChannelMessage_createdAt(ctx, field)
-			case "session":
-				return ec.fieldContext_ChannelMessage_session(ctx, field)
+			case "pod":
+				return ec.fieldContext_ChannelMessage_pod(ctx, field)
 			case "user":
 				return ec.fieldContext_ChannelMessage_user(ctx, field)
 			}
@@ -5254,7 +5254,7 @@ func (ec *executionContext) _Mutation_joinChannel(ctx context.Context, field gra
 		ec.fieldContext_Mutation_joinChannel,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().JoinChannel(ctx, fc.Args["channelID"].(int64), fc.Args["sessionKey"].(string))
+			return ec.resolvers.Mutation().JoinChannel(ctx, fc.Args["channelID"].(int64), fc.Args["podKey"].(string))
 		},
 		nil,
 		ec.marshalNBoolean2bool,
@@ -5295,7 +5295,7 @@ func (ec *executionContext) _Mutation_leaveChannel(ctx context.Context, field gr
 		ec.fieldContext_Mutation_leaveChannel,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().LeaveChannel(ctx, fc.Args["channelID"].(int64), fc.Args["sessionKey"].(string))
+			return ec.resolvers.Mutation().LeaveChannel(ctx, fc.Args["channelID"].(int64), fc.Args["podKey"].(string))
 		},
 		nil,
 		ec.marshalNBoolean2bool,
@@ -5633,10 +5633,10 @@ func (ec *executionContext) fieldContext_Organization_runners(_ context.Context,
 				return ec.fieldContext_Runner_status(ctx, field)
 			case "lastHeartbeat":
 				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
 			case "runnerVersion":
 				return ec.fieldContext_Runner_runnerVersion(ctx, field)
 			case "hostInfo":
@@ -5645,8 +5645,8 @@ func (ec *executionContext) fieldContext_Organization_runners(_ context.Context,
 				return ec.fieldContext_Runner_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
 		},
@@ -5898,6 +5898,834 @@ func (ec *executionContext) _PageInfo_endCursor(ctx context.Context, field graph
 func (ec *executionContext) fieldContext_PageInfo_endCursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "PageInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_id(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNID2int64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_podKey(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_podKey,
+		func(ctx context.Context) (any, error) {
+			return obj.PodKey, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_podKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_status(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_status,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Pod().Status(ctx, obj)
+		},
+		nil,
+		ec.marshalNPodStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type PodStatus does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_agentStatus(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_agentStatus,
+		func(ctx context.Context) (any, error) {
+			return obj.AgentStatus, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_agentStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_startedAt(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_startedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.StartedAt, nil
+		},
+		nil,
+		ec.marshalOTime2ᚖtimeᚐTime,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_finishedAt(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_finishedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.FinishedAt, nil
+		},
+		nil,
+		ec.marshalOTime2ᚖtimeᚐTime,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_finishedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_lastActivity(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_lastActivity,
+		func(ctx context.Context) (any, error) {
+			return obj.LastActivity, nil
+		},
+		nil,
+		ec.marshalOTime2ᚖtimeᚐTime,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_lastActivity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_initialPrompt(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_initialPrompt,
+		func(ctx context.Context) (any, error) {
+			return obj.InitialPrompt, nil
+		},
+		nil,
+		ec.marshalOString2string,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_initialPrompt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_branchName(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_branchName,
+		func(ctx context.Context) (any, error) {
+			return obj.BranchName, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_branchName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_worktreePath(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_worktreePath,
+		func(ctx context.Context) (any, error) {
+			return obj.WorktreePath, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_worktreePath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_createdAt(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_createdAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		ec.marshalNTime2timeᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_updatedAt(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_updatedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		ec.marshalNTime2timeᚐTime,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_runner(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_runner,
+		func(ctx context.Context) (any, error) {
+			return obj.Runner, nil
+		},
+		nil,
+		ec.marshalNRunner2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋrunnerᚐRunner,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_runner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Runner_id(ctx, field)
+			case "nodeID":
+				return ec.fieldContext_Runner_nodeID(ctx, field)
+			case "description":
+				return ec.fieldContext_Runner_description(ctx, field)
+			case "status":
+				return ec.fieldContext_Runner_status(ctx, field)
+			case "lastHeartbeat":
+				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
+			case "runnerVersion":
+				return ec.fieldContext_Runner_runnerVersion(ctx, field)
+			case "hostInfo":
+				return ec.fieldContext_Runner_hostInfo(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Runner_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Runner_updatedAt(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_agentType(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_agentType,
+		func(ctx context.Context) (any, error) {
+			return obj.AgentType, nil
+		},
+		nil,
+		ec.marshalOAgentType2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentᚐAgentType,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_agentType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_AgentType_id(ctx, field)
+			case "slug":
+				return ec.fieldContext_AgentType_slug(ctx, field)
+			case "name":
+				return ec.fieldContext_AgentType_name(ctx, field)
+			case "description":
+				return ec.fieldContext_AgentType_description(ctx, field)
+			case "launchCommand":
+				return ec.fieldContext_AgentType_launchCommand(ctx, field)
+			case "defaultArgs":
+				return ec.fieldContext_AgentType_defaultArgs(ctx, field)
+			case "credentialSchema":
+				return ec.fieldContext_AgentType_credentialSchema(ctx, field)
+			case "isBuiltin":
+				return ec.fieldContext_AgentType_isBuiltin(ctx, field)
+			case "isActive":
+				return ec.fieldContext_AgentType_isActive(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type AgentType", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_repository(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_repository,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Pod().Repository(ctx, obj)
+		},
+		nil,
+		ec.marshalORepository2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐRepository,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_repository(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Repository_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Repository_name(ctx, field)
+			case "fullPath":
+				return ec.fieldContext_Repository_fullPath(ctx, field)
+			case "defaultBranch":
+				return ec.fieldContext_Repository_defaultBranch(ctx, field)
+			case "ticketPrefix":
+				return ec.fieldContext_Repository_ticketPrefix(ctx, field)
+			case "providerType":
+				return ec.fieldContext_Repository_providerType(ctx, field)
+			case "providerBaseURL":
+				return ec.fieldContext_Repository_providerBaseURL(ctx, field)
+			case "cloneURL":
+				return ec.fieldContext_Repository_cloneURL(ctx, field)
+			case "visibility":
+				return ec.fieldContext_Repository_visibility(ctx, field)
+			case "isActive":
+				return ec.fieldContext_Repository_isActive(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Repository_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Repository_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_ticket(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_ticket,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Pod().Ticket(ctx, obj)
+		},
+		nil,
+		ec.marshalOTicket2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋticketᚐTicket,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_ticket(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Ticket_id(ctx, field)
+			case "number":
+				return ec.fieldContext_Ticket_number(ctx, field)
+			case "identifier":
+				return ec.fieldContext_Ticket_identifier(ctx, field)
+			case "type":
+				return ec.fieldContext_Ticket_type(ctx, field)
+			case "title":
+				return ec.fieldContext_Ticket_title(ctx, field)
+			case "description":
+				return ec.fieldContext_Ticket_description(ctx, field)
+			case "content":
+				return ec.fieldContext_Ticket_content(ctx, field)
+			case "status":
+				return ec.fieldContext_Ticket_status(ctx, field)
+			case "priority":
+				return ec.fieldContext_Ticket_priority(ctx, field)
+			case "dueDate":
+				return ec.fieldContext_Ticket_dueDate(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_Ticket_startedAt(ctx, field)
+			case "completedAt":
+				return ec.fieldContext_Ticket_completedAt(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Ticket_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Ticket_updatedAt(ctx, field)
+			case "reporter":
+				return ec.fieldContext_Ticket_reporter(ctx, field)
+			case "assignees":
+				return ec.fieldContext_Ticket_assignees(ctx, field)
+			case "labels":
+				return ec.fieldContext_Ticket_labels(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
+			case "mergeRequests":
+				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
+			case "childTickets":
+				return ec.fieldContext_Ticket_childTickets(ctx, field)
+			case "parentTicket":
+				return ec.fieldContext_Ticket_parentTicket(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Ticket", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Pod_createdBy(ctx context.Context, field graphql.CollectedField, obj *agentpod.Pod) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Pod_createdBy,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Pod().CreatedBy(ctx, obj)
+		},
+		nil,
+		ec.marshalNUser2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋuserᚐUser,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Pod_createdBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Pod",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_User_id(ctx, field)
+			case "email":
+				return ec.fieldContext_User_email(ctx, field)
+			case "username":
+				return ec.fieldContext_User_username(ctx, field)
+			case "name":
+				return ec.fieldContext_User_name(ctx, field)
+			case "avatarURL":
+				return ec.fieldContext_User_avatarURL(ctx, field)
+			case "isActive":
+				return ec.fieldContext_User_isActive(ctx, field)
+			case "lastLoginAt":
+				return ec.fieldContext_User_lastLoginAt(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_User_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_User_updatedAt(ctx, field)
+			case "organizations":
+				return ec.fieldContext_User_organizations(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodConnection_edges(ctx context.Context, field graphql.CollectedField, obj *PodConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PodConnection_edges,
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		ec.marshalNPodEdge2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodEdgeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PodConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "node":
+				return ec.fieldContext_PodEdge_node(ctx, field)
+			case "cursor":
+				return ec.fieldContext_PodEdge_cursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PodEdge", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *PodConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PodConnection_pageInfo,
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		ec.marshalNPageInfo2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPageInfo,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PodConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "hasNextPage":
+				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
+			case "hasPreviousPage":
+				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
+			case "startCursor":
+				return ec.fieldContext_PageInfo_startCursor(ctx, field)
+			case "endCursor":
+				return ec.fieldContext_PageInfo_endCursor(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *PodConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PodConnection_totalCount,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		ec.marshalNInt2int,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PodConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodEdge_node(ctx context.Context, field graphql.CollectedField, obj *PodEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PodEdge_node,
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		ec.marshalNPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PodEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
+			case "status":
+				return ec.fieldContext_Pod_status(ctx, field)
+			case "agentStatus":
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
+			case "startedAt":
+				return ec.fieldContext_Pod_startedAt(ctx, field)
+			case "finishedAt":
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
+			case "lastActivity":
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
+			case "initialPrompt":
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
+			case "branchName":
+				return ec.fieldContext_Pod_branchName(ctx, field)
+			case "worktreePath":
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Pod_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
+			case "runner":
+				return ec.fieldContext_Pod_runner(ctx, field)
+			case "agentType":
+				return ec.fieldContext_Pod_agentType(ctx, field)
+			case "repository":
+				return ec.fieldContext_Pod_repository(ctx, field)
+			case "ticket":
+				return ec.fieldContext_Pod_ticket(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_Pod_createdBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _PodEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *PodEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_PodEdge_cursor,
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_PodEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PodEdge",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -6171,10 +6999,10 @@ func (ec *executionContext) fieldContext_Query_runner(ctx context.Context, field
 				return ec.fieldContext_Runner_status(ctx, field)
 			case "lastHeartbeat":
 				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
 			case "runnerVersion":
 				return ec.fieldContext_Runner_runnerVersion(ctx, field)
 			case "hostInfo":
@@ -6183,8 +7011,8 @@ func (ec *executionContext) fieldContext_Query_runner(ctx context.Context, field
 				return ec.fieldContext_Runner_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
 		},
@@ -6238,10 +7066,10 @@ func (ec *executionContext) fieldContext_Query_runners(ctx context.Context, fiel
 				return ec.fieldContext_Runner_status(ctx, field)
 			case "lastHeartbeat":
 				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
 			case "runnerVersion":
 				return ec.fieldContext_Runner_runnerVersion(ctx, field)
 			case "hostInfo":
@@ -6250,8 +7078,8 @@ func (ec *executionContext) fieldContext_Query_runners(ctx context.Context, fiel
 				return ec.fieldContext_Runner_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
 		},
@@ -6304,10 +7132,10 @@ func (ec *executionContext) fieldContext_Query_availableRunners(_ context.Contex
 				return ec.fieldContext_Runner_status(ctx, field)
 			case "lastHeartbeat":
 				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
 			case "runnerVersion":
 				return ec.fieldContext_Runner_runnerVersion(ctx, field)
 			case "hostInfo":
@@ -6316,8 +7144,8 @@ func (ec *executionContext) fieldContext_Query_availableRunners(_ context.Contex
 				return ec.fieldContext_Runner_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
 		},
@@ -6325,24 +7153,24 @@ func (ec *executionContext) fieldContext_Query_availableRunners(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_session(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Query_pod(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Query_session,
+		ec.fieldContext_Query_pod,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Query().Session(ctx, fc.Args["key"].(string))
+			return ec.resolvers.Query().Pod(ctx, fc.Args["key"].(string))
 		},
 		nil,
-		ec.marshalOSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
+		ec.marshalOPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
 		true,
 		false,
 	)
 }
 
-func (ec *executionContext) fieldContext_Query_session(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_pod(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -6351,41 +7179,41 @@ func (ec *executionContext) fieldContext_Query_session(ctx context.Context, fiel
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	defer func() {
@@ -6395,31 +7223,31 @@ func (ec *executionContext) fieldContext_Query_session(ctx context.Context, fiel
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_session_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_pod_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_sessions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Query_pods(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Query_sessions,
+		ec.fieldContext_Query_pods,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Query().Sessions(ctx, fc.Args["filter"].(*SessionFilter), fc.Args["first"].(*int), fc.Args["after"].(*string))
+			return ec.resolvers.Query().Pods(ctx, fc.Args["filter"].(*PodFilter), fc.Args["first"].(*int), fc.Args["after"].(*string))
 		},
 		nil,
-		ec.marshalNSessionConnection2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionConnection,
+		ec.marshalNPodConnection2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodConnection,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Query_sessions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_pods(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -6428,13 +7256,13 @@ func (ec *executionContext) fieldContext_Query_sessions(ctx context.Context, fie
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "edges":
-				return ec.fieldContext_SessionConnection_edges(ctx, field)
+				return ec.fieldContext_PodConnection_edges(ctx, field)
 			case "pageInfo":
-				return ec.fieldContext_SessionConnection_pageInfo(ctx, field)
+				return ec.fieldContext_PodConnection_pageInfo(ctx, field)
 			case "totalCount":
-				return ec.fieldContext_SessionConnection_totalCount(ctx, field)
+				return ec.fieldContext_PodConnection_totalCount(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type SessionConnection", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type PodConnection", field.Name)
 		},
 	}
 	defer func() {
@@ -6444,7 +7272,7 @@ func (ec *executionContext) fieldContext_Query_sessions(ctx context.Context, fie
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_sessions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Query_pods_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -6791,8 +7619,8 @@ func (ec *executionContext) fieldContext_Query_ticket(ctx context.Context, field
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -6956,8 +7784,8 @@ func (ec *executionContext) fieldContext_Query_channel(ctx context.Context, fiel
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -7017,8 +7845,8 @@ func (ec *executionContext) fieldContext_Query_channels(ctx context.Context, fie
 				return ec.fieldContext_Channel_updatedAt(ctx, field)
 			case "messages":
 				return ec.fieldContext_Channel_messages(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Channel_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Channel_pods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Channel", field.Name)
 		},
@@ -7681,14 +8509,14 @@ func (ec *executionContext) fieldContext_Runner_lastHeartbeat(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _Runner_currentSessions(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Runner_currentPods(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Runner_currentSessions,
+		ec.fieldContext_Runner_currentPods,
 		func(ctx context.Context) (any, error) {
-			return obj.CurrentSessions, nil
+			return obj.CurrentPods, nil
 		},
 		nil,
 		ec.marshalNInt2int,
@@ -7697,7 +8525,7 @@ func (ec *executionContext) _Runner_currentSessions(ctx context.Context, field g
 	)
 }
 
-func (ec *executionContext) fieldContext_Runner_currentSessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Runner_currentPods(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Runner",
 		Field:      field,
@@ -7710,14 +8538,14 @@ func (ec *executionContext) fieldContext_Runner_currentSessions(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Runner_maxConcurrentSessions(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Runner_maxConcurrentPods(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Runner_maxConcurrentSessions,
+		ec.fieldContext_Runner_maxConcurrentPods,
 		func(ctx context.Context) (any, error) {
-			return obj.MaxConcurrentSessions, nil
+			return obj.MaxConcurrentPods, nil
 		},
 		nil,
 		ec.marshalNInt2int,
@@ -7726,7 +8554,7 @@ func (ec *executionContext) _Runner_maxConcurrentSessions(ctx context.Context, f
 	)
 }
 
-func (ec *executionContext) fieldContext_Runner_maxConcurrentSessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Runner_maxConcurrentPods(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Runner",
 		Field:      field,
@@ -7855,23 +8683,23 @@ func (ec *executionContext) fieldContext_Runner_updatedAt(_ context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _Runner_activeSessions(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Runner_activePods(ctx context.Context, field graphql.CollectedField, obj *runner.Runner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Runner_activeSessions,
+		ec.fieldContext_Runner_activePods,
 		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Runner().ActiveSessions(ctx, obj)
+			return ec.resolvers.Runner().ActivePods(ctx, obj)
 		},
 		nil,
-		ec.marshalNSession2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSessionᚄ,
+		ec.marshalNPod2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPodᚄ,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Runner_activeSessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Runner_activePods(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Runner",
 		Field:      field,
@@ -7880,892 +8708,64 @@ func (ec *executionContext) fieldContext_Runner_activeSessions(_ context.Context
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Session_id(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_id,
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		ec.marshalNID2int64,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_sessionKey(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_sessionKey,
-		func(ctx context.Context) (any, error) {
-			return obj.SessionKey, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_sessionKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_status(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_status,
-		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Session().Status(ctx, obj)
-		},
-		nil,
-		ec.marshalNSessionStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type SessionStatus does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_agentStatus(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_agentStatus,
-		func(ctx context.Context) (any, error) {
-			return obj.AgentStatus, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_agentStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_startedAt(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_startedAt,
-		func(ctx context.Context) (any, error) {
-			return obj.StartedAt, nil
-		},
-		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_finishedAt(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_finishedAt,
-		func(ctx context.Context) (any, error) {
-			return obj.FinishedAt, nil
-		},
-		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_finishedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_lastActivity(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_lastActivity,
-		func(ctx context.Context) (any, error) {
-			return obj.LastActivity, nil
-		},
-		nil,
-		ec.marshalOTime2ᚖtimeᚐTime,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_lastActivity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_initialPrompt(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_initialPrompt,
-		func(ctx context.Context) (any, error) {
-			return obj.InitialPrompt, nil
-		},
-		nil,
-		ec.marshalOString2string,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_initialPrompt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_branchName(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_branchName,
-		func(ctx context.Context) (any, error) {
-			return obj.BranchName, nil
-		},
-		nil,
-		ec.marshalOString2ᚖstring,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_branchName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_worktreePath(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_worktreePath,
-		func(ctx context.Context) (any, error) {
-			return obj.WorktreePath, nil
-		},
-		nil,
-		ec.marshalOString2ᚖstring,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_worktreePath(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_createdAt(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_createdAt,
-		func(ctx context.Context) (any, error) {
-			return obj.CreatedAt, nil
-		},
-		nil,
-		ec.marshalNTime2timeᚐTime,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_updatedAt(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_updatedAt,
-		func(ctx context.Context) (any, error) {
-			return obj.UpdatedAt, nil
-		},
-		nil,
-		ec.marshalNTime2timeᚐTime,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_runner(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_runner,
-		func(ctx context.Context) (any, error) {
-			return obj.Runner, nil
-		},
-		nil,
-		ec.marshalNRunner2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋrunnerᚐRunner,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_runner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Runner_id(ctx, field)
-			case "nodeID":
-				return ec.fieldContext_Runner_nodeID(ctx, field)
-			case "description":
-				return ec.fieldContext_Runner_description(ctx, field)
-			case "status":
-				return ec.fieldContext_Runner_status(ctx, field)
-			case "lastHeartbeat":
-				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
-			case "runnerVersion":
-				return ec.fieldContext_Runner_runnerVersion(ctx, field)
-			case "hostInfo":
-				return ec.fieldContext_Runner_hostInfo(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Runner_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_agentType(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_agentType,
-		func(ctx context.Context) (any, error) {
-			return obj.AgentType, nil
-		},
-		nil,
-		ec.marshalOAgentType2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentᚐAgentType,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_agentType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_AgentType_id(ctx, field)
-			case "slug":
-				return ec.fieldContext_AgentType_slug(ctx, field)
-			case "name":
-				return ec.fieldContext_AgentType_name(ctx, field)
-			case "description":
-				return ec.fieldContext_AgentType_description(ctx, field)
-			case "launchCommand":
-				return ec.fieldContext_AgentType_launchCommand(ctx, field)
-			case "defaultArgs":
-				return ec.fieldContext_AgentType_defaultArgs(ctx, field)
-			case "credentialSchema":
-				return ec.fieldContext_AgentType_credentialSchema(ctx, field)
-			case "isBuiltin":
-				return ec.fieldContext_AgentType_isBuiltin(ctx, field)
-			case "isActive":
-				return ec.fieldContext_AgentType_isActive(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type AgentType", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_repository(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_repository,
-		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Session().Repository(ctx, obj)
-		},
-		nil,
-		ec.marshalORepository2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐRepository,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_repository(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Repository_id(ctx, field)
-			case "name":
-				return ec.fieldContext_Repository_name(ctx, field)
-			case "fullPath":
-				return ec.fieldContext_Repository_fullPath(ctx, field)
-			case "defaultBranch":
-				return ec.fieldContext_Repository_defaultBranch(ctx, field)
-			case "ticketPrefix":
-				return ec.fieldContext_Repository_ticketPrefix(ctx, field)
-			case "providerType":
-				return ec.fieldContext_Repository_providerType(ctx, field)
-			case "providerBaseURL":
-				return ec.fieldContext_Repository_providerBaseURL(ctx, field)
-			case "cloneURL":
-				return ec.fieldContext_Repository_cloneURL(ctx, field)
-			case "visibility":
-				return ec.fieldContext_Repository_visibility(ctx, field)
-			case "isActive":
-				return ec.fieldContext_Repository_isActive(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Repository_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Repository_updatedAt(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_ticket(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_ticket,
-		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Session().Ticket(ctx, obj)
-		},
-		nil,
-		ec.marshalOTicket2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋticketᚐTicket,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_ticket(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Ticket_id(ctx, field)
-			case "number":
-				return ec.fieldContext_Ticket_number(ctx, field)
-			case "identifier":
-				return ec.fieldContext_Ticket_identifier(ctx, field)
-			case "type":
-				return ec.fieldContext_Ticket_type(ctx, field)
-			case "title":
-				return ec.fieldContext_Ticket_title(ctx, field)
-			case "description":
-				return ec.fieldContext_Ticket_description(ctx, field)
-			case "content":
-				return ec.fieldContext_Ticket_content(ctx, field)
-			case "status":
-				return ec.fieldContext_Ticket_status(ctx, field)
-			case "priority":
-				return ec.fieldContext_Ticket_priority(ctx, field)
-			case "dueDate":
-				return ec.fieldContext_Ticket_dueDate(ctx, field)
-			case "startedAt":
-				return ec.fieldContext_Ticket_startedAt(ctx, field)
-			case "completedAt":
-				return ec.fieldContext_Ticket_completedAt(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Ticket_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Ticket_updatedAt(ctx, field)
-			case "reporter":
-				return ec.fieldContext_Ticket_reporter(ctx, field)
-			case "assignees":
-				return ec.fieldContext_Ticket_assignees(ctx, field)
-			case "labels":
-				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
-			case "mergeRequests":
-				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
-			case "childTickets":
-				return ec.fieldContext_Ticket_childTickets(ctx, field)
-			case "parentTicket":
-				return ec.fieldContext_Ticket_parentTicket(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Ticket", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_createdBy(ctx context.Context, field graphql.CollectedField, obj *session.Session) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Session_createdBy,
-		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Session().CreatedBy(ctx, obj)
-		},
-		nil,
-		ec.marshalNUser2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋuserᚐUser,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Session_createdBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_User_id(ctx, field)
-			case "email":
-				return ec.fieldContext_User_email(ctx, field)
-			case "username":
-				return ec.fieldContext_User_username(ctx, field)
-			case "name":
-				return ec.fieldContext_User_name(ctx, field)
-			case "avatarURL":
-				return ec.fieldContext_User_avatarURL(ctx, field)
-			case "isActive":
-				return ec.fieldContext_User_isActive(ctx, field)
-			case "lastLoginAt":
-				return ec.fieldContext_User_lastLoginAt(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_User_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_User_updatedAt(ctx, field)
-			case "organizations":
-				return ec.fieldContext_User_organizations(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionConnection_edges(ctx context.Context, field graphql.CollectedField, obj *SessionConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_SessionConnection_edges,
-		func(ctx context.Context) (any, error) {
-			return obj.Edges, nil
-		},
-		nil,
-		ec.marshalNSessionEdge2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionEdgeᚄ,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_SessionConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionConnection",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "node":
-				return ec.fieldContext_SessionEdge_node(ctx, field)
-			case "cursor":
-				return ec.fieldContext_SessionEdge_cursor(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type SessionEdge", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *SessionConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_SessionConnection_pageInfo,
-		func(ctx context.Context) (any, error) {
-			return obj.PageInfo, nil
-		},
-		nil,
-		ec.marshalNPageInfo2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPageInfo,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_SessionConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionConnection",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "hasNextPage":
-				return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
-			case "hasPreviousPage":
-				return ec.fieldContext_PageInfo_hasPreviousPage(ctx, field)
-			case "startCursor":
-				return ec.fieldContext_PageInfo_startCursor(ctx, field)
-			case "endCursor":
-				return ec.fieldContext_PageInfo_endCursor(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *SessionConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_SessionConnection_totalCount,
-		func(ctx context.Context) (any, error) {
-			return obj.TotalCount, nil
-		},
-		nil,
-		ec.marshalNInt2int,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_SessionConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionConnection",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionEdge_node(ctx context.Context, field graphql.CollectedField, obj *SessionEdge) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_SessionEdge_node,
-		func(ctx context.Context) (any, error) {
-			return obj.Node, nil
-		},
-		nil,
-		ec.marshalNSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_SessionEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionEdge",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
-			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
-			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
-			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
-			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
-			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
-			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
-			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
-			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
-			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
-			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
-			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
-			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
-			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
-			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
-			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *SessionEdge) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_SessionEdge_cursor,
-		func(ctx context.Context) (any, error) {
-			return obj.Cursor, nil
-		},
-		nil,
-		ec.marshalNString2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_SessionEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionEdge",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Subscription_sessionUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+func (ec *executionContext) _Subscription_podUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Subscription_sessionUpdated,
+		ec.fieldContext_Subscription_podUpdated,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Subscription().SessionUpdated(ctx, fc.Args["key"].(string))
+			return ec.resolvers.Subscription().PodUpdated(ctx, fc.Args["key"].(string))
 		},
 		nil,
-		ec.marshalNSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession,
+		ec.marshalNPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Subscription_sessionUpdated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_podUpdated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -8774,41 +8774,41 @@ func (ec *executionContext) fieldContext_Subscription_sessionUpdated(ctx context
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	defer func() {
@@ -8818,7 +8818,7 @@ func (ec *executionContext) fieldContext_Subscription_sessionUpdated(ctx context
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_sessionUpdated_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Subscription_podUpdated_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8860,8 +8860,8 @@ func (ec *executionContext) fieldContext_Subscription_messageReceived(ctx contex
 				return ec.fieldContext_ChannelMessage_metadata(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_ChannelMessage_createdAt(ctx, field)
-			case "session":
-				return ec.fieldContext_ChannelMessage_session(ctx, field)
+			case "pod":
+				return ec.fieldContext_ChannelMessage_pod(ctx, field)
 			case "user":
 				return ec.fieldContext_ChannelMessage_user(ctx, field)
 			}
@@ -8916,10 +8916,10 @@ func (ec *executionContext) fieldContext_Subscription_runnerStatusChanged(_ cont
 				return ec.fieldContext_Runner_status(ctx, field)
 			case "lastHeartbeat":
 				return ec.fieldContext_Runner_lastHeartbeat(ctx, field)
-			case "currentSessions":
-				return ec.fieldContext_Runner_currentSessions(ctx, field)
-			case "maxConcurrentSessions":
-				return ec.fieldContext_Runner_maxConcurrentSessions(ctx, field)
+			case "currentPods":
+				return ec.fieldContext_Runner_currentPods(ctx, field)
+			case "maxConcurrentPods":
+				return ec.fieldContext_Runner_maxConcurrentPods(ctx, field)
 			case "runnerVersion":
 				return ec.fieldContext_Runner_runnerVersion(ctx, field)
 			case "hostInfo":
@@ -8928,8 +8928,8 @@ func (ec *executionContext) fieldContext_Subscription_runnerStatusChanged(_ cont
 				return ec.fieldContext_Runner_createdAt(ctx, field)
 			case "updatedAt":
 				return ec.fieldContext_Runner_updatedAt(ctx, field)
-			case "activeSessions":
-				return ec.fieldContext_Runner_activeSessions(ctx, field)
+			case "activePods":
+				return ec.fieldContext_Runner_activePods(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Runner", field.Name)
 		},
@@ -9482,23 +9482,23 @@ func (ec *executionContext) fieldContext_Ticket_labels(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Ticket_sessions(ctx context.Context, field graphql.CollectedField, obj *ticket.Ticket) (ret graphql.Marshaler) {
+func (ec *executionContext) _Ticket_pods(ctx context.Context, field graphql.CollectedField, obj *ticket.Ticket) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Ticket_sessions,
+		ec.fieldContext_Ticket_pods,
 		func(ctx context.Context) (any, error) {
-			return ec.resolvers.Ticket().Sessions(ctx, obj)
+			return ec.resolvers.Ticket().Pods(ctx, obj)
 		},
 		nil,
-		ec.marshalNSession2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSessionᚄ,
+		ec.marshalNPod2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPodᚄ,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Ticket_sessions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Ticket_pods(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Ticket",
 		Field:      field,
@@ -9507,41 +9507,41 @@ func (ec *executionContext) fieldContext_Ticket_sessions(_ context.Context, fiel
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Session_id(ctx, field)
-			case "sessionKey":
-				return ec.fieldContext_Session_sessionKey(ctx, field)
+				return ec.fieldContext_Pod_id(ctx, field)
+			case "podKey":
+				return ec.fieldContext_Pod_podKey(ctx, field)
 			case "status":
-				return ec.fieldContext_Session_status(ctx, field)
+				return ec.fieldContext_Pod_status(ctx, field)
 			case "agentStatus":
-				return ec.fieldContext_Session_agentStatus(ctx, field)
+				return ec.fieldContext_Pod_agentStatus(ctx, field)
 			case "startedAt":
-				return ec.fieldContext_Session_startedAt(ctx, field)
+				return ec.fieldContext_Pod_startedAt(ctx, field)
 			case "finishedAt":
-				return ec.fieldContext_Session_finishedAt(ctx, field)
+				return ec.fieldContext_Pod_finishedAt(ctx, field)
 			case "lastActivity":
-				return ec.fieldContext_Session_lastActivity(ctx, field)
+				return ec.fieldContext_Pod_lastActivity(ctx, field)
 			case "initialPrompt":
-				return ec.fieldContext_Session_initialPrompt(ctx, field)
+				return ec.fieldContext_Pod_initialPrompt(ctx, field)
 			case "branchName":
-				return ec.fieldContext_Session_branchName(ctx, field)
+				return ec.fieldContext_Pod_branchName(ctx, field)
 			case "worktreePath":
-				return ec.fieldContext_Session_worktreePath(ctx, field)
+				return ec.fieldContext_Pod_worktreePath(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_Session_createdAt(ctx, field)
+				return ec.fieldContext_Pod_createdAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_Session_updatedAt(ctx, field)
+				return ec.fieldContext_Pod_updatedAt(ctx, field)
 			case "runner":
-				return ec.fieldContext_Session_runner(ctx, field)
+				return ec.fieldContext_Pod_runner(ctx, field)
 			case "agentType":
-				return ec.fieldContext_Session_agentType(ctx, field)
+				return ec.fieldContext_Pod_agentType(ctx, field)
 			case "repository":
-				return ec.fieldContext_Session_repository(ctx, field)
+				return ec.fieldContext_Pod_repository(ctx, field)
 			case "ticket":
-				return ec.fieldContext_Session_ticket(ctx, field)
+				return ec.fieldContext_Pod_ticket(ctx, field)
 			case "createdBy":
-				return ec.fieldContext_Session_createdBy(ctx, field)
+				return ec.fieldContext_Pod_createdBy(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Pod", field.Name)
 		},
 	}
 	return fc, nil
@@ -9654,8 +9654,8 @@ func (ec *executionContext) fieldContext_Ticket_childTickets(_ context.Context, 
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -9727,8 +9727,8 @@ func (ec *executionContext) fieldContext_Ticket_parentTicket(_ context.Context, 
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -9903,8 +9903,8 @@ func (ec *executionContext) fieldContext_TicketEdge_node(_ context.Context, fiel
 				return ec.fieldContext_Ticket_assignees(ctx, field)
 			case "labels":
 				return ec.fieldContext_Ticket_labels(ctx, field)
-			case "sessions":
-				return ec.fieldContext_Ticket_sessions(ctx, field)
+			case "pods":
+				return ec.fieldContext_Ticket_pods(ctx, field)
 			case "mergeRequests":
 				return ec.fieldContext_Ticket_mergeRequests(ctx, field)
 			case "childTickets":
@@ -11760,8 +11760,8 @@ func (ec *executionContext) unmarshalInputCreateChannelInput(ctx context.Context
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputCreateSessionInput(ctx context.Context, obj any) (CreateSessionInput, error) {
-	var it CreateSessionInput
+func (ec *executionContext) unmarshalInputCreatePodInput(ctx context.Context, obj any) (CreatePodInput, error) {
+	var it CreatePodInput
 	asMap := map[string]any{}
 	for k, v := range obj.(map[string]any) {
 		asMap[k] = v
@@ -11919,8 +11919,8 @@ func (ec *executionContext) unmarshalInputCreateTicketInput(ctx context.Context,
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputSessionFilter(ctx context.Context, obj any) (SessionFilter, error) {
-	var it SessionFilter
+func (ec *executionContext) unmarshalInputPodFilter(ctx context.Context, obj any) (PodFilter, error) {
+	var it PodFilter
 	asMap := map[string]any{}
 	for k, v := range obj.(map[string]any) {
 		asMap[k] = v
@@ -11942,7 +11942,7 @@ func (ec *executionContext) unmarshalInputSessionFilter(ctx context.Context, obj
 			it.RunnerID = data
 		case "status":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
-			data, err := ec.unmarshalOSessionStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus(ctx, v)
+			data, err := ec.unmarshalOPodStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -12338,7 +12338,7 @@ func (ec *executionContext) _Channel(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "sessions":
+		case "pods":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -12347,7 +12347,7 @@ func (ec *executionContext) _Channel(ctx context.Context, sel ast.SelectionSet, 
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Channel_sessions(ctx, field, obj)
+				res = ec._Channel_pods(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -12430,8 +12430,8 @@ func (ec *executionContext) _ChannelMessage(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "session":
-			out.Values[i] = ec._ChannelMessage_session(ctx, field, obj)
+		case "pod":
+			out.Values[i] = ec._ChannelMessage_pod(ctx, field, obj)
 		case "user":
 			out.Values[i] = ec._ChannelMessage_user(ctx, field, obj)
 		default:
@@ -12794,16 +12794,16 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "createSession":
+		case "createPod":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createSession(ctx, field)
+				return ec._Mutation_createPod(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "terminateSession":
+		case "terminatePod":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_terminateSession(ctx, field)
+				return ec._Mutation_terminatePod(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -13167,6 +13167,315 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
+var podImplementors = []string{"Pod"}
+
+func (ec *executionContext) _Pod(ctx context.Context, sel ast.SelectionSet, obj *agentpod.Pod) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, podImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Pod")
+		case "id":
+			out.Values[i] = ec._Pod_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "podKey":
+			out.Values[i] = ec._Pod_podKey(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "status":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Pod_status(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "agentStatus":
+			out.Values[i] = ec._Pod_agentStatus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startedAt":
+			out.Values[i] = ec._Pod_startedAt(ctx, field, obj)
+		case "finishedAt":
+			out.Values[i] = ec._Pod_finishedAt(ctx, field, obj)
+		case "lastActivity":
+			out.Values[i] = ec._Pod_lastActivity(ctx, field, obj)
+		case "initialPrompt":
+			out.Values[i] = ec._Pod_initialPrompt(ctx, field, obj)
+		case "branchName":
+			out.Values[i] = ec._Pod_branchName(ctx, field, obj)
+		case "worktreePath":
+			out.Values[i] = ec._Pod_worktreePath(ctx, field, obj)
+		case "createdAt":
+			out.Values[i] = ec._Pod_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Pod_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "runner":
+			out.Values[i] = ec._Pod_runner(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "agentType":
+			out.Values[i] = ec._Pod_agentType(ctx, field, obj)
+		case "repository":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Pod_repository(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "ticket":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Pod_ticket(ctx, field, obj)
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "createdBy":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Pod_createdBy(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var podConnectionImplementors = []string{"PodConnection"}
+
+func (ec *executionContext) _PodConnection(ctx context.Context, sel ast.SelectionSet, obj *PodConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, podConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PodConnection")
+		case "edges":
+			out.Values[i] = ec._PodConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._PodConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._PodConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var podEdgeImplementors = []string{"PodEdge"}
+
+func (ec *executionContext) _PodEdge(ctx context.Context, sel ast.SelectionSet, obj *PodEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, podEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PodEdge")
+		case "node":
+			out.Values[i] = ec._PodEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._PodEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -13331,7 +13640,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "session":
+		case "pod":
 			field := field
 
 			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
@@ -13340,7 +13649,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_session(ctx, field)
+				res = ec._Query_pod(ctx, field)
 				return res
 			}
 
@@ -13350,7 +13659,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "sessions":
+		case "pods":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -13359,7 +13668,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_sessions(ctx, field)
+				res = ec._Query_pods(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -13785,13 +14094,13 @@ func (ec *executionContext) _Runner(ctx context.Context, sel ast.SelectionSet, o
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "lastHeartbeat":
 			out.Values[i] = ec._Runner_lastHeartbeat(ctx, field, obj)
-		case "currentSessions":
-			out.Values[i] = ec._Runner_currentSessions(ctx, field, obj)
+		case "currentPods":
+			out.Values[i] = ec._Runner_currentPods(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "maxConcurrentSessions":
-			out.Values[i] = ec._Runner_maxConcurrentSessions(ctx, field, obj)
+		case "maxConcurrentPods":
+			out.Values[i] = ec._Runner_maxConcurrentPods(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -13840,7 +14149,7 @@ func (ec *executionContext) _Runner(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "activeSessions":
+		case "activePods":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -13849,7 +14158,7 @@ func (ec *executionContext) _Runner(ctx context.Context, sel ast.SelectionSet, o
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Runner_activeSessions(ctx, field, obj)
+				res = ec._Runner_activePods(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -13876,315 +14185,6 @@ func (ec *executionContext) _Runner(ctx context.Context, sel ast.SelectionSet, o
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var sessionImplementors = []string{"Session"}
-
-func (ec *executionContext) _Session(ctx context.Context, sel ast.SelectionSet, obj *session.Session) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, sessionImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Session")
-		case "id":
-			out.Values[i] = ec._Session_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "sessionKey":
-			out.Values[i] = ec._Session_sessionKey(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "status":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Session_status(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "agentStatus":
-			out.Values[i] = ec._Session_agentStatus(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "startedAt":
-			out.Values[i] = ec._Session_startedAt(ctx, field, obj)
-		case "finishedAt":
-			out.Values[i] = ec._Session_finishedAt(ctx, field, obj)
-		case "lastActivity":
-			out.Values[i] = ec._Session_lastActivity(ctx, field, obj)
-		case "initialPrompt":
-			out.Values[i] = ec._Session_initialPrompt(ctx, field, obj)
-		case "branchName":
-			out.Values[i] = ec._Session_branchName(ctx, field, obj)
-		case "worktreePath":
-			out.Values[i] = ec._Session_worktreePath(ctx, field, obj)
-		case "createdAt":
-			out.Values[i] = ec._Session_createdAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "updatedAt":
-			out.Values[i] = ec._Session_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "runner":
-			out.Values[i] = ec._Session_runner(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "agentType":
-			out.Values[i] = ec._Session_agentType(ctx, field, obj)
-		case "repository":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Session_repository(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "ticket":
-			field := field
-
-			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Session_ticket(ctx, field, obj)
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "createdBy":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Session_createdBy(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.Deferrable != nil {
-				dfs, ok := deferred[field.Deferrable.Label]
-				di := 0
-				if ok {
-					dfs.AddField(field)
-					di = len(dfs.Values) - 1
-				} else {
-					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
-					deferred[field.Deferrable.Label] = dfs
-				}
-				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, dfs)
-				})
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var sessionConnectionImplementors = []string{"SessionConnection"}
-
-func (ec *executionContext) _SessionConnection(ctx context.Context, sel ast.SelectionSet, obj *SessionConnection) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, sessionConnectionImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SessionConnection")
-		case "edges":
-			out.Values[i] = ec._SessionConnection_edges(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pageInfo":
-			out.Values[i] = ec._SessionConnection_pageInfo(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "totalCount":
-			out.Values[i] = ec._SessionConnection_totalCount(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
-var sessionEdgeImplementors = []string{"SessionEdge"}
-
-func (ec *executionContext) _SessionEdge(ctx context.Context, sel ast.SelectionSet, obj *SessionEdge) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, sessionEdgeImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SessionEdge")
-		case "node":
-			out.Values[i] = ec._SessionEdge_node(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "cursor":
-			out.Values[i] = ec._SessionEdge_cursor(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -14221,8 +14221,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
-	case "sessionUpdated":
-		return ec._Subscription_sessionUpdated(ctx, fields[0])
+	case "podUpdated":
+		return ec._Subscription_podUpdated(ctx, fields[0])
 	case "messageReceived":
 		return ec._Subscription_messageReceived(ctx, fields[0])
 	case "runnerStatusChanged":
@@ -14468,7 +14468,7 @@ func (ec *executionContext) _Ticket(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "sessions":
+		case "pods":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -14477,7 +14477,7 @@ func (ec *executionContext) _Ticket(ctx context.Context, sel ast.SelectionSet, o
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Ticket_sessions(ctx, field, obj)
+				res = ec._Ticket_pods(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -15320,8 +15320,8 @@ func (ec *executionContext) unmarshalNCreateChannelInput2githubᚗcomᚋanthropi
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateSessionInput2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐCreateSessionInput(ctx context.Context, v any) (CreateSessionInput, error) {
-	res, err := ec.unmarshalInputCreateSessionInput(ctx, v)
+func (ec *executionContext) unmarshalNCreatePodInput2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐCreatePodInput(ctx context.Context, v any) (CreatePodInput, error) {
+	res, err := ec.unmarshalInputCreatePodInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -15670,6 +15670,136 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋanthropicsᚋagen
 	return ec._PageInfo(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNPod2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod(ctx context.Context, sel ast.SelectionSet, v agentpod.Pod) graphql.Marshaler {
+	return ec._Pod(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPod2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPodᚄ(ctx context.Context, sel ast.SelectionSet, v []agentpod.Pod) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNPod2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod(ctx context.Context, sel ast.SelectionSet, v *agentpod.Pod) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Pod(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPodConnection2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodConnection(ctx context.Context, sel ast.SelectionSet, v PodConnection) graphql.Marshaler {
+	return ec._PodConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPodConnection2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodConnection(ctx context.Context, sel ast.SelectionSet, v *PodConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PodConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNPodEdge2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodEdge(ctx context.Context, sel ast.SelectionSet, v PodEdge) graphql.Marshaler {
+	return ec._PodEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPodEdge2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []PodEdge) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNPodEdge2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNPodStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus(ctx context.Context, v any) (PodStatus, error) {
+	var res PodStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPodStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus(ctx context.Context, sel ast.SelectionSet, v PodStatus) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNRepository2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐRepository(ctx context.Context, sel ast.SelectionSet, v gitprovider.Repository) graphql.Marshaler {
 	return ec._Repository(ctx, sel, &v)
 }
@@ -15783,136 +15913,6 @@ func (ec *executionContext) unmarshalNRunnerStatus2githubᚗcomᚋanthropicsᚋa
 }
 
 func (ec *executionContext) marshalNRunnerStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐRunnerStatus(ctx context.Context, sel ast.SelectionSet, v RunnerStatus) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) marshalNSession2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession(ctx context.Context, sel ast.SelectionSet, v session.Session) graphql.Marshaler {
-	return ec._Session(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSession2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSessionᚄ(ctx context.Context, sel ast.SelectionSet, v []session.Session) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNSession2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession(ctx context.Context, sel ast.SelectionSet, v *session.Session) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Session(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNSessionConnection2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionConnection(ctx context.Context, sel ast.SelectionSet, v SessionConnection) graphql.Marshaler {
-	return ec._SessionConnection(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSessionConnection2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionConnection(ctx context.Context, sel ast.SelectionSet, v *SessionConnection) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._SessionConnection(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNSessionEdge2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionEdge(ctx context.Context, sel ast.SelectionSet, v SessionEdge) graphql.Marshaler {
-	return ec._SessionEdge(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSessionEdge2ᚕgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []SessionEdge) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNSessionEdge2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionEdge(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
-
-	}
-	wg.Wait()
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) unmarshalNSessionStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus(ctx context.Context, v any) (SessionStatus, error) {
-	var res SessionStatus
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNSessionStatus2githubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus(ctx context.Context, sel ast.SelectionSet, v SessionStatus) graphql.Marshaler {
 	return v
 }
 
@@ -16560,6 +16560,37 @@ func (ec *executionContext) marshalOOrganization2ᚖgithubᚗcomᚋanthropicsᚋ
 	return ec._Organization(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOPod2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋagentpodᚐPod(ctx context.Context, sel ast.SelectionSet, v *agentpod.Pod) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Pod(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOPodFilter2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodFilter(ctx context.Context, v any) (*PodFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputPodFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalOPodStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus(ctx context.Context, v any) (*PodStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(PodStatus)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOPodStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐPodStatus(ctx context.Context, sel ast.SelectionSet, v *PodStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
 func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋgitproviderᚐRepository(ctx context.Context, sel ast.SelectionSet, v *gitprovider.Repository) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -16584,37 +16615,6 @@ func (ec *executionContext) unmarshalORunnerStatus2ᚖgithubᚗcomᚋanthropics�
 }
 
 func (ec *executionContext) marshalORunnerStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐRunnerStatus(ctx context.Context, sel ast.SelectionSet, v *RunnerStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return v
-}
-
-func (ec *executionContext) marshalOSession2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋdomainᚋsessionᚐSession(ctx context.Context, sel ast.SelectionSet, v *session.Session) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Session(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOSessionFilter2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionFilter(ctx context.Context, v any) (*SessionFilter, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalInputSessionFilter(ctx, v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalOSessionStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus(ctx context.Context, v any) (*SessionStatus, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(SessionStatus)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOSessionStatus2ᚖgithubᚗcomᚋanthropicsᚋagentmeshᚋbackendᚋinternalᚋapiᚋgraphqlᚋgeneratedᚐSessionStatus(ctx context.Context, sel ast.SelectionSet, v *SessionStatus) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

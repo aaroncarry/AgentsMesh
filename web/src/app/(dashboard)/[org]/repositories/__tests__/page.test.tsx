@@ -136,7 +136,7 @@ describe("RepositoriesPage", () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Manage your Git repositories for DevPod sessions")).toBeInTheDocument();
+        expect(screen.getByText("Manage your Git repositories for AgentPod")).toBeInTheDocument();
       });
     });
 
@@ -339,7 +339,7 @@ describe("RepositoriesPage", () => {
       render(<RepositoriesPage />);
 
       await waitFor(() => {
-        expect(screen.getByText("Import a repository to use Git-based workflows in DevPod")).toBeInTheDocument();
+        expect(screen.getByText("Import a repository to use Git-based workflows in AgentPod")).toBeInTheDocument();
       });
     });
   });

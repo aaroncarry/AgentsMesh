@@ -4,13 +4,13 @@
 
 -- Step 1: Drop indexes on team_id columns
 DROP INDEX IF EXISTS idx_repositories_team;
-DROP INDEX IF EXISTS idx_sessions_team;
+DROP INDEX IF EXISTS idx_pods_team;
 DROP INDEX IF EXISTS idx_channels_team;
 DROP INDEX IF EXISTS idx_tickets_team;
 
 -- Step 2: Remove team_id column from resource tables
 ALTER TABLE repositories DROP COLUMN IF EXISTS team_id;
-ALTER TABLE sessions DROP COLUMN IF EXISTS team_id;
+ALTER TABLE pods DROP COLUMN IF EXISTS team_id;
 ALTER TABLE channels DROP COLUMN IF EXISTS team_id;
 ALTER TABLE tickets DROP COLUMN IF EXISTS team_id;
 

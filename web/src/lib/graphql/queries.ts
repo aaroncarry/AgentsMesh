@@ -36,8 +36,8 @@ export const RUNNER_FRAGMENT = gql`
     description
     status
     lastHeartbeat
-    currentSessions
-    maxConcurrentSessions
+    currentPods
+    maxConcurrentPods
     runnerVersion
     hostInfo {
       os
@@ -51,11 +51,11 @@ export const RUNNER_FRAGMENT = gql`
   }
 `;
 
-// Session Fragments
-export const SESSION_FRAGMENT = gql`
-  fragment SessionFields on Session {
+// Pod Fragments
+export const POD_FRAGMENT = gql`
+  fragment PodFields on Pod {
     id
-    sessionKey
+    podKey
     status
     agentStatus
     initialPrompt
@@ -122,8 +122,8 @@ export const MESSAGE_FRAGMENT = gql`
     messageType
     metadata
     createdAt
-    session {
-      sessionKey
+    pod {
+      podKey
       agentType {
         name
       }
@@ -235,12 +235,12 @@ export const GET_RUNNERS = gql`
 
 export const GET_RUNNER = gql`
   ${RUNNER_FRAGMENT}
-  ${SESSION_FRAGMENT}
+  ${POD_FRAGMENT}
   query GetRunner($id: ID!) {
     runner(id: $id) {
       ...RunnerFields
-      activeSessions {
-        ...SessionFields
+      activePods {
+        ...PodFields
       }
     }
   }
@@ -255,24 +255,24 @@ export const GET_AVAILABLE_RUNNERS = gql`
   }
 `;
 
-// Session Queries
-export const GET_SESSIONS = gql`
-  ${SESSION_FRAGMENT}
-  query GetSessions($filter: SessionFilter) {
-    sessions(filter: $filter) {
-      sessions {
-        ...SessionFields
+// Pod Queries
+export const GET_PODS = gql`
+  ${POD_FRAGMENT}
+  query GetPods($filter: PodFilter) {
+    pods(filter: $filter) {
+      pods {
+        ...PodFields
       }
       total
     }
   }
 `;
 
-export const GET_SESSION = gql`
-  ${SESSION_FRAGMENT}
-  query GetSession($sessionKey: String!) {
-    session(sessionKey: $sessionKey) {
-      ...SessionFields
+export const GET_POD = gql`
+  ${POD_FRAGMENT}
+  query GetPod($podKey: String!) {
+    pod(podKey: $podKey) {
+      ...PodFields
     }
   }
 `;
@@ -292,12 +292,12 @@ export const GET_CHANNELS = gql`
 
 export const GET_CHANNEL = gql`
   ${CHANNEL_FRAGMENT}
-  ${SESSION_FRAGMENT}
+  ${POD_FRAGMENT}
   query GetChannel($id: ID!) {
     channel(id: $id) {
       ...ChannelFields
-      sessions {
-        ...SessionFields
+      pods {
+        ...PodFields
       }
     }
   }

@@ -13,23 +13,23 @@ import (
 // DefaultConfig returns default task manager configuration
 func DefaultConfig() Config {
 	return Config{
-		PipelinePollerInterval:   10 * time.Second,
-		TaskProcessorInterval:    30 * time.Second,
-		MRSyncInterval:           5 * time.Minute,
-		SessionCleanupInterval:   10 * time.Minute,
-		WorkerCount:              4,
-		MaxQueueSize:             1000,
+		PipelinePollerInterval: 10 * time.Second,
+		TaskProcessorInterval:  30 * time.Second,
+		MRSyncInterval:         5 * time.Minute,
+		PodCleanupInterval:     10 * time.Minute,
+		WorkerCount:            4,
+		MaxQueueSize:           1000,
 	}
 }
 
 // Config holds task manager configuration
 type Config struct {
-	PipelinePollerInterval   time.Duration
-	TaskProcessorInterval    time.Duration
-	MRSyncInterval           time.Duration
-	SessionCleanupInterval   time.Duration
-	WorkerCount              int
-	MaxQueueSize             int
+	PipelinePollerInterval time.Duration
+	TaskProcessorInterval  time.Duration
+	MRSyncInterval         time.Duration
+	PodCleanupInterval     time.Duration
+	WorkerCount            int
+	MaxQueueSize           int
 }
 
 // Manager coordinates all background tasks
@@ -143,13 +143,13 @@ func (m *Manager) registerScheduledTasks() {
 		},
 	})
 
-	// Session Cleanup - cleans up stale sessions
+	// Pod Cleanup - cleans up stale pods
 	_ = m.scheduler.Register(&infraTasks.Task{
-		Name:       "session_cleanup",
-		Interval:   m.cfg.SessionCleanupInterval,
+		Name:       "pod_cleanup",
+		Interval:   m.cfg.PodCleanupInterval,
 		RunOnStart: false,
 		Func: func(ctx context.Context) error {
-			return m.cleanupStaleSessions(ctx)
+			return m.cleanupStalePods(ctx)
 		},
 	})
 }
@@ -168,13 +168,13 @@ func (m *Manager) monitorWorkerResults() {
 	}
 }
 
-// cleanupStaleSessions cleans up sessions that are no longer active
-func (m *Manager) cleanupStaleSessions(ctx context.Context) error {
-	// Update sessions with stale heartbeats
+// cleanupStalePods cleans up pods that are no longer active
+func (m *Manager) cleanupStalePods(ctx context.Context) error {
+	// Update pods with stale heartbeats
 	staleThreshold := time.Now().Add(-30 * time.Minute)
 
 	result := m.db.WithContext(ctx).
-		Table("sessions").
+		Table("pods").
 		Where("status IN ?", []string{"initializing", "running"}).
 		Where("last_activity < ? OR last_activity IS NULL", staleThreshold).
 		Update("status", "disconnected")
@@ -184,7 +184,7 @@ func (m *Manager) cleanupStaleSessions(ctx context.Context) error {
 	}
 
 	if result.RowsAffected > 0 {
-		m.logger.Info("cleaned up stale sessions",
+		m.logger.Info("cleaned up stale pods",
 			"count", result.RowsAffected)
 	}
 

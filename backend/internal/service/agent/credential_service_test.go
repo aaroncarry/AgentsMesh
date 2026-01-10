@@ -212,7 +212,7 @@ func TestDeleteUserCredentials(t *testing.T) {
 	assert.Equal(t, ErrCredentialsNotFound, err)
 }
 
-func TestGetEnvVarsForSession(t *testing.T) {
+func TestGetEnvVarsForPod(t *testing.T) {
 	ctx := context.Background()
 	db := setupCredentialTestDB(t)
 	encryptor := crypto.NewEncryptor("test-key-32-bytes-long-1234567!")
@@ -239,20 +239,20 @@ func TestGetEnvVarsForSession(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		envVars, err := svc.GetEnvVarsForSession(ctx, 100, 1, agentType.ID)
+		envVars, err := svc.GetEnvVarsForPod(ctx, 100, 1, agentType.ID)
 		require.NoError(t, err)
 		assert.Equal(t, "sk-ant-user123", envVars["ANTHROPIC_API_KEY"])
 		assert.Equal(t, "user-token-456", envVars["CLAUDE_AUTH_TOKEN"])
 	})
 
 	t.Run("returns nil for no credentials", func(t *testing.T) {
-		envVars, err := svc.GetEnvVarsForSession(ctx, 999, 999, agentType.ID)
+		envVars, err := svc.GetEnvVarsForPod(ctx, 999, 999, agentType.ID)
 		require.NoError(t, err)
 		assert.Nil(t, envVars)
 	})
 
 	t.Run("returns error for non-existent agent type", func(t *testing.T) {
-		_, err := svc.GetEnvVarsForSession(ctx, 1, 1, 99999)
+		_, err := svc.GetEnvVarsForPod(ctx, 1, 1, 99999)
 		assert.Error(t, err)
 	})
 }

@@ -43,11 +43,11 @@ vi.mock('@/lib/api/client', () => ({
   },
 }))
 
-// Mock TicketSessionPanel
-vi.mock('../TicketSessionPanel', () => ({
+// Mock TicketPodPanel
+vi.mock('../TicketPodPanel', () => ({
   default: ({ ticketIdentifier, ticketTitle }: { ticketIdentifier: string; ticketTitle: string }) => (
-    <div data-testid="session-panel">
-      Session Panel for {ticketIdentifier}: {ticketTitle}
+    <div data-testid="pod-panel">
+      Pod Panel for {ticketIdentifier}: {ticketTitle}
     </div>
   ),
 }))
@@ -94,7 +94,7 @@ describe('TicketDetail Component', () => {
     })
 
     // Setup API mocks
-    ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({ sub_tickets: [] })
+    ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({ tickets: [] })
     ;(ticketApi.listRelations as ReturnType<typeof vi.fn>).mockResolvedValue({ relations: [] })
     ;(ticketApi.listCommits as ReturnType<typeof vi.fn>).mockResolvedValue({ commits: [] })
   })
@@ -307,7 +307,7 @@ describe('TicketDetail Component', () => {
   describe('sub-tickets', () => {
     it('should display sub-tickets when available', async () => {
       ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({
-        sub_tickets: [
+        tickets: [
           {
             id: 2,
             identifier: 'PROJ-43',
@@ -335,7 +335,7 @@ describe('TicketDetail Component', () => {
 
     it('should navigate to sub-ticket on click', async () => {
       ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({
-        sub_tickets: [
+        tickets: [
           {
             id: 2,
             identifier: 'PROJ-43',
@@ -361,13 +361,15 @@ describe('TicketDetail Component', () => {
         relations: [
           {
             id: 1,
-            type: 'blocks',
-            related_ticket: {
+            source_ticket_id: 42,
+            target_ticket_id: 3,
+            relation_type: 'blocks',
+            target_ticket: {
               id: 3,
               identifier: 'PROJ-44',
               title: 'Related ticket',
-              status: 'todo',
             },
+            created_at: '2024-01-10T10:00:00Z',
           },
         ],
       })
@@ -385,13 +387,15 @@ describe('TicketDetail Component', () => {
         relations: [
           {
             id: 1,
-            type: 'blocks',
-            related_ticket: {
+            source_ticket_id: 42,
+            target_ticket_id: 3,
+            relation_type: 'blocks',
+            target_ticket: {
               id: 3,
               identifier: 'PROJ-44',
               title: 'Related ticket',
-              status: 'todo',
             },
+            created_at: '2024-01-10T10:00:00Z',
           },
         ],
       })
@@ -411,10 +415,12 @@ describe('TicketDetail Component', () => {
         commits: [
           {
             id: 1,
-            sha: 'abc123def456',
-            message: 'Fix bug in authentication',
-            author: 'John Doe',
+            ticket_id: 42,
+            commit_sha: 'abc123def456',
+            commit_message: 'Fix bug in authentication',
+            author_name: 'John Doe',
             committed_at: '2024-01-10T10:00:00Z',
+            created_at: '2024-01-10T10:00:00Z',
           },
         ],
       })
@@ -428,12 +434,12 @@ describe('TicketDetail Component', () => {
     })
   })
 
-  describe('session panel', () => {
-    it('should render TicketSessionPanel', async () => {
+  describe('pod panel', () => {
+    it('should render TicketPodPanel', async () => {
       render(<TicketDetail identifier="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByTestId('session-panel')).toBeInTheDocument()
-        expect(screen.getByText(/Session Panel for PROJ-42/)).toBeInTheDocument()
+        expect(screen.getByTestId('pod-panel')).toBeInTheDocument()
+        expect(screen.getByText(/Pod Panel for PROJ-42/)).toBeInTheDocument()
       })
     })
   })

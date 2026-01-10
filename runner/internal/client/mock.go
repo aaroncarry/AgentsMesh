@@ -124,24 +124,24 @@ func (m *MockConnection) SetAuthToken(token string) {
 
 // --- Test helper methods ---
 
-// SimulateCreateSession simulates server sending a create_session message.
-func (m *MockConnection) SimulateCreateSession(req CreateSessionRequest) error {
+// SimulateCreatePod simulates server sending a create_pod message.
+func (m *MockConnection) SimulateCreatePod(req CreatePodRequest) error {
 	m.mu.Lock()
 	handler := m.handler
 	m.mu.Unlock()
 	if handler != nil {
-		return handler.OnCreateSession(req)
+		return handler.OnCreatePod(req)
 	}
 	return nil
 }
 
-// SimulateTerminateSession simulates server sending a terminate_session message.
-func (m *MockConnection) SimulateTerminateSession(req TerminateSessionRequest) error {
+// SimulateTerminatePod simulates server sending a terminate_pod message.
+func (m *MockConnection) SimulateTerminatePod(req TerminatePodRequest) error {
 	m.mu.Lock()
 	handler := m.handler
 	m.mu.Unlock()
 	if handler != nil {
-		return handler.OnTerminateSession(req)
+		return handler.OnTerminatePod(req)
 	}
 	return nil
 }
@@ -168,13 +168,13 @@ func (m *MockConnection) SimulateTerminalResize(req TerminalResizeRequest) error
 	return nil
 }
 
-// GetSessions returns sessions from handler (if available).
-func (m *MockConnection) GetSessions() []SessionInfo {
+// GetPods returns pods from handler (if available).
+func (m *MockConnection) GetPods() []PodInfo {
 	m.mu.Lock()
 	handler := m.handler
 	m.mu.Unlock()
 	if handler != nil {
-		return handler.OnListSessions()
+		return handler.OnListPods()
 	}
 	return nil
 }

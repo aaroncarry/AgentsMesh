@@ -128,7 +128,7 @@ func (h *MergeRequestHandler) Handle(ctx *WebhookContext) (map[string]interface{
 	}
 
 	// Here you would typically:
-	// 1. Find associated session by branch name
+	// 1. Find associated pod by branch name
 	// 2. Find associated ticket
 	// 3. Create or update TicketMergeRequest record
 	// 4. Notify via WebSocket
@@ -184,8 +184,8 @@ func (h *PushHandler) Handle(ctx *WebhookContext) (map[string]interface{}, error
 	}
 
 	// Here you would typically:
-	// 1. Check if branch is associated with a session
-	// 2. Update session branch status
+	// 1. Check if branch is associated with a pod
+	// 2. Update pod branch status
 	// 3. Trigger any sync tasks
 
 	return result, nil

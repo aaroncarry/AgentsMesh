@@ -83,6 +83,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			password_hash TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
 			last_login_at DATETIME,
+			is_email_verified INTEGER NOT NULL DEFAULT 0,
+			email_verification_token TEXT,
+			email_verification_expires_at DATETIME,
+			password_reset_token TEXT,
+			password_reset_expires_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)

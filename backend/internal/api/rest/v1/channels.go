@@ -271,8 +271,8 @@ func (h *ChannelHandler) ListMessages(c *gin.Context) {
 
 // SendMessageRequest represents message send request
 type SendMessageRequest struct {
-	Content    string `json:"content" binding:"required"`
-	SessionKey string `json:"session_key"`
+	Content string `json:"content" binding:"required"`
+	PodKey  string `json:"pod_key"`
 }
 
 // SendMessage sends a message to a channel
@@ -307,12 +307,12 @@ func (h *ChannelHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	var sessionKey *string
-	if req.SessionKey != "" {
-		sessionKey = &req.SessionKey
+	var podKey *string
+	if req.PodKey != "" {
+		podKey = &req.PodKey
 	}
 
-	msg, err := h.channelService.SendMessage(c.Request.Context(), channelID, sessionKey, &tenant.UserID, "text", req.Content, nil)
+	msg, err := h.channelService.SendMessage(c.Request.Context(), channelID, podKey, &tenant.UserID, "text", req.Content, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
 		return
@@ -321,9 +321,9 @@ func (h *ChannelHandler) SendMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": msg})
 }
 
-// JoinSession joins a session to a channel
-// POST /api/v1/organizations/:slug/channels/:id/sessions
-func (h *ChannelHandler) JoinSession(c *gin.Context) {
+// JoinPod joins a pod to a channel
+// POST /api/v1/organizations/:slug/channels/:id/pods
+func (h *ChannelHandler) JoinPod(c *gin.Context) {
 	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
@@ -331,7 +331,7 @@ func (h *ChannelHandler) JoinSession(c *gin.Context) {
 	}
 
 	var req struct {
-		SessionKey string `json:"session_key" binding:"required"`
+		PodKey string `json:"pod_key" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -350,24 +350,24 @@ func (h *ChannelHandler) JoinSession(c *gin.Context) {
 		return
 	}
 
-	if err := h.channelService.JoinChannel(c.Request.Context(), channelID, req.SessionKey); err != nil {
+	if err := h.channelService.JoinChannel(c.Request.Context(), channelID, req.PodKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join channel"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Session joined channel"})
+	c.JSON(http.StatusOK, gin.H{"message": "Pod joined channel"})
 }
 
-// LeaveSession removes a session from a channel
-// DELETE /api/v1/organizations/:slug/channels/:id/sessions/:session_key
-func (h *ChannelHandler) LeaveSession(c *gin.Context) {
+// LeavePod removes a pod from a channel
+// DELETE /api/v1/organizations/:slug/channels/:id/pods/:pod_key
+func (h *ChannelHandler) LeavePod(c *gin.Context) {
 	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
 		return
 	}
 
-	sessionKey := c.Param("session_key")
+	podKey := c.Param("pod_key")
 
 	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
 	if err != nil {
@@ -381,17 +381,17 @@ func (h *ChannelHandler) LeaveSession(c *gin.Context) {
 		return
 	}
 
-	if err := h.channelService.LeaveChannel(c.Request.Context(), channelID, sessionKey); err != nil {
+	if err := h.channelService.LeaveChannel(c.Request.Context(), channelID, podKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to leave channel"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Session left channel"})
+	c.JSON(http.StatusOK, gin.H{"message": "Pod left channel"})
 }
 
-// ListChannelSessions returns sessions joined to a channel
-// GET /api/v1/organizations/:slug/channels/:id/sessions
-func (h *ChannelHandler) ListChannelSessions(c *gin.Context) {
+// ListChannelPods returns pods joined to a channel
+// GET /api/v1/organizations/:slug/channels/:id/pods
+func (h *ChannelHandler) ListChannelPods(c *gin.Context) {
 	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
@@ -410,20 +410,20 @@ func (h *ChannelHandler) ListChannelSessions(c *gin.Context) {
 		return
 	}
 
-	sessions, err := h.channelService.GetChannelSessions(c.Request.Context(), channelID)
+	pods, err := h.channelService.GetChannelPods(c.Request.Context(), channelID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list sessions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list pods"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"sessions": sessions,
-		"total":    len(sessions),
+		"pods":  pods,
+		"total": len(pods),
 	})
 }
 
 // GetDocument returns the channel document
-// GET /api/v1/session/channels/:id/document
+// GET /api/v1/org/:slug/channels/:id/document
 func (h *ChannelHandler) GetDocument(c *gin.Context) {
 	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -451,7 +451,7 @@ type UpdateDocumentRequest struct {
 }
 
 // UpdateDocument updates the channel document
-// PUT /api/v1/session/channels/:id/document
+// PUT /api/v1/org/:slug/channels/:id/document
 func (h *ChannelHandler) UpdateDocument(c *gin.Context) {
 	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

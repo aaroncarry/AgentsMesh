@@ -17,7 +17,7 @@ func TestNewRunnerWithMockConnection(t *testing.T) {
 		NodeID:                "test-runner",
 		AuthToken:             "test-token",
 		WorkspaceRoot:         t.TempDir(),
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 	}
 
 	r, err := New(cfg)
@@ -29,8 +29,8 @@ func TestNewRunnerWithMockConnection(t *testing.T) {
 		t.Error("Runner connection should not be nil")
 	}
 
-	if r.sessionStore == nil {
-		t.Error("Runner sessionStore should not be nil")
+	if r.podStore == nil {
+		t.Error("Runner podStore should not be nil")
 	}
 
 	if r.messageHandler == nil {
@@ -45,7 +45,7 @@ func TestRunnerWithConnection(t *testing.T) {
 		NodeID:                "test-runner",
 		AuthToken:             "test-token",
 		WorkspaceRoot:         t.TempDir(),
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 	}
 
 	r, err := New(cfg)
@@ -64,14 +64,14 @@ func TestRunnerWithConnection(t *testing.T) {
 	// This is verified by simulating a message
 }
 
-// TestRunnerMessageHandlerOnListSessions tests the MessageHandler interface
-func TestRunnerMessageHandlerOnListSessions(t *testing.T) {
+// TestRunnerMessageHandlerOnListPods tests the MessageHandler interface
+func TestRunnerMessageHandlerOnListPods(t *testing.T) {
 	cfg := &config.Config{
 		ServerURL:             "http://localhost:8080",
 		NodeID:                "test-runner",
 		AuthToken:             "test-token",
 		WorkspaceRoot:         t.TempDir(),
-		MaxConcurrentSessions: 5,
+		MaxConcurrentPods: 5,
 	}
 
 	r, err := New(cfg)
@@ -82,10 +82,10 @@ func TestRunnerMessageHandlerOnListSessions(t *testing.T) {
 	mockConn := client.NewMockConnection()
 	r.WithConnection(mockConn)
 
-	// Get sessions (should be empty initially)
-	sessions := r.messageHandler.OnListSessions()
-	if len(sessions) != 0 {
-		t.Errorf("Expected 0 sessions, got %d", len(sessions))
+	// Get pods (should be empty initially)
+	pods := r.messageHandler.OnListPods()
+	if len(pods) != 0 {
+		t.Errorf("Expected 0 pods, got %d", len(pods))
 	}
 }
 
@@ -120,10 +120,10 @@ func TestRunnerMessageHandlerInterface(t *testing.T) {
 	}
 	r := &Runner{
 		cfg:          cfg,
-		sessionStore: NewInMemorySessionStore(),
+		podStore: NewInMemoryPodStore(),
 	}
 	mockConn := client.NewMockConnection()
-	handler := NewRunnerMessageHandler(r, r.sessionStore, mockConn)
+	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
 
 	var _ client.MessageHandler = handler
 }
@@ -139,7 +139,7 @@ func TestRunnerRunMissingTokens(t *testing.T) {
 
 	r := &Runner{
 		cfg:          cfg,
-		sessionStore: NewInMemorySessionStore(),
+		podStore: NewInMemoryPodStore(),
 		stopChan:     make(chan struct{}),
 	}
 
@@ -167,7 +167,7 @@ func TestRunnerRunWithAuthToken(t *testing.T) {
 
 	r := &Runner{
 		cfg:          cfg,
-		sessionStore: NewInMemorySessionStore(),
+		podStore: NewInMemoryPodStore(),
 		stopChan:     make(chan struct{}),
 	}
 
@@ -202,7 +202,7 @@ func TestRunnerRunWithRegistrationTokenError(t *testing.T) {
 
 	r := &Runner{
 		cfg:          cfg,
-		sessionStore: NewInMemorySessionStore(),
+		podStore: NewInMemoryPodStore(),
 		stopChan:     make(chan struct{}),
 	}
 
@@ -222,7 +222,7 @@ func TestRunnerRunWithRegistrationTokenError(t *testing.T) {
 	}
 }
 
-func TestRunnerRunStopAllSessions(t *testing.T) {
+func TestRunnerRunStopAllPods(t *testing.T) {
 	tempDir := t.TempDir()
 	cfg := &config.Config{
 		WorkspaceRoot: tempDir,
@@ -230,12 +230,12 @@ func TestRunnerRunStopAllSessions(t *testing.T) {
 		AuthToken:     "test-token",
 	}
 
-	store := NewInMemorySessionStore()
-	store.Put("session-1", &Session{ID: "session-1", SessionKey: "session-1"})
+	store := NewInMemoryPodStore()
+	store.Put("pod-1", &Pod{ID: "pod-1", PodKey: "pod-1"})
 
 	r := &Runner{
 		cfg:          cfg,
-		sessionStore: store,
+		podStore: store,
 		stopChan:     make(chan struct{}),
 	}
 
@@ -247,9 +247,9 @@ func TestRunnerRunStopAllSessions(t *testing.T) {
 
 	r.Run(ctx)
 
-	// Verify sessions were cleaned up
+	// Verify pods were cleaned up
 	if store.Count() != 0 {
-		t.Errorf("session count = %d, want 0", store.Count())
+		t.Errorf("pod count = %d, want 0", store.Count())
 	}
 }
 
@@ -267,7 +267,7 @@ func TestInitEnhancedComponentsWithMCPConfig(t *testing.T) {
 
 	r := &Runner{
 		cfg:      cfg,
-		sessions: make(map[string]*Session),
+		pods: make(map[string]*Pod),
 	}
 
 	// Should not panic
@@ -288,7 +288,7 @@ func TestInitEnhancedComponentsDefaultShell(t *testing.T) {
 
 	r := &Runner{
 		cfg:      cfg,
-		sessions: make(map[string]*Session),
+		pods: make(map[string]*Pod),
 	}
 
 	r.initEnhancedComponents(cfg)
@@ -307,7 +307,7 @@ func TestInitEnhancedComponentsCustomShell(t *testing.T) {
 
 	r := &Runner{
 		cfg:      cfg,
-		sessions: make(map[string]*Session),
+		pods: make(map[string]*Pod),
 	}
 
 	r.initEnhancedComponents(cfg)
@@ -317,30 +317,30 @@ func TestInitEnhancedComponentsCustomShell(t *testing.T) {
 	}
 }
 
-// --- Test stopAllSessions ---
+// --- Test stopAllPods ---
 
-func TestStopAllSessionsWithTerminals(t *testing.T) {
-	store := NewInMemorySessionStore()
-	store.Put("session-1", &Session{
-		ID:         "session-1",
-		SessionKey: "session-1",
+func TestStopAllPodsWithTerminals(t *testing.T) {
+	store := NewInMemoryPodStore()
+	store.Put("pod-1", &Pod{
+		ID:         "pod-1",
+		PodKey: "pod-1",
 		Terminal:   nil,
 	})
-	store.Put("session-2", &Session{
-		ID:         "session-2",
-		SessionKey: "session-2",
+	store.Put("pod-2", &Pod{
+		ID:         "pod-2",
+		PodKey: "pod-2",
 		Terminal:   nil,
 	})
 
 	r := &Runner{
 		cfg:          &config.Config{},
-		sessionStore: store,
+		podStore: store,
 	}
 
-	r.stopAllSessions()
+	r.stopAllPods()
 
 	if store.Count() != 0 {
-		t.Errorf("session count = %d, want 0", store.Count())
+		t.Errorf("pod count = %d, want 0", store.Count())
 	}
 }
 
@@ -356,90 +356,90 @@ func TestBuildWebSocketURLPlainURL(t *testing.T) {
 
 // --- Test MockConnection helpers ---
 
-func TestMockConnectionSimulateCreateSession(t *testing.T) {
+func TestMockConnectionSimulateCreatePod(t *testing.T) {
 	mockConn := client.NewMockConnection()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 
 	tempDir := t.TempDir()
 	r := &Runner{
 		cfg: &config.Config{
 			WorkspaceRoot:         tempDir,
-			MaxConcurrentSessions: 10,
+			MaxConcurrentPods: 10,
 		},
-		sessionStore: store,
+		podStore: store,
 	}
 
 	handler := NewRunnerMessageHandler(r, store, mockConn)
 	mockConn.SetHandler(handler)
 
-	req := client.CreateSessionRequest{
-		SessionID:      "mock-session",
+	req := client.CreatePodRequest{
+		PodKey:      "mock-pod",
 		InitialCommand: "echo",
 		WorkingDir:     tempDir,
 	}
 
-	err := mockConn.SimulateCreateSession(req)
+	err := mockConn.SimulateCreatePod(req)
 	if err != nil {
-		t.Logf("SimulateCreateSession: %v", err)
+		t.Logf("SimulateCreatePod: %v", err)
 	}
 
 	// Clean up
-	session, ok := store.Get("mock-session")
-	if ok && session.Terminal != nil {
-		session.Terminal.Stop()
+	pod, ok := store.Get("mock-pod")
+	if ok && pod.Terminal != nil {
+		pod.Terminal.Stop()
 	}
 }
 
-func TestMockConnectionSimulateTerminateSession(t *testing.T) {
+func TestMockConnectionSimulateTerminatePod(t *testing.T) {
 	mockConn := client.NewMockConnection()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 
 	r := &Runner{
 		cfg: &config.Config{},
 	}
 
-	store.Put("terminate-mock", &Session{
+	store.Put("terminate-mock", &Pod{
 		ID:         "terminate-mock",
-		SessionKey: "terminate-mock",
+		PodKey: "terminate-mock",
 		Terminal:   nil,
 	})
 
 	handler := NewRunnerMessageHandler(r, store, mockConn)
 	mockConn.SetHandler(handler)
 
-	req := client.TerminateSessionRequest{
-		SessionID: "terminate-mock",
+	req := client.TerminatePodRequest{
+		PodKey: "terminate-mock",
 	}
 
-	err := mockConn.SimulateTerminateSession(req)
+	err := mockConn.SimulateTerminatePod(req)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	_, exists := store.Get("terminate-mock")
 	if exists {
-		t.Error("session should be removed")
+		t.Error("pod should be removed")
 	}
 }
 
-func TestMockConnectionGetSessions(t *testing.T) {
+func TestMockConnectionGetPods(t *testing.T) {
 	mockConn := client.NewMockConnection()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 
 	r := &Runner{cfg: &config.Config{}}
 
-	store.Put("list-session", &Session{
-		ID:         "list-session",
-		SessionKey: "list-session",
-		Status:     SessionStatusRunning,
+	store.Put("list-pod", &Pod{
+		ID:         "list-pod",
+		PodKey: "list-pod",
+		Status:     PodStatusRunning,
 	})
 
 	handler := NewRunnerMessageHandler(r, store, mockConn)
 	mockConn.SetHandler(handler)
 
-	sessions := mockConn.GetSessions()
-	if len(sessions) != 1 {
-		t.Errorf("sessions count = %d, want 1", len(sessions))
+	pods := mockConn.GetPods()
+	if len(pods) != 1 {
+		t.Errorf("pods count = %d, want 1", len(pods))
 	}
 }
 
@@ -447,7 +447,7 @@ func TestMockConnectionReset(t *testing.T) {
 	mockConn := client.NewMockConnection()
 
 	// Send some events
-	mockConn.SendEvent(client.MsgTypeSessionCreated, map[string]string{"test": "data"})
+	mockConn.SendEvent(client.MsgTypePodCreated, map[string]string{"test": "data"})
 	mockConn.Start()
 
 	// Verify state

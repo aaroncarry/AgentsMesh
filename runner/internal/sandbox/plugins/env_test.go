@@ -40,7 +40,7 @@ func TestEnvPluginSetupSkipsWithoutEnvVars(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewEnvPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	// Initial EnvVars should be empty
@@ -65,7 +65,7 @@ func TestEnvPluginSetupInjectsEnvVars(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewEnvPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	config := map[string]interface{}{
@@ -102,7 +102,7 @@ func TestEnvPluginSetupEmptyEnvVars(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewEnvPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	config := map[string]interface{}{
@@ -130,7 +130,7 @@ func TestEnvPluginSetupWrongType(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewEnvPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	config := map[string]interface{}{
@@ -152,7 +152,7 @@ func TestEnvPluginSetupWrongType(t *testing.T) {
 
 func TestEnvPluginTeardown(t *testing.T) {
 	p := NewEnvPlugin()
-	sb := sandbox.NewSandbox("test-session", "/tmp/sandbox")
+	sb := sandbox.NewSandbox("test-pod", "/tmp/sandbox")
 
 	// Teardown should not error
 	if err := p.Teardown(sb); err != nil {

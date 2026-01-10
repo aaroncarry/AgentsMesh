@@ -21,7 +21,7 @@ type Channel struct {
 	RepositoryID *int64 `json:"repository_id,omitempty"`
 	TicketID     *int64 `json:"ticket_id,omitempty"`
 
-	CreatedBySession *string `gorm:"size:100" json:"created_by_session,omitempty"`
+	CreatedByPod *string `gorm:"size:100" json:"created_by_pod,omitempty"`
 	CreatedByUserID  *int64  `json:"created_by_user_id,omitempty"`
 
 	IsArchived bool `gorm:"not null;default:false" json:"is_archived"`
@@ -74,7 +74,7 @@ type Message struct {
 	ID        int64 `gorm:"primaryKey" json:"id"`
 	ChannelID int64 `gorm:"not null;index" json:"channel_id"`
 
-	SenderSession *string `gorm:"size:100" json:"sender_session,omitempty"`
+	SenderPod *string `gorm:"size:100" json:"sender_pod,omitempty"`
 	SenderUserID  *int64  `json:"sender_user_id,omitempty"`
 
 	MessageType string          `gorm:"size:50;not null;default:'text'" json:"message_type"`
@@ -123,16 +123,16 @@ var ValidBindingScopes = map[string]bool{
 	BindingScopeTerminalWrite: true,
 }
 
-// SessionBinding represents a binding between two sessions
-type SessionBinding struct {
+// PodBinding represents a binding between two pods
+type PodBinding struct {
 	ID             int64 `gorm:"primaryKey" json:"id"`
 	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 
-	InitiatorSession string         `gorm:"size:100;not null;index" json:"initiator_session"`
-	TargetSession    string         `gorm:"size:100;not null;index" json:"target_session"`
-	GrantedScopes    pq.StringArray `gorm:"type:text[]" json:"granted_scopes"`
-	PendingScopes    pq.StringArray `gorm:"type:text[]" json:"pending_scopes"`
-	Status           string         `gorm:"size:50;not null;default:'pending'" json:"status"`
+	InitiatorPod  string         `gorm:"size:100;not null;index" json:"initiator_pod"`
+	TargetPod     string         `gorm:"size:100;not null;index" json:"target_pod"`
+	GrantedScopes pq.StringArray `gorm:"type:text[]" json:"granted_scopes"`
+	PendingScopes pq.StringArray `gorm:"type:text[]" json:"pending_scopes"`
+	Status        string         `gorm:"size:50;not null;default:'pending'" json:"status"`
 
 	// Timestamps
 	RequestedAt *time.Time `json:"requested_at,omitempty"`
@@ -146,12 +146,12 @@ type SessionBinding struct {
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 }
 
-func (SessionBinding) TableName() string {
-	return "session_bindings"
+func (PodBinding) TableName() string {
+	return "pod_bindings"
 }
 
 // HasScope checks if a specific scope is granted
-func (b *SessionBinding) HasScope(scope string) bool {
+func (b *PodBinding) HasScope(scope string) bool {
 	for _, s := range b.GrantedScopes {
 		if s == scope {
 			return true
@@ -161,7 +161,7 @@ func (b *SessionBinding) HasScope(scope string) bool {
 }
 
 // HasPendingScope checks if a specific scope is pending approval
-func (b *SessionBinding) HasPendingScope(scope string) bool {
+func (b *PodBinding) HasPendingScope(scope string) bool {
 	for _, s := range b.PendingScopes {
 		if s == scope {
 			return true
@@ -171,21 +171,21 @@ func (b *SessionBinding) HasPendingScope(scope string) bool {
 }
 
 // IsActive checks if the binding is currently active
-func (b *SessionBinding) IsActive() bool {
+func (b *PodBinding) IsActive() bool {
 	return b.Status == BindingStatusActive
 }
 
 // IsPending checks if the binding is pending approval
-func (b *SessionBinding) IsPending() bool {
+func (b *PodBinding) IsPending() bool {
 	return b.Status == BindingStatusPending
 }
 
 // CanObserve checks if the initiator can observe the target's terminal
-func (b *SessionBinding) CanObserve() bool {
+func (b *PodBinding) CanObserve() bool {
 	return b.IsActive() && b.HasScope(BindingScopeTerminalRead)
 }
 
 // CanControl checks if the initiator can send input to the target's terminal
-func (b *SessionBinding) CanControl() bool {
+func (b *PodBinding) CanControl() bool {
 	return b.IsActive() && b.HasScope(BindingScopeTerminalWrite)
 }

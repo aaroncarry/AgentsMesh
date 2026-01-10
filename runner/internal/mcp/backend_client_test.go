@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewBackendClient(t *testing.T) {
-	client := NewBackendClient("http://localhost:8080", "test-session")
+	client := NewBackendClient("http://localhost:8080", "test-pod")
 
 	if client == nil {
 		t.Fatal("NewBackendClient returned nil")
@@ -21,8 +21,8 @@ func TestNewBackendClient(t *testing.T) {
 		t.Errorf("baseURL: got %v, want %v", client.baseURL, "http://localhost:8080")
 	}
 
-	if client.sessionKey != "test-session" {
-		t.Errorf("sessionKey: got %v, want %v", client.sessionKey, "test-session")
+	if client.podKey != "test-pod" {
+		t.Errorf("podKey: got %v, want %v", client.podKey, "test-pod")
 	}
 
 	if client.httpClient == nil {
@@ -30,12 +30,12 @@ func TestNewBackendClient(t *testing.T) {
 	}
 }
 
-func TestSetSessionKey(t *testing.T) {
-	client := NewBackendClient("http://localhost:8080", "old-session")
-	client.SetSessionKey("new-session")
+func TestSetPodKey(t *testing.T) {
+	client := NewBackendClient("http://localhost:8080", "old-pod")
+	client.SetPodKey("new-pod")
 
-	if client.sessionKey != "new-session" {
-		t.Errorf("sessionKey: got %v, want %v", client.sessionKey, "new-session")
+	if client.podKey != "new-pod" {
+		t.Errorf("podKey: got %v, want %v", client.podKey, "new-pod")
 	}
 }
 
@@ -45,12 +45,12 @@ func TestObserveTerminal(t *testing.T) {
 			t.Errorf("method: got %v, want GET", r.Method)
 		}
 
-		if r.Header.Get("X-Session-Key") != "test-session" {
-			t.Errorf("X-Session-Key: got %v, want test-session", r.Header.Get("X-Session-Key"))
+		if r.Header.Get("X-Pod-Key") != "test-pod" {
+			t.Errorf("X-Pod-Key: got %v, want test-pod", r.Header.Get("X-Pod-Key"))
 		}
 
 		resp := tools.TerminalOutput{
-			SessionKey: "target-session",
+			PodKey: "target-pod",
 			Output:     "test output",
 			CursorX:    10,
 			CursorY:    5,
@@ -63,8 +63,8 @@ func TestObserveTerminal(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	result, err := client.ObserveTerminal(context.Background(), "target-session", 50, false, true)
+	client := NewBackendClient(server.URL, "test-pod")
+	result, err := client.ObserveTerminal(context.Background(), "target-pod", 50, false, true)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -88,16 +88,16 @@ func TestSendTerminalText(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		if body["text"] != "hello world" {
-			t.Errorf("text: got %v, want hello world", body["text"])
+		if body["input"] != "hello world" {
+			t.Errorf("input: got %v, want hello world", body["input"])
 		}
 
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	err := client.SendTerminalText(context.Background(), "target-session", "hello world")
+	client := NewBackendClient(server.URL, "test-pod")
+	err := client.SendTerminalText(context.Background(), "target-pod", "hello world")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -109,29 +109,30 @@ func TestSendTerminalKey(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		keys, ok := body["keys"].([]interface{})
-		if !ok || len(keys) != 2 {
-			t.Errorf("keys: got %v, want 2 keys", body["keys"])
+		// The client converts keys to escape sequences and sends them as "input"
+		input, ok := body["input"].(string)
+		if !ok || input == "" {
+			t.Errorf("input: got %v, want non-empty string", body["input"])
 		}
 
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	err := client.SendTerminalKey(context.Background(), "target-session", []string{"ctrl+c", "enter"})
+	client := NewBackendClient(server.URL, "test-pod")
+	err := client.SendTerminalKey(context.Background(), "target-pod", []string{"ctrl+c", "enter"})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestListAvailableSessions(t *testing.T) {
+func TestListAvailablePods(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]interface{}{
-			"sessions": []tools.AvailableSession{
-				{SessionKey: "session-1", Status: tools.SessionStatusRunning},
-				{SessionKey: "session-2", Status: tools.SessionStatusRunning},
+			"pods": []tools.AvailablePod{
+				{PodKey: "pod-1", Status: tools.PodStatusRunning},
+				{PodKey: "pod-2", Status: tools.PodStatusRunning},
 			},
 		}
 
@@ -140,15 +141,15 @@ func TestListAvailableSessions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	sessions, err := client.ListAvailableSessions(context.Background())
+	client := NewBackendClient(server.URL, "test-pod")
+	pods, err := client.ListAvailablePods(context.Background())
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(sessions) != 2 {
-		t.Errorf("sessions count: got %v, want 2", len(sessions))
+	if len(pods) != 2 {
+		t.Errorf("pods count: got %v, want 2", len(pods))
 	}
 }
 
@@ -157,15 +158,17 @@ func TestRequestBinding(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		if body["target_session"] != "target-session" {
-			t.Errorf("target_session: got %v, want target-session", body["target_session"])
+		if body["target_pod"] != "target-pod" {
+			t.Errorf("target_pod: got %v, want target-pod", body["target_pod"])
 		}
 
-		resp := tools.Binding{
-			ID:               1,
-			InitiatorSession: "test-session",
-			TargetSession:    "target-session",
-			Status:           tools.BindingStatusPending,
+		resp := map[string]interface{}{
+			"binding": tools.Binding{
+				ID:           1,
+				InitiatorPod: "test-pod",
+				TargetPod:    "target-pod",
+				Status:       tools.BindingStatusPending,
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -173,8 +176,8 @@ func TestRequestBinding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	binding, err := client.RequestBinding(context.Background(), "target-session", []tools.BindingScope{tools.ScopeTerminalRead})
+	client := NewBackendClient(server.URL, "test-pod")
+	binding, err := client.RequestBinding(context.Background(), "target-pod", []tools.BindingScope{tools.ScopeTerminalRead})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -194,9 +197,11 @@ func TestAcceptBinding(t *testing.T) {
 			t.Errorf("binding_id: got %v, want 1", body["binding_id"])
 		}
 
-		resp := tools.Binding{
-			ID:     1,
-			Status: tools.BindingStatusActive,
+		resp := map[string]interface{}{
+			"binding": tools.Binding{
+				ID:     1,
+				Status: tools.BindingStatusActive,
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -204,7 +209,7 @@ func TestAcceptBinding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	binding, err := client.AcceptBinding(context.Background(), 1)
 
 	if err != nil {
@@ -225,9 +230,11 @@ func TestRejectBinding(t *testing.T) {
 			t.Errorf("reason: got %v, want not allowed", body["reason"])
 		}
 
-		resp := tools.Binding{
-			ID:     1,
-			Status: tools.BindingStatusRejected,
+		resp := map[string]interface{}{
+			"binding": tools.Binding{
+				ID:     1,
+				Status: tools.BindingStatusRejected,
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -235,7 +242,7 @@ func TestRejectBinding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	binding, err := client.RejectBinding(context.Background(), 1, "not allowed")
 
 	if err != nil {
@@ -247,14 +254,14 @@ func TestRejectBinding(t *testing.T) {
 	}
 }
 
-func TestUnbindSession(t *testing.T) {
+func TestUnbindPod(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	err := client.UnbindSession(context.Background(), "target-session")
+	client := NewBackendClient(server.URL, "test-pod")
+	err := client.UnbindPod(context.Background(), "target-pod")
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -274,7 +281,7 @@ func TestGetBindings(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	bindings, err := client.GetBindings(context.Background(), nil)
 
 	if err != nil {
@@ -301,7 +308,7 @@ func TestGetBindingsWithStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	status := tools.BindingStatusActive
 	_, err := client.GetBindings(context.Background(), &status)
 
@@ -310,11 +317,11 @@ func TestGetBindingsWithStatus(t *testing.T) {
 	}
 }
 
-func TestGetBoundSessions(t *testing.T) {
+func TestGetBoundPods(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]interface{}{
-			"sessions": []tools.AvailableSession{
-				{SessionKey: "bound-session"},
+			"pods": []tools.AvailablePod{
+				{PodKey: "bound-pod"},
 			},
 		}
 
@@ -323,15 +330,15 @@ func TestGetBoundSessions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	sessions, err := client.GetBoundSessions(context.Background())
+	client := NewBackendClient(server.URL, "test-pod")
+	pods, err := client.GetBoundPods(context.Background())
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(sessions) != 1 {
-		t.Errorf("sessions count: got %v, want 1", len(sessions))
+	if len(pods) != 1 {
+		t.Errorf("pods count: got %v, want 1", len(pods))
 	}
 }
 
@@ -352,7 +359,7 @@ func TestSearchChannels(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	channels, err := client.SearchChannels(context.Background(), "test", nil, nil, nil, 0, 20)
 
 	if err != nil {
@@ -373,9 +380,11 @@ func TestCreateChannel(t *testing.T) {
 			t.Errorf("name: got %v, want new-channel", body["name"])
 		}
 
-		resp := tools.Channel{
-			ID:   1,
-			Name: "new-channel",
+		resp := map[string]interface{}{
+			"channel": tools.Channel{
+				ID:   1,
+				Name: "new-channel",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -383,7 +392,7 @@ func TestCreateChannel(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	channel, err := client.CreateChannel(context.Background(), "new-channel", "description", nil, nil)
 
 	if err != nil {
@@ -397,9 +406,11 @@ func TestCreateChannel(t *testing.T) {
 
 func TestGetChannel(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := tools.Channel{
-			ID:   1,
-			Name: "test-channel",
+		resp := map[string]interface{}{
+			"channel": tools.Channel{
+				ID:   1,
+				Name: "test-channel",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -407,7 +418,7 @@ func TestGetChannel(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	channel, err := client.GetChannel(context.Background(), 1)
 
 	if err != nil {
@@ -428,9 +439,11 @@ func TestSendMessage(t *testing.T) {
 			t.Errorf("content: got %v, want Hello", body["content"])
 		}
 
-		resp := tools.ChannelMessage{
-			ID:      1,
-			Content: "Hello",
+		resp := map[string]interface{}{
+			"message": tools.ChannelMessage{
+				ID:      1,
+				Content: "Hello",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -438,7 +451,7 @@ func TestSendMessage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	msg, err := client.SendMessage(context.Background(), 1, "Hello", tools.ChannelMessageTypeText, nil, nil)
 
 	if err != nil {
@@ -464,7 +477,7 @@ func TestGetMessages(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	messages, err := client.GetMessages(context.Background(), 1, nil, nil, nil, 50)
 
 	if err != nil {
@@ -487,7 +500,7 @@ func TestGetDocument(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	doc, err := client.GetDocument(context.Background(), 1)
 
 	if err != nil {
@@ -512,7 +525,7 @@ func TestUpdateDocument(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	err := client.UpdateDocument(context.Background(), 1, "updated content")
 
 	if err != nil {
@@ -533,7 +546,7 @@ func TestSearchTickets(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	tickets, err := client.SearchTickets(context.Background(), nil, nil, nil, nil, nil, nil, "", 20, 1)
 
 	if err != nil {
@@ -547,10 +560,12 @@ func TestSearchTickets(t *testing.T) {
 
 func TestGetTicket(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := tools.Ticket{
-			ID:         1,
-			Identifier: "AM-123",
-			Title:      "Test Ticket",
+		resp := map[string]interface{}{
+			"ticket": tools.Ticket{
+				ID:         1,
+				Identifier: "AM-123",
+				Title:      "Test Ticket",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -558,7 +573,7 @@ func TestGetTicket(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	ticket, err := client.GetTicket(context.Background(), "AM-123")
 
 	if err != nil {
@@ -579,10 +594,12 @@ func TestCreateTicket(t *testing.T) {
 			t.Errorf("title: got %v, want New Ticket", body["title"])
 		}
 
-		resp := tools.Ticket{
-			ID:         1,
-			Identifier: "AM-1",
-			Title:      "New Ticket",
+		resp := map[string]interface{}{
+			"ticket": tools.Ticket{
+				ID:         1,
+				Identifier: "AM-1",
+				Title:      "New Ticket",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -590,7 +607,7 @@ func TestCreateTicket(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	ticket, err := client.CreateTicket(context.Background(), 1, "New Ticket", "Description", tools.TicketTypeTask, tools.TicketPriorityMedium, nil)
 
 	if err != nil {
@@ -611,9 +628,11 @@ func TestUpdateTicket(t *testing.T) {
 			t.Errorf("title: got %v, want Updated Title", body["title"])
 		}
 
-		resp := tools.Ticket{
-			ID:    1,
-			Title: "Updated Title",
+		resp := map[string]interface{}{
+			"ticket": tools.Ticket{
+				ID:    1,
+				Title: "Updated Title",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -621,7 +640,7 @@ func TestUpdateTicket(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	title := "Updated Title"
 	ticket, err := client.UpdateTicket(context.Background(), "AM-1", &title, nil, nil, nil, nil)
 
@@ -634,18 +653,20 @@ func TestUpdateTicket(t *testing.T) {
 	}
 }
 
-func TestCreateSession(t *testing.T) {
+func TestCreatePod(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body tools.SessionCreateRequest
+		var body tools.PodCreateRequest
 		json.NewDecoder(r.Body).Decode(&body)
 
 		if body.InitialPrompt != "Hello" {
 			t.Errorf("initial_prompt: got %v, want Hello", body.InitialPrompt)
 		}
 
-		resp := tools.SessionCreateResponse{
-			SessionKey: "new-session",
-			Status:     "created",
+		resp := map[string]interface{}{
+			"pod": map[string]interface{}{
+				"pod_key": "new-pod",
+				"status":  "created",
+			},
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -653,8 +674,8 @@ func TestCreateSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
-	resp, err := client.CreateSession(context.Background(), &tools.SessionCreateRequest{
+	client := NewBackendClient(server.URL, "test-pod")
+	resp, err := client.CreatePod(context.Background(), &tools.PodCreateRequest{
 		InitialPrompt: "Hello",
 	})
 
@@ -662,8 +683,8 @@ func TestCreateSession(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.SessionKey != "new-session" {
-		t.Errorf("session_key: got %v, want new-session", resp.SessionKey)
+	if resp.PodKey != "new-pod" {
+		t.Errorf("pod_key: got %v, want new-pod", resp.PodKey)
 	}
 }
 
@@ -674,7 +695,7 @@ func TestRequestError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewBackendClient(server.URL, "test-session")
+	client := NewBackendClient(server.URL, "test-pod")
 	_, err := client.GetTicket(context.Background(), "AM-1")
 
 	if err == nil {

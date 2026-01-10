@@ -73,12 +73,12 @@ func TestClaudeStatusConstants(t *testing.T) {
 	}
 }
 
-// --- Test SessionStatus ---
+// --- Test PodStatus ---
 
-func TestSessionStatusStruct(t *testing.T) {
+func TestPodStatusStruct(t *testing.T) {
 	now := time.Now()
-	status := SessionStatus{
-		SessionID:    "session-1",
+	status := PodStatus{
+		PodID:    "pod-1",
 		Pid:          12345,
 		ClaudeStatus: StatusExecuting,
 		ClaudePid:    67890,
@@ -86,8 +86,8 @@ func TestSessionStatusStruct(t *testing.T) {
 		UpdatedAt:    now,
 	}
 
-	if status.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", status.SessionID)
+	if status.PodID != "pod-1" {
+		t.Errorf("PodID: got %v, want pod-1", status.PodID)
 	}
 
 	if status.Pid != 12345 {
@@ -141,7 +141,7 @@ func TestNewMonitorWithInspector(t *testing.T) {
 func TestMonitorSetCallback(t *testing.T) {
 	monitor := NewMonitor(time.Second)
 
-	callback := func(status SessionStatus) {
+	callback := func(status PodStatus) {
 		// callback implementation
 	}
 
@@ -152,18 +152,18 @@ func TestMonitorSetCallback(t *testing.T) {
 	}
 }
 
-func TestMonitorRegisterSession(t *testing.T) {
+func TestMonitorRegisterPod(t *testing.T) {
 	monitor := NewMonitor(time.Second)
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 
-	status, ok := monitor.GetStatus("session-1")
+	status, ok := monitor.GetStatus("pod-1")
 	if !ok {
-		t.Fatal("session should be registered")
+		t.Fatal("pod should be registered")
 	}
 
-	if status.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", status.SessionID)
+	if status.PodID != "pod-1" {
+		t.Errorf("PodID: got %v, want pod-1", status.PodID)
 	}
 
 	if status.Pid != 12345 {
@@ -179,15 +179,15 @@ func TestMonitorRegisterSession(t *testing.T) {
 	}
 }
 
-func TestMonitorUnregisterSession(t *testing.T) {
+func TestMonitorUnregisterPod(t *testing.T) {
 	monitor := NewMonitor(time.Second)
 
-	monitor.RegisterSession("session-1", 12345)
-	monitor.UnregisterSession("session-1")
+	monitor.RegisterPod("pod-1", 12345)
+	monitor.UnregisterPod("pod-1")
 
-	_, ok := monitor.GetStatus("session-1")
+	_, ok := monitor.GetStatus("pod-1")
 	if ok {
-		t.Error("session should be unregistered")
+		t.Error("pod should be unregistered")
 	}
 }
 
@@ -196,15 +196,15 @@ func TestMonitorGetStatusNotFound(t *testing.T) {
 
 	_, ok := monitor.GetStatus("nonexistent")
 	if ok {
-		t.Error("should return false for nonexistent session")
+		t.Error("should return false for nonexistent pod")
 	}
 }
 
 func TestMonitorGetAllStatuses(t *testing.T) {
 	monitor := NewMonitor(time.Second)
 
-	monitor.RegisterSession("session-1", 12345)
-	monitor.RegisterSession("session-2", 67890)
+	monitor.RegisterPod("pod-1", 12345)
+	monitor.RegisterPod("pod-2", 67890)
 
 	statuses := monitor.GetAllStatuses()
 
@@ -237,27 +237,27 @@ func TestMonitorStartStop(t *testing.T) {
 	monitor.Stop()
 }
 
-func TestMonitorCheckSessionNotRunning(t *testing.T) {
+func TestMonitorCheckPodNotRunning(t *testing.T) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(50*time.Millisecond, inspector)
 
-	// Register a session with a non-running process
+	// Register a pod with a non-running process
 	inspector.isRunning[12345] = false
 
-	monitor.SetCallback(func(status SessionStatus) {
+	monitor.SetCallback(func(status PodStatus) {
 		// callback for status changes
 	})
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 	monitor.Start()
 
 	// Wait for check to happen
 	time.Sleep(150 * time.Millisecond)
 	monitor.Stop()
 
-	status, _ := monitor.GetStatus("session-1")
+	status, _ := monitor.GetStatus("pod-1")
 	if status.IsRunning {
-		t.Error("session should not be running")
+		t.Error("pod should not be running")
 	}
 
 	if status.ClaudeStatus != StatusNotRunning {
@@ -265,24 +265,24 @@ func TestMonitorCheckSessionNotRunning(t *testing.T) {
 	}
 }
 
-func TestMonitorCheckSessionRunningNoClause(t *testing.T) {
+func TestMonitorCheckPodRunningNoClause(t *testing.T) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(50*time.Millisecond, inspector)
 
-	// Register a session with a running process but no claude child
+	// Register a pod with a running process but no claude child
 	inspector.isRunning[12345] = true
 	inspector.childProcesses[12345] = []int{} // No children
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 	monitor.Start()
 
 	// Wait for check to happen
 	time.Sleep(150 * time.Millisecond)
 	monitor.Stop()
 
-	status, _ := monitor.GetStatus("session-1")
+	status, _ := monitor.GetStatus("pod-1")
 	if !status.IsRunning {
-		t.Error("session should be running")
+		t.Error("pod should be running")
 	}
 
 	if status.ClaudeStatus != StatusNotRunning {
@@ -290,25 +290,25 @@ func TestMonitorCheckSessionRunningNoClause(t *testing.T) {
 	}
 }
 
-func TestMonitorCheckSessionWithClaudeExecuting(t *testing.T) {
+func TestMonitorCheckPodWithClaudeExecuting(t *testing.T) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(50*time.Millisecond, inspector)
 
-	// Register a session with claude running and executing
+	// Register a pod with claude running and executing
 	inspector.isRunning[12345] = true
 	inspector.childProcesses[12345] = []int{67890}
 	inspector.processNames[67890] = "claude"
 	inspector.childProcesses[67890] = []int{11111} // claude has children
 	inspector.processStates[11111] = "R"            // child is running
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 	monitor.Start()
 
 	// Wait for check to happen
 	time.Sleep(150 * time.Millisecond)
 	monitor.Stop()
 
-	status, _ := monitor.GetStatus("session-1")
+	status, _ := monitor.GetStatus("pod-1")
 	if status.ClaudePid != 67890 {
 		t.Errorf("ClaudePid: got %v, want 67890", status.ClaudePid)
 	}
@@ -318,24 +318,24 @@ func TestMonitorCheckSessionWithClaudeExecuting(t *testing.T) {
 	}
 }
 
-func TestMonitorCheckSessionWithClaudeWaiting(t *testing.T) {
+func TestMonitorCheckPodWithClaudeWaiting(t *testing.T) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(50*time.Millisecond, inspector)
 
-	// Register a session with claude running but waiting (no active children)
+	// Register a pod with claude running but waiting (no active children)
 	inspector.isRunning[12345] = true
 	inspector.childProcesses[12345] = []int{67890}
 	inspector.processNames[67890] = "claude"
 	inspector.childProcesses[67890] = []int{} // No children
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 	monitor.Start()
 
 	// Wait for check to happen
 	time.Sleep(150 * time.Millisecond)
 	monitor.Stop()
 
-	status, _ := monitor.GetStatus("session-1")
+	status, _ := monitor.GetStatus("pod-1")
 	if status.ClaudeStatus != StatusWaiting {
 		t.Errorf("ClaudeStatus: got %v, want waiting", status.ClaudeStatus)
 	}
@@ -426,10 +426,10 @@ func TestMonitorStatusChangeCallback(t *testing.T) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(50*time.Millisecond, inspector)
 
-	var receivedStatuses []SessionStatus
+	var receivedStatuses []PodStatus
 	var mu sync.Mutex
 
-	monitor.SetCallback(func(status SessionStatus) {
+	monitor.SetCallback(func(status PodStatus) {
 		mu.Lock()
 		receivedStatuses = append(receivedStatuses, status)
 		mu.Unlock()
@@ -439,7 +439,7 @@ func TestMonitorStatusChangeCallback(t *testing.T) {
 	inspector.isRunning[12345] = true
 	inspector.childProcesses[12345] = []int{}
 
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 	monitor.Start()
 
 	// Wait for initial check
@@ -466,29 +466,29 @@ func TestMonitorStatusChangeCallback(t *testing.T) {
 
 // --- Benchmark Tests ---
 
-func BenchmarkMonitorCheckAllSessions(b *testing.B) {
+func BenchmarkMonitorCheckAllPods(b *testing.B) {
 	inspector := newMockInspector()
 	monitor := NewMonitorWithInspector(time.Second, inspector)
 
-	// Register 10 sessions
+	// Register 10 pods
 	for i := 0; i < 10; i++ {
 		pid := 12345 + i
 		inspector.isRunning[pid] = true
-		monitor.RegisterSession("session-"+string(rune('0'+i)), pid)
+		monitor.RegisterPod("pod-"+string(rune('0'+i)), pid)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		monitor.checkAllSessions()
+		monitor.checkAllPods()
 	}
 }
 
 func BenchmarkMonitorGetStatus(b *testing.B) {
 	monitor := NewMonitor(time.Second)
-	monitor.RegisterSession("session-1", 12345)
+	monitor.RegisterPod("pod-1", 12345)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		monitor.GetStatus("session-1")
+		monitor.GetStatus("pod-1")
 	}
 }

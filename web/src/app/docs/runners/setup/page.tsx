@@ -4,7 +4,7 @@ export default function RunnerSetupPage() {
       <h1 className="text-4xl font-bold mb-8">Runner Setup</h1>
 
       <p className="text-muted-foreground leading-relaxed mb-8">
-        Runners are the execution environments for AI agent sessions. Set up a
+        Runners are the execution environments for AI agent Pods. Set up a
         runner on any machine with Git and your preferred development tools
         installed.
       </p>
@@ -17,7 +17,7 @@ export default function RunnerSetupPage() {
           <li>Git installed and configured</li>
           <li>Docker (optional, for containerized agents)</li>
           <li>Network access to AgentMesh server</li>
-          <li>At least 4GB RAM (8GB+ recommended for multiple sessions)</li>
+          <li>At least 4GB RAM (8GB+ recommended for multiple Pods)</li>
         </ul>
       </section>
 
@@ -73,7 +73,7 @@ services:
     environment:
       - AGENTMESH_TOKEN=\${AGENTMESH_TOKEN}
       - AGENTMESH_URL=\${AGENTMESH_URL:-https://api.agentmesh.dev}
-      - MAX_CONCURRENT_SESSIONS=5
+      - MAX_CONCURRENT_PODS=5
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.ssh:/root/.ssh:ro
@@ -124,10 +124,10 @@ volumes:
               </tr>
               <tr>
                 <td className="p-3 border-b border-border font-mono text-xs">
-                  MAX_CONCURRENT_SESSIONS
+                  MAX_CONCURRENT_PODS
                 </td>
                 <td className="p-3 border-b border-border">
-                  Maximum concurrent sessions
+                  Maximum concurrent Pods
                 </td>
                 <td className="p-3 border-b border-border">5</td>
               </tr>
@@ -193,7 +193,7 @@ volumes:
             <span className="text-green-400">● Online</span>
           </li>
           <li>
-            Try creating a DevPod session using this runner
+            Try creating an AgentPod using this runner
           </li>
         </ol>
       </section>
@@ -213,7 +213,7 @@ volumes:
           </div>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">
-              Sessions fail to start
+              Pods fail to start
             </h3>
             <p className="text-sm text-muted-foreground">
               Verify Git is installed and configured. Check that the runner has

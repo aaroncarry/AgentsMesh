@@ -2,12 +2,12 @@ package resolver
 
 import (
 	"github.com/anthropics/agentmesh/backend/internal/service/agent"
+	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/channel"
 	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/session"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
 )
@@ -17,7 +17,7 @@ type Resolver struct {
 	userService         *user.Service
 	organizationService *organization.Service
 	runnerService       *runner.Service
-	sessionService      *session.Service
+	podService          *agentpod.PodService
 	agentService        *agent.Service
 	repositoryService   *repository.Service
 	ticketService       *ticket.Service
@@ -30,7 +30,7 @@ func NewResolver(
 	userSvc *user.Service,
 	orgSvc *organization.Service,
 	runnerSvc *runner.Service,
-	sessionSvc *session.Service,
+	podSvc *agentpod.PodService,
 	agentSvc *agent.Service,
 	repoSvc *repository.Service,
 	ticketSvc *ticket.Service,
@@ -41,7 +41,7 @@ func NewResolver(
 		userService:         userSvc,
 		organizationService: orgSvc,
 		runnerService:       runnerSvc,
-		sessionService:      sessionSvc,
+		podService:          podSvc,
 		agentService:        agentSvc,
 		repositoryService:   repoSvc,
 		ticketService:       ticketSvc,

@@ -1287,22 +1287,22 @@ function BillingSettings() {
       <div className="border border-border rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">Usage</h2>
         <div className="space-y-4">
-          {/* Session Minutes */}
+          {/* Pod Minutes */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Session Minutes</span>
+              <span className="text-sm">Pod Minutes</span>
               <span className="text-sm font-medium">
-                {Math.round(usage.session_minutes)} / {formatLimit(usage.included_session_minutes)}
+                {Math.round(usage.pod_minutes)} / {formatLimit(usage.included_pod_minutes)}
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${
-                  getUsagePercent(usage.session_minutes, usage.included_session_minutes) > 90
+                  getUsagePercent(usage.pod_minutes, usage.included_pod_minutes) > 90
                     ? "bg-destructive"
                     : "bg-primary"
                 }`}
-                style={{ width: `${getUsagePercent(usage.session_minutes, usage.included_session_minutes)}%` }}
+                style={{ width: `${getUsagePercent(usage.pod_minutes, usage.included_pod_minutes)}%` }}
               ></div>
             </div>
           </div>
@@ -1444,7 +1444,7 @@ function PlansDialog({
                   <ul className="space-y-2 mb-6 text-sm">
                     <li className="flex items-center gap-2">
                       <span className="text-green-500">✓</span>
-                      {formatLimit(plan.included_session_minutes)} session minutes
+                      {formatLimit(plan.included_pod_minutes)} pod minutes
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-green-500">✓</span>
@@ -1842,7 +1842,7 @@ function RunnersPanel({
                     )}
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
                       <span>
-                        Sessions: {runner.current_sessions} / {runner.max_concurrent_sessions}
+                        Pods: {runner.current_pods} / {runner.max_concurrent_pods}
                       </span>
                       {runner.runner_version && <span>v{runner.runner_version}</span>}
                       <span>Last seen: {formatLastSeen(runner.last_heartbeat)}</span>
@@ -1935,10 +1935,10 @@ function EditRunnerDialog({
 }: {
   runner: Runner;
   onClose: () => void;
-  onSave: (id: number, data: { description?: string; max_concurrent_sessions?: number; is_enabled?: boolean }) => Promise<void>;
+  onSave: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean }) => Promise<void>;
 }) {
   const [description, setDescription] = useState(runner.description || "");
-  const [maxSessions, setMaxSessions] = useState(runner.max_concurrent_sessions.toString());
+  const [maxPods, setMaxPods] = useState(runner.max_concurrent_pods.toString());
   const [isEnabled, setIsEnabled] = useState(runner.is_enabled);
   const [saving, setSaving] = useState(false);
 
@@ -1947,7 +1947,7 @@ function EditRunnerDialog({
     try {
       await onSave(runner.id, {
         description: description || undefined,
-        max_concurrent_sessions: parseInt(maxSessions, 10),
+        max_concurrent_pods: parseInt(maxPods, 10),
         is_enabled: isEnabled,
       });
     } catch (err) {
@@ -1976,12 +1976,12 @@ function EditRunnerDialog({
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">
-              Max Concurrent Sessions
+              Max Concurrent Pods
             </label>
             <Input
               type="number"
-              value={maxSessions}
-              onChange={(e) => setMaxSessions(e.target.value)}
+              value={maxPods}
+              onChange={(e) => setMaxPods(e.target.value)}
               min="1"
             />
           </div>

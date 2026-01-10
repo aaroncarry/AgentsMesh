@@ -210,14 +210,14 @@ class ApiClient {
     });
   }
 
-  // Session endpoints
-  Future<Response> getSessions({
+  // Pod endpoints
+  Future<Response> getPods({
     int? teamId,
     String? status,
     int? limit,
     int? offset,
   }) {
-    return _dio.get('/api/v1/sessions', queryParameters: {
+    return _dio.get('/api/v1/pods', queryParameters: {
       if (teamId != null) 'team_id': teamId,
       if (status != null) 'status': status,
       if (limit != null) 'limit': limit,
@@ -225,16 +225,16 @@ class ApiClient {
     });
   }
 
-  Future<Response> getSession(String key) {
-    return _dio.get('/api/v1/sessions/$key');
+  Future<Response> getPod(String key) {
+    return _dio.get('/api/v1/pods/$key');
   }
 
-  Future<Response> createSession(Map<String, dynamic> data) {
-    return _dio.post('/api/v1/sessions', data: data);
+  Future<Response> createPod(Map<String, dynamic> data) {
+    return _dio.post('/api/v1/pods', data: data);
   }
 
-  Future<Response> terminateSession(String key) {
-    return _dio.post('/api/v1/sessions/$key/terminate');
+  Future<Response> terminatePod(String key) {
+    return _dio.post('/api/v1/pods/$key/terminate');
   }
 
   // Runner endpoints

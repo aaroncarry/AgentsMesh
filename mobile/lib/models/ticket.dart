@@ -132,8 +132,8 @@ class MergeRequest {
   final int organizationId;
   @JsonKey(name: 'ticket_id')
   final int ticketId;
-  @JsonKey(name: 'session_id')
-  final int? sessionId;
+  @JsonKey(name: 'pod_id')
+  final int? podId;
   @JsonKey(name: 'mr_iid')
   final int mrIid;
   @JsonKey(name: 'mr_url')
@@ -151,7 +151,7 @@ class MergeRequest {
     required this.id,
     required this.organizationId,
     required this.ticketId,
-    this.sessionId,
+    this.podId,
     required this.mrIid,
     required this.mrUrl,
     required this.sourceBranch,

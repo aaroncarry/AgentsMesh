@@ -2,7 +2,7 @@ import { request } from "./base";
 
 // DevMesh types
 export interface DevMeshNodeData {
-  session_key: string;
+  pod_key: string;
   status: string;
   agent_status: string;
   model?: string;
@@ -27,7 +27,7 @@ export interface ChannelInfoData {
   id: number;
   name: string;
   description?: string;
-  session_keys: string[];
+  pod_keys: string[];
   message_count: number;
   is_archived: boolean;
 }
@@ -45,5 +45,5 @@ export const devmeshApi = {
     return request<{ topology: DevMeshTopologyData }>(`/api/v1/org/devmesh/topology`);
   },
 
-  // For channel operations, use channelApi.joinSession() and channelApi.leaveSession()
+  // For channel operations, use channelApi.joinPod() and channelApi.leavePod()
 };

@@ -62,7 +62,7 @@ func runRegister(args []string) {
 	token := fs.String("token", "", "Registration token from the server")
 	nodeID := fs.String("node-id", "", "Node ID for this runner (default: hostname)")
 	description := fs.String("description", "AgentMesh Runner", "Description for this runner")
-	maxSessions := fs.Int("max-sessions", 5, "Maximum concurrent sessions")
+	maxPods := fs.Int("max-pods", 5, "Maximum concurrent pods")
 
 	fs.Usage = func() {
 		fmt.Println(`Register this runner with the AgentMesh server.
@@ -112,13 +112,13 @@ After successful registration, the auth token and config will be saved to ~/.age
 
 	fmt.Printf("Registering runner '%s' with server %s...\n", nID, *serverURL)
 
-	authToken, err := client.register(ctx, *token, *description, *maxSessions)
+	authToken, err := client.register(ctx, *token, *description, *maxPods)
 	if err != nil {
 		log.Fatalf("Registration failed: %v", err)
 	}
 
 	// Save configuration to ~/.agentmesh/
-	if err := saveConfig(nID, *serverURL, authToken, *description, *maxSessions); err != nil {
+	if err := saveConfig(nID, *serverURL, authToken, *description, *maxPods); err != nil {
 		log.Fatalf("Failed to save configuration: %v", err)
 	}
 

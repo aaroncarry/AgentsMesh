@@ -45,18 +45,18 @@ func TestBindingStatus(t *testing.T) {
 	}
 }
 
-func TestSessionStatus(t *testing.T) {
+func TestPodStatus(t *testing.T) {
 	tests := []struct {
 		name   string
-		status SessionStatus
+		status PodStatus
 		want   string
 	}{
-		{"initializing", SessionStatusInitializing, "initializing"},
-		{"running", SessionStatusRunning, "running"},
-		{"disconnected", SessionStatusDisconnected, "disconnected"},
-		{"completed", SessionStatusCompleted, "completed"},
-		{"error", SessionStatusError, "error"},
-		{"orphaned", SessionStatusOrphaned, "orphaned"},
+		{"initializing", PodStatusInitializing, "initializing"},
+		{"running", PodStatusRunning, "running"},
+		{"disconnected", PodStatusDisconnected, "disconnected"},
+		{"completed", PodStatusCompleted, "completed"},
+		{"error", PodStatusError, "error"},
+		{"orphaned", PodStatusOrphaned, "orphaned"},
 	}
 
 	for _, tt := range tests {
@@ -157,8 +157,8 @@ func TestChannelMessageType(t *testing.T) {
 func TestBindingStruct(t *testing.T) {
 	b := Binding{
 		ID:               1,
-		InitiatorSession: "session-1",
-		TargetSession:    "session-2",
+		InitiatorPod: "pod-1",
+		TargetPod:    "pod-2",
 		GrantedScopes:    []BindingScope{ScopeTerminalRead},
 		PendingScopes:    []BindingScope{ScopeTerminalWrite},
 		Status:           BindingStatusActive,
@@ -169,11 +169,11 @@ func TestBindingStruct(t *testing.T) {
 	if b.ID != 1 {
 		t.Errorf("ID: got %v, want %v", b.ID, 1)
 	}
-	if b.InitiatorSession != "session-1" {
-		t.Errorf("InitiatorSession: got %v, want %v", b.InitiatorSession, "session-1")
+	if b.InitiatorPod != "pod-1" {
+		t.Errorf("InitiatorPod: got %v, want %v", b.InitiatorPod, "pod-1")
 	}
-	if b.TargetSession != "session-2" {
-		t.Errorf("TargetSession: got %v, want %v", b.TargetSession, "session-2")
+	if b.TargetPod != "pod-2" {
+		t.Errorf("TargetPod: got %v, want %v", b.TargetPod, "pod-2")
 	}
 	if len(b.GrantedScopes) != 1 || b.GrantedScopes[0] != ScopeTerminalRead {
 		t.Errorf("GrantedScopes: got %v, want [terminal:read]", b.GrantedScopes)
@@ -183,15 +183,15 @@ func TestBindingStruct(t *testing.T) {
 	}
 }
 
-func TestAvailableSessionStruct(t *testing.T) {
+func TestAvailablePodStruct(t *testing.T) {
 	ticketID := 123
 	projectID := 456
 
-	s := AvailableSession{
-		SessionKey:  "test-session",
+	s := AvailablePod{
+		PodKey:  "test-pod",
 		UserID:      1,
 		Username:    "testuser",
-		Status:      SessionStatusRunning,
+		Status:      PodStatusRunning,
 		TicketID:    &ticketID,
 		TicketTitle: "Test Ticket",
 		ProjectID:   &projectID,
@@ -200,11 +200,11 @@ func TestAvailableSessionStruct(t *testing.T) {
 		CreatedAt:   "2024-01-01T00:00:00Z",
 	}
 
-	if s.SessionKey != "test-session" {
-		t.Errorf("SessionKey: got %v, want %v", s.SessionKey, "test-session")
+	if s.PodKey != "test-pod" {
+		t.Errorf("PodKey: got %v, want %v", s.PodKey, "test-pod")
 	}
-	if s.Status != SessionStatusRunning {
-		t.Errorf("Status: got %v, want %v", s.Status, SessionStatusRunning)
+	if s.Status != PodStatusRunning {
+		t.Errorf("Status: got %v, want %v", s.Status, PodStatusRunning)
 	}
 	if s.TicketID == nil || *s.TicketID != 123 {
 		t.Errorf("TicketID: got %v, want 123", s.TicketID)
@@ -213,7 +213,7 @@ func TestAvailableSessionStruct(t *testing.T) {
 
 func TestTerminalOutputStruct(t *testing.T) {
 	output := TerminalOutput{
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Output:     "test output",
 		Screen:     "test screen",
 		CursorX:    10,
@@ -222,8 +222,8 @@ func TestTerminalOutputStruct(t *testing.T) {
 		HasMore:    true,
 	}
 
-	if output.SessionKey != "test-session" {
-		t.Errorf("SessionKey: got %v, want %v", output.SessionKey, "test-session")
+	if output.PodKey != "test-pod" {
+		t.Errorf("PodKey: got %v, want %v", output.PodKey, "test-pod")
 	}
 	if output.CursorX != 10 {
 		t.Errorf("CursorX: got %v, want %v", output.CursorX, 10)
@@ -265,11 +265,11 @@ func TestChannelMessageStruct(t *testing.T) {
 	msg := ChannelMessage{
 		ID:            1,
 		ChannelID:     100,
-		SenderSession: "test-session",
+		SenderPod: "test-pod",
 		SenderUserID:  &userID,
 		Content:       "Hello world",
 		MessageType:   ChannelMessageTypeText,
-		Mentions:      []string{"session-1", "session-2"},
+		Mentions:      []string{"pod-1", "pod-2"},
 		ReplyTo:       &replyTo,
 		CreatedAt:     "2024-01-01T00:00:00Z",
 	}
@@ -316,10 +316,10 @@ func TestTicketStruct(t *testing.T) {
 	}
 }
 
-func TestSessionCreateRequest(t *testing.T) {
+func TestPodCreateRequest(t *testing.T) {
 	ticketID := 123
 
-	req := SessionCreateRequest{
+	req := PodCreateRequest{
 		RunnerID:      1,
 		TicketID:      &ticketID,
 		InitialPrompt: "Hello",
@@ -334,15 +334,15 @@ func TestSessionCreateRequest(t *testing.T) {
 	}
 }
 
-func TestSessionCreateResponse(t *testing.T) {
-	resp := SessionCreateResponse{
-		SessionKey:  "new-session",
+func TestPodCreateResponse(t *testing.T) {
+	resp := PodCreateResponse{
+		PodKey:  "new-pod",
 		Status:      "created",
 		TerminalURL: "ws://localhost:8080/terminal",
 	}
 
-	if resp.SessionKey != "new-session" {
-		t.Errorf("SessionKey: got %v, want %v", resp.SessionKey, "new-session")
+	if resp.PodKey != "new-pod" {
+		t.Errorf("PodKey: got %v, want %v", resp.PodKey, "new-pod")
 	}
 	if resp.Status != "created" {
 		t.Errorf("Status: got %v, want %v", resp.Status, "created")

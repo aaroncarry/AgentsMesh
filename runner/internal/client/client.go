@@ -16,32 +16,32 @@ import (
 
 // MessageType constants matching backend's RunnerMessage types
 const (
-	MessageTypeHeartbeat         = "heartbeat"
-	MessageTypeSessionCreated    = "session_created"
-	MessageTypeSessionTerminated = "session_terminated"
-	MessageTypeSessionStatus     = "agent_status" // Agent status update
-	MessageTypeTerminalOutput    = "terminal_output"
-	MessageTypePtyResized        = "pty_resized"
-	MessageTypeError             = "error"
+	MessageTypeHeartbeat      = "heartbeat"
+	MessageTypePodCreated     = "pod_created"
+	MessageTypePodTerminated  = "pod_terminated"
+	MessageTypePodStatus      = "agent_status" // Agent status update
+	MessageTypeTerminalOutput = "terminal_output"
+	MessageTypePtyResized     = "pty_resized"
+	MessageTypeError          = "error"
 
 	// From server (to runner)
-	MessageTypeCreateSession    = "create_session"
-	MessageTypeTerminateSession = "terminate_session"
-	MessageTypeTerminalInput    = "terminal_input"
-	MessageTypeTerminalResize   = "terminal_resize"
-	MessageTypeSendPrompt       = "send_prompt"
+	MessageTypeCreatePod    = "create_pod"
+	MessageTypeTerminatePod = "terminate_pod"
+	MessageTypeTerminalInput  = "terminal_input"
+	MessageTypeTerminalResize = "terminal_resize"
+	MessageTypeSendPrompt     = "send_prompt"
 
 	// Legacy aliases for backward compatibility
-	MessageTypeSessionStart = "create_session"
-	MessageTypeSessionStop  = "terminate_session"
-	MessageTypeSessionList  = "session_list"
+	MessageTypePodStart = "create_pod"
+	MessageTypePodStop  = "terminate_pod"
+	MessageTypePodList  = "pod_list"
 )
 
 // Message represents a WebSocket message
 // Note: Field names and types must match backend's RunnerMessage struct
 type Message struct {
 	Type      string          `json:"type"`
-	SessionID string          `json:"session_id,omitempty"`
+	PodKey    string          `json:"pod_key,omitempty"`
 	Payload   json.RawMessage `json:"payload,omitempty"` // Legacy field for backward compatibility
 	Data      json.RawMessage `json:"data,omitempty"`    // New field matching backend
 	Timestamp int64           `json:"timestamp"`
@@ -81,16 +81,16 @@ func (c *Client) SetAuthToken(token string) {
 }
 
 // Register registers the runner with the server
-func (c *Client) Register(ctx context.Context, registrationToken, description string, maxSessions int) (string, error) {
+func (c *Client) Register(ctx context.Context, registrationToken, description string, maxPods int) (string, error) {
 	// Build registration URL
 	registerURL := fmt.Sprintf("%s/api/v1/runners/register", c.serverURL)
 
 	// Build request body
 	body := map[string]interface{}{
-		"node_id":                 c.nodeID,
-		"description":             description,
-		"registration_token":      registrationToken,
-		"max_concurrent_sessions": maxSessions,
+		"node_id":             c.nodeID,
+		"description":         description,
+		"registration_token":  registrationToken,
+		"max_concurrent_pods": maxPods,
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -214,9 +214,9 @@ func (c *Client) Send(msg *Message) error {
 }
 
 // SendHeartbeat sends a heartbeat message
-func (c *Client) SendHeartbeat(currentSessions int) error {
+func (c *Client) SendHeartbeat(currentPods int) error {
 	data, _ := json.Marshal(map[string]interface{}{
-		"current_sessions": currentSessions,
+		"current_pods": currentPods,
 	})
 
 	return c.Send(&Message{
@@ -226,24 +226,24 @@ func (c *Client) SendHeartbeat(currentSessions int) error {
 }
 
 // SendTerminalOutput sends terminal output to the server
-func (c *Client) SendTerminalOutput(sessionKey string, data []byte) error {
+func (c *Client) SendTerminalOutput(podKey string, data []byte) error {
 	msgData, _ := json.Marshal(map[string]interface{}{
-		"session_id": sessionKey, // Use session_id to match backend
-		"data":       data,
+		"pod_key": podKey, // Use pod_key to match backend
+		"data":    data,
 	})
 
 	return c.Send(&Message{
-		Type:      MessageTypeTerminalOutput,
-		SessionID: sessionKey,
-		Data:      msgData,
+		Type:   MessageTypeTerminalOutput,
+		PodKey: podKey,
+		Data:   msgData,
 	})
 }
 
-// SendSessionStatus sends session status to the server
-func (c *Client) SendSessionStatus(sessionKey, status string, details map[string]interface{}) error {
+// SendPodStatus sends pod status to the server
+func (c *Client) SendPodStatus(podKey, status string, details map[string]interface{}) error {
 	dataMap := map[string]interface{}{
-		"session_id": sessionKey, // Use session_id to match backend
-		"status":     status,
+		"pod_key": podKey, // Use pod_key to match backend
+		"status":  status,
 	}
 
 	for k, v := range details {
@@ -253,9 +253,9 @@ func (c *Client) SendSessionStatus(sessionKey, status string, details map[string
 	data, _ := json.Marshal(dataMap)
 
 	return c.Send(&Message{
-		Type:      MessageTypeSessionStatus,
-		SessionID: sessionKey,
-		Data:      data,
+		Type:   MessageTypePodStatus,
+		PodKey: podKey,
+		Data:   data,
 	})
 }
 

@@ -20,7 +20,7 @@ interface RunnerState {
   fetchRunners: (status?: RunnerStatus) => Promise<void>;
   fetchAvailableRunners: () => Promise<void>;
   fetchRunner: (id: number) => Promise<void>;
-  updateRunner: (id: number, data: { description?: string; max_concurrent_sessions?: number; is_enabled?: boolean }) => Promise<Runner>;
+  updateRunner: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean }) => Promise<Runner>;
   deleteRunner: (id: number) => Promise<void>;
   regenerateAuthToken: (id: number) => Promise<string>;
   // Token management
@@ -221,11 +221,11 @@ export const getRunnerStatusInfo = (status: RunnerStatus) => {
   return statusMap[status];
 };
 
-// Helper function to check if runner can accept new sessions
-export const canAcceptSessions = (runner: Runner): boolean => {
+// Helper function to check if runner can accept new pods
+export const canAcceptPods = (runner: Runner): boolean => {
   return (
     runner.status === "online" &&
-    runner.current_sessions < runner.max_concurrent_sessions
+    runner.current_pods < runner.max_concurrent_pods
   );
 };
 

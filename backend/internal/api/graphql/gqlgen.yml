@@ -23,7 +23,7 @@ autobind:
   - github.com/anthropics/agentmesh/backend/internal/domain/organization
   - github.com/anthropics/agentmesh/backend/internal/domain/user
   - github.com/anthropics/agentmesh/backend/internal/domain/runner
-  - github.com/anthropics/agentmesh/backend/internal/domain/session
+  - github.com/anthropics/agentmesh/backend/internal/domain/agentpod
   - github.com/anthropics/agentmesh/backend/internal/domain/channel
   - github.com/anthropics/agentmesh/backend/internal/domain/ticket
   - github.com/anthropics/agentmesh/backend/internal/domain/agent

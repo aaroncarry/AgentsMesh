@@ -88,7 +88,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
 			ticket_id INTEGER NOT NULL,
-			session_id INTEGER,
+			pod_id INTEGER,
 			mri_id INTEGER NOT NULL,
 			mr_url TEXT NOT NULL UNIQUE,
 			source_branch TEXT NOT NULL,

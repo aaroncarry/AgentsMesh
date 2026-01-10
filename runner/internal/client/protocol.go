@@ -10,40 +10,40 @@ type MessageType string
 
 const (
 	// Client -> Server
-	MsgTypeHeartbeat         MessageType = "heartbeat"
-	MsgTypeSessionCreated    MessageType = "session_created"
-	MsgTypeSessionTerminated MessageType = "session_terminated"
-	MsgTypeStatusChange      MessageType = "status_change"
-	MsgTypeSessionList       MessageType = "session_list"
-	MsgTypeTerminalOutput    MessageType = "terminal_output" // PTY output from runner
-	MsgTypePtyResized        MessageType = "pty_resized"     // PTY size changed
+	MsgTypeHeartbeat      MessageType = "heartbeat"
+	MsgTypePodCreated     MessageType = "pod_created"
+	MsgTypePodTerminated  MessageType = "pod_terminated"
+	MsgTypeStatusChange   MessageType = "status_change"
+	MsgTypePodList        MessageType = "pod_list"
+	MsgTypeTerminalOutput MessageType = "terminal_output" // PTY output from runner
+	MsgTypePtyResized     MessageType = "pty_resized"     // PTY size changed
 
 	// Server -> Client
-	MsgTypeCreateSession    MessageType = "create_session"
-	MsgTypeTerminateSession MessageType = "terminate_session"
-	MsgTypeListSessions     MessageType = "list_sessions"
-	MsgTypeTerminalInput    MessageType = "terminal_input"  // User input to PTY
-	MsgTypeTerminalResize   MessageType = "terminal_resize" // Terminal resize
+	MsgTypeCreatePod     MessageType = "create_pod"
+	MsgTypeTerminatePod  MessageType = "terminate_pod"
+	MsgTypeListPods      MessageType = "list_pods"
+	MsgTypeTerminalInput MessageType = "terminal_input"  // User input to PTY
+	MsgTypeTerminalResize MessageType = "terminal_resize" // Terminal resize
 )
 
 // ProtocolMessage is the base message structure for the new protocol.
 // Matches backend's RunnerMessage struct for compatibility.
 type ProtocolMessage struct {
 	Type      MessageType     `json:"type"`
-	SessionID string          `json:"session_id,omitempty"`
-	Timestamp int64           `json:"timestamp"`           // Unix milliseconds to match backend
+	PodKey    string          `json:"pod_key,omitempty"`
+	Timestamp int64           `json:"timestamp"`         // Unix milliseconds to match backend
 	Data      json.RawMessage `json:"data,omitempty"`
 }
 
 // HeartbeatData contains heartbeat information.
 type HeartbeatData struct {
-	NodeID   string        `json:"node_id"`
-	Sessions []SessionInfo `json:"sessions"`
+	NodeID string    `json:"node_id"`
+	Pods   []PodInfo `json:"pods"`
 }
 
-// SessionInfo contains session information for protocol messages.
-type SessionInfo struct {
-	SessionID    string `json:"session_id"`
+// PodInfo contains pod information for protocol messages.
+type PodInfo struct {
+	PodKey       string `json:"pod_key"`
 	Status       string `json:"status"`
 	ClaudeStatus string `json:"claude_status"`
 	Pid          int    `json:"pid"`
@@ -56,9 +56,9 @@ type PreparationConfig struct {
 	TimeoutSeconds int    `json:"timeout_seconds,omitempty"` // Script execution timeout (default: 300)
 }
 
-// CreateSessionRequest contains session creation request data.
-type CreateSessionRequest struct {
-	SessionID         string             `json:"session_id"`
+// CreatePodRequest contains pod creation request data.
+type CreatePodRequest struct {
+	PodKey            string             `json:"pod_key"`
 	InitialCommand    string             `json:"initial_command,omitempty"`
 	InitialPrompt     string             `json:"initial_prompt,omitempty"`     // Prompt to send after command starts (for interactive mode)
 	PermissionMode    string             `json:"permission_mode,omitempty"`    // Permission mode (plan/default/etc). If "plan", will send Shift+Tab to enter Plan Mode
@@ -73,14 +73,14 @@ type CreateSessionRequest struct {
 	PluginConfig map[string]interface{} `json:"plugin_config,omitempty"`
 }
 
-// TerminateSessionRequest contains session termination request data.
-type TerminateSessionRequest struct {
-	SessionID string `json:"session_id"`
+// TerminatePodRequest contains pod termination request data.
+type TerminatePodRequest struct {
+	PodKey string `json:"pod_key"`
 }
 
-// SessionCreatedEvent is sent when a session is created.
-type SessionCreatedEvent struct {
-	SessionID    string `json:"session_id"`
+// PodCreatedEvent is sent when a pod is created.
+type PodCreatedEvent struct {
+	PodKey       string `json:"pod_key"`
 	Pid          int    `json:"pid"`
 	WorktreePath string `json:"worktree_path,omitempty"` // Worktree path if created
 	BranchName   string `json:"branch_name,omitempty"`   // Branch name if worktree created
@@ -88,49 +88,49 @@ type SessionCreatedEvent struct {
 	PtyRows      uint16 `json:"pty_rows"`                // PTY height in rows
 }
 
-// SessionTerminatedEvent is sent when a session is terminated.
-type SessionTerminatedEvent struct {
-	SessionID string `json:"session_id"`
+// PodTerminatedEvent is sent when a pod is terminated.
+type PodTerminatedEvent struct {
+	PodKey string `json:"pod_key"`
 }
 
 // StatusChangeEvent is sent when claude status changes.
 type StatusChangeEvent struct {
-	SessionID    string `json:"session_id"`
+	PodKey       string `json:"pod_key"`
 	ClaudeStatus string `json:"claude_status"`
 	ClaudePid    int    `json:"claude_pid,omitempty"`
 }
 
 // TerminalOutputEvent is sent when there's PTY output.
 type TerminalOutputEvent struct {
-	SessionID string `json:"session_id"`
-	Data      string `json:"data"` // Base64 encoded binary data
+	PodKey string `json:"pod_key"`
+	Data   string `json:"data"` // Base64 encoded binary data
 }
 
 // TerminalInputRequest is sent to write to PTY.
 type TerminalInputRequest struct {
-	SessionID string `json:"session_id"`
-	Data      string `json:"data"` // Base64 encoded binary data
+	PodKey string `json:"pod_key"`
+	Data   string `json:"data"` // Base64 encoded binary data
 }
 
 // TerminalResizeRequest is sent to resize PTY.
 type TerminalResizeRequest struct {
-	SessionID string `json:"session_id"`
-	Cols      uint16 `json:"cols"`
-	Rows      uint16 `json:"rows"`
+	PodKey string `json:"pod_key"`
+	Cols   uint16 `json:"cols"`
+	Rows   uint16 `json:"rows"`
 }
 
 // PtyResizedEvent is sent when PTY size changes.
 type PtyResizedEvent struct {
-	SessionID string `json:"session_id"`
-	Cols      uint16 `json:"cols"`
-	Rows      uint16 `json:"rows"`
+	PodKey string `json:"pod_key"`
+	Cols   uint16 `json:"cols"`
+	Rows   uint16 `json:"rows"`
 }
 
 // MessageHandler handles incoming messages from server.
 type MessageHandler interface {
-	OnCreateSession(req CreateSessionRequest) error
-	OnTerminateSession(req TerminateSessionRequest) error
-	OnListSessions() []SessionInfo
+	OnCreatePod(req CreatePodRequest) error
+	OnTerminatePod(req TerminatePodRequest) error
+	OnListPods() []PodInfo
 	OnTerminalInput(req TerminalInputRequest) error
 	OnTerminalResize(req TerminalResizeRequest) error
 }

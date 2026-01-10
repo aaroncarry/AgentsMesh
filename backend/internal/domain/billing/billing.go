@@ -45,7 +45,7 @@ type SubscriptionPlan struct {
 	DisplayName string `gorm:"size:100;not null" json:"display_name"`
 
 	PricePerSeatMonthly   float64 `gorm:"type:decimal(10,2);not null;default:0" json:"price_per_seat_monthly"`
-	IncludedSessionMinutes int     `gorm:"not null;default:0" json:"included_session_minutes"`
+	IncludedPodMinutes int     `gorm:"not null;default:0" json:"included_pod_minutes"`
 	PricePerExtraMinute   float64 `gorm:"type:decimal(10,4);not null;default:0" json:"price_per_extra_minute"`
 
 	MaxUsers        int `gorm:"not null" json:"max_users"`
@@ -131,7 +131,7 @@ func (Subscription) TableName() string {
 
 // Usage type constants
 const (
-	UsageTypeSessionMinutes = "session_minutes"
+	UsageTypePodMinutes = "pod_minutes"
 	UsageTypeStorageGB      = "storage_gb"
 	UsageTypeAPIRequests    = "api_requests"
 )

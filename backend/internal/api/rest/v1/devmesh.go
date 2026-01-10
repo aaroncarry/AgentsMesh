@@ -43,8 +43,8 @@ func (h *DevMeshHandler) GetTopology(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"topology": topology})
 }
 
-// CreateSessionForTicketRequest represents the request to create a session for a ticket
-type CreateSessionForTicketRequest struct {
+// CreatePodForTicketRequest represents the request to create a pod for a ticket
+type CreatePodForTicketRequest struct {
 	RunnerID       int64  `json:"runner_id" binding:"required"`
 	InitialPrompt  string `json:"initial_prompt"`
 	Model          string `json:"model"`
@@ -52,13 +52,13 @@ type CreateSessionForTicketRequest struct {
 	ThinkLevel     string `json:"think_level"`
 }
 
-// CreateSessionForTicket creates a new session for a ticket
-// POST /api/v1/organizations/:slug/tickets/:identifier/sessions
-func (h *DevMeshHandler) CreateSessionForTicket(c *gin.Context) {
+// CreatePodForTicket creates a new pod for a ticket
+// POST /api/v1/organizations/:slug/tickets/:identifier/pods
+func (h *DevMeshHandler) CreatePodForTicket(c *gin.Context) {
 	identifier := c.Param("identifier")
 	tenant := middleware.GetTenant(c)
 
-	var req CreateSessionForTicketRequest
+	var req CreatePodForTicketRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -71,8 +71,8 @@ func (h *DevMeshHandler) CreateSessionForTicket(c *gin.Context) {
 		return
 	}
 
-	// Create session
-	session, err := h.devmeshService.CreateSessionForTicket(c.Request.Context(), &devmesh.CreateSessionForTicketRequest{
+	// Create pod
+	pod, err := h.devmeshService.CreatePodForTicket(c.Request.Context(), &devmesh.CreatePodForTicketRequest{
 		OrganizationID: tenant.OrganizationID,
 		TicketID:       t.ID,
 		RunnerID:       req.RunnerID,
@@ -83,19 +83,19 @@ func (h *DevMeshHandler) CreateSessionForTicket(c *gin.Context) {
 		ThinkLevel:     req.ThinkLevel,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create pod: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Session created successfully",
-		"session": session,
+		"message": "Pod created successfully",
+		"pod":     pod,
 	})
 }
 
-// GetTicketSessions returns sessions for a ticket
-// GET /api/v1/organizations/:slug/tickets/:identifier/sessions
-func (h *DevMeshHandler) GetTicketSessions(c *gin.Context) {
+// GetTicketPods returns pods for a ticket
+// GET /api/v1/organizations/:slug/tickets/:identifier/pods
+func (h *DevMeshHandler) GetTicketPods(c *gin.Context) {
 	identifier := c.Param("identifier")
 
 	// Get the ticket
@@ -105,32 +105,32 @@ func (h *DevMeshHandler) GetTicketSessions(c *gin.Context) {
 		return
 	}
 
-	// Get sessions
+	// Get pods
 	activeOnly := c.Query("active") == "true"
-	var sessions []devmesh.DevMeshNode
+	var pods []devmesh.DevMeshNode
 	if activeOnly {
-		sessions, err = h.devmeshService.GetActiveSessionsForTicket(c.Request.Context(), t.ID)
+		pods, err = h.devmeshService.GetActivePodsForTicket(c.Request.Context(), t.ID)
 	} else {
-		sessions, err = h.devmeshService.GetSessionsForTicket(c.Request.Context(), t.ID)
+		pods, err = h.devmeshService.GetPodsForTicket(c.Request.Context(), t.ID)
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get sessions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get pods"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"sessions": sessions})
+	c.JSON(http.StatusOK, gin.H{"pods": pods})
 }
 
-// BatchGetTicketSessionsRequest represents the batch request
-type BatchGetTicketSessionsRequest struct {
+// BatchGetTicketPodsRequest represents the batch request
+type BatchGetTicketPodsRequest struct {
 	TicketIDs []int64 `json:"ticket_ids" binding:"required"`
 }
 
-// BatchGetTicketSessions returns sessions for multiple tickets
-// POST /api/v1/organizations/:slug/tickets/batch-sessions
-func (h *DevMeshHandler) BatchGetTicketSessions(c *gin.Context) {
-	var req BatchGetTicketSessionsRequest
+// BatchGetTicketPods returns pods for multiple tickets
+// POST /api/v1/organizations/:slug/tickets/batch-pods
+func (h *DevMeshHandler) BatchGetTicketPods(c *gin.Context) {
+	var req BatchGetTicketPodsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -146,9 +146,9 @@ func (h *DevMeshHandler) BatchGetTicketSessions(c *gin.Context) {
 		return
 	}
 
-	result, err := h.devmeshService.BatchGetTicketSessions(c.Request.Context(), req.TicketIDs)
+	result, err := h.devmeshService.BatchGetTicketPods(c.Request.Context(), req.TicketIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get sessions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get pods"})
 		return
 	}
 
@@ -157,11 +157,11 @@ func (h *DevMeshHandler) BatchGetTicketSessions(c *gin.Context) {
 
 // JoinChannelRequest represents the request to join a channel
 type JoinChannelRequest struct {
-	SessionKey string `json:"session_key" binding:"required"`
+	PodKey string `json:"pod_key" binding:"required"`
 }
 
-// JoinChannel adds a session to a channel
-// POST /api/v1/organizations/:slug/channels/:id/sessions
+// JoinChannel adds a pod to a channel
+// POST /api/v1/organizations/:slug/channels/:id/pods
 func (h *DevMeshHandler) JoinChannel(c *gin.Context) {
 	channelIDStr := c.Param("id")
 	channelID, err := strconv.ParseInt(channelIDStr, 10, 64)
@@ -176,16 +176,16 @@ func (h *DevMeshHandler) JoinChannel(c *gin.Context) {
 		return
 	}
 
-	if err := h.devmeshService.JoinChannel(c.Request.Context(), channelID, req.SessionKey); err != nil {
+	if err := h.devmeshService.JoinChannel(c.Request.Context(), channelID, req.PodKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join channel"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Session joined channel successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Pod joined channel successfully"})
 }
 
-// LeaveChannel removes a session from a channel
-// DELETE /api/v1/organizations/:slug/channels/:id/sessions/:session_key
+// LeaveChannel removes a pod from a channel
+// DELETE /api/v1/organizations/:slug/channels/:id/pods/:pod_key
 func (h *DevMeshHandler) LeaveChannel(c *gin.Context) {
 	channelIDStr := c.Param("id")
 	channelID, err := strconv.ParseInt(channelIDStr, 10, 64)
@@ -194,12 +194,12 @@ func (h *DevMeshHandler) LeaveChannel(c *gin.Context) {
 		return
 	}
 
-	sessionKey := c.Param("session_key")
+	podKey := c.Param("pod_key")
 
-	if err := h.devmeshService.LeaveChannel(c.Request.Context(), channelID, sessionKey); err != nil {
+	if err := h.devmeshService.LeaveChannel(c.Request.Context(), channelID, podKey); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to leave channel"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Session left channel successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Pod left channel successfully"})
 }

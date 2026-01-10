@@ -5,18 +5,17 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/infra/email"
 	"github.com/anthropics/agentmesh/backend/internal/infra/websocket"
 	"github.com/anthropics/agentmesh/backend/internal/service/agent"
+	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/auth"
 	"github.com/anthropics/agentmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentmesh/backend/internal/service/binding"
 	"github.com/anthropics/agentmesh/backend/internal/service/channel"
 	"github.com/anthropics/agentmesh/backend/internal/service/devmesh"
-	"github.com/anthropics/agentmesh/backend/internal/service/devpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/session"
 	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
@@ -28,29 +27,29 @@ type MessageService = agent.MessageService
 
 // Services holds all service dependencies for API handlers
 type Services struct {
-	Auth               *auth.Service
-	User               *user.Service
-	Org                *organization.Service
-	Agent              *agent.Service
-	GitProvider        *gitprovider.Service
-	Repository         *repository.Service
-	Runner             *runner.Service
-	RunnerConnMgr      *runner.ConnectionManager   // Runner WebSocket connection manager
-	SessionCoordinator *runner.SessionCoordinator  // Session lifecycle coordinator
-	TerminalRouter     *runner.TerminalRouter      // Terminal data router
-	Session            *session.Service
-	Channel            *channel.Service
-	Binding            *binding.Service
-	Ticket             *ticket.Service
-	DevMesh            *devmesh.Service
-	DevPodSettings     *devpod.SettingsService    // DevPod user settings
-	DevPodAIProvider   *devpod.AIProviderService  // DevPod AI provider management
-	Billing            *billing.Service
-	Message            *MessageService      // Agent-to-agent messaging
-	Hub                *websocket.Hub       // WebSocket hub for real-time communication
-	SSHKey             *sshkey.Service      // SSH key management
-	Email              email.Service        // Email service
-	Invitation         *invitation.Service  // Organization invitations
+	Auth              *auth.Service
+	User              *user.Service
+	Org               *organization.Service
+	Agent             *agent.Service
+	GitProvider       *gitprovider.Service
+	Repository        *repository.Service
+	Runner            *runner.Service
+	RunnerConnMgr     *runner.ConnectionManager // Runner WebSocket connection manager
+	PodCoordinator    *runner.PodCoordinator    // Pod lifecycle coordinator
+	TerminalRouter    *runner.TerminalRouter    // Terminal data router
+	Pod               *agentpod.PodService
+	Channel           *channel.Service
+	Binding           *binding.Service
+	Ticket            *ticket.Service
+	DevMesh           *devmesh.Service
+	AgentPodSettings  *agentpod.SettingsService   // AgentPod user settings
+	AgentPodAIProvider *agentpod.AIProviderService // AgentPod AI provider management
+	Billing           *billing.Service
+	Message           *MessageService    // Agent-to-agent messaging
+	Hub               *websocket.Hub     // WebSocket hub for real-time communication
+	SSHKey            *sshkey.Service    // SSH key management
+	Email             email.Service      // Email service
+	Invitation        *invitation.Service // Organization invitations
 }
 
 // RegisterAllRoutes registers all API v1 routes with proper handlers
@@ -59,7 +58,7 @@ func RegisterAllRoutes(rg *gin.RouterGroup, cfg *config.Config, svc *Services) {
 	RegisterAuthRoutes(rg.Group("/auth"), cfg, svc.Auth, svc.User, svc.Email)
 
 	// User routes (authenticated, but not org-scoped)
-	RegisterUserRoutes(rg.Group("/users"), svc.User, svc.Org, svc.Agent, svc.DevPodSettings, svc.DevPodAIProvider)
+	RegisterUserRoutes(rg.Group("/users"), svc.User, svc.Org, svc.Agent, svc.AgentPodSettings, svc.AgentPodAIProvider)
 
 	// Organization routes (authenticated, some require org context)
 	RegisterOrganizationRoutes(rg.Group("/organizations"), svc.Org)
@@ -136,36 +135,36 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		runners.POST("/:id/regenerate-token", runnerHandler.RegenerateAuthToken)
 	}
 
-	// Sessions
-	sessionHandler := NewSessionHandler(svc.Session, svc.Runner, svc.Agent)
-	// Inject dependencies for session handling
-	if svc.SessionCoordinator != nil {
-		sessionHandler.SetSessionCoordinator(svc.SessionCoordinator)
+	// Pods
+	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.Agent)
+	// Inject dependencies for pod handling
+	if svc.PodCoordinator != nil {
+		podHandler.SetPodCoordinator(svc.PodCoordinator)
 	}
 	if svc.TerminalRouter != nil {
-		sessionHandler.SetTerminalRouter(svc.TerminalRouter)
+		podHandler.SetTerminalRouter(svc.TerminalRouter)
 	}
 	if svc.Repository != nil {
-		sessionHandler.SetRepositoryService(svc.Repository)
+		podHandler.SetRepositoryService(svc.Repository)
 	}
 	if svc.Ticket != nil {
-		sessionHandler.SetTicketService(svc.Ticket)
+		podHandler.SetTicketService(svc.Ticket)
 	}
 	if svc.User != nil {
-		sessionHandler.SetUserService(svc.User)
+		podHandler.SetUserService(svc.User)
 	}
-	sessions := rg.Group("/sessions")
+	pods := rg.Group("/pods")
 	{
-		sessions.GET("", sessionHandler.ListSessions)
-		sessions.POST("", sessionHandler.CreateSession)
-		sessions.GET("/:key", sessionHandler.GetSession)
-		sessions.POST("/:key/terminate", sessionHandler.TerminateSession)
-		sessions.GET("/:key/connect", sessionHandler.GetConnectionInfo)
-		sessions.POST("/:key/send-prompt", sessionHandler.SendPrompt)
+		pods.GET("", podHandler.ListPods)
+		pods.POST("", podHandler.CreatePod)
+		pods.GET("/:key", podHandler.GetPod)
+		pods.POST("/:key/terminate", podHandler.TerminatePod)
+		pods.GET("/:key/connect", podHandler.GetConnectionInfo)
+		pods.POST("/:key/send-prompt", podHandler.SendPrompt)
 		// Terminal control endpoints
-		sessions.GET("/:key/terminal/observe", sessionHandler.ObserveTerminal)
-		sessions.POST("/:key/terminal/input", sessionHandler.SendTerminalInput)
-		sessions.POST("/:key/terminal/resize", sessionHandler.ResizeTerminal)
+		pods.GET("/:key/terminal/observe", podHandler.ObserveTerminal)
+		pods.POST("/:key/terminal/input", podHandler.SendTerminalInput)
+		pods.POST("/:key/terminal/resize", podHandler.ResizeTerminal)
 	}
 
 	// Channels
@@ -180,9 +179,9 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		channels.POST("/:id/unarchive", channelHandler.UnarchiveChannel)
 		channels.GET("/:id/messages", channelHandler.ListMessages)
 		channels.POST("/:id/messages", channelHandler.SendMessage)
-		channels.GET("/:id/sessions", channelHandler.ListChannelSessions)
-		channels.POST("/:id/sessions", channelHandler.JoinSession)
-		channels.DELETE("/:id/sessions/:session_key", channelHandler.LeaveSession)
+		channels.GET("/:id/pods", channelHandler.ListChannelPods)
+		channels.POST("/:id/pods", channelHandler.JoinPod)
+		channels.DELETE("/:id/pods/:pod_key", channelHandler.LeavePod)
 	}
 
 	// Tickets
@@ -194,7 +193,7 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		tickets.POST("", ticketHandler.CreateTicket)
 		tickets.GET("/active", ticketHandler.GetActiveTickets)         // New: active tickets
 		tickets.GET("/board", ticketHandler.GetBoard)                  // New: kanban board
-		tickets.POST("/batch-sessions", devmeshHandler.BatchGetTicketSessions) // New: batch sessions
+		tickets.POST("/batch-pods", devmeshHandler.BatchGetTicketPods) // Batch get pods for tickets
 		tickets.GET("/:identifier", ticketHandler.GetTicket)
 		tickets.PUT("/:identifier", ticketHandler.UpdateTicket)
 		tickets.DELETE("/:identifier", ticketHandler.DeleteTicket)
@@ -211,8 +210,8 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		tickets.GET("/:identifier/commits", ticketHandler.ListCommits)         // New: commits
 		tickets.POST("/:identifier/commits", ticketHandler.LinkCommit)         // New: link commit
 		tickets.DELETE("/:identifier/commits/:commit_id", ticketHandler.UnlinkCommit) // New: unlink commit
-		tickets.GET("/:identifier/sessions", devmeshHandler.GetTicketSessions) // New: ticket sessions
-		tickets.POST("/:identifier/sessions", devmeshHandler.CreateSessionForTicket) // New: create session for ticket
+		tickets.GET("/:identifier/pods", devmeshHandler.GetTicketPods) // Get pods for ticket
+		tickets.POST("/:identifier/pods", devmeshHandler.CreatePodForTicket) // Create pod for ticket
 	}
 
 	// Labels (organization-level)
@@ -233,7 +232,7 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		devmesh.GET("/topology", devmeshHandler.GetTopology)
 	}
 
-	// Bindings (session collaboration)
+	// Bindings (pod collaboration)
 	bindingHandler := NewBindingHandler(svc.Binding)
 	bindings := rg.Group("/bindings")
 	{
@@ -243,8 +242,8 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		bindings.POST("/reject", bindingHandler.RejectBinding)
 		bindings.POST("/unbind", bindingHandler.Unbind)
 		bindings.GET("/pending", bindingHandler.GetPendingBindings)
-		bindings.GET("/sessions", bindingHandler.GetBoundSessions)
-		bindings.GET("/check/:target_session", bindingHandler.CheckBinding)
+		bindings.GET("/pods", bindingHandler.GetBoundPods)
+		bindings.GET("/check/:target_pod", bindingHandler.CheckBinding)
 		bindings.POST("/:id/scopes", bindingHandler.RequestScopes)
 		bindings.POST("/:id/scopes/approve", bindingHandler.ApproveScopes)
 	}
@@ -276,7 +275,7 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 
 
 // RegisterUserRoutes registers user routes
-func RegisterUserRoutes(rg *gin.RouterGroup, userSvc *user.Service, orgSvc *organization.Service, agentSvc *agent.Service, devpodSettingsSvc *devpod.SettingsService, devpodAIProviderSvc *devpod.AIProviderService) {
+func RegisterUserRoutes(rg *gin.RouterGroup, userSvc *user.Service, orgSvc *organization.Service, agentSvc *agent.Service, agentpodSettingsSvc *agentpod.SettingsService, agentpodAIProviderSvc *agentpod.AIProviderService) {
 	userHandler := NewUserHandler(userSvc, orgSvc)
 	agentHandler := NewAgentHandler(agentSvc)
 
@@ -293,23 +292,23 @@ func RegisterUserRoutes(rg *gin.RouterGroup, userSvc *user.Service, orgSvc *orga
 	rg.PUT("/me/agents/credentials/:agent_type_id", agentHandler.SetUserCredentials)
 	rg.DELETE("/me/agents/credentials/:agent_type_id", agentHandler.DeleteUserCredentials)
 
-	// DevPod settings routes
-	if devpodSettingsSvc != nil && devpodAIProviderSvc != nil {
-		devpodHandler := NewDevPodHandler(devpodSettingsSvc, devpodAIProviderSvc)
-		devpodGroup := rg.Group("/me/devpod")
+	// AgentPod settings routes
+	if agentpodSettingsSvc != nil && agentpodAIProviderSvc != nil {
+		agentpodHandler := NewAgentPodHandler(agentpodSettingsSvc, agentpodAIProviderSvc)
+		agentpodGroup := rg.Group("/me/agentpod")
 		{
 			// Settings
-			devpodGroup.GET("/settings", devpodHandler.GetSettings)
-			devpodGroup.PUT("/settings", devpodHandler.UpdateSettings)
+			agentpodGroup.GET("/settings", agentpodHandler.GetSettings)
+			agentpodGroup.PUT("/settings", agentpodHandler.UpdateSettings)
 
 			// AI Providers
-			providers := devpodGroup.Group("/providers")
+			providers := agentpodGroup.Group("/providers")
 			{
-				providers.GET("", devpodHandler.ListProviders)
-				providers.POST("", devpodHandler.CreateProvider)
-				providers.PUT("/:id", devpodHandler.UpdateProvider)
-				providers.DELETE("/:id", devpodHandler.DeleteProvider)
-				providers.POST("/:id/default", devpodHandler.SetDefaultProvider)
+				providers.GET("", agentpodHandler.ListProviders)
+				providers.POST("", agentpodHandler.CreateProvider)
+				providers.PUT("/:id", agentpodHandler.UpdateProvider)
+				providers.DELETE("/:id", agentpodHandler.DeleteProvider)
+				providers.POST("/:id/default", agentpodHandler.SetDefaultProvider)
 			}
 		}
 	}

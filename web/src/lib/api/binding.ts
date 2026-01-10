@@ -1,11 +1,11 @@
 import { request } from "./base";
 
 // Binding types
-export interface SessionBinding {
+export interface PodBinding {
   id: number;
   organization_id: number;
-  initiator_session: string;
-  target_session: string;
+  initiator_pod: string;
+  target_pod: string;
   granted_scopes: string[];
   pending_scopes: string[];
   status: "pending" | "active" | "rejected" | "inactive" | "expired";
@@ -20,76 +20,76 @@ export interface SessionBinding {
 // Binding API
 export const bindingApi = {
   // Request a new binding
-  requestBinding: (targetSession: string, scopes: string[], policy?: string, sessionKey?: string) =>
-    request<{ binding: SessionBinding }>("/api/v1/org/bindings", {
+  requestBinding: (targetPod: string, scopes: string[], policy?: string, podKey?: string) =>
+    request<{ binding: PodBinding }>("/api/v1/org/bindings", {
       method: "POST",
-      body: { target_session: targetSession, scopes, policy },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      body: { target_pod: targetPod, scopes, policy },
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Accept a pending binding
-  acceptBinding: (bindingId: number, sessionKey?: string) =>
-    request<{ binding: SessionBinding }>("/api/v1/org/bindings/accept", {
+  acceptBinding: (bindingId: number, podKey?: string) =>
+    request<{ binding: PodBinding }>("/api/v1/org/bindings/accept", {
       method: "POST",
       body: { binding_id: bindingId },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Reject a pending binding
-  rejectBinding: (bindingId: number, reason?: string, sessionKey?: string) =>
-    request<{ binding: SessionBinding }>("/api/v1/org/bindings/reject", {
+  rejectBinding: (bindingId: number, reason?: string, podKey?: string) =>
+    request<{ binding: PodBinding }>("/api/v1/org/bindings/reject", {
       method: "POST",
       body: { binding_id: bindingId, reason },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Request additional scopes
-  requestScopes: (bindingId: number, scopes: string[], sessionKey?: string) =>
-    request<{ binding: SessionBinding }>(`/api/v1/org/bindings/${bindingId}/scopes`, {
+  requestScopes: (bindingId: number, scopes: string[], podKey?: string) =>
+    request<{ binding: PodBinding }>(`/api/v1/org/bindings/${bindingId}/scopes`, {
       method: "POST",
       body: { scopes },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Approve pending scopes
-  approveScopes: (bindingId: number, scopes: string[], sessionKey?: string) =>
-    request<{ binding: SessionBinding }>(`/api/v1/org/bindings/${bindingId}/scopes/approve`, {
+  approveScopes: (bindingId: number, scopes: string[], podKey?: string) =>
+    request<{ binding: PodBinding }>(`/api/v1/org/bindings/${bindingId}/scopes/approve`, {
       method: "POST",
       body: { scopes },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
-  // Unbind from a session
-  unbind: (targetSession: string, sessionKey?: string) =>
+  // Unbind from a pod
+  unbind: (targetPod: string, podKey?: string) =>
     request<void>("/api/v1/org/bindings/unbind", {
       method: "POST",
-      body: { target_session: targetSession },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      body: { target_pod: targetPod },
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // List all bindings
-  listBindings: (status?: string, sessionKey?: string) => {
+  listBindings: (status?: string, podKey?: string) => {
     const params = status ? `?status=${status}` : "";
-    return request<{ bindings: SessionBinding[]; total: number }>(`/api/v1/org/bindings${params}`, {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+    return request<{ bindings: PodBinding[]; total: number }>(`/api/v1/org/bindings${params}`, {
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     });
   },
 
   // Get pending binding requests
-  getPendingBindings: (sessionKey?: string) =>
-    request<{ pending: SessionBinding[]; count: number }>("/api/v1/org/bindings/pending", {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+  getPendingBindings: (podKey?: string) =>
+    request<{ pending: PodBinding[]; count: number }>("/api/v1/org/bindings/pending", {
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
-  // Get bound sessions
-  getBoundSessions: (sessionKey?: string) =>
-    request<{ sessions: string[]; count: number }>("/api/v1/org/bindings/sessions", {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+  // Get bound pods
+  getBoundPods: (podKey?: string) =>
+    request<{ pods: string[]; count: number }>("/api/v1/org/bindings/pods", {
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
-  // Check binding status with a specific session
-  checkBinding: (targetSession: string, sessionKey?: string) =>
-    request<{ is_bound: boolean; binding?: SessionBinding }>(`/api/v1/org/bindings/check/${targetSession}`, {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+  // Check binding status with a specific pod
+  checkBinding: (targetPod: string, podKey?: string) =>
+    request<{ is_bound: boolean; binding?: PodBinding }>(`/api/v1/org/bindings/check/${targetPod}`, {
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 };

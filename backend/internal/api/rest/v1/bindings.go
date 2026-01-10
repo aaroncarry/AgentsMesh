@@ -23,9 +23,9 @@ func NewBindingHandler(bindingSvc *binding.Service) *BindingHandler {
 
 // BindingRequest represents a request to create a binding
 type BindingRequest struct {
-	TargetSession string   `json:"target_session" binding:"required"`
-	Scopes        []string `json:"scopes" binding:"required"`
-	Policy        string   `json:"policy,omitempty"`
+	TargetPod string   `json:"target_pod" binding:"required"`
+	Scopes    []string `json:"scopes" binding:"required"`
+	Policy    string   `json:"policy,omitempty"`
 }
 
 // AcceptRequest represents a request to accept a binding
@@ -46,28 +46,28 @@ type ScopeRequest struct {
 
 // UnbindRequest represents a request to unbind
 type UnbindRequest struct {
-	TargetSession string `json:"target_session" binding:"required"`
+	TargetPod string `json:"target_pod" binding:"required"`
 }
 
-// getSessionKeyFromHeader extracts session key from X-Session-Key header
-func getSessionKeyFromHeader(c *gin.Context) string {
-	return c.GetHeader("X-Session-Key")
+// getPodKeyFromHeader extracts pod key from X-Pod-Key header
+func getPodKeyFromHeader(c *gin.Context) string {
+	return c.GetHeader("X-Pod-Key")
 }
 
 // RequestBinding handles POST /bindings
-// @Summary Request binding to another session
+// @Summary Request binding to another pod
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body BindingRequest true "Binding request"
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /bindings [post]
 func (h *BindingHandler) RequestBinding(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (h *BindingHandler) RequestBinding(c *gin.Context) {
 		return
 	}
 
-	// Get org ID from tenant context (set by SessionAuthMiddleware or TenantMiddleware)
+	// Get org ID from tenant context (set by PodAuthMiddleware or TenantMiddleware)
 	tenant := middleware.GetTenant(c)
 	if tenant == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid organization context"})
@@ -85,7 +85,7 @@ func (h *BindingHandler) RequestBinding(c *gin.Context) {
 	}
 	orgIDInt64 := tenant.OrganizationID
 
-	binding, err := h.bindingSvc.RequestBinding(c.Request.Context(), orgIDInt64, sessionKey, req.TargetSession, req.Scopes, req.Policy)
+	binding, err := h.bindingSvc.RequestBinding(c.Request.Context(), orgIDInt64, podKey, req.TargetPod, req.Scopes, req.Policy)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -99,15 +99,15 @@ func (h *BindingHandler) RequestBinding(c *gin.Context) {
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body AcceptRequest true "Accept request"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /bindings/accept [post]
 func (h *BindingHandler) AcceptBinding(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *BindingHandler) AcceptBinding(c *gin.Context) {
 		return
 	}
 
-	binding, err := h.bindingSvc.AcceptBinding(c.Request.Context(), req.BindingID, sessionKey)
+	binding, err := h.bindingSvc.AcceptBinding(c.Request.Context(), req.BindingID, podKey)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -131,15 +131,15 @@ func (h *BindingHandler) AcceptBinding(c *gin.Context) {
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body RejectRequest true "Reject request"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /bindings/reject [post]
 func (h *BindingHandler) RejectBinding(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *BindingHandler) RejectBinding(c *gin.Context) {
 		return
 	}
 
-	binding, err := h.bindingSvc.RejectBinding(c.Request.Context(), req.BindingID, sessionKey, req.Reason)
+	binding, err := h.bindingSvc.RejectBinding(c.Request.Context(), req.BindingID, podKey, req.Reason)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -163,16 +163,16 @@ func (h *BindingHandler) RejectBinding(c *gin.Context) {
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param id path int true "Binding ID"
 // @Param request body ScopeRequest true "Scope request"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /bindings/{id}/scopes [post]
 func (h *BindingHandler) RequestScopes(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -188,7 +188,7 @@ func (h *BindingHandler) RequestScopes(c *gin.Context) {
 		return
 	}
 
-	binding, err := h.bindingSvc.RequestScopes(c.Request.Context(), bindingID, sessionKey, req.Scopes)
+	binding, err := h.bindingSvc.RequestScopes(c.Request.Context(), bindingID, podKey, req.Scopes)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -202,16 +202,16 @@ func (h *BindingHandler) RequestScopes(c *gin.Context) {
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param id path int true "Binding ID"
 // @Param request body ScopeRequest true "Scopes to approve"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} ErrorResponse
 // @Router /bindings/{id}/scopes/approve [post]
 func (h *BindingHandler) ApproveScopes(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *BindingHandler) ApproveScopes(c *gin.Context) {
 		return
 	}
 
-	binding, err := h.bindingSvc.ApproveScopes(c.Request.Context(), bindingID, sessionKey, req.Scopes)
+	binding, err := h.bindingSvc.ApproveScopes(c.Request.Context(), bindingID, podKey, req.Scopes)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -237,19 +237,19 @@ func (h *BindingHandler) ApproveScopes(c *gin.Context) {
 }
 
 // Unbind handles POST /bindings/unbind
-// @Summary Remove binding between sessions
+// @Summary Remove binding between pods
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param request body UnbindRequest true "Unbind request"
 // @Success 204 "No Content"
 // @Failure 404 {object} ErrorResponse
 // @Router /bindings/unbind [post]
 func (h *BindingHandler) Unbind(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -259,7 +259,7 @@ func (h *BindingHandler) Unbind(c *gin.Context) {
 		return
 	}
 
-	removed, err := h.bindingSvc.Unbind(c.Request.Context(), sessionKey, req.TargetSession)
+	removed, err := h.bindingSvc.Unbind(c.Request.Context(), podKey, req.TargetPod)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -274,18 +274,18 @@ func (h *BindingHandler) Unbind(c *gin.Context) {
 }
 
 // ListBindings handles GET /bindings
-// @Summary List all bindings for this session
+// @Summary List all bindings for this pod
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Param status query string false "Filter by status"
 // @Success 200 {object} map[string]interface{}
 // @Router /bindings [get]
 func (h *BindingHandler) ListBindings(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
@@ -294,7 +294,7 @@ func (h *BindingHandler) ListBindings(c *gin.Context) {
 		statusFilter = &status
 	}
 
-	bindings, err := h.bindingSvc.GetBindingsForSession(c.Request.Context(), sessionKey, statusFilter)
+	bindings, err := h.bindingSvc.GetBindingsForPod(c.Request.Context(), podKey, statusFilter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -307,21 +307,21 @@ func (h *BindingHandler) ListBindings(c *gin.Context) {
 }
 
 // GetPendingBindings handles GET /bindings/pending
-// @Summary Get pending binding requests for this session
+// @Summary Get pending binding requests for this pod
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Success 200 {object} map[string]interface{}
 // @Router /bindings/pending [get]
 func (h *BindingHandler) GetPendingBindings(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
-	pending, err := h.bindingSvc.GetPendingRequests(c.Request.Context(), sessionKey)
+	pending, err := h.bindingSvc.GetPendingRequests(c.Request.Context(), podKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -333,56 +333,56 @@ func (h *BindingHandler) GetPendingBindings(c *gin.Context) {
 	})
 }
 
-// GetBoundSessions handles GET /bindings/sessions
-// @Summary Get list of sessions this session is bound to
+// GetBoundPods handles GET /bindings/pods
+// @Summary Get list of pods this pod is bound to
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
 // @Success 200 {object} map[string]interface{}
-// @Router /bindings/sessions [get]
-func (h *BindingHandler) GetBoundSessions(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+// @Router /bindings/pods [get]
+func (h *BindingHandler) GetBoundPods(c *gin.Context) {
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
-	sessions, err := h.bindingSvc.GetBoundSessions(c.Request.Context(), sessionKey)
+	pods, err := h.bindingSvc.GetBoundPods(c.Request.Context(), podKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"sessions": sessions,
-		"count":    len(sessions),
+		"pods":  pods,
+		"count": len(pods),
 	})
 }
 
-// CheckBinding handles GET /bindings/check/:target_session
-// @Summary Check if bound to a specific session
+// CheckBinding handles GET /bindings/check/:target_pod
+// @Summary Check if bound to a specific pod
 // @Tags bindings
 // @Accept json
 // @Produce json
-// @Param X-Session-Key header string true "Session Key"
-// @Param target_session path string true "Target Session Key"
+// @Param X-Pod-Key header string true "Pod Key"
+// @Param target_pod path string true "Target Pod Key"
 // @Success 200 {object} map[string]interface{}
-// @Router /bindings/check/{target_session} [get]
+// @Router /bindings/check/{target_pod} [get]
 func (h *BindingHandler) CheckBinding(c *gin.Context) {
-	sessionKey := getSessionKeyFromHeader(c)
-	if sessionKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Session-Key header required"})
+	podKey := getPodKeyFromHeader(c)
+	if podKey == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-Pod-Key header required"})
 		return
 	}
 
-	targetSession := c.Param("target_session")
-	if targetSession == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "target_session is required"})
+	targetPod := c.Param("target_pod")
+	if targetPod == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target_pod is required"})
 		return
 	}
 
-	isBound, err := h.bindingSvc.IsBound(c.Request.Context(), sessionKey, targetSession)
+	isBound, err := h.bindingSvc.IsBound(c.Request.Context(), podKey, targetPod)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -395,9 +395,9 @@ func (h *BindingHandler) CheckBinding(c *gin.Context) {
 
 	if isBound {
 		// Try to get the binding details
-		binding, err := h.bindingSvc.GetActiveBinding(c.Request.Context(), sessionKey, targetSession)
+		binding, err := h.bindingSvc.GetActiveBinding(c.Request.Context(), podKey, targetPod)
 		if err != nil {
-			binding, _ = h.bindingSvc.GetActiveBinding(c.Request.Context(), targetSession, sessionKey)
+			binding, _ = h.bindingSvc.GetActiveBinding(c.Request.Context(), targetPod, podKey)
 		}
 		if binding != nil {
 			response["binding"] = binding

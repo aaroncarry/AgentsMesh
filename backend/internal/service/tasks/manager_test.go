@@ -21,9 +21,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
-	db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+	db.Exec(`CREATE TABLE IF NOT EXISTS pods (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_key TEXT NOT NULL UNIQUE,
+		pod_key TEXT NOT NULL UNIQUE,
 		organization_id INTEGER NOT NULL,
 		status TEXT NOT NULL DEFAULT 'pending',
 		last_activity DATETIME,
@@ -74,7 +74,7 @@ func TestDefaultConfig(t *testing.T) {
 		{"PipelinePollerInterval", cfg.PipelinePollerInterval, 10 * time.Second},
 		{"TaskProcessorInterval", cfg.TaskProcessorInterval, 30 * time.Second},
 		{"MRSyncInterval", cfg.MRSyncInterval, 5 * time.Minute},
-		{"SessionCleanupInterval", cfg.SessionCleanupInterval, 10 * time.Minute},
+		{"PodCleanupInterval", cfg.PodCleanupInterval, 10 * time.Minute},
 		{"WorkerCount", cfg.WorkerCount, 4},
 		{"MaxQueueSize", cfg.MaxQueueSize, 1000},
 	}
@@ -111,7 +111,7 @@ func TestConfigValues(t *testing.T) {
 		PipelinePollerInterval: 5 * time.Second,
 		TaskProcessorInterval:  15 * time.Second,
 		MRSyncInterval:         1 * time.Minute,
-		SessionCleanupInterval: 5 * time.Minute,
+		PodCleanupInterval: 5 * time.Minute,
 		WorkerCount:            8,
 		MaxQueueSize:           500,
 	}
@@ -157,7 +157,7 @@ func TestManager_StartStop(t *testing.T) {
 		PipelinePollerInterval: 1 * time.Hour, // Long interval to avoid actual polling
 		TaskProcessorInterval:  1 * time.Hour,
 		MRSyncInterval:         1 * time.Hour,
-		SessionCleanupInterval: 1 * time.Hour,
+		PodCleanupInterval: 1 * time.Hour,
 		WorkerCount:            2,
 		MaxQueueSize:           100,
 	}
@@ -192,11 +192,11 @@ func TestManager_GetScheduledTasks(t *testing.T) {
 		t.Error("expected scheduled tasks to be registered")
 	}
 
-	// Should have pipeline_poller, task_processor, session_cleanup
+	// Should have pipeline_poller, task_processor, pod_cleanup
 	expectedTasks := map[string]bool{
-		"pipeline_poller":  false,
-		"task_processor":   false,
-		"session_cleanup":  false,
+		"pipeline_poller": false,
+		"task_processor":  false,
+		"pod_cleanup":     false,
 	}
 
 	for _, task := range tasks {
@@ -241,54 +241,54 @@ func TestManager_GetJobHandlerTypes(t *testing.T) {
 	}
 }
 
-func TestManager_CleanupStaleSessions(t *testing.T) {
+func TestManager_CleanupStalePods(t *testing.T) {
 	db := setupTestDB(t)
 	_, redisClient := setupTestRedis(t)
 	logger := testLogger()
 	cfg := DefaultConfig()
 
-	// Insert a stale session
+	// Insert a stale pod
 	staleTime := time.Now().Add(-2 * time.Hour)
-	db.Exec(`INSERT INTO sessions (session_key, organization_id, status, last_activity) VALUES (?, ?, ?, ?)`,
-		"stale-session", 1, "running", staleTime)
+	db.Exec(`INSERT INTO pods (pod_key, organization_id, status, last_activity) VALUES (?, ?, ?, ?)`,
+		"stale-pod", 1, "running", staleTime)
 
 	manager := NewManager(db, redisClient, logger, cfg)
 
 	// Call cleanup directly
-	err := manager.cleanupStaleSessions(context.Background())
+	err := manager.cleanupStalePods(context.Background())
 	if err != nil {
-		t.Fatalf("cleanupStaleSessions() error = %v", err)
+		t.Fatalf("cleanupStalePods() error = %v", err)
 	}
 
-	// Verify session status changed
+	// Verify pod status changed
 	var status string
-	db.Raw("SELECT status FROM sessions WHERE session_key = ?", "stale-session").Scan(&status)
+	db.Raw("SELECT status FROM pods WHERE pod_key = ?", "stale-pod").Scan(&status)
 	if status != "disconnected" {
 		t.Errorf("expected status 'disconnected', got '%s'", status)
 	}
 }
 
-func TestManager_CleanupStaleSessions_NoStale(t *testing.T) {
+func TestManager_CleanupStalePods_NoStale(t *testing.T) {
 	db := setupTestDB(t)
 	_, redisClient := setupTestRedis(t)
 	logger := testLogger()
 	cfg := DefaultConfig()
 
-	// Insert a recent session
+	// Insert a recent pod
 	recentTime := time.Now()
-	db.Exec(`INSERT INTO sessions (session_key, organization_id, status, last_activity) VALUES (?, ?, ?, ?)`,
-		"recent-session", 1, "running", recentTime)
+	db.Exec(`INSERT INTO pods (pod_key, organization_id, status, last_activity) VALUES (?, ?, ?, ?)`,
+		"recent-pod", 1, "running", recentTime)
 
 	manager := NewManager(db, redisClient, logger, cfg)
 
-	err := manager.cleanupStaleSessions(context.Background())
+	err := manager.cleanupStalePods(context.Background())
 	if err != nil {
-		t.Fatalf("cleanupStaleSessions() error = %v", err)
+		t.Fatalf("cleanupStalePods() error = %v", err)
 	}
 
-	// Verify session status unchanged
+	// Verify pod status unchanged
 	var status string
-	db.Raw("SELECT status FROM sessions WHERE session_key = ?", "recent-session").Scan(&status)
+	db.Raw("SELECT status FROM pods WHERE pod_key = ?", "recent-pod").Scan(&status)
 	if status != "running" {
 		t.Errorf("expected status 'running', got '%s'", status)
 	}

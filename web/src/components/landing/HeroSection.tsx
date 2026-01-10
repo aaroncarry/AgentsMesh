@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-// Claude Code TUI style animation - showing session supervision workflow
+// Claude Code TUI style animation - showing pod supervision workflow
 const tuiFrames = [
   {
     time: 0,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Status: Initializing",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Status: Initializing",
       mainContent: [
         { type: "system", text: "Connecting to AgentMesh..." },
       ],
@@ -22,12 +22,12 @@ const tuiFrames = [
     time: 1500,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Status: Running",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Status: Running",
       mainContent: [
         { type: "system", text: "✓ Connected to AgentMesh server" },
         { type: "system", text: "✓ Workspace: /projects/e-commerce" },
         { type: "system", text: "" },
-        { type: "user", text: "Monitor session beta-dev and help coordinate the auth implementation" },
+        { type: "user", text: "Monitor pod beta-dev and help coordinate the auth implementation" },
       ],
       input: "",
       topology: {
@@ -40,15 +40,15 @@ const tuiFrames = [
     time: 3500,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Status: Running",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Status: Running",
       mainContent: [
         { type: "system", text: "✓ Connected to AgentMesh server" },
         { type: "system", text: "✓ Workspace: /projects/e-commerce" },
         { type: "system", text: "" },
-        { type: "user", text: "Monitor session beta-dev and help coordinate the auth implementation" },
+        { type: "user", text: "Monitor pod beta-dev and help coordinate the auth implementation" },
         { type: "system", text: "" },
-        { type: "assistant", text: "I'll bind to session beta-dev to observe and coordinate..." },
-        { type: "tool", text: "⚡ mesh_bind_session beta-dev --scopes observe,message" },
+        { type: "assistant", text: "I'll bind to pod beta-dev to observe and coordinate..." },
+        { type: "tool", text: "⚡ mesh_bind_pod beta-dev --scopes observe,message" },
       ],
       input: "",
       topology: {
@@ -64,12 +64,12 @@ const tuiFrames = [
     time: 5500,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
       mainContent: [
-        { type: "user", text: "Monitor session beta-dev and help coordinate the auth implementation" },
+        { type: "user", text: "Monitor pod beta-dev and help coordinate the auth implementation" },
         { type: "system", text: "" },
-        { type: "assistant", text: "I'll bind to session beta-dev to observe and coordinate..." },
-        { type: "tool", text: "⚡ mesh_bind_session beta-dev --scopes observe,message" },
+        { type: "assistant", text: "I'll bind to pod beta-dev to observe and coordinate..." },
+        { type: "tool", text: "⚡ mesh_bind_pod beta-dev --scopes observe,message" },
         { type: "success", text: "✓ Bound to beta-dev (Codex CLI)" },
         { type: "system", text: "" },
         { type: "observe-header", text: "━━━ Observing beta-dev ━━━" },
@@ -91,9 +91,9 @@ const tuiFrames = [
     time: 7500,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
       mainContent: [
-        { type: "tool", text: "⚡ mesh_bind_session beta-dev --scopes observe,message" },
+        { type: "tool", text: "⚡ mesh_bind_pod beta-dev --scopes observe,message" },
         { type: "success", text: "✓ Bound to beta-dev (Codex CLI)" },
         { type: "system", text: "" },
         { type: "observe-header", text: "━━━ Observing beta-dev ━━━" },
@@ -119,7 +119,7 @@ const tuiFrames = [
     time: 9500,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
       mainContent: [
         { type: "observe-header", text: "━━━ Observing beta-dev ━━━" },
         { type: "observe", text: "│ Creating OAuth2 provider integration" },
@@ -148,7 +148,7 @@ const tuiFrames = [
     time: 12000,
     content: {
       header: "Claude Code",
-      sessionInfo: "Session: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
+      podInfo: "Pod: alpha-dev │ Agent: Claude Code │ Observing: beta-dev",
       mainContent: [
         { type: "tool", text: "⚡ mesh_send_message beta-dev" },
         { type: "message-sent", text: "📤 \"Consider adding rate limiting to /auth/* endpoints\"" },
@@ -289,7 +289,7 @@ export function HeroSection() {
               <div className="flex items-center justify-center lg:justify-start gap-6 opacity-50">
                 <div className="text-sm font-medium">500+ Teams</div>
                 <div className="w-px h-4 bg-border" />
-                <div className="text-sm font-medium">10K+ Sessions</div>
+                <div className="text-sm font-medium">10K+ Pods</div>
                 <div className="w-px h-4 bg-border" />
                 <div className="text-sm font-medium">Open Source</div>
               </div>
@@ -319,9 +319,9 @@ export function HeroSection() {
                 </div>
               </div>
 
-              {/* Session Info Bar */}
+              {/* Pod Info Bar */}
               <div className="px-4 py-1.5 bg-[#141414] border-b border-border text-xs font-mono text-muted-foreground">
-                {currentFrame.content.sessionInfo}
+                {currentFrame.content.podInfo}
               </div>
 
               {/* Main Content Area */}
@@ -354,7 +354,7 @@ export function HeroSection() {
             {/* Topology visualization */}
             <div className="relative bg-[#0d0d0d] rounded-xl border border-border overflow-hidden">
               <div className="px-4 py-2 bg-[#1a1a1a] border-b border-border flex items-center justify-between">
-                <span className="text-xs font-mono text-muted-foreground">Session Topology</span>
+                <span className="text-xs font-mono text-muted-foreground">Pod Topology</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-green-400">● Live</span>
                 </div>
@@ -405,7 +405,7 @@ export function HeroSection() {
                   })}
                 </svg>
 
-                {/* Session nodes */}
+                {/* Pod nodes */}
                 {topology.nodes.map((node) => (
                   <div
                     key={node.id}
@@ -425,7 +425,7 @@ export function HeroSection() {
                 {/* Empty state */}
                 {topology.nodes.length === 0 && (
                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    <span className="animate-pulse">Initializing session...</span>
+                    <span className="animate-pulse">Initializing pod...</span>
                   </div>
                 )}
               </div>

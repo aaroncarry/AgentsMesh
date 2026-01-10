@@ -257,9 +257,9 @@ describe("orgPath", () => {
       currentOrg: { slug: "my-org" },
     });
 
-    const path = orgPath("/sessions");
+    const path = orgPath("/pods");
 
-    expect(path).toBe("/api/v1/organizations/my-org/sessions");
+    expect(path).toBe("/api/v1/organizations/my-org/pods");
   });
 
   it("should throw error when no organization selected", () => {
@@ -268,6 +268,6 @@ describe("orgPath", () => {
       currentOrg: null,
     });
 
-    expect(() => orgPath("/sessions")).toThrow("No organization selected");
+    expect(() => orgPath("/pods")).toThrow("No organization selected");
   });
 });

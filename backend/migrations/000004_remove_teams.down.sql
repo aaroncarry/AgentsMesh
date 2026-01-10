@@ -30,12 +30,12 @@ CREATE INDEX idx_team_members_user ON team_members(user_id);
 
 -- Step 3: Add team_id column back to resource tables
 ALTER TABLE repositories ADD COLUMN team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL;
-ALTER TABLE sessions ADD COLUMN team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL;
+ALTER TABLE pods ADD COLUMN team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE channels ADD COLUMN team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE tickets ADD COLUMN team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_repositories_team ON repositories(team_id);
-CREATE INDEX idx_sessions_team ON sessions(team_id);
+CREATE INDEX idx_pods_team ON pods(team_id);
 CREATE INDEX idx_channels_team ON channels(team_id);
 CREATE INDEX idx_tickets_team ON tickets(team_id);
 

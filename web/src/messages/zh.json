@@ -25,16 +25,16 @@
     "loginWith": "使用 {provider} 登录"
   },
   "nav": {
-    "devpod": "开发工作台",
+    "agentpod": "AgentPod",
     "mesh": "智能体网络",
     "tickets": "任务管理",
     "settings": "设置",
     "billing": "账单"
   },
-  "devpod": {
-    "title": "开发工作台",
-    "sessions": "会话",
-    "newSession": "新建会话",
+  "agentpod": {
+    "title": "AgentPod",
+    "pods": "Pod",
+    "newPod": "新建 Pod",
     "runners": "运行节点",
     "noRunnersOnline": "暂无在线节点",
     "selectAgent": "选择 Agent",

@@ -64,7 +64,7 @@ class TicketPriority {
   }
 }
 
-class SessionStatus {
+class PodStatus {
   static const String initializing = 'initializing';
   static const String ready = 'ready';
   static const String running = 'running';

@@ -4,8 +4,8 @@ Multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex 
 
 ## Features
 
-- **DevPod**: Remote AI development workstation with Terminal WebSocket support
-- **AgentMesh**: Multi-agent collaboration with channel communication and session binding
+- **AgentPod**: Remote AI development workstation with Terminal WebSocket support
+- **AgentMesh**: Multi-agent collaboration with channel communication and pod binding
 - **Tickets**: Task management with kanban board and merge request integration
 - **Multi-tenant**: Organization > Teams > Users hierarchy with row-level isolation
 - **Multi-Agent Support**: Claude Code, Codex CLI, Gemini CLI, OpenCode, Aider, and custom agents
@@ -124,11 +124,11 @@ AgentMesh/
 - `GET /api/v1/organizations/:slug` - Get organization
 - `PUT /api/v1/organizations/:slug` - Update organization
 
-### Sessions (DevPod)
-- `GET /api/v1/org/sessions` - List sessions
-- `POST /api/v1/org/sessions` - Create session
-- `GET /api/v1/org/sessions/:key` - Get session
-- `POST /api/v1/org/sessions/:key/terminate` - Terminate session
+### Pods (AgentPod)
+- `GET /api/v1/org/pods` - List pods
+- `POST /api/v1/org/pods` - Create pod
+- `GET /api/v1/org/pods/:key` - Get pod
+- `POST /api/v1/org/pods/:key/terminate` - Terminate pod
 
 ### Channels (AgentMesh)
 - `GET /api/v1/org/channels` - List channels

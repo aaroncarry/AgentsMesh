@@ -245,8 +245,8 @@ func TestAgentMessageStruct(t *testing.T) {
 
 	m := AgentMessage{
 		ID:               1,
-		SenderSession:    "sess-sender",
-		ReceiverSession:  "sess-receiver",
+		SenderPod:        "pod-sender",
+		ReceiverPod:      "pod-receiver",
 		MessageType:      MessageTypeTaskAssignment,
 		Content:          MessageContent{"task": "build"},
 		Status:           MessageStatusPending,
@@ -261,8 +261,8 @@ func TestAgentMessageStruct(t *testing.T) {
 	if m.ID != 1 {
 		t.Errorf("expected ID 1, got %d", m.ID)
 	}
-	if m.SenderSession != "sess-sender" {
-		t.Errorf("expected SenderSession 'sess-sender', got %s", m.SenderSession)
+	if m.SenderPod != "pod-sender" {
+		t.Errorf("expected SenderPod 'pod-sender', got %s", m.SenderPod)
 	}
 	if m.MessageType != MessageTypeTaskAssignment {
 		t.Errorf("expected MessageType 'task_assignment', got %s", m.MessageType)

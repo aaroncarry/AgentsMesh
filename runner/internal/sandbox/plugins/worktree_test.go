@@ -46,10 +46,10 @@ func TestWorktreePluginSetupSkipsWithoutConfig(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewWorktreePlugin(filepath.Join(tmpDir, "repos"))
-	sb := sandbox.NewSandbox("test-session", filepath.Join(tmpDir, "sandbox"))
+	sb := sandbox.NewSandbox("test-pod", filepath.Join(tmpDir, "sandbox"))
 	ctx := context.Background()
 
-	// Setup without repository_url or ticket_identifier should skip
+	// Setup without repository_url should skip (ticket_identifier is optional)
 	tests := []struct {
 		name   string
 		config map[string]interface{}
@@ -57,12 +57,6 @@ func TestWorktreePluginSetupSkipsWithoutConfig(t *testing.T) {
 		{
 			name:   "empty config",
 			config: nil,
-		},
-		{
-			name: "only repository_url",
-			config: map[string]interface{}{
-				"repository_url": "https://github.com/test/repo.git",
-			},
 		},
 		{
 			name: "only ticket_identifier",
@@ -78,7 +72,7 @@ func TestWorktreePluginSetupSkipsWithoutConfig(t *testing.T) {
 			if err := p.Setup(ctx, sb, tt.config); err != nil {
 				t.Fatalf("Setup() failed: %v", err)
 			}
-			// WorkDir should remain empty
+			// WorkDir should remain empty when no repository_url is provided
 			if sb.WorkDir != "" {
 				t.Errorf("WorkDir = %q, want empty", sb.WorkDir)
 			}
@@ -90,34 +84,45 @@ func TestWorktreePluginInjectToken(t *testing.T) {
 	p := NewWorktreePlugin("/tmp/repos")
 
 	tests := []struct {
-		name     string
-		repoURL  string
-		token    string
-		expected string
+		name         string
+		repoURL      string
+		token        string
+		providerType string
+		expected     string
 	}{
 		{
-			name:     "HTTPS URL",
-			repoURL:  "https://github.com/org/repo.git",
-			token:    "ghp_xxxx",
-			expected: "https://ghp_xxxx@github.com/org/repo.git",
+			name:         "HTTPS URL GitHub",
+			repoURL:      "https://github.com/org/repo.git",
+			token:        "ghp_xxxx",
+			providerType: "github",
+			expected:     "https://x-access-token:ghp_xxxx@github.com/org/repo.git",
 		},
 		{
-			name:     "HTTP URL",
-			repoURL:  "http://github.com/org/repo.git",
-			token:    "token123",
-			expected: "http://token123@github.com/org/repo.git",
+			name:         "HTTP URL GitHub",
+			repoURL:      "http://github.com/org/repo.git",
+			token:        "token123",
+			providerType: "github",
+			expected:     "http://x-access-token:token123@github.com/org/repo.git",
 		},
 		{
-			name:     "SSH URL",
-			repoURL:  "git@github.com:org/repo.git",
-			token:    "ghp_xxxx",
-			expected: "git@github.com:org/repo.git", // Unchanged
+			name:         "HTTPS URL GitLab",
+			repoURL:      "https://gitlab.com/org/repo.git",
+			token:        "glpat_xxxx",
+			providerType: "gitlab",
+			expected:     "https://oauth2:glpat_xxxx@gitlab.com/org/repo.git",
+		},
+		{
+			name:         "SSH URL",
+			repoURL:      "git@github.com:org/repo.git",
+			token:        "ghp_xxxx",
+			providerType: "github",
+			expected:     "git@github.com:org/repo.git", // Unchanged
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := p.injectToken(tt.repoURL, tt.token)
+			result := p.injectToken(tt.repoURL, tt.token, tt.providerType)
 			if result != tt.expected {
 				t.Errorf("injectToken() = %q, want %q", result, tt.expected)
 			}
@@ -163,7 +168,7 @@ func TestHashRepoURL(t *testing.T) {
 
 func TestWorktreePluginTeardownNoMetadata(t *testing.T) {
 	p := NewWorktreePlugin("/tmp/repos")
-	sb := sandbox.NewSandbox("test-session", "/tmp/sandbox")
+	sb := sandbox.NewSandbox("test-pod", "/tmp/sandbox")
 
 	// Teardown without metadata should not error
 	if err := p.Teardown(sb); err != nil {
@@ -305,7 +310,7 @@ func TestWorktreePluginSetupWithGit(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	config := map[string]interface{}{
@@ -384,7 +389,7 @@ func TestWorktreePluginTeardownWithGit(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	config := map[string]interface{}{
@@ -630,7 +635,7 @@ func TestWorktreePluginSetupWithGitToken(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	// Use git_token (this tests the token injection path, but with local repo it's ignored)
@@ -677,7 +682,7 @@ func TestWorktreePluginSetupWithDefaultBranch(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	// Don't specify branch - should default to "main"
@@ -775,7 +780,7 @@ func TestWorktreePluginSetupError(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	// Use invalid URL to trigger ensureRepo error
@@ -819,7 +824,7 @@ func TestWorktreePluginSetupCreateWorktreeError(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	// Use non-existent branch to trigger createWorktree error
@@ -1011,7 +1016,7 @@ func TestWorktreePluginSetupWithSSHURLButNoKey(t *testing.T) {
 	sandboxDir := filepath.Join(tmpDir, "sandbox")
 
 	p := NewWorktreePlugin(reposDir)
-	sb := sandbox.NewSandbox("test-session", sandboxDir)
+	sb := sandbox.NewSandbox("test-pod", sandboxDir)
 	ctx := context.Background()
 
 	// Use SSH URL without providing ssh_private_key

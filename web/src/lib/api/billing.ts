@@ -6,7 +6,7 @@ export interface SubscriptionPlan {
   name: string;
   display_name: string;
   price_per_seat_monthly: number;
-  included_session_minutes: number;
+  included_pod_minutes: number;
   price_per_extra_minute: number;
   max_users: number;
   max_runners: number;
@@ -16,8 +16,8 @@ export interface SubscriptionPlan {
 }
 
 export interface UsageOverview {
-  session_minutes: number;
-  included_session_minutes: number;
+  pod_minutes: number;
+  included_pod_minutes: number;
   users: number;
   max_users: number;
   runners: number;

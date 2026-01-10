@@ -155,69 +155,69 @@ func TestRunnerIsOnline(t *testing.T) {
 	}
 }
 
-func TestRunnerCanAcceptSession(t *testing.T) {
+func TestRunnerCanAcceptPod(t *testing.T) {
 	tests := []struct {
 		name              string
 		isEnabled         bool
 		status            string
-		currentSessions   int
-		maxSessions       int
+		currentPods   int
+		maxPods       int
 		expected          bool
 	}{
 		{
 			name:            "can accept - all conditions met",
 			isEnabled:       true,
 			status:          RunnerStatusOnline,
-			currentSessions: 2,
-			maxSessions:     5,
+			currentPods: 2,
+			maxPods:     5,
 			expected:        true,
 		},
 		{
 			name:            "cannot accept - disabled",
 			isEnabled:       false,
 			status:          RunnerStatusOnline,
-			currentSessions: 2,
-			maxSessions:     5,
+			currentPods: 2,
+			maxPods:     5,
 			expected:        false,
 		},
 		{
 			name:            "cannot accept - offline",
 			isEnabled:       true,
 			status:          RunnerStatusOffline,
-			currentSessions: 2,
-			maxSessions:     5,
+			currentPods: 2,
+			maxPods:     5,
 			expected:        false,
 		},
 		{
 			name:            "cannot accept - at capacity",
 			isEnabled:       true,
 			status:          RunnerStatusOnline,
-			currentSessions: 5,
-			maxSessions:     5,
+			currentPods: 5,
+			maxPods:     5,
 			expected:        false,
 		},
 		{
 			name:            "cannot accept - over capacity",
 			isEnabled:       true,
 			status:          RunnerStatusOnline,
-			currentSessions: 6,
-			maxSessions:     5,
+			currentPods: 6,
+			maxPods:     5,
 			expected:        false,
 		},
 		{
 			name:            "can accept - one slot left",
 			isEnabled:       true,
 			status:          RunnerStatusOnline,
-			currentSessions: 4,
-			maxSessions:     5,
+			currentPods: 4,
+			maxPods:     5,
 			expected:        true,
 		},
 		{
-			name:            "can accept - zero sessions",
+			name:            "can accept - zero pods",
 			isEnabled:       true,
 			status:          RunnerStatusOnline,
-			currentSessions: 0,
-			maxSessions:     5,
+			currentPods: 0,
+			maxPods:     5,
 			expected:        true,
 		},
 	}
@@ -227,11 +227,11 @@ func TestRunnerCanAcceptSession(t *testing.T) {
 			r := &Runner{
 				IsEnabled:             tt.isEnabled,
 				Status:                tt.status,
-				CurrentSessions:       tt.currentSessions,
-				MaxConcurrentSessions: tt.maxSessions,
+				CurrentPods:       tt.currentPods,
+				MaxConcurrentPods: tt.maxPods,
 			}
-			if r.CanAcceptSession() != tt.expected {
-				t.Errorf("expected CanAcceptSession() = %v, got %v", tt.expected, r.CanAcceptSession())
+			if r.CanAcceptPod() != tt.expected {
+				t.Errorf("expected CanAcceptPod() = %v, got %v", tt.expected, r.CanAcceptPod())
 			}
 		})
 	}
@@ -249,8 +249,8 @@ func TestRunnerStruct(t *testing.T) {
 		AuthTokenHash:         "hash",
 		Status:                RunnerStatusOnline,
 		LastHeartbeat:         &now,
-		CurrentSessions:       3,
-		MaxConcurrentSessions: 10,
+		CurrentPods:       3,
+		MaxConcurrentPods: 10,
 		RunnerVersion:         &version,
 		IsEnabled:             true,
 		HostInfo:              HostInfo{"os": "linux"},
@@ -281,14 +281,14 @@ func BenchmarkRunnerIsOnline(b *testing.B) {
 	}
 }
 
-func BenchmarkRunnerCanAcceptSession(b *testing.B) {
+func BenchmarkRunnerCanAcceptPod(b *testing.B) {
 	r := &Runner{
 		IsEnabled:             true,
 		Status:                RunnerStatusOnline,
-		CurrentSessions:       2,
-		MaxConcurrentSessions: 5,
+		CurrentPods:       2,
+		MaxConcurrentPods: 5,
 	}
 	for i := 0; i < b.N; i++ {
-		r.CanAcceptSession()
+		r.CanAcceptPod()
 	}
 }

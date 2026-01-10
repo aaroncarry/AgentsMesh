@@ -83,7 +83,7 @@ func TestPTYForwarderStartWithMockSession(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       nil, // nil session will cause read loop to exit
-		SessionKey:    "test-session",
+		PodKey:    "test-pod",
 		Handler:       mockHandler,
 		FlushInterval: 10 * time.Millisecond,
 	}
@@ -108,7 +108,7 @@ func TestPTYForwarderFlushLoopWithData(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:       nil,
-		SessionKey:    "test-session",
+		PodKey:    "test-pod",
 		Handler:       mockHandler,
 		FlushInterval: 20 * time.Millisecond,
 	}
@@ -154,7 +154,7 @@ func TestPTYForwarderFlushLockedWithBackpressure(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "test-session",
+		PodKey:       "test-pod",
 		Handler:          mockHandler,
 		BackpressureWait: 1 * time.Millisecond,
 	}
@@ -182,7 +182,7 @@ func TestPTYForwarderFlushSetsBackpressureOnFalse(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 	}
 
@@ -205,7 +205,7 @@ func TestPTYForwarderFlushClearsBackpressureOnSuccess(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 	}
 
@@ -232,7 +232,7 @@ func TestPTYForwarderStopClosesChannel(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 	}
 
@@ -255,7 +255,7 @@ func TestPTYForwarderBufferHalfFullTriggersFlush(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 		BufferSize: 100,
 	}
@@ -284,7 +284,7 @@ func TestPTYForwarderConcurrentAccess(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 		BufferSize: 1024 * 64,
 	}
@@ -314,7 +314,7 @@ func TestPTYForwarderBackpressureConcurrentAccess(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "test-session",
+		PodKey: "test-pod",
 		Handler:    mockHandler,
 	}
 

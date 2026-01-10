@@ -406,11 +406,11 @@ func (s *Service) RemoveLabel(ctx context.Context, ticketID, labelID int64) erro
 // Merge Request operations
 
 // LinkMergeRequest links a merge request to a ticket
-func (s *Service) LinkMergeRequest(ctx context.Context, orgID, ticketID int64, sessionID *int64, mrIID int, mrURL, sourceBranch, targetBranch, title, state string) (*ticket.MergeRequest, error) {
+func (s *Service) LinkMergeRequest(ctx context.Context, orgID, ticketID int64, podID *int64, mrIID int, mrURL, sourceBranch, targetBranch, title, state string) (*ticket.MergeRequest, error) {
 	mr := &ticket.MergeRequest{
 		OrganizationID: orgID,
 		TicketID:       ticketID,
-		SessionID:      sessionID,
+		PodID:          podID,
 		MRIID:          mrIID,
 		MRURL:          mrURL,
 		SourceBranch:   sourceBranch,
@@ -762,12 +762,12 @@ func (s *Service) ListRelations(ctx context.Context, ticketID int64) ([]*ticket.
 var ErrCommitNotFound = errors.New("commit not found")
 
 // LinkCommit links a git commit to a ticket
-func (s *Service) LinkCommit(ctx context.Context, orgID, ticketID, repoID int64, sessionID *int64, commitSHA, commitMessage string, commitURL, authorName, authorEmail *string, committedAt *time.Time) (*ticket.Commit, error) {
+func (s *Service) LinkCommit(ctx context.Context, orgID, ticketID, repoID int64, podID *int64, commitSHA, commitMessage string, commitURL, authorName, authorEmail *string, committedAt *time.Time) (*ticket.Commit, error) {
 	commit := &ticket.Commit{
 		OrganizationID: orgID,
 		TicketID:       ticketID,
 		RepositoryID:   repoID,
-		SessionID:      sessionID,
+		PodID:          podID,
 		CommitSHA:      commitSHA,
 		CommitMessage:  commitMessage,
 		CommitURL:      commitURL,

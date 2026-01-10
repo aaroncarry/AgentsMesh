@@ -820,7 +820,7 @@ func (h *TicketHandler) LinkCommit(c *gin.Context) {
 		tenant.OrganizationID,
 		t.ID,
 		*t.RepositoryID,
-		nil, // sessionID
+		nil, // podID
 		req.CommitSHA,
 		req.CommitMessage,
 		commitURL,

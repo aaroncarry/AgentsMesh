@@ -72,13 +72,13 @@ func (mc MessageContent) Value() (driver.Value, error) {
 	return json.Marshal(mc)
 }
 
-// AgentMessage represents a message between agent sessions
+// AgentMessage represents a message between agent pods
 type AgentMessage struct {
 	ID int64 `gorm:"primaryKey" json:"id"`
 
-	// Sender and receiver session keys
-	SenderSession   string `gorm:"size:100;not null;index" json:"sender_session"`
-	ReceiverSession string `gorm:"size:100;not null;index" json:"receiver_session"`
+	// Sender and receiver pod keys
+	SenderPod   string `gorm:"size:100;not null;index;column:sender_pod" json:"sender_pod"`
+	ReceiverPod string `gorm:"size:100;not null;index;column:receiver_pod" json:"receiver_pod"`
 
 	// Message type and content
 	MessageType string         `gorm:"size:50;not null" json:"message_type"`

@@ -13,8 +13,8 @@ import (
 
 // --- OnTerminalInput Tests ---
 
-func TestOnTerminalInputSessionNotFound(t *testing.T) {
-	store := NewInMemorySessionStore()
+func TestOnTerminalInputPodNotFound(t *testing.T) {
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{cfg: &config.Config{}}
@@ -22,35 +22,35 @@ func TestOnTerminalInputSessionNotFound(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	req := client.TerminalInputRequest{
-		SessionID: "nonexistent",
+		PodKey: "nonexistent",
 		Data:      base64.StdEncoding.EncodeToString([]byte("hello")),
 	}
 
 	err := handler.OnTerminalInput(req)
 	if err == nil {
-		t.Error("expected error for nonexistent session")
+		t.Error("expected error for nonexistent pod")
 	}
-	if !contains(err.Error(), "session not found") {
-		t.Errorf("error = %v, want containing 'session not found'", err)
+	if !contains(err.Error(), "pod not found") {
+		t.Errorf("error = %v, want containing 'pod not found'", err)
 	}
 }
 
 func TestOnTerminalInputInvalidBase64(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{cfg: &config.Config{}}
 
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
-	// Add session with nil terminal (will fail on Write, not decode)
-	store.Put("input-session", &Session{
-		ID:       "input-session",
+	// Add pod with nil terminal (will fail on Write, not decode)
+	store.Put("input-pod", &Pod{
+		ID:       "input-pod",
 		Terminal: nil,
 	})
 
 	req := client.TerminalInputRequest{
-		SessionID: "input-session",
+		PodKey: "input-pod",
 		Data:      "not-valid-base64!!!", // Invalid base64
 	}
 
@@ -62,28 +62,28 @@ func TestOnTerminalInputInvalidBase64(t *testing.T) {
 
 func TestOnTerminalInputSuccess(t *testing.T) {
 	tempDir := t.TempDir()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{
 		cfg: &config.Config{
-			MaxConcurrentSessions: 10,
+			MaxConcurrentPods: 10,
 			WorkspaceRoot:         tempDir,
 		},
 	}
 
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
-	// First create a session
-	createReq := client.CreateSessionRequest{
-		SessionID:      "input-success-session",
+	// First create a pod
+	createReq := client.CreatePodRequest{
+		PodKey:      "input-success-pod",
 		InitialCommand: "cat",
 		WorkingDir:     tempDir,
 	}
 
-	err := handler.OnCreateSession(createReq)
+	err := handler.OnCreatePod(createReq)
 	if err != nil {
-		t.Skipf("Could not create session: %v", err)
+		t.Skipf("Could not create pod: %v", err)
 	}
 
 	// Wait for terminal to be ready
@@ -91,7 +91,7 @@ func TestOnTerminalInputSuccess(t *testing.T) {
 
 	// Send input
 	inputReq := client.TerminalInputRequest{
-		SessionID: "input-success-session",
+		PodKey: "input-success-pod",
 		Data:      base64.StdEncoding.EncodeToString([]byte("hello\n")),
 	}
 
@@ -101,16 +101,16 @@ func TestOnTerminalInputSuccess(t *testing.T) {
 	}
 
 	// Clean up
-	session, ok := store.Get("input-success-session")
-	if ok && session.Terminal != nil {
-		session.Terminal.Stop()
+	pod, ok := store.Get("input-success-pod")
+	if ok && pod.Terminal != nil {
+		pod.Terminal.Stop()
 	}
 }
 
 // --- OnTerminalResize Tests ---
 
-func TestOnTerminalResizeSessionNotFound(t *testing.T) {
-	store := NewInMemorySessionStore()
+func TestOnTerminalResizePodNotFound(t *testing.T) {
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{cfg: &config.Config{}}
@@ -118,44 +118,44 @@ func TestOnTerminalResizeSessionNotFound(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	req := client.TerminalResizeRequest{
-		SessionID: "nonexistent",
+		PodKey: "nonexistent",
 		Rows:      30,
 		Cols:      100,
 	}
 
 	err := handler.OnTerminalResize(req)
 	if err == nil {
-		t.Error("expected error for nonexistent session")
+		t.Error("expected error for nonexistent pod")
 	}
-	if !contains(err.Error(), "session not found") {
-		t.Errorf("error = %v, want containing 'session not found'", err)
+	if !contains(err.Error(), "pod not found") {
+		t.Errorf("error = %v, want containing 'pod not found'", err)
 	}
 }
 
 func TestOnTerminalResizeSuccess(t *testing.T) {
 	tempDir := t.TempDir()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{
 		cfg: &config.Config{
-			MaxConcurrentSessions: 10,
+			MaxConcurrentPods: 10,
 			WorkspaceRoot:         tempDir,
 		},
 	}
 
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
-	// First create a session
-	createReq := client.CreateSessionRequest{
-		SessionID:      "resize-session",
+	// First create a pod
+	createReq := client.CreatePodRequest{
+		PodKey:      "resize-pod",
 		InitialCommand: "cat",
 		WorkingDir:     tempDir,
 	}
 
-	err := handler.OnCreateSession(createReq)
+	err := handler.OnCreatePod(createReq)
 	if err != nil {
-		t.Skipf("Could not create session: %v", err)
+		t.Skipf("Could not create pod: %v", err)
 	}
 
 	// Wait for terminal to be ready
@@ -163,7 +163,7 @@ func TestOnTerminalResizeSuccess(t *testing.T) {
 
 	// Now resize the terminal
 	resizeReq := client.TerminalResizeRequest{
-		SessionID: "resize-session",
+		PodKey: "resize-pod",
 		Rows:      40,
 		Cols:      120,
 	}
@@ -187,8 +187,8 @@ func TestOnTerminalResizeSuccess(t *testing.T) {
 	}
 
 	// Clean up
-	session, ok := store.Get("resize-session")
-	if ok && session.Terminal != nil {
-		session.Terminal.Stop()
+	pod, ok := store.Get("resize-pod")
+	if ok && pod.Terminal != nil {
+		pod.Terminal.Stop()
 	}
 }

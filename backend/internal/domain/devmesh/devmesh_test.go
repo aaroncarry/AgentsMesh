@@ -15,7 +15,7 @@ func TestDevMeshNodeStruct(t *testing.T) {
 	position := &NodePosition{X: 100.5, Y: 200.5}
 
 	node := DevMeshNode{
-		SessionKey:   "sess-123",
+		PodKey:   "pod-123",
 		Status:       "running",
 		AgentStatus:  "working",
 		Model:        &model,
@@ -27,8 +27,8 @@ func TestDevMeshNodeStruct(t *testing.T) {
 		Position:     position,
 	}
 
-	if node.SessionKey != "sess-123" {
-		t.Errorf("expected SessionKey 'sess-123', got %s", node.SessionKey)
+	if node.PodKey != "pod-123" {
+		t.Errorf("expected PodKey 'pod-123', got %s", node.PodKey)
 	}
 	if node.Status != "running" {
 		t.Errorf("expected Status 'running', got %s", node.Status)
@@ -55,7 +55,7 @@ func TestDevMeshNodeStruct(t *testing.T) {
 
 func TestDevMeshNodeWithNilOptionalFields(t *testing.T) {
 	node := DevMeshNode{
-		SessionKey:  "sess-456",
+		PodKey:  "pod-456",
 		Status:      "initializing",
 		AgentStatus: "unknown",
 		CreatedByID: 50,
@@ -111,8 +111,8 @@ func TestNodePositionZeroValues(t *testing.T) {
 func TestDevMeshEdgeStruct(t *testing.T) {
 	edge := DevMeshEdge{
 		ID:            1,
-		Source:        "sess-init",
-		Target:        "sess-target",
+		Source:        "pod-init",
+		Target:        "pod-target",
 		GrantedScopes: []string{"terminal:read", "terminal:write"},
 		PendingScopes: []string{"file:read"},
 		Status:        "active",
@@ -121,11 +121,11 @@ func TestDevMeshEdgeStruct(t *testing.T) {
 	if edge.ID != 1 {
 		t.Errorf("expected ID 1, got %d", edge.ID)
 	}
-	if edge.Source != "sess-init" {
-		t.Errorf("expected Source 'sess-init', got %s", edge.Source)
+	if edge.Source != "pod-init" {
+		t.Errorf("expected Source 'pod-init', got %s", edge.Source)
 	}
-	if edge.Target != "sess-target" {
-		t.Errorf("expected Target 'sess-target', got %s", edge.Target)
+	if edge.Target != "pod-target" {
+		t.Errorf("expected Target 'pod-target', got %s", edge.Target)
 	}
 	if len(edge.GrantedScopes) != 2 {
 		t.Errorf("expected 2 GrantedScopes, got %d", len(edge.GrantedScopes))
@@ -141,8 +141,8 @@ func TestDevMeshEdgeStruct(t *testing.T) {
 func TestDevMeshEdgeWithEmptyScopes(t *testing.T) {
 	edge := DevMeshEdge{
 		ID:            2,
-		Source:        "sess-a",
-		Target:        "sess-b",
+		Source:        "pod-a",
+		Target:        "pod-b",
 		GrantedScopes: []string{},
 		Status:        "pending",
 	}
@@ -164,7 +164,7 @@ func TestChannelInfoStruct(t *testing.T) {
 		ID:           1,
 		Name:         "dev-channel",
 		Description:  &desc,
-		SessionKeys:  []string{"sess-1", "sess-2", "sess-3"},
+		PodKeys:  []string{"pod-1", "pod-2", "pod-3"},
 		MessageCount: 150,
 		IsArchived:   false,
 	}
@@ -178,8 +178,8 @@ func TestChannelInfoStruct(t *testing.T) {
 	if *info.Description != "Development channel" {
 		t.Errorf("expected Description 'Development channel', got %s", *info.Description)
 	}
-	if len(info.SessionKeys) != 3 {
-		t.Errorf("expected 3 SessionKeys, got %d", len(info.SessionKeys))
+	if len(info.PodKeys) != 3 {
+		t.Errorf("expected 3 PodKeys, got %d", len(info.PodKeys))
 	}
 	if info.MessageCount != 150 {
 		t.Errorf("expected MessageCount 150, got %d", info.MessageCount)
@@ -194,11 +194,11 @@ func TestChannelInfoStruct(t *testing.T) {
 func TestDevMeshTopologyStruct(t *testing.T) {
 	topology := DevMeshTopology{
 		Nodes: []DevMeshNode{
-			{SessionKey: "sess-1", Status: "running"},
-			{SessionKey: "sess-2", Status: "running"},
+			{PodKey: "pod-1", Status: "running"},
+			{PodKey: "pod-2", Status: "running"},
 		},
 		Edges: []DevMeshEdge{
-			{ID: 1, Source: "sess-1", Target: "sess-2", Status: "active"},
+			{ID: 1, Source: "pod-1", Target: "pod-2", Status: "active"},
 		},
 		Channels: []ChannelInfo{
 			{ID: 1, Name: "general", MessageCount: 50},
@@ -234,22 +234,22 @@ func TestDevMeshTopologyEmpty(t *testing.T) {
 	}
 }
 
-// --- Test ChannelSession ---
+// --- Test ChannelPod ---
 
-func TestChannelSessionTableName(t *testing.T) {
-	cs := ChannelSession{}
-	if cs.TableName() != "channel_sessions" {
-		t.Errorf("expected 'channel_sessions', got %s", cs.TableName())
+func TestChannelPodTableName(t *testing.T) {
+	cs := ChannelPod{}
+	if cs.TableName() != "channel_pods" {
+		t.Errorf("expected 'channel_pods', got %s", cs.TableName())
 	}
 }
 
-func TestChannelSessionStruct(t *testing.T) {
+func TestChannelPodStruct(t *testing.T) {
 	now := time.Now()
 
-	cs := ChannelSession{
+	cs := ChannelPod{
 		ID:         1,
 		ChannelID:  10,
-		SessionKey: "sess-123",
+		PodKey: "pod-123",
 		JoinedAt:   now,
 	}
 
@@ -259,8 +259,8 @@ func TestChannelSessionStruct(t *testing.T) {
 	if cs.ChannelID != 10 {
 		t.Errorf("expected ChannelID 10, got %d", cs.ChannelID)
 	}
-	if cs.SessionKey != "sess-123" {
-		t.Errorf("expected SessionKey 'sess-123', got %s", cs.SessionKey)
+	if cs.PodKey != "pod-123" {
+		t.Errorf("expected PodKey 'pod-123', got %s", cs.PodKey)
 	}
 }
 
@@ -275,13 +275,13 @@ func TestChannelAccessTableName(t *testing.T) {
 
 func TestChannelAccessStruct(t *testing.T) {
 	now := time.Now()
-	sessionKey := "sess-123"
+	podKey := "pod-123"
 	userID := int64(50)
 
 	ca := ChannelAccess{
 		ID:         1,
 		ChannelID:  10,
-		SessionKey: &sessionKey,
+		PodKey: &podKey,
 		UserID:     &userID,
 		LastAccess: now,
 	}
@@ -292,18 +292,18 @@ func TestChannelAccessStruct(t *testing.T) {
 	if ca.ChannelID != 10 {
 		t.Errorf("expected ChannelID 10, got %d", ca.ChannelID)
 	}
-	if *ca.SessionKey != "sess-123" {
-		t.Errorf("expected SessionKey 'sess-123', got %s", *ca.SessionKey)
+	if *ca.PodKey != "pod-123" {
+		t.Errorf("expected PodKey 'pod-123', got %s", *ca.PodKey)
 	}
 	if *ca.UserID != 50 {
 		t.Errorf("expected UserID 50, got %d", *ca.UserID)
 	}
 }
 
-// --- Test CreateSessionForTicketRequest ---
+// --- Test CreatePodForTicketRequest ---
 
-func TestCreateSessionForTicketRequestStruct(t *testing.T) {
-	req := CreateSessionForTicketRequest{
+func TestCreatePodForTicketRequestStruct(t *testing.T) {
+	req := CreatePodForTicketRequest{
 		OrganizationID: 100,
 		TicketID:       20,
 		RunnerID:       5,
@@ -328,50 +328,50 @@ func TestCreateSessionForTicketRequestStruct(t *testing.T) {
 	}
 }
 
-// --- Test TicketSessionInfo ---
+// --- Test TicketPodInfo ---
 
-func TestTicketSessionInfoStruct(t *testing.T) {
-	info := TicketSessionInfo{
+func TestTicketPodInfoStruct(t *testing.T) {
+	info := TicketPodInfo{
 		TicketID: 20,
-		Sessions: []DevMeshNode{
-			{SessionKey: "sess-1", Status: "running"},
-			{SessionKey: "sess-2", Status: "completed"},
+		Pods: []DevMeshNode{
+			{PodKey: "pod-1", Status: "running"},
+			{PodKey: "pod-2", Status: "completed"},
 		},
 	}
 
 	if info.TicketID != 20 {
 		t.Errorf("expected TicketID 20, got %d", info.TicketID)
 	}
-	if len(info.Sessions) != 2 {
-		t.Errorf("expected 2 Sessions, got %d", len(info.Sessions))
+	if len(info.Pods) != 2 {
+		t.Errorf("expected 2 Pods, got %d", len(info.Pods))
 	}
 }
 
-// --- Test BatchTicketSessionsResponse ---
+// --- Test BatchTicketPodsResponse ---
 
-func TestBatchTicketSessionsResponseStruct(t *testing.T) {
-	resp := BatchTicketSessionsResponse{
-		TicketSessions: map[int64][]DevMeshNode{
-			1: {{SessionKey: "sess-1", Status: "running"}},
-			2: {{SessionKey: "sess-2", Status: "running"}, {SessionKey: "sess-3", Status: "completed"}},
+func TestBatchTicketPodsResponseStruct(t *testing.T) {
+	resp := BatchTicketPodsResponse{
+		TicketPods: map[int64][]DevMeshNode{
+			1: {{PodKey: "pod-1", Status: "running"}},
+			2: {{PodKey: "pod-2", Status: "running"}, {PodKey: "pod-3", Status: "completed"}},
 		},
 	}
 
-	if len(resp.TicketSessions) != 2 {
-		t.Errorf("expected 2 ticket entries, got %d", len(resp.TicketSessions))
+	if len(resp.TicketPods) != 2 {
+		t.Errorf("expected 2 ticket entries, got %d", len(resp.TicketPods))
 	}
-	if len(resp.TicketSessions[1]) != 1 {
-		t.Errorf("expected 1 session for ticket 1, got %d", len(resp.TicketSessions[1]))
+	if len(resp.TicketPods[1]) != 1 {
+		t.Errorf("expected 1 pod for ticket 1, got %d", len(resp.TicketPods[1]))
 	}
-	if len(resp.TicketSessions[2]) != 2 {
-		t.Errorf("expected 2 sessions for ticket 2, got %d", len(resp.TicketSessions[2]))
+	if len(resp.TicketPods[2]) != 2 {
+		t.Errorf("expected 2 pods for ticket 2, got %d", len(resp.TicketPods[2]))
 	}
 }
 
 // --- Benchmark Tests ---
 
-func BenchmarkChannelSessionTableName(b *testing.B) {
-	cs := ChannelSession{}
+func BenchmarkChannelPodTableName(b *testing.B) {
+	cs := ChannelPod{}
 	for i := 0; i < b.N; i++ {
 		cs.TableName()
 	}
@@ -387,8 +387,8 @@ func BenchmarkChannelAccessTableName(b *testing.B) {
 func BenchmarkDevMeshTopologyCreation(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = DevMeshTopology{
-			Nodes:    []DevMeshNode{{SessionKey: "sess-1", Status: "running"}},
-			Edges:    []DevMeshEdge{{ID: 1, Source: "sess-1", Target: "sess-2"}},
+			Nodes:    []DevMeshNode{{PodKey: "pod-1", Status: "running"}},
+			Edges:    []DevMeshEdge{{ID: 1, Source: "pod-1", Target: "pod-2"}},
 			Channels: []ChannelInfo{{ID: 1, Name: "general"}},
 		}
 	}

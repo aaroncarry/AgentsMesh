@@ -101,7 +101,7 @@ export default function RepositoriesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Repositories</h1>
           <p className="text-muted-foreground">
-            Manage your Git repositories for DevPod sessions
+            Manage your Git repositories for AgentPod
           </p>
         </div>
         <Button onClick={() => setShowImportModal(true)}>
@@ -269,7 +269,7 @@ export default function RepositoriesPage() {
                 </svg>
                 <p className="mb-2">No repositories yet</p>
                 <p className="text-sm">
-                  Import a repository to use Git-based workflows in DevPod
+                  Import a repository to use Git-based workflows in AgentPod
                 </p>
               </>
             ) : (

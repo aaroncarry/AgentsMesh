@@ -12,83 +12,83 @@ import (
 )
 
 // RunnerMessageHandler implements client.MessageHandler interface.
-// It bridges the client protocol layer with the runner session management.
+// It bridges the client protocol layer with the runner pod management.
 type RunnerMessageHandler struct {
-	runner       *Runner
-	sessionStore SessionStore
-	conn         client.Connection
+	runner   *Runner
+	podStore PodStore
+	conn     client.Connection
 }
 
 // NewRunnerMessageHandler creates a new message handler.
-func NewRunnerMessageHandler(runner *Runner, store SessionStore, conn client.Connection) *RunnerMessageHandler {
+func NewRunnerMessageHandler(runner *Runner, store PodStore, conn client.Connection) *RunnerMessageHandler {
 	return &RunnerMessageHandler{
-		runner:       runner,
-		sessionStore: store,
-		conn:         conn,
+		runner:   runner,
+		podStore: store,
+		conn:     conn,
 	}
 }
 
-// OnCreateSession handles create session requests from server.
+// OnCreatePod handles create pod requests from server.
 // Implements client.MessageHandler interface.
 // Uses the Sandbox plugin system for environment configuration.
-func (h *RunnerMessageHandler) OnCreateSession(req client.CreateSessionRequest) error {
-	log.Printf("[message_handler] Creating session: session_id=%s, command=%s, permission_mode=%s, plugin_config=%v",
-		req.SessionID, req.InitialCommand, req.PermissionMode, req.PluginConfig)
+func (h *RunnerMessageHandler) OnCreatePod(req client.CreatePodRequest) error {
+	log.Printf("[message_handler] Creating pod: pod_key=%s, command=%s, permission_mode=%s, plugin_config=%v",
+		req.PodKey, req.InitialCommand, req.PermissionMode, req.PluginConfig)
 
 	ctx := context.Background()
 
 	// Check capacity
-	if h.runner.cfg.MaxConcurrentSessions > 0 && h.sessionStore.Count() >= h.runner.cfg.MaxConcurrentSessions {
-		h.sendSessionError(req.SessionID, "max concurrent sessions reached")
-		return fmt.Errorf("max concurrent sessions reached")
+	if h.runner.cfg.MaxConcurrentPods > 0 && h.podStore.Count() >= h.runner.cfg.MaxConcurrentPods {
+		h.sendPodError(req.PodKey, "max concurrent pods reached")
+		return fmt.Errorf("max concurrent pods reached")
 	}
 
 	// Build PluginConfig from both legacy fields and new PluginConfig
 	pluginConfig := h.buildPluginConfig(&req)
 
-	// Use SessionBuilder with Sandbox mode
-	builder := NewSessionBuilder(h.runner).
-		WithSessionKey(req.SessionID).
+	// Use PodBuilder with Sandbox mode
+	builder := NewPodBuilder(h.runner).
+		WithPodKey(req.PodKey).
 		WithLaunchCommand(req.InitialCommand, nil).
 		WithInitialPrompt(req.InitialPrompt).
 		WithSandbox(pluginConfig)
 
-	// Build session
-	session, err := builder.Build(ctx)
+	// Build pod
+	pod, err := builder.Build(ctx)
 	if err != nil {
-		h.sendSessionError(req.SessionID, fmt.Sprintf("failed to build session: %v", err))
-		return fmt.Errorf("failed to build session: %w", err)
+		h.sendPodError(req.PodKey, fmt.Sprintf("failed to build pod: %v", err))
+		return fmt.Errorf("failed to build pod: %w", err)
 	}
 
 	// Set output/exit handlers
-	session.Terminal.SetOutputHandler(h.createOutputHandler(req.SessionID))
-	session.Terminal.SetExitHandler(h.createExitHandler(req.SessionID))
+	pod.Terminal.SetOutputHandler(h.createOutputHandler(req.PodKey))
+	pod.Terminal.SetExitHandler(h.createExitHandler(req.PodKey))
 
 	// Start terminal
-	if err := session.Terminal.Start(); err != nil {
+	if err := pod.Terminal.Start(); err != nil {
 		// Cleanup sandbox on failure
 		if h.runner.sandboxManager != nil {
-			h.runner.sandboxManager.Cleanup(req.SessionID)
+			h.runner.sandboxManager.Cleanup(req.PodKey)
 		}
-		h.sendSessionError(req.SessionID, fmt.Sprintf("failed to start terminal: %v", err))
+		h.sendPodError(req.PodKey, fmt.Sprintf("failed to start terminal: %v", err))
 		return fmt.Errorf("failed to start terminal: %w", err)
 	}
 
-	// Store session
-	h.sessionStore.Put(req.SessionID, session)
-	session.Status = SessionStatusRunning
+	// Store pod
+	h.podStore.Put(req.PodKey, pod)
+	pod.Status = PodStatusRunning
 
-	// Register session with MCP HTTP Server for tool access (backend communication)
+	// Register pod with MCP HTTP Server for tool access (backend communication)
 	if h.runner.mcpServer != nil {
-		h.runner.mcpServer.RegisterSession(req.SessionID, nil, nil, req.InitialCommand)
-		log.Printf("[message_handler] Registered session %s with MCP server", req.SessionID)
+		h.runner.mcpServer.RegisterPod(req.PodKey, nil, nil, req.InitialCommand)
+		log.Printf("[message_handler] Registered pod %s with MCP server", req.PodKey)
 	}
 
 	// Send Shift+Tab if plan mode is requested
 	if req.PermissionMode == "plan" {
 		time.AfterFunc(1*time.Second, func() {
 			// Shift+Tab escape sequence
-			if err := session.Terminal.Write([]byte("\x1b[Z")); err != nil {
+			if err := pod.Terminal.Write([]byte("\x1b[Z")); err != nil {
 				log.Printf("[message_handler] Failed to send Shift+Tab: %v", err)
 			}
 		})
@@ -101,22 +101,22 @@ func (h *RunnerMessageHandler) OnCreateSession(req client.CreateSessionRequest) 
 			delay = 2500 * time.Millisecond // Give time for plan mode to activate
 		}
 		time.AfterFunc(delay, func() {
-			if err := session.Terminal.Write([]byte(req.InitialPrompt + "\n")); err != nil {
+			if err := pod.Terminal.Write([]byte(req.InitialPrompt + "\n")); err != nil {
 				log.Printf("[message_handler] Failed to send initial prompt: %v", err)
 			}
 		})
 	}
 
-	// Notify server that session is created
-	h.sendSessionCreated(req.SessionID, session.Terminal.PID(), session.WorktreePath, session.Branch, 80, 24)
+	// Notify server that pod is created
+	h.sendPodCreated(req.PodKey, pod.Terminal.PID(), pod.WorktreePath, pod.Branch, 80, 24)
 
-	log.Printf("[message_handler] Session created: session_id=%s, pid=%d, worktree=%s, branch=%s",
-		req.SessionID, session.Terminal.PID(), session.WorktreePath, session.Branch)
+	log.Printf("[message_handler] Pod created: pod_key=%s, pid=%d, worktree=%s, branch=%s",
+		req.PodKey, pod.Terminal.PID(), pod.WorktreePath, pod.Branch)
 	return nil
 }
 
 // buildPluginConfig merges legacy fields with PluginConfig for backward compatibility.
-func (h *RunnerMessageHandler) buildPluginConfig(req *client.CreateSessionRequest) map[string]interface{} {
+func (h *RunnerMessageHandler) buildPluginConfig(req *client.CreatePodRequest) map[string]interface{} {
 	config := make(map[string]interface{})
 
 	// Copy legacy fields to PluginConfig for backward compatibility
@@ -150,49 +150,49 @@ func (h *RunnerMessageHandler) buildPluginConfig(req *client.CreateSessionReques
 	return config
 }
 
-// OnTerminateSession handles terminate session requests from server.
+// OnTerminatePod handles terminate pod requests from server.
 // Implements client.MessageHandler interface.
-func (h *RunnerMessageHandler) OnTerminateSession(req client.TerminateSessionRequest) error {
-	log.Printf("[message_handler] Terminating session: session_id=%s", req.SessionID)
+func (h *RunnerMessageHandler) OnTerminatePod(req client.TerminatePodRequest) error {
+	log.Printf("[message_handler] Terminating pod: pod_key=%s", req.PodKey)
 
-	session := h.sessionStore.Delete(req.SessionID)
-	if session == nil {
-		return fmt.Errorf("session not found: %s", req.SessionID)
+	pod := h.podStore.Delete(req.PodKey)
+	if pod == nil {
+		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
 
 	// Stop terminal
-	if session.Terminal != nil {
-		session.Terminal.Stop()
+	if pod.Terminal != nil {
+		pod.Terminal.Stop()
 	}
 
 	// Clean up sandbox
 	if h.runner.sandboxManager != nil {
-		if err := h.runner.sandboxManager.Cleanup(req.SessionID); err != nil {
+		if err := h.runner.sandboxManager.Cleanup(req.PodKey); err != nil {
 			log.Printf("[message_handler] Warning: failed to cleanup sandbox: %v", err)
 		}
 	}
 
-	// Unregister session from MCP HTTP Server
+	// Unregister pod from MCP HTTP Server
 	if h.runner.mcpServer != nil {
-		h.runner.mcpServer.UnregisterSession(req.SessionID)
+		h.runner.mcpServer.UnregisterPod(req.PodKey)
 	}
 
 	// Notify server
-	h.sendSessionTerminated(req.SessionID)
+	h.sendPodTerminated(req.PodKey)
 
-	log.Printf("[message_handler] Session terminated: session_id=%s", req.SessionID)
+	log.Printf("[message_handler] Pod terminated: pod_key=%s", req.PodKey)
 	return nil
 }
 
-// OnListSessions returns current sessions.
+// OnListPods returns current pods.
 // Implements client.MessageHandler interface.
-func (h *RunnerMessageHandler) OnListSessions() []client.SessionInfo {
-	sessions := h.sessionStore.All()
-	result := make([]client.SessionInfo, 0, len(sessions))
+func (h *RunnerMessageHandler) OnListPods() []client.PodInfo {
+	pods := h.podStore.All()
+	result := make([]client.PodInfo, 0, len(pods))
 
-	for _, s := range sessions {
-		info := client.SessionInfo{
-			SessionID:    s.SessionKey,
+	for _, s := range pods {
+		info := client.PodInfo{
+			PodKey:       s.PodKey,
 			Status:       s.Status,
 			ClaudeStatus: "", // TODO: Get from Claude monitor
 		}
@@ -208,9 +208,9 @@ func (h *RunnerMessageHandler) OnListSessions() []client.SessionInfo {
 // OnTerminalInput handles terminal input from server.
 // Implements client.MessageHandler interface.
 func (h *RunnerMessageHandler) OnTerminalInput(req client.TerminalInputRequest) error {
-	session, ok := h.sessionStore.Get(req.SessionID)
+	pod, ok := h.podStore.Get(req.PodKey)
 	if !ok {
-		return fmt.Errorf("session not found: %s", req.SessionID)
+		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
 
 	// Decode base64 data
@@ -219,85 +219,85 @@ func (h *RunnerMessageHandler) OnTerminalInput(req client.TerminalInputRequest) 
 		return fmt.Errorf("failed to decode terminal input: %w", err)
 	}
 
-	return session.Terminal.Write(data)
+	return pod.Terminal.Write(data)
 }
 
 // OnTerminalResize handles terminal resize requests from server.
 // Implements client.MessageHandler interface.
 func (h *RunnerMessageHandler) OnTerminalResize(req client.TerminalResizeRequest) error {
-	session, ok := h.sessionStore.Get(req.SessionID)
+	pod, ok := h.podStore.Get(req.PodKey)
 	if !ok {
-		return fmt.Errorf("session not found: %s", req.SessionID)
+		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
 
-	if err := session.Terminal.Resize(int(req.Rows), int(req.Cols)); err != nil {
+	if err := pod.Terminal.Resize(int(req.Rows), int(req.Cols)); err != nil {
 		return err
 	}
 
 	// Notify server of resize
-	h.sendPtyResized(req.SessionID, req.Cols, req.Rows)
+	h.sendPtyResized(req.PodKey, req.Cols, req.Rows)
 	return nil
 }
 
 // Helper methods
 
-func (h *RunnerMessageHandler) createOutputHandler(sessionID string) func([]byte) {
+func (h *RunnerMessageHandler) createOutputHandler(podKey string) func([]byte) {
 	return func(data []byte) {
-		h.sendTerminalOutput(sessionID, data)
+		h.sendTerminalOutput(podKey, data)
 	}
 }
 
-func (h *RunnerMessageHandler) createExitHandler(sessionID string) func(int) {
+func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 	return func(exitCode int) {
-		log.Printf("[message_handler] Session exited: session_id=%s, exit_code=%d", sessionID, exitCode)
+		log.Printf("[message_handler] Pod exited: pod_key=%s, exit_code=%d", podKey, exitCode)
 
-		session := h.sessionStore.Delete(sessionID)
-		if session != nil {
-			session.Status = SessionStatusStopped
+		pod := h.podStore.Delete(podKey)
+		if pod != nil {
+			pod.Status = PodStatusStopped
 		}
 
-		h.sendSessionTerminated(sessionID)
+		h.sendPodTerminated(podKey)
 	}
 }
 
 // Event sending methods
 
-func (h *RunnerMessageHandler) sendSessionCreated(sessionID string, pid int, worktreePath, branchName string, cols, rows uint16) {
+func (h *RunnerMessageHandler) sendPodCreated(podKey string, pid int, worktreePath, branchName string, cols, rows uint16) {
 	if h.conn == nil {
 		return
 	}
-	event := client.SessionCreatedEvent{
-		SessionID:    sessionID,
+	event := client.PodCreatedEvent{
+		PodKey:       podKey,
 		Pid:          pid,
 		WorktreePath: worktreePath,
 		BranchName:   branchName,
 		PtyCols:      cols,
 		PtyRows:      rows,
 	}
-	if err := h.conn.SendEvent(client.MsgTypeSessionCreated, event); err != nil {
-		log.Printf("[message_handler] Failed to send session created event: %v", err)
+	if err := h.conn.SendEvent(client.MsgTypePodCreated, event); err != nil {
+		log.Printf("[message_handler] Failed to send pod created event: %v", err)
 	}
 }
 
-func (h *RunnerMessageHandler) sendSessionTerminated(sessionID string) {
+func (h *RunnerMessageHandler) sendPodTerminated(podKey string) {
 	if h.conn == nil {
 		return
 	}
-	event := client.SessionTerminatedEvent{
-		SessionID: sessionID,
+	event := client.PodTerminatedEvent{
+		PodKey: podKey,
 	}
-	if err := h.conn.SendEvent(client.MsgTypeSessionTerminated, event); err != nil {
-		log.Printf("[message_handler] Failed to send session terminated event: %v", err)
+	if err := h.conn.SendEvent(client.MsgTypePodTerminated, event); err != nil {
+		log.Printf("[message_handler] Failed to send pod terminated event: %v", err)
 	}
 }
 
-func (h *RunnerMessageHandler) sendTerminalOutput(sessionID string, data []byte) {
+func (h *RunnerMessageHandler) sendTerminalOutput(podKey string, data []byte) {
 	if h.conn == nil {
 		return
 	}
 	event := client.TerminalOutputEvent{
-		SessionID: sessionID,
-		Data:      base64.StdEncoding.EncodeToString(data),
+		PodKey: podKey,
+		Data:   base64.StdEncoding.EncodeToString(data),
 	}
 	// Use backpressure for terminal output to ensure no data loss
 	msg := client.ProtocolMessage{
@@ -308,27 +308,27 @@ func (h *RunnerMessageHandler) sendTerminalOutput(sessionID string, data []byte)
 	h.conn.SendWithBackpressure(msg)
 }
 
-func (h *RunnerMessageHandler) sendPtyResized(sessionID string, cols, rows uint16) {
+func (h *RunnerMessageHandler) sendPtyResized(podKey string, cols, rows uint16) {
 	if h.conn == nil {
 		return
 	}
 	event := client.PtyResizedEvent{
-		SessionID: sessionID,
-		Cols:      cols,
-		Rows:      rows,
+		PodKey: podKey,
+		Cols:   cols,
+		Rows:   rows,
 	}
 	if err := h.conn.SendEvent(client.MsgTypePtyResized, event); err != nil {
 		log.Printf("[message_handler] Failed to send pty resized event: %v", err)
 	}
 }
 
-func (h *RunnerMessageHandler) sendSessionError(sessionID, errorMsg string) {
+func (h *RunnerMessageHandler) sendPodError(podKey, errorMsg string) {
 	if h.conn == nil {
 		return
 	}
 	event := map[string]interface{}{
-		"session_id": sessionID,
-		"error":      errorMsg,
+		"pod_key": podKey,
+		"error":   errorMsg,
 	}
 	if err := h.conn.SendEvent(client.MessageType("error"), event); err != nil {
 		log.Printf("[message_handler] Failed to send error event: %v", err)

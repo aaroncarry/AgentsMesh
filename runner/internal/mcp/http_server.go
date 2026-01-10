@@ -17,15 +17,15 @@ import (
 type HTTPServer struct {
 	backendURL string
 	port       int
-	sessions   map[string]*SessionInfo
+	pods       map[string]*PodInfo
 	mu         sync.RWMutex
 	httpServer *http.Server
 	tools      []*MCPTool
 }
 
-// SessionInfo holds information about a registered session.
-type SessionInfo struct {
-	SessionKey   string
+// PodInfo holds information about a registered pod.
+type PodInfo struct {
+	PodKey       string
 	TicketID     *int
 	ProjectID    *int
 	AgentType    string
@@ -84,7 +84,7 @@ func NewHTTPServer(backendURL string, port int) *HTTPServer {
 	server := &HTTPServer{
 		backendURL: backendURL,
 		port:       port,
-		sessions:   make(map[string]*SessionInfo),
+		pods:       make(map[string]*PodInfo),
 	}
 
 	// Register all collaboration tools
@@ -103,8 +103,8 @@ func (s *HTTPServer) Start() error {
 	// Health check
 	mux.HandleFunc("/health", s.handleHealth)
 
-	// Debug: list sessions
-	mux.HandleFunc("/sessions", s.handleSessions)
+	// Debug: list pods
+	mux.HandleFunc("/pods", s.handlePods)
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
@@ -134,38 +134,38 @@ func (s *HTTPServer) Stop() error {
 	return nil
 }
 
-// RegisterSession registers a session with the MCP server.
-func (s *HTTPServer) RegisterSession(sessionKey string, ticketID, projectID *int, agentType string) {
+// RegisterPod registers a pod with the MCP server.
+func (s *HTTPServer) RegisterPod(podKey string, ticketID, projectID *int, agentType string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.sessions[sessionKey] = &SessionInfo{
-		SessionKey:   sessionKey,
+	s.pods[podKey] = &PodInfo{
+		PodKey:       podKey,
 		TicketID:     ticketID,
 		ProjectID:    projectID,
 		AgentType:    agentType,
 		RegisteredAt: time.Now(),
-		Client:       NewBackendClient(s.backendURL, sessionKey),
+		Client:       NewBackendClient(s.backendURL, podKey),
 	}
 
-	log.Printf("[mcp_http_server] Registered session: %s", sessionKey)
+	log.Printf("[mcp_http_server] Registered pod: %s", podKey)
 }
 
-// UnregisterSession removes a session from the MCP server.
-func (s *HTTPServer) UnregisterSession(sessionKey string) {
+// UnregisterPod removes a pod from the MCP server.
+func (s *HTTPServer) UnregisterPod(podKey string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.sessions, sessionKey)
-	log.Printf("[mcp_http_server] Unregistered session: %s", sessionKey)
+	delete(s.pods, podKey)
+	log.Printf("[mcp_http_server] Unregistered pod: %s", podKey)
 }
 
-// GetSession returns session info for a given session key.
-func (s *HTTPServer) GetSession(sessionKey string) (*SessionInfo, bool) {
+// GetPod returns pod info for a given pod key.
+func (s *HTTPServer) GetPod(podKey string) (*PodInfo, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	info, ok := s.sessions[sessionKey]
+	info, ok := s.pods[podKey]
 	return info, ok
 }
 
@@ -176,16 +176,16 @@ func (s *HTTPServer) handleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get session key from header
-	sessionKey := r.Header.Get("X-Session-Key")
-	if sessionKey == "" {
-		s.sendError(w, nil, -32600, "Missing X-Session-Key header", nil)
+	// Get pod key from header
+	podKey := r.Header.Get("X-Pod-Key")
+	if podKey == "" {
+		s.sendError(w, nil, -32600, "Missing X-Pod-Key header", nil)
 		return
 	}
 
-	session, ok := s.GetSession(sessionKey)
+	pod, ok := s.GetPod(podKey)
 	if !ok {
-		s.sendError(w, nil, -32600, "Session not registered", nil)
+		s.sendError(w, nil, -32600, "Pod not registered", nil)
 		return
 	}
 
@@ -203,7 +203,7 @@ func (s *HTTPServer) handleMCP(w http.ResponseWriter, r *http.Request) {
 	case "tools/list":
 		s.handleToolsList(w, &req)
 	case "tools/call":
-		s.handleToolsCall(w, &req, session)
+		s.handleToolsCall(w, &req, pod)
 	default:
 		s.sendError(w, req.ID, -32601, "Method not found", nil)
 	}
@@ -244,7 +244,7 @@ func (s *HTTPServer) handleToolsList(w http.ResponseWriter, req *MCPRequest) {
 }
 
 // handleToolsCall handles the tools/call request.
-func (s *HTTPServer) handleToolsCall(w http.ResponseWriter, req *MCPRequest, session *SessionInfo) {
+func (s *HTTPServer) handleToolsCall(w http.ResponseWriter, req *MCPRequest, pod *PodInfo) {
 	var params struct {
 		Name      string                 `json:"name"`
 		Arguments map[string]interface{} `json:"arguments"`
@@ -271,7 +271,7 @@ func (s *HTTPServer) handleToolsCall(w http.ResponseWriter, req *MCPRequest, ses
 
 	// Execute tool
 	ctx := context.Background()
-	result, err := tool.Handler(ctx, session.Client, params.Arguments)
+	result, err := tool.Handler(ctx, pod.Client, params.Arguments)
 	if err != nil {
 		s.sendResult(w, req.ID, MCPToolResult{
 			Content: []MCPContent{{Type: "text", Text: err.Error()}},
@@ -299,20 +299,20 @@ func (s *HTTPServer) handleToolsCall(w http.ResponseWriter, req *MCPRequest, ses
 func (s *HTTPServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":   "ok",
-		"sessions": s.SessionCount(),
+		"status": "ok",
+		"pods":   s.PodCount(),
 	})
 }
 
-// handleSessions lists registered sessions (debug endpoint).
-func (s *HTTPServer) handleSessions(w http.ResponseWriter, r *http.Request) {
+// handlePods lists registered pods (debug endpoint).
+func (s *HTTPServer) handlePods(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	sessions := make([]map[string]interface{}, 0, len(s.sessions))
-	for _, info := range s.sessions {
-		sessions = append(sessions, map[string]interface{}{
-			"session_key":   info.SessionKey,
+	pods := make([]map[string]interface{}, 0, len(s.pods))
+	for _, info := range s.pods {
+		pods = append(pods, map[string]interface{}{
+			"pod_key":       info.PodKey,
 			"ticket_id":     info.TicketID,
 			"project_id":    info.ProjectID,
 			"agent_type":    info.AgentType,
@@ -322,7 +322,7 @@ func (s *HTTPServer) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"sessions": sessions,
+		"pods": pods,
 	})
 }
 
@@ -354,11 +354,11 @@ func (s *HTTPServer) sendError(w http.ResponseWriter, id interface{}, code int, 
 	json.NewEncoder(w).Encode(resp)
 }
 
-// SessionCount returns the number of registered sessions.
-func (s *HTTPServer) SessionCount() int {
+// PodCount returns the number of registered pods.
+func (s *HTTPServer) PodCount() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.sessions)
+	return len(s.pods)
 }
 
 // Port returns the server port.
@@ -367,7 +367,7 @@ func (s *HTTPServer) Port() int {
 }
 
 // GenerateMCPConfig generates the MCP configuration JSON for Claude Code.
-func (s *HTTPServer) GenerateMCPConfig(sessionKey string) map[string]interface{} {
+func (s *HTTPServer) GenerateMCPConfig(podKey string) map[string]interface{} {
 	return map[string]interface{}{
 		"mcpServers": map[string]interface{}{
 			"agentmesh-collaboration": map[string]interface{}{
@@ -375,7 +375,7 @@ func (s *HTTPServer) GenerateMCPConfig(sessionKey string) map[string]interface{}
 				"args": []string{
 					"-X", "POST",
 					"-H", "Content-Type: application/json",
-					"-H", fmt.Sprintf("X-Session-Key: %s", sessionKey),
+					"-H", fmt.Sprintf("X-Pod-Key: %s", podKey),
 					fmt.Sprintf("http://localhost:%d/mcp", s.port),
 					"-d", "@-",
 				},
@@ -393,17 +393,17 @@ func (s *HTTPServer) registerTools() {
 		s.createSendTerminalKeyTool(),
 
 		// Discovery tools
-		s.createListAvailableSessionsTool(),
+		s.createListAvailablePodsTool(),
 		s.createListRunnersTool(),
 		s.createListRepositoriesTool(),
 
 		// Binding tools
-		s.createBindSessionTool(),
+		s.createBindPodTool(),
 		s.createAcceptBindingTool(),
 		s.createRejectBindingTool(),
-		s.createUnbindSessionTool(),
+		s.createUnbindPodTool(),
 		s.createGetBindingsTool(),
-		s.createGetBoundSessionsTool(),
+		s.createGetBoundPodsTool(),
 
 		// Channel tools
 		s.createSearchChannelsTool(),
@@ -420,8 +420,8 @@ func (s *HTTPServer) registerTools() {
 		s.createCreateTicketTool(),
 		s.createUpdateTicketTool(),
 
-		// Session tools
-		s.createCreateSessionTool(),
+		// Pod tools
+		s.createCreatePodTool(),
 	}
 }
 

@@ -84,17 +84,17 @@ func (p *WorktreePlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config 
 	// Worktree path inside sandbox
 	worktreePath := filepath.Join(sb.RootPath, "worktree")
 
-	// Branch naming: ticket/{ticket_id}-{session_suffix} or session/{session_suffix} if no ticket
-	// Use last 8 chars of session key (the random hash part) to avoid collisions
-	sessionSuffix := sb.SessionKey
-	if len(sessionSuffix) > 8 {
-		sessionSuffix = sessionSuffix[len(sessionSuffix)-8:]
+	// Branch naming: ticket/{ticket_id}-{pod_suffix} or pod/{pod_suffix} if no ticket
+	// Use last 8 chars of pod key (the random hash part) to avoid collisions
+	podSuffix := sb.PodKey
+	if len(podSuffix) > 8 {
+		podSuffix = podSuffix[len(podSuffix)-8:]
 	}
 	var branchName string
 	if ticketID != "" {
-		branchName = fmt.Sprintf("ticket/%s-%s", ticketID, sessionSuffix)
+		branchName = fmt.Sprintf("ticket/%s-%s", ticketID, podSuffix)
 	} else {
-		branchName = fmt.Sprintf("session/%s", sessionSuffix)
+		branchName = fmt.Sprintf("pod/%s", podSuffix)
 	}
 
 	// Create worktree
@@ -118,8 +118,8 @@ func (p *WorktreePlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, config 
 	sb.Metadata["branch_name"] = branchName
 	sb.Metadata["workspace_type"] = "worktree"
 
-	log.Printf("[worktree] Created worktree: session=%s, branch=%s, path=%s",
-		sb.SessionKey, branchName, worktreePath)
+	log.Printf("[worktree] Created worktree: pod=%s, branch=%s, path=%s",
+		sb.PodKey, branchName, worktreePath)
 
 	return nil
 }

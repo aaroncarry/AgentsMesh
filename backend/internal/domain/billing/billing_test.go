@@ -98,7 +98,7 @@ func TestSubscriptionPlanStruct(t *testing.T) {
 		Name:                   PlanPro,
 		DisplayName:            "Pro Plan",
 		PricePerSeatMonthly:    19.99,
-		IncludedSessionMinutes: 1000,
+		IncludedPodMinutes: 1000,
 		PricePerExtraMinute:    0.05,
 		MaxUsers:               50,
 		MaxRunners:             10,
@@ -257,7 +257,7 @@ func TestUsageTypeConstants(t *testing.T) {
 		constant string
 		expected string
 	}{
-		{UsageTypeSessionMinutes, "session_minutes"},
+		{UsageTypePodMinutes, "pod_minutes"},
 		{UsageTypeStorageGB, "storage_gb"},
 		{UsageTypeAPIRequests, "api_requests"},
 	}
@@ -284,12 +284,12 @@ func TestUsageMetadataScanNil(t *testing.T) {
 
 func TestUsageMetadataScanValid(t *testing.T) {
 	var um UsageMetadata
-	err := um.Scan([]byte(`{"session_id":"sess-123","user_id":50}`))
+	err := um.Scan([]byte(`{"pod_id":"pod-123","user_id":50}`))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if um["session_id"] != "sess-123" {
-		t.Errorf("expected session_id 'sess-123', got %v", um["session_id"])
+	if um["pod_id"] != "pod-123" {
+		t.Errorf("expected pod_id 'pod-123', got %v", um["pod_id"])
 	}
 }
 
@@ -313,7 +313,7 @@ func TestUsageMetadataValueNil(t *testing.T) {
 }
 
 func TestUsageMetadataValueValid(t *testing.T) {
-	um := UsageMetadata{"session_id": "sess-123"}
+	um := UsageMetadata{"pod_id": "pod-123"}
 	val, err := um.Value()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -338,11 +338,11 @@ func TestUsageRecordStruct(t *testing.T) {
 	ur := UsageRecord{
 		ID:             1,
 		OrganizationID: 100,
-		UsageType:      UsageTypeSessionMinutes,
+		UsageType:      UsageTypePodMinutes,
 		Quantity:       120.5,
 		PeriodStart:    now,
 		PeriodEnd:      now.Add(24 * time.Hour),
-		Metadata:       UsageMetadata{"session_id": "sess-123"},
+		Metadata:       UsageMetadata{"pod_id": "pod-123"},
 		CreatedAt:      now,
 	}
 
@@ -352,8 +352,8 @@ func TestUsageRecordStruct(t *testing.T) {
 	if ur.OrganizationID != 100 {
 		t.Errorf("expected OrganizationID 100, got %d", ur.OrganizationID)
 	}
-	if ur.UsageType != "session_minutes" {
-		t.Errorf("expected UsageType 'session_minutes', got %s", ur.UsageType)
+	if ur.UsageType != "pod_minutes" {
+		t.Errorf("expected UsageType 'pod_minutes', got %s", ur.UsageType)
 	}
 	if ur.Quantity != 120.5 {
 		t.Errorf("expected Quantity 120.5, got %f", ur.Quantity)

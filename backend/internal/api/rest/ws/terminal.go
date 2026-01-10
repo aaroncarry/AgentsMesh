@@ -8,8 +8,8 @@ import (
 
 	"github.com/anthropics/agentmesh/backend/internal/infra/websocket"
 	"github.com/anthropics/agentmesh/backend/internal/middleware"
+	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/session"
 	"github.com/gin-gonic/gin"
 	gorillaws "github.com/gorilla/websocket"
 )
@@ -26,15 +26,15 @@ var upgrader = gorillaws.Upgrader{
 // TerminalHandler handles terminal WebSocket connections
 type TerminalHandler struct {
 	hub            *websocket.Hub
-	sessionService *session.Service
+	podService     *agentpod.PodService
 	terminalRouter *runner.TerminalRouter
 }
 
 // NewTerminalHandler creates a new terminal handler
-func NewTerminalHandler(hub *websocket.Hub, sessionService *session.Service) *TerminalHandler {
+func NewTerminalHandler(hub *websocket.Hub, podService *agentpod.PodService) *TerminalHandler {
 	return &TerminalHandler{
-		hub:            hub,
-		sessionService: sessionService,
+		hub:        hub,
+		podService: podService,
 	}
 }
 
@@ -45,9 +45,9 @@ func (h *TerminalHandler) SetTerminalRouter(tr *runner.TerminalRouter) {
 
 // HandleTerminal handles WebSocket connection for terminal
 func (h *TerminalHandler) HandleTerminal(c *gin.Context) {
-	sessionKey := c.Param("session_key")
+	podKey := c.Param("pod_key")
 
-	log.Printf("[terminal_ws] HandleTerminal called for session: %s", sessionKey)
+	log.Printf("[terminal_ws] HandleTerminal called for pod: %s", podKey)
 
 	// Get user from context
 	claims, exists := c.Get("claims")
@@ -65,15 +65,15 @@ func (h *TerminalHandler) HandleTerminal(c *gin.Context) {
 	}
 	tenantCtx := tenant.(*middleware.TenantContext)
 
-	// Verify session exists and belongs to the organization
-	sess, err := h.sessionService.GetSession(c.Request.Context(), sessionKey)
+	// Verify pod exists and belongs to the organization
+	pod, err := h.podService.GetPod(c.Request.Context(), podKey)
 	if err != nil {
-		log.Printf("[terminal_ws] Session not found: %s, error: %v", sessionKey, err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		log.Printf("[terminal_ws] Pod not found: %s, error: %v", podKey, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
 		return
 	}
 
-	if sess.OrganizationID != tenantCtx.OrganizationID {
+	if pod.OrganizationID != tenantCtx.OrganizationID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 		return
 	}
@@ -92,27 +92,27 @@ func (h *TerminalHandler) HandleTerminal(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[terminal_ws] WebSocket connection upgraded for session: %s", sessionKey)
+	log.Printf("[terminal_ws] WebSocket connection upgraded for pod: %s", podKey)
 
 	// Connect client to terminal router
-	client, err := h.terminalRouter.ConnectClient(sessionKey, conn)
+	client, err := h.terminalRouter.ConnectClient(podKey, conn)
 	if err != nil {
 		log.Printf("[terminal_ws] Failed to connect client: %v", err)
 		conn.Close()
 		return
 	}
 
-	log.Printf("[terminal_ws] Client connected to terminal router for session: %s", sessionKey)
+	log.Printf("[terminal_ws] Client connected to terminal router for pod: %s", podKey)
 
 	// Start write pump to send data to client
 	go h.writePump(client)
 
 	// Start read loop to receive data from client
-	h.readLoop(sessionKey, client, conn)
+	h.readLoop(podKey, client, conn)
 
 	// Disconnect client when done
 	h.terminalRouter.DisconnectClient(client)
-	log.Printf("[terminal_ws] Client disconnected from session: %s", sessionKey)
+	log.Printf("[terminal_ws] Client disconnected from pod: %s", podKey)
 }
 
 // writePump sends data from the terminal router to the WebSocket client
@@ -145,7 +145,7 @@ func (h *TerminalHandler) writePump(client *runner.TerminalClient) {
 }
 
 // readLoop reads data from the WebSocket client and routes it to the runner
-func (h *TerminalHandler) readLoop(sessionKey string, client *runner.TerminalClient, conn *gorillaws.Conn) {
+func (h *TerminalHandler) readLoop(podKey string, client *runner.TerminalClient, conn *gorillaws.Conn) {
 	defer conn.Close()
 
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -158,7 +158,7 @@ func (h *TerminalHandler) readLoop(sessionKey string, client *runner.TerminalCli
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
 			if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseGoingAway, gorillaws.CloseNormalClosure) {
-				log.Printf("[terminal_ws] Read error for session %s: %v", sessionKey, err)
+				log.Printf("[terminal_ws] Read error for pod %s: %v", podKey, err)
 			}
 			return
 		}
@@ -182,18 +182,18 @@ func (h *TerminalHandler) readLoop(sessionKey string, client *runner.TerminalCli
 			switch msg.Type {
 			case "input":
 				// Route input to runner
-				if err := h.terminalRouter.RouteInput(sessionKey, []byte(msg.Data)); err != nil {
+				if err := h.terminalRouter.RouteInput(podKey, []byte(msg.Data)); err != nil {
 					log.Printf("[terminal_ws] Failed to route input: %v", err)
 				}
 			case "resize":
 				// Route resize to runner
-				if err := h.terminalRouter.RouteResize(sessionKey, msg.Cols, msg.Rows); err != nil {
+				if err := h.terminalRouter.RouteResize(podKey, msg.Cols, msg.Rows); err != nil {
 					log.Printf("[terminal_ws] Failed to route resize: %v", err)
 				}
 			}
 		} else if msgType == gorillaws.BinaryMessage {
 			// Binary data is terminal input
-			if err := h.terminalRouter.RouteInput(sessionKey, data); err != nil {
+			if err := h.terminalRouter.RouteInput(podKey, data); err != nil {
 				log.Printf("[terminal_ws] Failed to route binary input: %v", err)
 			}
 		}
@@ -257,17 +257,17 @@ func (h *EventsHandler) onMessage(client *websocket.Client, msg *websocket.Messa
 		// Handle subscription messages
 		var subData struct {
 			Action    string `json:"action"`
-			SessionID string `json:"session_id,omitempty"`
+			PodKey    string `json:"pod_key,omitempty"`
 			ChannelID int64  `json:"channel_id,omitempty"`
 		}
 		if err := json.Unmarshal(msg.Data, &subData); err == nil {
 			switch subData.Action {
-			case "subscribe_session":
-				client.SetSession(subData.SessionID)
+			case "subscribe_pod":
+				client.SetPod(subData.PodKey)
 			case "subscribe_channel":
 				client.SetChannel(subData.ChannelID)
-			case "unsubscribe_session":
-				client.SetSession("")
+			case "unsubscribe_pod":
+				client.SetPod("")
 			case "unsubscribe_channel":
 				client.SetChannel(0)
 			}

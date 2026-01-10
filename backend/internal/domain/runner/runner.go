@@ -66,11 +66,11 @@ type Runner struct {
 	Description    string `gorm:"type:text" json:"description,omitempty"`
 	AuthTokenHash  string `gorm:"size:255;not null" json:"-"`
 
-	Status                string     `gorm:"size:50;not null;default:'offline';index" json:"status"`
-	LastHeartbeat         *time.Time `json:"last_heartbeat,omitempty"`
-	CurrentSessions       int        `gorm:"not null;default:0" json:"current_sessions"`
-	MaxConcurrentSessions int        `gorm:"not null;default:5" json:"max_concurrent_sessions"`
-	RunnerVersion         *string    `gorm:"size:50" json:"runner_version,omitempty"`
+	Status            string     `gorm:"size:50;not null;default:'offline';index" json:"status"`
+	LastHeartbeat     *time.Time `json:"last_heartbeat,omitempty"`
+	CurrentPods       int        `gorm:"not null;default:0" json:"current_pods"`
+	MaxConcurrentPods int        `gorm:"not null;default:5" json:"max_concurrent_pods"`
+	RunnerVersion     *string    `gorm:"size:50" json:"runner_version,omitempty"`
 	IsEnabled             bool       `gorm:"not null;default:true" json:"is_enabled"`
 
 	HostInfo HostInfo `gorm:"type:jsonb" json:"host_info,omitempty"`
@@ -88,7 +88,7 @@ func (r *Runner) IsOnline() bool {
 	return r.Status == RunnerStatusOnline
 }
 
-// CanAcceptSession returns true if runner can accept new sessions
-func (r *Runner) CanAcceptSession() bool {
-	return r.IsEnabled && r.IsOnline() && r.CurrentSessions < r.MaxConcurrentSessions
+// CanAcceptPod returns true if runner can accept new pods
+func (r *Runner) CanAcceptPod() bool {
+	return r.IsEnabled && r.IsOnline() && r.CurrentPods < r.MaxConcurrentPods
 }

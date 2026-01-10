@@ -26,6 +26,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			client_id TEXT,
 			client_secret_encrypted TEXT,
 			bot_token_encrypted TEXT,
+			ssh_key_id INTEGER,
 			is_default INTEGER NOT NULL DEFAULT 0,
 			is_active INTEGER NOT NULL DEFAULT 1,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -51,7 +52,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			visibility TEXT NOT NULL DEFAULT 'organization',
 			imported_by_user_id INTEGER,
 			is_active INTEGER NOT NULL DEFAULT 1,
-			last_synced_at DATETIME,
+			deleted_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)

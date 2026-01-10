@@ -7,8 +7,8 @@ export interface RunnerData {
   description?: string;
   status: "online" | "offline" | "maintenance" | "busy";
   last_heartbeat?: string;
-  current_sessions: number;
-  max_concurrent_sessions: number;
+  current_pods: number;
+  max_concurrent_pods: number;
   runner_version?: string;
   is_enabled: boolean;
   host_info?: {
@@ -20,8 +20,8 @@ export interface RunnerData {
   };
   created_at: string;
   updated_at: string;
-  active_sessions?: Array<{
-    session_key: string;
+  active_pods?: Array<{
+    pod_key: string;
     status: string;
     agent_status: string;
   }>;
@@ -51,7 +51,7 @@ export const runnerApi = {
   get: (id: number) =>
     request<{ runner: RunnerData }>(`/api/v1/org/runners/${id}`),
 
-  update: (id: number, data: { description?: string; max_concurrent_sessions?: number; is_enabled?: boolean }) =>
+  update: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean }) =>
     request<{ runner: RunnerData }>(`/api/v1/org/runners/${id}`, {
       method: "PUT",
       body: data,

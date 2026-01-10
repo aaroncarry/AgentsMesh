@@ -174,8 +174,8 @@ type MergeRequest struct {
 	ID             int64 `gorm:"primaryKey" json:"id"`
 	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
 
-	TicketID  int64  `gorm:"not null;index" json:"ticket_id"`
-	SessionID *int64 `json:"session_id,omitempty"`
+	TicketID int64  `gorm:"not null;index" json:"ticket_id"`
+	PodID    *int64 `json:"pod_id,omitempty"`
 
 	MRIID        int    `gorm:"not null" json:"mr_iid"`
 	MRURL        string `gorm:"type:text;not null;uniqueIndex" json:"mr_url"`
@@ -263,7 +263,7 @@ type Commit struct {
 
 	TicketID     int64  `gorm:"not null;index" json:"ticket_id"`
 	RepositoryID int64  `gorm:"not null;index" json:"repository_id"`
-	SessionID    *int64 `json:"session_id,omitempty"`
+	PodID        *int64 `json:"pod_id,omitempty"`
 
 	CommitSHA     string  `gorm:"size:40;not null" json:"commit_sha"`
 	CommitMessage string  `gorm:"type:text" json:"commit_message,omitempty"`

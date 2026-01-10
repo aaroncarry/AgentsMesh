@@ -25,16 +25,16 @@
     "loginWith": "Login with {provider}"
   },
   "nav": {
-    "devpod": "DevPod",
+    "agentpod": "AgentPod",
     "mesh": "AgentMesh",
     "tickets": "Tickets",
     "settings": "Settings",
     "billing": "Billing"
   },
-  "devpod": {
-    "title": "DevPod",
-    "sessions": "Sessions",
-    "newSession": "New Session",
+  "agentpod": {
+    "title": "AgentPod",
+    "pods": "Pods",
+    "newPod": "New Pod",
     "runners": "Runners",
     "noRunnersOnline": "No runners online",
     "selectAgent": "Select Agent",

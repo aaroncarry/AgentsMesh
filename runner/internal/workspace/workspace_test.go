@@ -54,9 +54,9 @@ func TestTempWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 	manager, _ := NewManager(tmpDir, "")
 
-	path := manager.TempWorkspace("session-123")
+	path := manager.TempWorkspace("pod-123")
 
-	expectedPath := filepath.Join(tmpDir, "temp", "session-123")
+	expectedPath := filepath.Join(tmpDir, "temp", "pod-123")
 	if path != expectedPath {
 		t.Errorf("path: got %v, want %v", path, expectedPath)
 	}
@@ -197,12 +197,12 @@ func TestExtractRepoNameInvalid(t *testing.T) {
 
 func TestPreparationContextGetEnvVars(t *testing.T) {
 	ctx := &PreparationContext{
-		SessionID:        "session-1",
+		PodID:        "pod-1",
 		TicketIdentifier: "TICKET-123",
 		BranchName:       "feature/test",
 		WorkingDir:       "/workspace/test",
 		MainRepoDir:      "/workspace/repos/main",
-		WorktreeDir:      "/workspace/worktrees/session-1",
+		WorktreeDir:      "/workspace/worktrees/pod-1",
 		BaseEnvVars:      map[string]string{"API_KEY": "secret"},
 	}
 
@@ -216,8 +216,8 @@ func TestPreparationContextGetEnvVars(t *testing.T) {
 		t.Errorf("MAIN_REPO_DIR: got %v, want /workspace/repos/main", envVars["MAIN_REPO_DIR"])
 	}
 
-	if envVars["WORKTREE_DIR"] != "/workspace/worktrees/session-1" {
-		t.Errorf("WORKTREE_DIR: got %v, want /workspace/worktrees/session-1", envVars["WORKTREE_DIR"])
+	if envVars["WORKTREE_DIR"] != "/workspace/worktrees/pod-1" {
+		t.Errorf("WORKTREE_DIR: got %v, want /workspace/worktrees/pod-1", envVars["WORKTREE_DIR"])
 	}
 
 	if envVars["TICKET_IDENTIFIER"] != "TICKET-123" {
@@ -235,7 +235,7 @@ func TestPreparationContextGetEnvVars(t *testing.T) {
 
 func TestPreparationContextString(t *testing.T) {
 	ctx := &PreparationContext{
-		SessionID:        "session-1",
+		PodID:        "pod-1",
 		TicketIdentifier: "TICKET-123",
 		WorkingDir:       "/workspace/test",
 	}
@@ -335,7 +335,7 @@ func TestPreparerAddStep(t *testing.T) {
 func TestPreparerPrepareEmpty(t *testing.T) {
 	preparer := NewPreparer()
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: t.TempDir(),
 	}
 
@@ -351,7 +351,7 @@ func TestPreparerPrepareSuccess(t *testing.T) {
 	preparer := NewPreparer(step)
 
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: tmpDir,
 	}
 
@@ -367,7 +367,7 @@ func TestPreparerPrepareFailure(t *testing.T) {
 	preparer := NewPreparer(step)
 
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: tmpDir,
 	}
 
@@ -393,7 +393,7 @@ func TestScriptPreparationStepName(t *testing.T) {
 func TestScriptPreparationStepExecuteEmpty(t *testing.T) {
 	step := NewScriptPreparationStep("", time.Minute)
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: t.TempDir(),
 	}
 
@@ -412,7 +412,7 @@ func TestScriptPreparationStepExecuteWithEnvVars(t *testing.T) {
 	step := NewScriptPreparationStep(script, time.Minute)
 
 	ctx := &PreparationContext{
-		SessionID:        "session-1",
+		PodID:        "pod-1",
 		TicketIdentifier: "TICKET-123",
 		WorkingDir:       tmpDir,
 	}
@@ -436,7 +436,7 @@ func TestScriptPreparationStepExecuteWithEnvVars(t *testing.T) {
 func TestScriptPreparationStepTimeout(t *testing.T) {
 	step := NewScriptPreparationStep("sleep 10", 100*time.Millisecond)
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: t.TempDir(),
 	}
 
@@ -477,7 +477,7 @@ func TestPreparerStopsOnError(t *testing.T) {
 
 	preparer := NewPreparer(step1, step2, step3)
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: t.TempDir(),
 	}
 
@@ -516,12 +516,12 @@ func BenchmarkExtractRepoName(b *testing.B) {
 
 func BenchmarkPreparationContextGetEnvVars(b *testing.B) {
 	ctx := &PreparationContext{
-		SessionID:        "session-1",
+		PodID:        "pod-1",
 		TicketIdentifier: "TICKET-123",
 		BranchName:       "feature/test",
 		WorkingDir:       "/workspace/test",
 		MainRepoDir:      "/workspace/repos/main",
-		WorktreeDir:      "/workspace/worktrees/session-1",
+		WorktreeDir:      "/workspace/worktrees/pod-1",
 		BaseEnvVars:      map[string]string{"API_KEY": "secret"},
 	}
 
@@ -590,13 +590,13 @@ func TestFindMainRepoValidGitFile(t *testing.T) {
 
 	// Create directory structure similar to a real worktree
 	mainRepoDir := filepath.Join(tmpDir, "repos", "main")
-	os.MkdirAll(filepath.Join(mainRepoDir, ".git", "worktrees", "session-1"), 0755)
+	os.MkdirAll(filepath.Join(mainRepoDir, ".git", "worktrees", "pod-1"), 0755)
 
-	worktreePath := filepath.Join(tmpDir, "worktrees", "session-1")
+	worktreePath := filepath.Join(tmpDir, "worktrees", "pod-1")
 	os.MkdirAll(worktreePath, 0755)
 
 	// Write valid .git content
-	gitDir := filepath.Join(mainRepoDir, ".git", "worktrees", "session-1")
+	gitDir := filepath.Join(mainRepoDir, ".git", "worktrees", "pod-1")
 	gitFile := filepath.Join(worktreePath, ".git")
 	os.WriteFile(gitFile, []byte("gitdir: "+gitDir), 0644)
 
@@ -727,7 +727,7 @@ func TestExtractRepoNameSSHVariants(t *testing.T) {
 
 func TestPreparationContextGetEnvVarsEmpty(t *testing.T) {
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: "/workspace",
 	}
 
@@ -746,7 +746,7 @@ func TestPreparationContextGetEnvVarsEmpty(t *testing.T) {
 
 func TestPreparationContextStringFormat(t *testing.T) {
 	ctx := &PreparationContext{
-		SessionID:        "session-1",
+		PodID:        "pod-1",
 		TicketIdentifier: "TICKET-123",
 		BranchName:       "feature/test",
 		WorkingDir:       "/workspace",
@@ -755,8 +755,8 @@ func TestPreparationContextStringFormat(t *testing.T) {
 	str := ctx.String()
 
 	// Should contain key fields
-	if !contains(str, "session-1") {
-		t.Error("String() should contain session ID")
+	if !contains(str, "pod-1") {
+		t.Error("String() should contain pod ID")
 	}
 	if !contains(str, "TICKET-123") {
 		t.Error("String() should contain ticket identifier")
@@ -791,7 +791,7 @@ func TestPreparerMultipleSteps(t *testing.T) {
 	}
 
 	ctx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: tmpDir,
 	}
 
@@ -809,7 +809,7 @@ func TestPreparerContextCancellation(t *testing.T) {
 	preparer := NewPreparer(step)
 
 	prepCtx := &PreparationContext{
-		SessionID:  "session-1",
+		PodID:  "pod-1",
 		WorkingDir: tmpDir,
 	}
 
@@ -829,7 +829,7 @@ func TestCreateWorktreeInvalidRepoURL(t *testing.T) {
 	tmpDir := t.TempDir()
 	manager, _ := NewManager(tmpDir, "")
 
-	_, err := manager.CreateWorktree(context.Background(), "", "main", "session-1")
+	_, err := manager.CreateWorktree(context.Background(), "", "main", "pod-1")
 	if err == nil {
 		t.Error("expected error for empty repo URL")
 	}
@@ -840,7 +840,7 @@ func TestCreateWorktreeInvalidRepoURLFormat(t *testing.T) {
 	manager, _ := NewManager(tmpDir, "")
 
 	// Single word URL that doesn't match any pattern
-	_, err := manager.CreateWorktree(context.Background(), "invalid", "main", "session-1")
+	_, err := manager.CreateWorktree(context.Background(), "invalid", "main", "pod-1")
 	if err == nil {
 		t.Error("expected error for invalid repo URL")
 	}
@@ -880,13 +880,13 @@ func TestFindMainRepoBareRepo(t *testing.T) {
 
 	// Create directory structure for a bare repo worktree
 	bareRepoDir := filepath.Join(tmpDir, "repo.git")
-	os.MkdirAll(filepath.Join(bareRepoDir, "worktrees", "session-1"), 0755)
+	os.MkdirAll(filepath.Join(bareRepoDir, "worktrees", "pod-1"), 0755)
 
-	worktreePath := filepath.Join(tmpDir, "worktrees", "session-1")
+	worktreePath := filepath.Join(tmpDir, "worktrees", "pod-1")
 	os.MkdirAll(worktreePath, 0755)
 
 	// Write valid .git content pointing to bare repo
-	gitDir := filepath.Join(bareRepoDir, "worktrees", "session-1")
+	gitDir := filepath.Join(bareRepoDir, "worktrees", "pod-1")
 	gitFile := filepath.Join(worktreePath, ".git")
 	os.WriteFile(gitFile, []byte("gitdir: "+gitDir), 0644)
 
@@ -1181,7 +1181,7 @@ func TestCreateWorktreeFullIntegration(t *testing.T) {
 
 	// CreateWorktree uses git:// or https:// URLs, but we can test with local path
 	// This will test the internal logic
-	worktreePath, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-session")
+	worktreePath, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-pod")
 	if err != nil {
 		// Expected to fail because local path clone may not work as expected
 		t.Logf("CreateWorktree error (expected for local paths): %v", err)
@@ -1237,7 +1237,7 @@ func TestCreateWorktreeExistingWorktree(t *testing.T) {
 	manager, _ := NewManager(workspaceRoot, "")
 
 	// Pre-create a worktree directory that should be removed
-	existingWorktree := filepath.Join(workspaceRoot, "worktrees", "test-session")
+	existingWorktree := filepath.Join(workspaceRoot, "worktrees", "test-pod")
 	os.MkdirAll(existingWorktree, 0755)
 	os.WriteFile(filepath.Join(existingWorktree, "existing.txt"), []byte("old"), 0644)
 
@@ -1245,7 +1245,7 @@ func TestCreateWorktreeExistingWorktree(t *testing.T) {
 	defer cancel()
 
 	// CreateWorktree should handle the existing directory
-	_, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-session")
+	_, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-pod")
 	// This tests the existing worktree removal path
 	t.Logf("CreateWorktree result: %v", err)
 }
@@ -1378,9 +1378,9 @@ func TestCreateWorktreeMkdirParentError(t *testing.T) {
 	// Make the worktrees parent directory read-only after creating workspace
 	worktreesParent := filepath.Join(workspaceRoot, "worktrees")
 	os.MkdirAll(worktreesParent, 0755)
-	// We need to prevent creating the session subdirectory
+	// We need to prevent creating the pod subdirectory
 	// Create a file with the same name as what would be created
-	sessionPath := filepath.Join(worktreesParent, "session-1")
+	podPath := filepath.Join(worktreesParent, "pod-1")
 	// Create parent and make it read-only
 	os.MkdirAll(worktreesParent, 0755)
 	os.Chmod(worktreesParent, 0444)
@@ -1389,11 +1389,11 @@ func TestCreateWorktreeMkdirParentError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := manager.CreateWorktree(ctx, "https://github.com/test/repo.git", "main", "session-1")
+	_, err := manager.CreateWorktree(ctx, "https://github.com/test/repo.git", "main", "pod-1")
 	if err == nil {
 		t.Error("expected error when parent directory is read-only")
 	}
-	_ = sessionPath // Used in error path
+	_ = podPath // Used in error path
 }
 
 // --- Test addToolPaths ---
@@ -1460,7 +1460,7 @@ func TestBuildEnv(t *testing.T) {
 	step := NewScriptPreparationStep("echo test", time.Minute)
 
 	prepCtx := &PreparationContext{
-		SessionID:        "test-session",
+		PodID:        "test-pod",
 		TicketIdentifier: "TICKET-123",
 		WorkingDir:       "/workspace",
 	}
@@ -1541,7 +1541,7 @@ func TestCreateWorktreeFetchBranchFallback(t *testing.T) {
 	defer cancel()
 
 	// Call with empty branch (defaults to main, should fallback to master)
-	_, err := manager.CreateWorktree(ctx, sourceRepo, "", "test-session")
+	_, err := manager.CreateWorktree(ctx, sourceRepo, "", "test-pod")
 	// This tests the branch fallback path
 	t.Logf("CreateWorktree with fallback result: %v", err)
 }
@@ -1601,7 +1601,7 @@ func TestCreateWorktreeWithGitConfig(t *testing.T) {
 	defer cancel()
 
 	// This tests the gitConfigPath code path in CreateWorktree
-	_, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-session")
+	_, err := manager.CreateWorktree(ctx, sourceRepo, "main", "test-pod")
 	t.Logf("CreateWorktree with git config result: %v", err)
 }
 
@@ -1657,6 +1657,6 @@ func TestCreateWorktreeNonMainBranch(t *testing.T) {
 	defer cancel()
 
 	// This tests the non-main branch path (doesn't try master fallback)
-	_, err := manager.CreateWorktree(ctx, sourceRepo, "feature/test", "test-session")
+	_, err := manager.CreateWorktree(ctx, sourceRepo, "feature/test", "test-pod")
 	t.Logf("CreateWorktree with feature branch result: %v", err)
 }

@@ -45,7 +45,7 @@ func TestInitScriptPluginSetupSkipsWithoutScript(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 
@@ -68,7 +68,7 @@ func TestInitScriptPluginSetupRequiresWorkDir(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	// sb.WorkDir is empty
 	ctx := context.Background()
 
@@ -90,7 +90,7 @@ func TestInitScriptPluginSetupSuccess(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 
@@ -132,7 +132,7 @@ func TestInitScriptPluginSetupFailure(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 
@@ -154,7 +154,7 @@ func TestInitScriptPluginSetupTimeout(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 
@@ -178,14 +178,14 @@ func TestInitScriptPluginSetupEnvironment(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 
 	// Create a test file to capture environment variables
 	testFile := filepath.Join(tmpDir, "env-output.txt")
 	config := map[string]interface{}{
-		"init_script": "echo $SANDBOX_ROOT > " + testFile + " && echo $SESSION_KEY >> " + testFile,
+		"init_script": "echo $SANDBOX_ROOT > " + testFile + " && echo $POD_KEY >> " + testFile,
 	}
 
 	if err := p.Setup(ctx, sb, config); err != nil {
@@ -202,14 +202,14 @@ func TestInitScriptPluginSetupEnvironment(t *testing.T) {
 	if !containsStr(lines, tmpDir) {
 		t.Errorf("SANDBOX_ROOT not in output: %s", lines)
 	}
-	if !containsStr(lines, "test-session") {
-		t.Errorf("SESSION_KEY not in output: %s", lines)
+	if !containsStr(lines, "test-pod") {
+		t.Errorf("POD_KEY not in output: %s", lines)
 	}
 }
 
 func TestInitScriptPluginTeardown(t *testing.T) {
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", "/tmp/sandbox")
+	sb := sandbox.NewSandbox("test-pod", "/tmp/sandbox")
 
 	// Teardown should not error
 	if err := p.Teardown(sb); err != nil {
@@ -236,7 +236,7 @@ func TestInitScriptPluginSetupLogsDirError(t *testing.T) {
 
 	p := NewInitScriptPlugin()
 	// Use a sandbox with invalid root path to trigger EnsureLogsDir error
-	sb := sandbox.NewSandbox("test-session", "/nonexistent/root/path")
+	sb := sandbox.NewSandbox("test-pod", "/nonexistent/root/path")
 	sb.WorkDir = tmpDir // WorkDir needs to be valid for script execution
 	ctx := context.Background()
 
@@ -272,7 +272,7 @@ func TestInitScriptPluginSetupLogFileError(t *testing.T) {
 	defer os.Chmod(logsDir, 0755) // Restore for cleanup
 
 	p := NewInitScriptPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = tmpDir
 	ctx := context.Background()
 

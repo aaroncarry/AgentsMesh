@@ -19,9 +19,9 @@ const (
 	StatusWaiting    ClaudeStatus = "waiting"
 )
 
-// SessionStatus represents the full status of a session.
-type SessionStatus struct {
-	SessionID    string       `json:"session_id"`
+// PodStatus represents the full status of a pod.
+type PodStatus struct {
+	PodID        string       `json:"pod_id"`
 	Pid          int          `json:"pid"`
 	ClaudeStatus ClaudeStatus `json:"claude_status"`
 	ClaudePid    int          `json:"claude_pid,omitempty"`
@@ -29,16 +29,16 @@ type SessionStatus struct {
 	UpdatedAt    time.Time    `json:"updated_at"`
 }
 
-// Monitor monitors session processes for claude status.
+// Monitor monitors pod processes for claude status.
 type Monitor struct {
-	statuses map[string]*SessionStatus
+	statuses map[string]*PodStatus
 	mu       sync.RWMutex
 
 	// Process inspector (injectable for testing)
 	inspector process.Inspector
 
 	// Callback when status changes
-	onStatusChange func(SessionStatus)
+	onStatusChange func(PodStatus)
 
 	// Check interval
 	interval time.Duration
@@ -50,7 +50,7 @@ type Monitor struct {
 // NewMonitor creates a new process monitor.
 func NewMonitor(interval time.Duration) *Monitor {
 	return &Monitor{
-		statuses:  make(map[string]*SessionStatus),
+		statuses:  make(map[string]*PodStatus),
 		inspector: process.DefaultInspector(),
 		interval:  interval,
 		stopCh:    make(chan struct{}),
@@ -60,7 +60,7 @@ func NewMonitor(interval time.Duration) *Monitor {
 // NewMonitorWithInspector creates a new monitor with a custom inspector (for testing).
 func NewMonitorWithInspector(interval time.Duration, inspector process.Inspector) *Monitor {
 	return &Monitor{
-		statuses:  make(map[string]*SessionStatus),
+		statuses:  make(map[string]*PodStatus),
 		inspector: inspector,
 		interval:  interval,
 		stopCh:    make(chan struct{}),
@@ -68,52 +68,52 @@ func NewMonitorWithInspector(interval time.Duration, inspector process.Inspector
 }
 
 // SetCallback sets the status change callback.
-func (m *Monitor) SetCallback(callback func(SessionStatus)) {
+func (m *Monitor) SetCallback(callback func(PodStatus)) {
 	m.onStatusChange = callback
 }
 
-// RegisterSession registers a session for monitoring.
-func (m *Monitor) RegisterSession(sessionID string, pid int) {
+// RegisterPod registers a pod for monitoring.
+func (m *Monitor) RegisterPod(podID string, pid int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.statuses[sessionID] = &SessionStatus{
-		SessionID:    sessionID,
+	m.statuses[podID] = &PodStatus{
+		PodID:        podID,
 		Pid:          pid,
 		ClaudeStatus: StatusUnknown,
 		IsRunning:    true,
 		UpdatedAt:    time.Now(),
 	}
 
-	log.Printf("[monitor] Registered session %s (pid: %d) for monitoring", sessionID, pid)
+	log.Printf("[monitor] Registered pod %s (pid: %d) for monitoring", podID, pid)
 }
 
-// UnregisterSession removes a session from monitoring.
-func (m *Monitor) UnregisterSession(sessionID string) {
+// UnregisterPod removes a pod from monitoring.
+func (m *Monitor) UnregisterPod(podID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.statuses, sessionID)
+	delete(m.statuses, podID)
 
-	log.Printf("[monitor] Unregistered session %s from monitoring", sessionID)
+	log.Printf("[monitor] Unregistered pod %s from monitoring", podID)
 }
 
-// GetStatus returns the current status of a session.
-func (m *Monitor) GetStatus(sessionID string) (SessionStatus, bool) {
+// GetStatus returns the current status of a pod.
+func (m *Monitor) GetStatus(podID string) (PodStatus, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if status, exists := m.statuses[sessionID]; exists {
+	if status, exists := m.statuses[podID]; exists {
 		return *status, true
 	}
-	return SessionStatus{}, false
+	return PodStatus{}, false
 }
 
-// GetAllStatuses returns all session statuses.
-func (m *Monitor) GetAllStatuses() []SessionStatus {
+// GetAllStatuses returns all pod statuses.
+func (m *Monitor) GetAllStatuses() []PodStatus {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	result := make([]SessionStatus, 0, len(m.statuses))
+	result := make([]PodStatus, 0, len(m.statuses))
 	for _, status := range m.statuses {
 		result = append(result, *status)
 	}
@@ -137,7 +137,7 @@ func (m *Monitor) Stop() {
 	})
 }
 
-// monitorLoop periodically checks all session statuses.
+// monitorLoop periodically checks all pod statuses.
 func (m *Monitor) monitorLoop() {
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
@@ -147,19 +147,19 @@ func (m *Monitor) monitorLoop() {
 		case <-m.stopCh:
 			return
 		case <-ticker.C:
-			m.checkAllSessions()
+			m.checkAllPods()
 		}
 	}
 }
 
-// checkAllSessions checks the status of all registered sessions.
+// checkAllPods checks the status of all registered pods.
 // Callbacks are called after releasing the lock to prevent deadlocks.
-func (m *Monitor) checkAllSessions() {
+func (m *Monitor) checkAllPods() {
 	// Collect status changes while holding the lock
-	var changes []SessionStatus
+	var changes []PodStatus
 
 	m.mu.Lock()
-	for sessionID, status := range m.statuses {
+	for podID, status := range m.statuses {
 		oldStatus := status.ClaudeStatus
 
 		// Check if shell process is still running
@@ -180,8 +180,8 @@ func (m *Monitor) checkAllSessions() {
 
 		// Collect changes for callback (called after releasing lock)
 		if oldStatus != status.ClaudeStatus {
-			log.Printf("[monitor] Session %s: Claude status changed from %s to %s",
-				sessionID, oldStatus, status.ClaudeStatus)
+			log.Printf("[monitor] Pod %s: Claude status changed from %s to %s",
+				podID, oldStatus, status.ClaudeStatus)
 			changes = append(changes, *status)
 		}
 	}

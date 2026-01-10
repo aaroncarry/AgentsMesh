@@ -9,7 +9,7 @@ export interface ChannelData {
   document?: string;
   repository_id?: number;
   ticket_id?: number;
-  created_by_session?: string;
+  created_by_pod?: string;
   created_by_user_id?: number;
   is_archived: boolean;
   created_at: string;
@@ -19,14 +19,14 @@ export interface ChannelData {
 export interface ChannelMessage {
   id: number;
   channel_id: number;
-  sender_session?: string;
+  sender_pod?: string;
   sender_user_id?: number;
   message_type: "text" | "system" | "code" | "command";
   content: string;
   metadata?: Record<string, unknown>;
   created_at: string;
-  session?: {
-    session_key: string;
+  pod?: {
+    pod_key: string;
     agent_type?: {
       name: string;
     };
@@ -101,34 +101,34 @@ export const channelApi = {
   },
 
   // Send a message to a channel
-  sendMessage: (id: number, content: string, sessionKey?: string, messageType?: string) =>
+  sendMessage: (id: number, content: string, podKey?: string, messageType?: string) =>
     request<{ message: ChannelMessage }>(`/api/v1/org/channels/${id}/messages`, {
       method: "POST",
-      body: { content, session_key: sessionKey, message_type: messageType || "text" },
+      body: { content, pod_key: podKey, message_type: messageType || "text" },
     }),
 
-  // Get sessions joined to a channel
-  getSessions: (id: number) =>
+  // Get pods joined to a channel
+  getPods: (id: number) =>
     request<{
-      sessions: Array<{
+      pods: Array<{
         id: number;
-        session_key: string;
+        pod_key: string;
         status: string;
         agent_status: string;
       }>;
       total: number;
-    }>(`/api/v1/org/channels/${id}/sessions`),
+    }>(`/api/v1/org/channels/${id}/pods`),
 
-  // Join a session to a channel
-  joinSession: (id: number, sessionKey: string) =>
-    request<{ message: string }>(`/api/v1/org/channels/${id}/sessions`, {
+  // Join a pod to a channel
+  joinPod: (id: number, podKey: string) =>
+    request<{ message: string }>(`/api/v1/org/channels/${id}/pods`, {
       method: "POST",
-      body: { session_key: sessionKey },
+      body: { pod_key: podKey },
     }),
 
-  // Remove a session from a channel
-  leaveSession: (id: number, sessionKey: string) =>
-    request<{ message: string }>(`/api/v1/org/channels/${id}/sessions/${sessionKey}`, {
+  // Remove a pod from a channel
+  leavePod: (id: number, podKey: string) =>
+    request<{ message: string }>(`/api/v1/org/channels/${id}/pods/${podKey}`, {
       method: "DELETE",
     }),
 };

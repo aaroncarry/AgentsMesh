@@ -76,7 +76,7 @@ func (p *InitScriptPlugin) Setup(ctx context.Context, sb *sandbox.Sandbox, confi
 	cmd.Dir = sb.WorkDir
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SANDBOX_ROOT=%s", sb.RootPath),
-		fmt.Sprintf("SESSION_KEY=%s", sb.SessionKey),
+		fmt.Sprintf("POD_KEY=%s", sb.PodKey),
 	)
 
 	// Capture output

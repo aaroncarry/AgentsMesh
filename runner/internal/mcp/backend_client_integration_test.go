@@ -17,19 +17,19 @@ import (
 //
 // Environment variables:
 // - BACKEND_URL: Backend server URL (e.g., http://localhost:8080)
-// - SESSION_KEY: Valid session key for authentication
+// - POD_KEY: Valid pod key for authentication
 //
 // Run with: go test -tags=integration ./internal/mcp/... -v
 
 func getTestClient(t *testing.T) *BackendClient {
 	backendURL := os.Getenv("BACKEND_URL")
-	sessionKey := os.Getenv("SESSION_KEY")
+	podKey := os.Getenv("POD_KEY")
 
-	if backendURL == "" || sessionKey == "" {
-		t.Skip("BACKEND_URL and SESSION_KEY required for integration tests")
+	if backendURL == "" || podKey == "" {
+		t.Skip("BACKEND_URL and POD_KEY required for integration tests")
 	}
 
-	return NewBackendClient(backendURL, sessionKey)
+	return NewBackendClient(backendURL, podKey)
 }
 
 func TestIntegration_ChannelOperations(t *testing.T) {
@@ -83,17 +83,17 @@ func TestIntegration_ChannelOperations(t *testing.T) {
 	require.NotEmpty(t, channels, "Search should find the channel")
 }
 
-func TestIntegration_SessionOperations(t *testing.T) {
+func TestIntegration_PodOperations(t *testing.T) {
 	client := getTestClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Test ListAvailableSessions
-	sessions, err := client.ListAvailableSessions(ctx)
-	require.NoError(t, err, "ListAvailableSessions should succeed")
-	// Sessions list may be empty, that's OK
+	// Test ListAvailablePods
+	pods, err := client.ListAvailablePods(ctx)
+	require.NoError(t, err, "ListAvailablePods should succeed")
+	// Pods list may be empty, that's OK
 
-	t.Logf("Found %d available sessions", len(sessions))
+	t.Logf("Found %d available pods", len(pods))
 }
 
 func TestIntegration_BindingOperations(t *testing.T) {
@@ -108,14 +108,14 @@ func TestIntegration_BindingOperations(t *testing.T) {
 
 	t.Logf("Found %d bindings", len(bindings))
 
-	// Test GetBoundSessions
-	boundSessions, err := client.GetBoundSessions(ctx)
-	require.NoError(t, err, "GetBoundSessions should succeed")
-	// Bound sessions list may be empty, that's OK
+	// Test GetBoundPods
+	boundPods, err := client.GetBoundPods(ctx)
+	require.NoError(t, err, "GetBoundPods should succeed")
+	// Bound pods list may be empty, that's OK
 
-	t.Logf("Found %d bound sessions", len(boundSessions))
+	t.Logf("Found %d bound pods", len(boundPods))
 
-	// Note: RequestBinding, AcceptBinding, RejectBinding require two sessions
+	// Note: RequestBinding, AcceptBinding, RejectBinding require two pods
 	// and more complex setup. They should be tested manually or with
 	// a more comprehensive test environment.
 }

@@ -1,4 +1,4 @@
-// Package sandbox provides a plugin-based sandbox architecture for session environments.
+// Package sandbox provides a plugin-based sandbox architecture for pod environments.
 package sandbox
 
 import "context"

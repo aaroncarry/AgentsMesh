@@ -28,7 +28,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		document TEXT,
 		repository_id INTEGER,
 		ticket_id INTEGER,
-		created_by_session TEXT,
+		created_by_pod TEXT,
 		created_by_user_id INTEGER,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -38,7 +38,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS channel_messages (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id INTEGER NOT NULL,
-		sender_session TEXT,
+		sender_pod TEXT,
 		sender_user_id INTEGER,
 		message_type TEXT NOT NULL,
 		content TEXT NOT NULL,
@@ -48,11 +48,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	// Note: Using TEXT for granted_scopes/pending_scopes because SQLite doesn't support arrays
 	// The pq.StringArray type will be stored as JSON text in SQLite
-	db.Exec(`CREATE TABLE IF NOT EXISTS session_bindings (
+	db.Exec(`CREATE TABLE IF NOT EXISTS pod_bindings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		organization_id INTEGER NOT NULL,
-		initiator_session TEXT NOT NULL,
-		target_session TEXT NOT NULL,
+		initiator_pod TEXT NOT NULL,
+		target_pod TEXT NOT NULL,
 		granted_scopes TEXT DEFAULT '[]',
 		pending_scopes TEXT DEFAULT '[]',
 		status TEXT NOT NULL DEFAULT 'pending',
@@ -64,24 +64,24 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
-	db.Exec(`CREATE TABLE IF NOT EXISTS channel_sessions (
+	db.Exec(`CREATE TABLE IF NOT EXISTS channel_pods (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id INTEGER NOT NULL,
-		session_key TEXT NOT NULL,
+		pod_key TEXT NOT NULL,
 		joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
 	db.Exec(`CREATE TABLE IF NOT EXISTS channel_access (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		channel_id INTEGER NOT NULL,
-		session_key TEXT,
+		pod_key TEXT,
 		user_id INTEGER,
 		last_access DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
 
-	db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+	db.Exec(`CREATE TABLE IF NOT EXISTS pods (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_key TEXT NOT NULL UNIQUE,
+		pod_key TEXT NOT NULL UNIQUE,
 		organization_id INTEGER NOT NULL,
 		status TEXT NOT NULL DEFAULT 'running',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -410,8 +410,8 @@ func TestSendMessage(t *testing.T) {
 	created, _ := svc.CreateChannel(ctx, req)
 
 	t.Run("send text message", func(t *testing.T) {
-		sessionKey := "test-session"
-		msg, err := svc.SendMessage(ctx, created.ID, &sessionKey, nil, channel.MessageTypeText, "Hello World", channel.MessageMetadata{})
+		podKey := "test-pod"
+		msg, err := svc.SendMessage(ctx, created.ID, &podKey, nil, channel.MessageTypeText, "Hello World", channel.MessageMetadata{})
 		if err != nil {
 			t.Errorf("SendMessage failed: %v", err)
 		}
@@ -524,7 +524,7 @@ func TestGetChannelsByTicket(t *testing.T) {
 	}
 }
 
-func TestSessionBinding(t *testing.T) {
+func TestPodBinding(t *testing.T) {
 	db := setupTestDB(t)
 	svc := NewService(db)
 	ctx := context.Background()
@@ -533,7 +533,7 @@ func TestSessionBinding(t *testing.T) {
 	// These tests use empty scopes or skip scope validation to work with SQLite.
 
 	t.Run("create binding", func(t *testing.T) {
-		binding, err := svc.CreateBinding(ctx, 1, "initiator-session", "target-session", nil)
+		binding, err := svc.CreateBinding(ctx, 1, "initiator-pod", "target-pod", nil)
 		if err != nil {
 			t.Errorf("CreateBinding failed: %v", err)
 		}
@@ -548,29 +548,29 @@ func TestSessionBinding(t *testing.T) {
 		if err != nil {
 			t.Errorf("GetBinding failed: %v", err)
 		}
-		if binding.InitiatorSession != "init1" {
-			t.Errorf("InitiatorSession = %s, want init1", binding.InitiatorSession)
+		if binding.InitiatorPod != "init1" {
+			t.Errorf("InitiatorPod = %s, want init1", binding.InitiatorPod)
 		}
 	})
 
-	t.Run("get binding by sessions", func(t *testing.T) {
+	t.Run("get binding by pods", func(t *testing.T) {
 		svc.CreateBinding(ctx, 1, "init2", "target2", nil)
-		binding, err := svc.GetBindingBySessions(ctx, "init2", "target2")
+		binding, err := svc.GetBindingByPods(ctx, "init2", "target2")
 		if err != nil {
-			t.Errorf("GetBindingBySessions failed: %v", err)
+			t.Errorf("GetBindingByPods failed: %v", err)
 		}
-		if binding.TargetSession != "target2" {
-			t.Errorf("TargetSession = %s, want target2", binding.TargetSession)
+		if binding.TargetPod != "target2" {
+			t.Errorf("TargetPod = %s, want target2", binding.TargetPod)
 		}
 	})
 
-	t.Run("list bindings for session", func(t *testing.T) {
+	t.Run("list bindings for pod", func(t *testing.T) {
 		svc.CreateBinding(ctx, 1, "list-init", "list-target1", nil)
 		svc.CreateBinding(ctx, 1, "list-init", "list-target2", nil)
 
-		bindings, err := svc.ListBindingsForSession(ctx, "list-init")
+		bindings, err := svc.ListBindingsForPod(ctx, "list-init")
 		if err != nil {
-			t.Errorf("ListBindingsForSession failed: %v", err)
+			t.Errorf("ListBindingsForPod failed: %v", err)
 		}
 		if len(bindings) != 2 {
 			t.Errorf("Bindings count = %d, want 2", len(bindings))
@@ -581,7 +581,7 @@ func TestSessionBinding(t *testing.T) {
 		created, _ := svc.CreateBinding(ctx, 1, "approve-init", "approve-target", nil)
 		// Note: Skipping scope assignment as pq.StringArray doesn't work with SQLite
 		// Just update the status
-		err := svc.db.WithContext(ctx).Model(&channel.SessionBinding{}).
+		err := svc.db.WithContext(ctx).Model(&channel.PodBinding{}).
 			Where("id = ?", created.ID).
 			Update("status", channel.BindingStatusApproved).Error
 		if err != nil {
@@ -608,7 +608,7 @@ func TestSessionBinding(t *testing.T) {
 	t.Run("revoke binding", func(t *testing.T) {
 		created, _ := svc.CreateBinding(ctx, 1, "revoke-init", "revoke-target", nil)
 		// Approve first using direct update
-		svc.db.WithContext(ctx).Model(&channel.SessionBinding{}).
+		svc.db.WithContext(ctx).Model(&channel.PodBinding{}).
 			Where("id = ?", created.ID).
 			Update("status", channel.BindingStatusApproved)
 		err := svc.RevokeBinding(ctx, created.ID)
@@ -622,59 +622,59 @@ func TestSessionBinding(t *testing.T) {
 	})
 }
 
-func TestChannelSessions(t *testing.T) {
+func TestChannelPods(t *testing.T) {
 	db := setupTestDB(t)
 	svc := NewService(db)
 	ctx := context.Background()
 
 	req := &CreateChannelRequest{
 		OrganizationID: 1,
-		Name:           "session-test",
+		Name:           "pod-test",
 	}
 	ch, _ := svc.CreateChannel(ctx, req)
 
-	// Create some sessions with explicit ID to avoid SQLite issues
-	db.Exec(`INSERT INTO sessions (id, session_key, organization_id, status) VALUES (1, 'sess1', 1, 'running')`)
-	db.Exec(`INSERT INTO sessions (id, session_key, organization_id, status) VALUES (2, 'sess2', 1, 'running')`)
+	// Create some pods with explicit ID to avoid SQLite issues
+	db.Exec(`INSERT INTO pods (id, pod_key, organization_id, status) VALUES (1, 'pod1', 1, 'running')`)
+	db.Exec(`INSERT INTO pods (id, pod_key, organization_id, status) VALUES (2, 'pod2', 1, 'running')`)
 
 	t.Run("join channel", func(t *testing.T) {
-		err := svc.JoinChannel(ctx, ch.ID, "sess1")
+		err := svc.JoinChannel(ctx, ch.ID, "pod1")
 		if err != nil {
 			t.Errorf("JoinChannel failed: %v", err)
 		}
 	})
 
-	t.Run("get channel sessions", func(t *testing.T) {
-		svc.JoinChannel(ctx, ch.ID, "sess2")
+	t.Run("get channel pods", func(t *testing.T) {
+		svc.JoinChannel(ctx, ch.ID, "pod2")
 
-		// Verify channel_sessions entries
+		// Verify channel_pods entries
 		var count int64
-		db.Raw("SELECT COUNT(*) FROM channel_sessions WHERE channel_id = ?", ch.ID).Scan(&count)
+		db.Raw("SELECT COUNT(*) FROM channel_pods WHERE channel_id = ?", ch.ID).Scan(&count)
 		if count != 2 {
-			t.Errorf("channel_sessions count = %d, want 2", count)
+			t.Errorf("channel_pods count = %d, want 2", count)
 			return
 		}
 
-		sessions, err := svc.GetChannelSessions(ctx, ch.ID)
+		pods, err := svc.GetChannelPods(ctx, ch.ID)
 		if err != nil {
-			t.Errorf("GetChannelSessions failed: %v", err)
+			t.Errorf("GetChannelPods failed: %v", err)
 		}
-		if len(sessions) != 2 {
-			t.Errorf("Sessions count = %d, want 2", len(sessions))
+		if len(pods) != 2 {
+			t.Errorf("Pods count = %d, want 2", len(pods))
 		}
 	})
 
 	t.Run("leave channel", func(t *testing.T) {
-		err := svc.LeaveChannel(ctx, ch.ID, "sess1")
+		err := svc.LeaveChannel(ctx, ch.ID, "pod1")
 		if err != nil {
 			t.Errorf("LeaveChannel failed: %v", err)
 		}
 
-		// Verify channel_sessions entries
+		// Verify channel_pods entries
 		var count int64
-		db.Raw("SELECT COUNT(*) FROM channel_sessions WHERE channel_id = ?", ch.ID).Scan(&count)
+		db.Raw("SELECT COUNT(*) FROM channel_pods WHERE channel_id = ?", ch.ID).Scan(&count)
 		if count != 1 {
-			t.Errorf("channel_sessions count after leave = %d, want 1", count)
+			t.Errorf("channel_pods count after leave = %d, want 1", count)
 		}
 	})
 }
@@ -710,19 +710,19 @@ func TestEnhancedMessageService(t *testing.T) {
 		}
 	})
 
-	t.Run("send message as session", func(t *testing.T) {
-		msg, err := svc.SendMessageAsSession(ctx, ch.ID, "test-session", "Agent message", channel.MessageMetadata{})
+	t.Run("send message as pod", func(t *testing.T) {
+		msg, err := svc.SendMessageAsPod(ctx, ch.ID, "test-pod", "Agent message", channel.MessageMetadata{})
 		if err != nil {
-			t.Errorf("SendMessageAsSession failed: %v", err)
+			t.Errorf("SendMessageAsPod failed: %v", err)
 		}
-		if msg.SenderSession == nil || *msg.SenderSession != "test-session" {
-			t.Error("SenderSession not set correctly")
+		if msg.SenderPod == nil || *msg.SenderPod != "test-pod" {
+			t.Error("SenderPod not set correctly")
 		}
 	})
 
 	t.Run("get messages mentioning", func(t *testing.T) {
-		svc.SendMessage(ctx, ch.ID, nil, nil, channel.MessageTypeText, "@mention-session hello", channel.MessageMetadata{})
-		messages, err := svc.GetMessagesMentioning(ctx, ch.ID, "mention-session", 10)
+		svc.SendMessage(ctx, ch.ID, nil, nil, channel.MessageTypeText, "@mention-pod hello", channel.MessageMetadata{})
+		messages, err := svc.GetMessagesMentioning(ctx, ch.ID, "mention-pod", 10)
 		if err != nil {
 			t.Errorf("GetMessagesMentioning failed: %v", err)
 		}
@@ -753,9 +753,9 @@ func TestChannelAccess(t *testing.T) {
 	}
 	ch, _ := svc.CreateChannel(ctx, req)
 
-	t.Run("track session access", func(t *testing.T) {
-		sessionKey := "access-session"
-		err := svc.TrackAccess(ctx, ch.ID, &sessionKey, nil)
+	t.Run("track pod access", func(t *testing.T) {
+		podKey := "access-pod"
+		err := svc.TrackAccess(ctx, ch.ID, &podKey, nil)
 		if err != nil {
 			t.Errorf("TrackAccess failed: %v", err)
 		}
@@ -770,9 +770,9 @@ func TestChannelAccess(t *testing.T) {
 	})
 
 	t.Run("has accessed", func(t *testing.T) {
-		sessionKey := "check-session"
-		svc.TrackAccess(ctx, ch.ID, &sessionKey, nil)
-		accessed, err := svc.HasAccessed(ctx, ch.ID, sessionKey)
+		podKey := "check-pod"
+		svc.TrackAccess(ctx, ch.ID, &podKey, nil)
+		accessed, err := svc.HasAccessed(ctx, ch.ID, podKey)
 		if err != nil {
 			t.Errorf("HasAccessed failed: %v", err)
 		}
@@ -791,7 +791,7 @@ func TestChannelAccess(t *testing.T) {
 		}
 	})
 
-	t.Run("get channels for session", func(t *testing.T) {
+	t.Run("get channels for pod", func(t *testing.T) {
 		// Create another channel and track access
 		req2 := &CreateChannelRequest{
 			OrganizationID: 1,
@@ -799,13 +799,13 @@ func TestChannelAccess(t *testing.T) {
 		}
 		ch2, _ := svc.CreateChannel(ctx, req2)
 
-		sessionKey := "multi-channel-session"
-		svc.TrackAccess(ctx, ch.ID, &sessionKey, nil)
-		svc.TrackAccess(ctx, ch2.ID, &sessionKey, nil)
+		podKey := "multi-channel-pod"
+		svc.TrackAccess(ctx, ch.ID, &podKey, nil)
+		svc.TrackAccess(ctx, ch2.ID, &podKey, nil)
 
-		channels, err := svc.GetChannelsForSession(ctx, sessionKey)
+		channels, err := svc.GetChannelsForPod(ctx, podKey)
 		if err != nil {
-			t.Errorf("GetChannelsForSession failed: %v", err)
+			t.Errorf("GetChannelsForPod failed: %v", err)
 		}
 		if len(channels) != 2 {
 			t.Errorf("Channels count = %d, want 2", len(channels))
@@ -823,11 +823,11 @@ func TestChannelAccess(t *testing.T) {
 	})
 
 	t.Run("update existing access", func(t *testing.T) {
-		sessionKey := "update-access-session"
-		svc.TrackAccess(ctx, ch.ID, &sessionKey, nil)
+		podKey := "update-access-pod"
+		svc.TrackAccess(ctx, ch.ID, &podKey, nil)
 		time.Sleep(10 * time.Millisecond)
 		// Track again - should update last_access
-		err := svc.TrackAccess(ctx, ch.ID, &sessionKey, nil)
+		err := svc.TrackAccess(ctx, ch.ID, &podKey, nil)
 		if err != nil {
 			t.Errorf("TrackAccess update failed: %v", err)
 		}
@@ -857,9 +857,9 @@ func TestCreateChannelRequest(t *testing.T) {
 		Name:             "test-channel",
 		Description:      strPtr("Test description"),
 		RepositoryID:     intPtr(3),
-		TicketID:         intPtr(4),
-		CreatedBySession: strPtr("session-key"),
-		CreatedByUserID:  intPtr(5),
+		TicketID:        intPtr(4),
+		CreatedByPod:    strPtr("pod-key"),
+		CreatedByUserID: intPtr(5),
 	}
 
 	if req.OrganizationID != 1 {
@@ -870,16 +870,16 @@ func TestCreateChannelRequest(t *testing.T) {
 	}
 }
 
-func TestChannelSession(t *testing.T) {
-	cs := &ChannelSession{
-		ID:         1,
-		ChannelID:  2,
-		SessionKey: "test-session",
-		JoinedAt:   time.Now(),
+func TestChannelPod_TableName(t *testing.T) {
+	cp := &ChannelPod{
+		ID:        1,
+		ChannelID: 2,
+		PodKey:    "test-pod",
+		JoinedAt:  time.Now(),
 	}
 
-	if cs.TableName() != "channel_sessions" {
-		t.Errorf("TableName = %s, want channel_sessions", cs.TableName())
+	if cp.TableName() != "channel_pods" {
+		t.Errorf("TableName = %s, want channel_pods", cp.TableName())
 	}
 }
 
@@ -887,7 +887,7 @@ func TestChannelAccess_TableName(t *testing.T) {
 	ca := &ChannelAccess{
 		ID:         1,
 		ChannelID:  2,
-		SessionKey: strPtr("test-session"),
+		PodKey:     strPtr("test-pod"),
 		LastAccess: time.Now(),
 	}
 

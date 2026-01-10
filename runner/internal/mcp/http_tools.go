@@ -12,13 +12,13 @@ import (
 func (s *HTTPServer) createObserveTerminalTool() *MCPTool {
 	return &MCPTool{
 		Name:        "observe_terminal",
-		Description: "Observe the terminal output of another agent session. Requires terminal:read permission via binding.",
+		Description: "Observe the terminal output of another agent pod. Requires terminal:read permission via binding.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"session_key": map[string]interface{}{
+				"pod_key": map[string]interface{}{
 					"type":        "string",
-					"description": "The session key of the target session to observe",
+					"description": "The pod key of the target pod to observe",
 				},
 				"lines": map[string]interface{}{
 					"type":        "integer",
@@ -33,12 +33,12 @@ func (s *HTTPServer) createObserveTerminalTool() *MCPTool {
 					"description": "Include current screen content (default: false)",
 				},
 			},
-			"required": []string{"session_key"},
+			"required": []string{"pod_key"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			sessionKey := getStringArg(args, "session_key")
-			if sessionKey == "" {
-				return nil, fmt.Errorf("session_key is required")
+			podKey := getStringArg(args, "pod_key")
+			if podKey == "" {
+				return nil, fmt.Errorf("pod_key is required")
 			}
 
 			lines := getIntArg(args, "lines")
@@ -48,7 +48,7 @@ func (s *HTTPServer) createObserveTerminalTool() *MCPTool {
 			raw := getBoolArg(args, "raw")
 			includeScreen := getBoolArg(args, "include_screen")
 
-			return client.ObserveTerminal(ctx, sessionKey, lines, raw, includeScreen)
+			return client.ObserveTerminal(ctx, podKey, lines, raw, includeScreen)
 		},
 	}
 }
@@ -60,26 +60,26 @@ func (s *HTTPServer) createSendTerminalTextTool() *MCPTool {
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"session_key": map[string]interface{}{
+				"pod_key": map[string]interface{}{
 					"type":        "string",
-					"description": "The session key of the target session",
+					"description": "The pod key of the target pod",
 				},
 				"text": map[string]interface{}{
 					"type":        "string",
 					"description": "The text to send to the terminal",
 				},
 			},
-			"required": []string{"session_key", "text"},
+			"required": []string{"pod_key", "text"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			sessionKey := getStringArg(args, "session_key")
+			podKey := getStringArg(args, "pod_key")
 			text := getStringArg(args, "text")
 
-			if sessionKey == "" || text == "" {
-				return nil, fmt.Errorf("session_key and text are required")
+			if podKey == "" || text == "" {
+				return nil, fmt.Errorf("pod_key and text are required")
 			}
 
-			err := client.SendTerminalText(ctx, sessionKey, text)
+			err := client.SendTerminalText(ctx, podKey, text)
 			if err != nil {
 				return nil, err
 			}
@@ -95,9 +95,9 @@ func (s *HTTPServer) createSendTerminalKeyTool() *MCPTool {
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"session_key": map[string]interface{}{
+				"pod_key": map[string]interface{}{
 					"type":        "string",
-					"description": "The session key of the target session",
+					"description": "The pod key of the target pod",
 				},
 				"keys": map[string]interface{}{
 					"type":        "array",
@@ -105,17 +105,17 @@ func (s *HTTPServer) createSendTerminalKeyTool() *MCPTool {
 					"description": "Array of keys to send (e.g., ['ctrl+c', 'enter'])",
 				},
 			},
-			"required": []string{"session_key", "keys"},
+			"required": []string{"pod_key", "keys"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			sessionKey := getStringArg(args, "session_key")
+			podKey := getStringArg(args, "pod_key")
 			keys := getStringSliceArg(args, "keys")
 
-			if sessionKey == "" || len(keys) == 0 {
-				return nil, fmt.Errorf("session_key and keys are required")
+			if podKey == "" || len(keys) == 0 {
+				return nil, fmt.Errorf("pod_key and keys are required")
 			}
 
-			err := client.SendTerminalKey(ctx, sessionKey, keys)
+			err := client.SendTerminalKey(ctx, podKey, keys)
 			if err != nil {
 				return nil, err
 			}
@@ -126,16 +126,16 @@ func (s *HTTPServer) createSendTerminalKeyTool() *MCPTool {
 
 // Discovery Tools
 
-func (s *HTTPServer) createListAvailableSessionsTool() *MCPTool {
+func (s *HTTPServer) createListAvailablePodsTool() *MCPTool {
 	return &MCPTool{
-		Name:        "list_available_sessions",
-		Description: "List other agent sessions available for collaboration. Shows sessions that can be bound to.",
+		Name:        "list_available_pods",
+		Description: "List other agent pods available for collaboration. Shows pods that can be bound to.",
 		InputSchema: map[string]interface{}{
 			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			return client.ListAvailableSessions(ctx)
+			return client.ListAvailablePods(ctx)
 		},
 	}
 }
@@ -170,16 +170,16 @@ func (s *HTTPServer) createListRepositoriesTool() *MCPTool {
 
 // Binding Tools
 
-func (s *HTTPServer) createBindSessionTool() *MCPTool {
+func (s *HTTPServer) createBindPodTool() *MCPTool {
 	return &MCPTool{
-		Name:        "bind_session",
-		Description: "Request to bind with another agent session. The target session must accept the binding request.",
+		Name:        "bind_pod",
+		Description: "Request to bind with another agent pod. The target pod must accept the binding request.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"target_session": map[string]interface{}{
+				"target_pod": map[string]interface{}{
 					"type":        "string",
-					"description": "The session key of the target session to bind with",
+					"description": "The pod key of the target pod to bind with",
 				},
 				"scopes": map[string]interface{}{
 					"type":        "array",
@@ -187,14 +187,14 @@ func (s *HTTPServer) createBindSessionTool() *MCPTool {
 					"description": "Permission scopes to request (terminal:read, terminal:write)",
 				},
 			},
-			"required": []string{"target_session", "scopes"},
+			"required": []string{"target_pod", "scopes"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			targetSession := getStringArg(args, "target_session")
+			targetPod := getStringArg(args, "target_pod")
 			scopeStrs := getStringSliceArg(args, "scopes")
 
-			if targetSession == "" || len(scopeStrs) == 0 {
-				return nil, fmt.Errorf("target_session and scopes are required")
+			if targetPod == "" || len(scopeStrs) == 0 {
+				return nil, fmt.Errorf("target_pod and scopes are required")
 			}
 
 			scopes := make([]tools.BindingScope, len(scopeStrs))
@@ -202,7 +202,7 @@ func (s *HTTPServer) createBindSessionTool() *MCPTool {
 				scopes[i] = tools.BindingScope(s)
 			}
 
-			return client.RequestBinding(ctx, targetSession, scopes)
+			return client.RequestBinding(ctx, targetPod, scopes)
 		},
 	}
 }
@@ -210,7 +210,7 @@ func (s *HTTPServer) createBindSessionTool() *MCPTool {
 func (s *HTTPServer) createAcceptBindingTool() *MCPTool {
 	return &MCPTool{
 		Name:        "accept_binding",
-		Description: "Accept a pending binding request from another agent session.",
+		Description: "Accept a pending binding request from another agent pod.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -234,7 +234,7 @@ func (s *HTTPServer) createAcceptBindingTool() *MCPTool {
 func (s *HTTPServer) createRejectBindingTool() *MCPTool {
 	return &MCPTool{
 		Name:        "reject_binding",
-		Description: "Reject a pending binding request from another agent session.",
+		Description: "Reject a pending binding request from another agent pod.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -262,31 +262,31 @@ func (s *HTTPServer) createRejectBindingTool() *MCPTool {
 	}
 }
 
-func (s *HTTPServer) createUnbindSessionTool() *MCPTool {
+func (s *HTTPServer) createUnbindPodTool() *MCPTool {
 	return &MCPTool{
-		Name:        "unbind_session",
-		Description: "Unbind from a previously bound session, revoking all permissions.",
+		Name:        "unbind_pod",
+		Description: "Unbind from a previously bound pod, revoking all permissions.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"target_session": map[string]interface{}{
+				"target_pod": map[string]interface{}{
 					"type":        "string",
-					"description": "The session key of the session to unbind from",
+					"description": "The pod key of the pod to unbind from",
 				},
 			},
-			"required": []string{"target_session"},
+			"required": []string{"target_pod"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			targetSession := getStringArg(args, "target_session")
-			if targetSession == "" {
-				return nil, fmt.Errorf("target_session is required")
+			targetPod := getStringArg(args, "target_pod")
+			if targetPod == "" {
+				return nil, fmt.Errorf("target_pod is required")
 			}
 
-			err := client.UnbindSession(ctx, targetSession)
+			err := client.UnbindPod(ctx, targetPod)
 			if err != nil {
 				return nil, err
 			}
-			return "Session unbound successfully", nil
+			return "Pod unbound successfully", nil
 		},
 	}
 }
@@ -294,7 +294,7 @@ func (s *HTTPServer) createUnbindSessionTool() *MCPTool {
 func (s *HTTPServer) createGetBindingsTool() *MCPTool {
 	return &MCPTool{
 		Name:        "get_bindings",
-		Description: "Get all bindings for this session, optionally filtered by status.",
+		Description: "Get all bindings for this pod, optionally filtered by status.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -316,16 +316,16 @@ func (s *HTTPServer) createGetBindingsTool() *MCPTool {
 	}
 }
 
-func (s *HTTPServer) createGetBoundSessionsTool() *MCPTool {
+func (s *HTTPServer) createGetBoundPodsTool() *MCPTool {
 	return &MCPTool{
-		Name:        "get_bound_sessions",
-		Description: "Get list of sessions that are currently bound to this session with active permissions.",
+		Name:        "get_bound_pods",
+		Description: "Get list of pods that are currently bound to this pod with active permissions.",
 		InputSchema: map[string]interface{}{
 			"type":       "object",
 			"properties": map[string]interface{}{},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			return client.GetBoundSessions(ctx)
+			return client.GetBoundPods(ctx)
 		},
 	}
 }
@@ -474,7 +474,7 @@ func (s *HTTPServer) createSendChannelMessageTool() *MCPTool {
 				"mentions": map[string]interface{}{
 					"type":        "array",
 					"items":       map[string]interface{}{"type": "string"},
-					"description": "Session keys to mention in the message",
+					"description": "Pod keys to mention in the message",
 				},
 				"reply_to": map[string]interface{}{
 					"type":        "integer",
@@ -522,9 +522,9 @@ func (s *HTTPServer) createGetChannelMessagesTool() *MCPTool {
 					"type":        "string",
 					"description": "Get messages after this timestamp (ISO 8601)",
 				},
-				"mentioned_session": map[string]interface{}{
+				"mentioned_pod": map[string]interface{}{
 					"type":        "string",
-					"description": "Filter to messages mentioning this session",
+					"description": "Filter to messages mentioning this pod",
 				},
 				"limit": map[string]interface{}{
 					"type":        "integer",
@@ -539,15 +539,15 @@ func (s *HTTPServer) createGetChannelMessagesTool() *MCPTool {
 				return nil, fmt.Errorf("channel_id is required")
 			}
 
-			var beforeTime, afterTime, mentionedSession *string
+			var beforeTime, afterTime, mentionedPod *string
 			if v := getStringArg(args, "before_time"); v != "" {
 				beforeTime = &v
 			}
 			if v := getStringArg(args, "after_time"); v != "" {
 				afterTime = &v
 			}
-			if v := getStringArg(args, "mentioned_session"); v != "" {
-				mentionedSession = &v
+			if v := getStringArg(args, "mentioned_pod"); v != "" {
+				mentionedPod = &v
 			}
 
 			limit := getIntArg(args, "limit")
@@ -555,7 +555,7 @@ func (s *HTTPServer) createGetChannelMessagesTool() *MCPTool {
 				limit = 50
 			}
 
-			return client.GetMessages(ctx, channelID, beforeTime, afterTime, mentionedSession, limit)
+			return client.GetMessages(ctx, channelID, beforeTime, afterTime, mentionedPod, limit)
 		},
 	}
 }
@@ -866,35 +866,35 @@ func (s *HTTPServer) createUpdateTicketTool() *MCPTool {
 	}
 }
 
-// Session Tools
+// Pod Tools
 
-func (s *HTTPServer) createCreateSessionTool() *MCPTool {
+func (s *HTTPServer) createCreatePodTool() *MCPTool {
 	return &MCPTool{
-		Name:        "create_devpod_session",
-		Description: "Create a new DevPod agent session. The new session will automatically have terminal:read and terminal:write permissions to the creator via binding.",
+		Name:        "create_pod",
+		Description: "Create a new agent pod. The new pod will automatically have terminal:read and terminal:write permissions to the creator via binding.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
 				"runner_id": map[string]interface{}{
 					"type":        "integer",
-					"description": "ID of the runner to create the session on (optional, uses available runner)",
+					"description": "ID of the runner to create the pod on (optional, uses available runner)",
 				},
 				"ticket_id": map[string]interface{}{
 					"type":        "integer",
-					"description": "ID of the ticket to associate with the session",
+					"description": "ID of the ticket to associate with the pod",
 				},
 				"initial_prompt": map[string]interface{}{
 					"type":        "string",
-					"description": "Initial prompt to send to the new agent session",
+					"description": "Initial prompt to send to the new agent pod",
 				},
 				"model": map[string]interface{}{
 					"type":        "string",
-					"description": "AI model to use for the session",
+					"description": "AI model to use for the pod",
 				},
 			},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			req := &tools.SessionCreateRequest{
+			req := &tools.PodCreateRequest{
 				InitialPrompt: getStringArg(args, "initial_prompt"),
 				Model:         getStringArg(args, "model"),
 			}
@@ -906,27 +906,27 @@ func (s *HTTPServer) createCreateSessionTool() *MCPTool {
 				req.TicketID = v
 			}
 
-			// Create the session
-			resp, err := client.CreateSession(ctx, req)
+			// Create the pod
+			resp, err := client.CreatePod(ctx, req)
 			if err != nil {
 				return nil, err
 			}
 
-			// Auto-bind to the new session with terminal permissions
-			// This allows the creator to observe and control the new session's terminal
+			// Auto-bind to the new pod with terminal permissions
+			// This allows the creator to observe and control the new pod's terminal
 			scopes := []tools.BindingScope{tools.ScopeTerminalRead, tools.ScopeTerminalWrite}
-			binding, err := client.RequestBinding(ctx, resp.SessionKey, scopes)
+			binding, err := client.RequestBinding(ctx, resp.PodKey, scopes)
 			if err != nil {
-				// Session created but binding failed - return both info
+				// Pod created but binding failed - return both info
 				return map[string]interface{}{
-					"session_key":   resp.SessionKey,
+					"pod_key":       resp.PodKey,
 					"status":        resp.Status,
 					"binding_error": err.Error(),
 				}, nil
 			}
 
 			return map[string]interface{}{
-				"session_key":    resp.SessionKey,
+				"pod_key":        resp.PodKey,
 				"status":         resp.Status,
 				"binding_id":     binding.ID,
 				"binding_status": binding.Status,

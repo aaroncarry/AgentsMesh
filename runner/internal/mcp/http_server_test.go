@@ -29,70 +29,70 @@ func TestNewHTTPServer(t *testing.T) {
 	}
 }
 
-func TestHTTPServerRegisterSession(t *testing.T) {
+func TestHTTPServerRegisterPod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
 	ticketID := 123
 	projectID := 456
 
-	server.RegisterSession("test-session", &ticketID, &projectID, "claude")
+	server.RegisterPod("test-pod", &ticketID, &projectID, "claude")
 
-	session, ok := server.GetSession("test-session")
+	pod, ok := server.GetPod("test-pod")
 	if !ok {
-		t.Fatal("session should be registered")
+		t.Fatal("pod should be registered")
 	}
 
-	if session.SessionKey != "test-session" {
-		t.Errorf("SessionKey: got %v, want %v", session.SessionKey, "test-session")
+	if pod.PodKey != "test-pod" {
+		t.Errorf("PodKey: got %v, want %v", pod.PodKey, "test-pod")
 	}
 
-	if session.TicketID == nil || *session.TicketID != 123 {
-		t.Errorf("TicketID: got %v, want 123", session.TicketID)
+	if pod.TicketID == nil || *pod.TicketID != 123 {
+		t.Errorf("TicketID: got %v, want 123", pod.TicketID)
 	}
 
-	if session.AgentType != "claude" {
-		t.Errorf("AgentType: got %v, want %v", session.AgentType, "claude")
+	if pod.AgentType != "claude" {
+		t.Errorf("AgentType: got %v, want %v", pod.AgentType, "claude")
 	}
 }
 
-func TestHTTPServerUnregisterSession(t *testing.T) {
+func TestHTTPServerUnregisterPod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
-	_, ok := server.GetSession("test-session")
+	_, ok := server.GetPod("test-pod")
 	if !ok {
-		t.Fatal("session should be registered")
+		t.Fatal("pod should be registered")
 	}
 
-	server.UnregisterSession("test-session")
+	server.UnregisterPod("test-pod")
 
-	_, ok = server.GetSession("test-session")
+	_, ok = server.GetPod("test-pod")
 	if ok {
-		t.Error("session should be unregistered")
+		t.Error("pod should be unregistered")
 	}
 }
 
-func TestHTTPServerSessionCount(t *testing.T) {
+func TestHTTPServerPodCount(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
-	if server.SessionCount() != 0 {
-		t.Errorf("initial count should be 0, got %v", server.SessionCount())
+	if server.PodCount() != 0 {
+		t.Errorf("initial count should be 0, got %v", server.PodCount())
 	}
 
-	server.RegisterSession("session-1", nil, nil, "claude")
-	if server.SessionCount() != 1 {
-		t.Errorf("count should be 1, got %v", server.SessionCount())
+	server.RegisterPod("pod-1", nil, nil, "claude")
+	if server.PodCount() != 1 {
+		t.Errorf("count should be 1, got %v", server.PodCount())
 	}
 
-	server.RegisterSession("session-2", nil, nil, "claude")
-	if server.SessionCount() != 2 {
-		t.Errorf("count should be 2, got %v", server.SessionCount())
+	server.RegisterPod("pod-2", nil, nil, "claude")
+	if server.PodCount() != 2 {
+		t.Errorf("count should be 2, got %v", server.PodCount())
 	}
 
-	server.UnregisterSession("session-1")
-	if server.SessionCount() != 1 {
-		t.Errorf("count should be 1, got %v", server.SessionCount())
+	server.UnregisterPod("pod-1")
+	if server.PodCount() != 1 {
+		t.Errorf("count should be 1, got %v", server.PodCount())
 	}
 }
 
@@ -105,7 +105,7 @@ func TestHTTPServerPort(t *testing.T) {
 
 func TestHTTPServerGenerateMCPConfig(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	config := server.GenerateMCPConfig("test-session")
+	config := server.GenerateMCPConfig("test-pod")
 
 	if config == nil {
 		t.Fatal("config should not be nil")
@@ -144,14 +144,14 @@ func TestHTTPServerHealth(t *testing.T) {
 	}
 }
 
-func TestHTTPServerSessions(t *testing.T) {
+func TestHTTPServerPods(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("session-1", nil, nil, "claude")
+	server.RegisterPod("pod-1", nil, nil, "claude")
 
-	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/pods", nil)
 	rec := httptest.NewRecorder()
 
-	server.handleSessions(rec, req)
+	server.handlePods(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status code: got %v, want %v", rec.Code, http.StatusOK)
@@ -162,13 +162,13 @@ func TestHTTPServerSessions(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	sessions, ok := result["sessions"].([]interface{})
-	if !ok || len(sessions) != 1 {
-		t.Errorf("sessions: got %v, want 1 session", sessions)
+	pods, ok := result["pods"].([]interface{})
+	if !ok || len(pods) != 1 {
+		t.Errorf("pods: got %v, want 1 pod", pods)
 	}
 }
 
-func TestHTTPServerMCPMissingSessionKey(t *testing.T) {
+func TestHTTPServerMCPMissingPodKey(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
@@ -182,7 +182,7 @@ func TestHTTPServerMCPMissingSessionKey(t *testing.T) {
 	}
 
 	if resp.Error == nil {
-		t.Error("should return error for missing session key")
+		t.Error("should return error for missing pod key")
 	}
 
 	if resp.Error.Code != -32600 {
@@ -190,12 +190,12 @@ func TestHTTPServerMCPMissingSessionKey(t *testing.T) {
 	}
 }
 
-func TestHTTPServerMCPUnregisteredSession(t *testing.T) {
+func TestHTTPServerMCPUnregisteredPod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"initialize"}`)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "unknown-session")
+	req.Header.Set("X-Pod-Key", "unknown-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -206,17 +206,17 @@ func TestHTTPServerMCPUnregisteredSession(t *testing.T) {
 	}
 
 	if resp.Error == nil {
-		t.Error("should return error for unregistered session")
+		t.Error("should return error for unregistered pod")
 	}
 }
 
 func TestHTTPServerMCPInitialize(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -246,11 +246,11 @@ func TestHTTPServerMCPInitialize(t *testing.T) {
 
 func TestHTTPServerMCPToolsList(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -282,11 +282,11 @@ func TestHTTPServerMCPToolsList(t *testing.T) {
 
 func TestHTTPServerMCPMethodNotFound(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"unknown/method"}`)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -307,11 +307,11 @@ func TestHTTPServerMCPMethodNotFound(t *testing.T) {
 
 func TestHTTPServerMCPInvalidJSON(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`invalid json`)
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -343,21 +343,21 @@ func TestHTTPServerMCPMethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestSessionInfoStruct(t *testing.T) {
+func TestPodInfoStruct(t *testing.T) {
 	ticketID := 123
 	projectID := 456
 
-	info := SessionInfo{
-		SessionKey:   "test-session",
+	info := PodInfo{
+		PodKey:   "test-pod",
 		TicketID:     &ticketID,
 		ProjectID:    &projectID,
 		AgentType:    "claude",
 		RegisteredAt: time.Now(),
-		Client:       NewBackendClient("http://localhost:8080", "test-session"),
+		Client:       NewBackendClient("http://localhost:8080", "test-pod"),
 	}
 
-	if info.SessionKey != "test-session" {
-		t.Errorf("SessionKey: got %v, want %v", info.SessionKey, "test-session")
+	if info.PodKey != "test-pod" {
+		t.Errorf("PodKey: got %v, want %v", info.PodKey, "test-pod")
 	}
 
 	if info.TicketID == nil || *info.TicketID != 123 {
@@ -486,7 +486,7 @@ func TestHelperFunctions(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallObserveTerminal(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -495,14 +495,14 @@ func TestHTTPServerMCPToolsCallObserveTerminal(t *testing.T) {
 		"params": {
 			"name": "observe_terminal",
 			"arguments": {
-				"session_key": "target-session",
+				"pod_key": "target-pod",
 				"lines": 100
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -521,7 +521,7 @@ func TestHTTPServerMCPToolsCallObserveTerminal(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSendTerminalText(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -530,14 +530,14 @@ func TestHTTPServerMCPToolsCallSendTerminalText(t *testing.T) {
 		"params": {
 			"name": "send_terminal_text",
 			"arguments": {
-				"session_key": "target-session",
+				"pod_key": "target-pod",
 				"text": "hello world"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -555,7 +555,7 @@ func TestHTTPServerMCPToolsCallSendTerminalText(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallMissingArgs(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -564,13 +564,13 @@ func TestHTTPServerMCPToolsCallMissingArgs(t *testing.T) {
 		"params": {
 			"name": "send_terminal_text",
 			"arguments": {
-				"session_key": "target-session"
+				"pod_key": "target-pod"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -589,22 +589,22 @@ func TestHTTPServerMCPToolsCallMissingArgs(t *testing.T) {
 	}
 }
 
-func TestHTTPServerMCPToolsCallListAvailableSessions(t *testing.T) {
+func TestHTTPServerMCPToolsCallListAvailablePods(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
 		"id": 1,
 		"method": "tools/call",
 		"params": {
-			"name": "list_available_sessions",
+			"name": "list_available_pods",
 			"arguments": {}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -616,29 +616,29 @@ func TestHTTPServerMCPToolsCallListAvailableSessions(t *testing.T) {
 
 	// Tool should be found
 	if resp.Error != nil && resp.Error.Code == -32601 {
-		t.Error("tool list_available_sessions should be found")
+		t.Error("tool list_available_pods should be found")
 	}
 }
 
-func TestHTTPServerMCPToolsCallBindSession(t *testing.T) {
+func TestHTTPServerMCPToolsCallBindPod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
 		"id": 1,
 		"method": "tools/call",
 		"params": {
-			"name": "bind_session",
+			"name": "bind_pod",
 			"arguments": {
-				"target_session": "other-session",
+				"target_pod": "other-pod",
 				"scopes": ["terminal:read"]
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -650,13 +650,13 @@ func TestHTTPServerMCPToolsCallBindSession(t *testing.T) {
 
 	// Tool should be found
 	if resp.Error != nil && resp.Error.Code == -32601 {
-		t.Error("tool bind_session should be found")
+		t.Error("tool bind_pod should be found")
 	}
 }
 
 func TestHTTPServerMCPToolsCallSearchChannels(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -671,7 +671,7 @@ func TestHTTPServerMCPToolsCallSearchChannels(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -689,7 +689,7 @@ func TestHTTPServerMCPToolsCallSearchChannels(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSearchTickets(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -704,7 +704,7 @@ func TestHTTPServerMCPToolsCallSearchTickets(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -722,7 +722,7 @@ func TestHTTPServerMCPToolsCallSearchTickets(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallCreateChannel(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -738,7 +738,7 @@ func TestHTTPServerMCPToolsCallCreateChannel(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -756,7 +756,7 @@ func TestHTTPServerMCPToolsCallCreateChannel(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetTicket(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -771,7 +771,7 @@ func TestHTTPServerMCPToolsCallGetTicket(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -789,7 +789,7 @@ func TestHTTPServerMCPToolsCallGetTicket(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallCreateTicket(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -806,7 +806,7 @@ func TestHTTPServerMCPToolsCallCreateTicket(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -824,7 +824,7 @@ func TestHTTPServerMCPToolsCallCreateTicket(t *testing.T) {
 
 func TestHTTPServerMCPNotificationsInitialized(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -832,7 +832,7 @@ func TestHTTPServerMCPNotificationsInitialized(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -854,7 +854,7 @@ func TestHTTPServerMCPNotificationsInitialized(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallInvalidParams(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -864,7 +864,7 @@ func TestHTTPServerMCPToolsCallInvalidParams(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -885,7 +885,7 @@ func TestHTTPServerMCPToolsCallInvalidParams(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallToolNotFound(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -898,7 +898,7 @@ func TestHTTPServerMCPToolsCallToolNotFound(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -919,7 +919,7 @@ func TestHTTPServerMCPToolsCallToolNotFound(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallWithIntArgs(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	// Test with int argument to cover getIntArg path
 	body := bytes.NewBufferString(`{
@@ -929,14 +929,14 @@ func TestHTTPServerMCPToolsCallWithIntArgs(t *testing.T) {
 		"params": {
 			"name": "observe_terminal",
 			"arguments": {
-				"session_key": "target",
+				"pod_key": "target",
 				"lines": 50
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -948,7 +948,7 @@ func TestHTTPServerMCPToolsCallWithIntArgs(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallCreateTicketWithPriority(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -966,7 +966,7 @@ func TestHTTPServerMCPToolsCallCreateTicketWithPriority(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -998,7 +998,7 @@ func TestGetIntArgInvalidType(t *testing.T) {
 
 func BenchmarkHTTPServerHandleMCP(b *testing.B) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	bodyStr := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
 
@@ -1006,18 +1006,18 @@ func BenchmarkHTTPServerHandleMCP(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		body := bytes.NewBufferString(bodyStr)
 		req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-		req.Header.Set("X-Session-Key", "test-session")
+		req.Header.Set("X-Pod-Key", "test-pod")
 		rec := httptest.NewRecorder()
 
 		server.handleMCP(rec, req)
 	}
 }
 
-func BenchmarkHTTPServerRegisterSession(b *testing.B) {
+func BenchmarkHTTPServerRegisterPod(b *testing.B) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		server.RegisterSession("test-session", nil, nil, "claude")
+		server.RegisterPod("test-pod", nil, nil, "claude")
 	}
 }

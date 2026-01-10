@@ -189,7 +189,7 @@ https://api.agentmesh.dev/api/v1/webhooks/gitee/123`}</pre>
           <div className="border border-border rounded-lg p-4">
             <h3 className="font-medium mb-2">Pipeline Notifications</h3>
             <p className="text-sm text-muted-foreground">
-              Notify sessions when CI/CD pipelines complete, allowing agents to
+              Notify Pods when CI/CD pipelines complete, allowing agents to
               respond to build failures or deployments.
             </p>
           </div>

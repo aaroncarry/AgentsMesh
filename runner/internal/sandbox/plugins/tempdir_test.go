@@ -41,7 +41,7 @@ func TestTempDirPluginSetup(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewTempDirPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	// Setup should create workspace directory
@@ -74,7 +74,7 @@ func TestTempDirPluginSetupSkipsIfWorkDirSet(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewTempDirPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 	ctx := context.Background()
 
 	// Pre-set WorkDir (simulating WorktreePlugin)
@@ -100,7 +100,7 @@ func TestTempDirPluginTeardown(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	p := NewTempDirPlugin()
-	sb := sandbox.NewSandbox("test-session", tmpDir)
+	sb := sandbox.NewSandbox("test-pod", tmpDir)
 
 	// Teardown should not error
 	if err := p.Teardown(sb); err != nil {
@@ -112,7 +112,7 @@ func TestTempDirPluginSetupMkdirError(t *testing.T) {
 	// Test error case when directory creation fails
 	p := NewTempDirPlugin()
 	// Use a path that can't be created (read-only location)
-	sb := sandbox.NewSandbox("test-session", "/nonexistent/path/that/cannot/be/created")
+	sb := sandbox.NewSandbox("test-pod", "/nonexistent/path/that/cannot/be/created")
 	ctx := context.Background()
 
 	// Setup should fail

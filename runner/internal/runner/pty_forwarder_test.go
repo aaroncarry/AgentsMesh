@@ -8,15 +8,15 @@ import (
 func TestPTYForwarderConfigStruct(t *testing.T) {
 	cfg := PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "session-1",
+		PodKey:       "pod-1",
 		Handler:          nil,
 		BufferSize:       32 * 1024,
 		FlushInterval:    100 * time.Millisecond,
 		BackpressureWait: 200 * time.Millisecond,
 	}
 
-	if cfg.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", cfg.SessionKey)
+	if cfg.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", cfg.PodKey)
 	}
 
 	if cfg.BufferSize != 32*1024 {
@@ -32,7 +32,7 @@ func TestNewPTYForwarderDefaults(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -42,8 +42,8 @@ func TestNewPTYForwarderDefaults(t *testing.T) {
 		t.Fatal("NewPTYForwarder returned nil")
 	}
 
-	if forwarder.sessionKey != "session-1" {
-		t.Errorf("sessionKey: got %v, want session-1", forwarder.sessionKey)
+	if forwarder.podKey != "pod-1" {
+		t.Errorf("podKey: got %v, want pod-1", forwarder.podKey)
 	}
 
 	if forwarder.maxBufferSize != 64*1024 {
@@ -63,7 +63,7 @@ func TestNewPTYForwarderCustomConfig(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "session-1",
+		PodKey:       "pod-1",
 		Handler:          handler,
 		BufferSize:       32 * 1024,
 		FlushInterval:    100 * time.Millisecond,
@@ -89,7 +89,7 @@ func TestPTYForwarderBackpressure(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -115,7 +115,7 @@ func TestPTYForwarderGetBufferedSize(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -138,7 +138,7 @@ func TestPTYForwarderStop(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -152,7 +152,7 @@ func TestPTYForwarderStartStop(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:       nil, // Will cause read loop to exit immediately
-		SessionKey:    "session-1",
+		PodKey:    "pod-1",
 		Handler:       handler,
 		FlushInterval: 10 * time.Millisecond,
 	}
@@ -167,7 +167,7 @@ func TestPTYForwarderFlush(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -191,7 +191,7 @@ func TestPTYForwarderFlushEmptyBuffer(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -214,7 +214,7 @@ func TestPTYForwarderFlushWithBackpressure(t *testing.T) {
 
 	cfg := &PTYForwarderConfig{
 		Session:          nil,
-		SessionKey:       "session-1",
+		PodKey:       "pod-1",
 		Handler:          handler,
 		BackpressureWait: 1 * time.Millisecond, // Short wait for testing
 	}
@@ -240,7 +240,7 @@ func TestPTYForwarderBufferOutputTriggersFlush(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 		BufferSize: 100, // Small buffer to trigger flush
 	}
@@ -265,7 +265,7 @@ func TestPTYForwarderBufferOutputMultiple(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 		BufferSize: 1024,
 	}
@@ -287,7 +287,7 @@ func TestPTYForwarderBackpressureToggle(t *testing.T) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 
@@ -313,7 +313,7 @@ func TestPTYForwarderBackpressureToggle(t *testing.T) {
 
 func TestPTYForwarderConfigDefaults(t *testing.T) {
 	cfg := PTYForwarderConfig{
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    newMockOutputHandler(),
 	}
 
@@ -347,7 +347,7 @@ func BenchmarkPTYForwarderBufferOutput(b *testing.B) {
 	handler := newMockOutputHandler()
 	cfg := &PTYForwarderConfig{
 		Session:    nil,
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Handler:    handler,
 	}
 	forwarder := NewPTYForwarder(cfg)

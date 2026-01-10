@@ -46,8 +46,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			auth_token_hash TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'offline',
 			last_heartbeat DATETIME,
-			current_sessions INTEGER NOT NULL DEFAULT 0,
-			max_concurrent_sessions INTEGER NOT NULL DEFAULT 5,
+			current_pods INTEGER NOT NULL DEFAULT 0,
+			max_concurrent_pods INTEGER NOT NULL DEFAULT 5,
 			runner_version TEXT,
 			is_enabled INTEGER NOT NULL DEFAULT 1,
 			host_info TEXT,
@@ -136,8 +136,8 @@ func TestRegisterRunner(t *testing.T) {
 	if r.Status != runner.RunnerStatusOffline {
 		t.Errorf("expected Status '%s', got %s", runner.RunnerStatusOffline, r.Status)
 	}
-	if r.MaxConcurrentSessions != 5 {
-		t.Errorf("expected MaxConcurrentSessions 5, got %d", r.MaxConcurrentSessions)
+	if r.MaxConcurrentPods != 5 {
+		t.Errorf("expected MaxConcurrentPods 5, got %d", r.MaxConcurrentPods)
 	}
 
 	// Check that token usage count was incremented
@@ -217,8 +217,8 @@ func TestHeartbeat(t *testing.T) {
 	if updated.Status != runner.RunnerStatusOnline {
 		t.Errorf("expected Status '%s', got %s", runner.RunnerStatusOnline, updated.Status)
 	}
-	if updated.CurrentSessions != 2 {
-		t.Errorf("expected CurrentSessions 2, got %d", updated.CurrentSessions)
+	if updated.CurrentPods != 2 {
+		t.Errorf("expected CurrentPods 2, got %d", updated.CurrentPods)
 	}
 	if updated.LastHeartbeat == nil {
 		t.Error("expected LastHeartbeat to be set")
@@ -327,7 +327,7 @@ func TestUpdateRunner(t *testing.T) {
 
 	updated, err := service.UpdateRunner(ctx, r.ID, RunnerUpdateInput{
 		Description:           &newDesc,
-		MaxConcurrentSessions: &newMax,
+		MaxConcurrentPods: &newMax,
 		IsEnabled:             &isEnabled,
 	})
 	if err != nil {
@@ -337,8 +337,8 @@ func TestUpdateRunner(t *testing.T) {
 	if updated.Description != newDesc {
 		t.Errorf("expected description %s, got %s", newDesc, updated.Description)
 	}
-	if updated.MaxConcurrentSessions != newMax {
-		t.Errorf("expected max sessions %d, got %d", newMax, updated.MaxConcurrentSessions)
+	if updated.MaxConcurrentPods != newMax {
+		t.Errorf("expected max pods %d, got %d", newMax, updated.MaxConcurrentPods)
 	}
 	if updated.IsEnabled != isEnabled {
 		t.Errorf("expected is_enabled %v, got %v", isEnabled, updated.IsEnabled)
@@ -459,13 +459,13 @@ func TestSelectAvailableRunner(t *testing.T) {
 	service.Heartbeat(ctx, r1.ID, 3)
 	service.Heartbeat(ctx, r2.ID, 1)
 
-	// Should select r2 (least sessions)
+	// Should select r2 (least pods)
 	selected, err := service.SelectAvailableRunner(ctx, 1)
 	if err != nil {
 		t.Fatalf("failed to select available runner: %v", err)
 	}
 	if selected.ID != r2.ID {
-		t.Errorf("expected runner with least sessions (r2), got ID %d", selected.ID)
+		t.Errorf("expected runner with least pods (r2), got ID %d", selected.ID)
 	}
 }
 
@@ -554,8 +554,8 @@ func TestUpdateHeartbeat(t *testing.T) {
 	if updated.Status != runner.RunnerStatusOnline {
 		t.Errorf("expected status online, got %s", updated.Status)
 	}
-	if updated.CurrentSessions != 2 {
-		t.Errorf("expected 2 sessions, got %d", updated.CurrentSessions)
+	if updated.CurrentPods != 2 {
+		t.Errorf("expected 2 pods, got %d", updated.CurrentPods)
 	}
 	if updated.RunnerVersion == nil || *updated.RunnerVersion != "1.0.0" {
 		t.Errorf("expected version 1.0.0, got %v", updated.RunnerVersion)
@@ -576,7 +576,7 @@ func TestUpdateHeartbeatInvalidAuth(t *testing.T) {
 	}
 }
 
-func TestUpdateHeartbeatWithSessions(t *testing.T) {
+func TestUpdateHeartbeatWithPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
@@ -584,28 +584,28 @@ func TestUpdateHeartbeatWithSessions(t *testing.T) {
 	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
 	r, _, _ := service.RegisterRunner(ctx, plain, "test-runner", "Test", 5)
 
-	sessions := []HeartbeatSession{
-		{SessionKey: "session-1", Status: "running"},
-		{SessionKey: "session-2", Status: "running"},
+	pods := []HeartbeatPodInfo{
+		{PodKey: "pod-1", Status: "running"},
+		{PodKey: "pod-2", Status: "running"},
 	}
 
-	err := service.UpdateHeartbeatWithSessions(ctx, r.ID, sessions, "1.0.0")
+	err := service.UpdateHeartbeatWithPods(ctx, r.ID, pods, "1.0.0")
 	if err != nil {
-		t.Fatalf("failed to update heartbeat with sessions: %v", err)
+		t.Fatalf("failed to update heartbeat with pods: %v", err)
 	}
 
 	updated, _ := service.GetRunner(ctx, r.ID)
-	if updated.CurrentSessions != 2 {
-		t.Errorf("expected 2 sessions, got %d", updated.CurrentSessions)
+	if updated.CurrentPods != 2 {
+		t.Errorf("expected 2 pods, got %d", updated.CurrentPods)
 	}
 }
 
-func TestUpdateHeartbeatWithSessionsNotFound(t *testing.T) {
+func TestUpdateHeartbeatWithPodsNotFound(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
 
-	err := service.UpdateHeartbeatWithSessions(ctx, 99999, nil, "1.0.0")
+	err := service.UpdateHeartbeatWithPods(ctx, 99999, nil, "1.0.0")
 	if err != ErrRunnerNotFound {
 		t.Errorf("expected ErrRunnerNotFound, got %v", err)
 	}
@@ -653,14 +653,14 @@ func TestErrors(t *testing.T) {
 func TestActiveRunnerStruct(t *testing.T) {
 	ar := &ActiveRunner{
 		Runner:       &runner.Runner{ID: 1, NodeID: "test"},
-		SessionCount: 5,
+		PodCount: 5,
 	}
 
 	if ar.Runner.ID != 1 {
 		t.Errorf("expected Runner.ID 1, got %d", ar.Runner.ID)
 	}
-	if ar.SessionCount != 5 {
-		t.Errorf("expected SessionCount 5, got %d", ar.SessionCount)
+	if ar.PodCount != 5 {
+		t.Errorf("expected PodCount 5, got %d", ar.PodCount)
 	}
 }
 
@@ -671,30 +671,30 @@ func TestRunnerUpdateInput(t *testing.T) {
 
 	input := RunnerUpdateInput{
 		Description:           &desc,
-		MaxConcurrentSessions: &max,
+		MaxConcurrentPods: &max,
 		IsEnabled:             &enabled,
 	}
 
 	if *input.Description != desc {
 		t.Errorf("expected Description %s, got %s", desc, *input.Description)
 	}
-	if *input.MaxConcurrentSessions != max {
-		t.Errorf("expected MaxConcurrentSessions %d, got %d", max, *input.MaxConcurrentSessions)
+	if *input.MaxConcurrentPods != max {
+		t.Errorf("expected MaxConcurrentPods %d, got %d", max, *input.MaxConcurrentPods)
 	}
 	if *input.IsEnabled != enabled {
 		t.Errorf("expected IsEnabled %v, got %v", enabled, *input.IsEnabled)
 	}
 }
 
-func TestHeartbeatSession(t *testing.T) {
-	hs := HeartbeatSession{
-		SessionKey:  "session-123",
+func TestHeartbeatPodInfo(t *testing.T) {
+	hs := HeartbeatPodInfo{
+		PodKey:      "pod-123",
 		Status:      "running",
 		AgentStatus: "waiting",
 	}
 
-	if hs.SessionKey != "session-123" {
-		t.Errorf("expected SessionKey session-123, got %s", hs.SessionKey)
+	if hs.PodKey != "pod-123" {
+		t.Errorf("expected PodKey pod-123, got %s", hs.PodKey)
 	}
 	if hs.Status != "running" {
 		t.Errorf("expected Status running, got %s", hs.Status)
@@ -704,7 +704,7 @@ func TestHeartbeatSession(t *testing.T) {
 	}
 }
 
-func TestIncrementSessions(t *testing.T) {
+func TestIncrementPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
@@ -712,25 +712,25 @@ func TestIncrementSessions(t *testing.T) {
 	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
 	r, _, _ := service.RegisterRunner(ctx, plain, "test-runner", "Test", 5)
 
-	// Initial sessions should be 0
+	// Initial pods should be 0
 	runner, _ := service.GetRunner(ctx, r.ID)
-	if runner.CurrentSessions != 0 {
-		t.Errorf("expected 0 sessions, got %d", runner.CurrentSessions)
+	if runner.CurrentPods != 0 {
+		t.Errorf("expected 0 pods, got %d", runner.CurrentPods)
 	}
 
 	// Increment
-	err := service.IncrementSessions(ctx, r.ID)
+	err := service.IncrementPods(ctx, r.ID)
 	if err != nil {
-		t.Errorf("IncrementSessions error: %v", err)
+		t.Errorf("IncrementPods error: %v", err)
 	}
 
 	runner, _ = service.GetRunner(ctx, r.ID)
-	if runner.CurrentSessions != 1 {
-		t.Errorf("expected 1 session after increment, got %d", runner.CurrentSessions)
+	if runner.CurrentPods != 1 {
+		t.Errorf("expected 1 pod after increment, got %d", runner.CurrentPods)
 	}
 }
 
-func TestDecrementSessions(t *testing.T) {
+func TestDecrementPods(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
@@ -738,20 +738,20 @@ func TestDecrementSessions(t *testing.T) {
 	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
 	r, _, _ := service.RegisterRunner(ctx, plain, "test-runner", "Test", 5)
 
-	// Note: DecrementSessions uses GREATEST which SQLite doesn't support
+	// Note: DecrementPods uses GREATEST which SQLite doesn't support
 	// This test just verifies the method signature exists
-	_ = service.DecrementSessions(ctx, r.ID)
+	_ = service.DecrementPods(ctx, r.ID)
 }
 
-func TestDecrementSessionsMethod(t *testing.T) {
-	// This test simply verifies the DecrementSessions method exists and can be called
+func TestDecrementPodsMethod(t *testing.T) {
+	// This test simply verifies the DecrementPods method exists and can be called
 	// The actual GREATEST function is not supported by SQLite, but works in PostgreSQL
 	db := setupTestDB(t)
 	service := NewService(db)
 
 	// Verify the method exists by calling it
 	// Just check it doesn't panic, ignore error since SQLite doesn't support GREATEST
-	_ = service.DecrementSessions(context.Background(), 999)
+	_ = service.DecrementPods(context.Background(), 999)
 }
 
 func TestMarkOfflineRunners(t *testing.T) {

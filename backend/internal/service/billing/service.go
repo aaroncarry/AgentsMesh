@@ -258,8 +258,8 @@ func (s *Service) CheckQuota(ctx context.Context, orgID int64, resource string, 
 		limit = plan.MaxRunners
 	case "repositories":
 		limit = plan.MaxRepositories
-	case "session_minutes":
-		limit = plan.IncludedSessionMinutes
+	case "pod_minutes":
+		limit = plan.IncludedPodMinutes
 	default:
 		return nil
 	}
@@ -287,8 +287,8 @@ func (s *Service) getCurrentResourceCount(ctx context.Context, orgID int64, reso
 		s.db.WithContext(ctx).Table("runners").Where("organization_id = ?", orgID).Count(&count)
 	case "repositories":
 		s.db.WithContext(ctx).Table("repositories").Where("organization_id = ?", orgID).Count(&count)
-	case "session_minutes":
-		usage, _ := s.GetUsage(ctx, orgID, billing.UsageTypeSessionMinutes)
+	case "pod_minutes":
+		usage, _ := s.GetUsage(ctx, orgID, billing.UsageTypePodMinutes)
 		return int(usage), nil
 	}
 
@@ -351,7 +351,7 @@ func (s *Service) GetBillingOverview(ctx context.Context, orgID int64) (*Billing
 	}
 
 	// Get current usage
-	sessionMinutes, _ := s.GetUsage(ctx, orgID, billing.UsageTypeSessionMinutes)
+	podMinutes, _ := s.GetUsage(ctx, orgID, billing.UsageTypePodMinutes)
 
 	// Count resources
 	var userCount, runnerCount, repoCount int64
@@ -366,8 +366,8 @@ func (s *Service) GetBillingOverview(ctx context.Context, orgID int64) (*Billing
 		CurrentPeriodStart: sub.CurrentPeriodStart,
 		CurrentPeriodEnd:   sub.CurrentPeriodEnd,
 		Usage: UsageOverview{
-			SessionMinutes:         sessionMinutes,
-			IncludedSessionMinutes: float64(plan.IncludedSessionMinutes),
+			PodMinutes:         podMinutes,
+			IncludedPodMinutes: float64(plan.IncludedPodMinutes),
 			Users:                  int(userCount),
 			MaxUsers:               plan.MaxUsers,
 			Runners:                int(runnerCount),
@@ -390,8 +390,8 @@ type BillingOverview struct {
 
 // UsageOverview represents usage overview
 type UsageOverview struct {
-	SessionMinutes         float64 `json:"session_minutes"`
-	IncludedSessionMinutes float64 `json:"included_session_minutes"`
+	PodMinutes         float64 `json:"pod_minutes"`
+	IncludedPodMinutes float64 `json:"included_pod_minutes"`
 	Users                  int     `json:"users"`
 	MaxUsers               int     `json:"max_users"`
 	Runners                int     `json:"runners"`

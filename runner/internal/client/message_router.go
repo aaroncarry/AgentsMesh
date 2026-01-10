@@ -28,14 +28,14 @@ func (r *MessageRouter) Route(msg ProtocolMessage) {
 	}
 
 	switch msg.Type {
-	case MsgTypeCreateSession:
-		r.handleCreateSession(msg)
+	case MsgTypeCreatePod:
+		r.handleCreatePod(msg)
 
-	case MsgTypeTerminateSession:
-		r.handleTerminateSession(msg)
+	case MsgTypeTerminatePod:
+		r.handleTerminatePod(msg)
 
-	case MsgTypeListSessions:
-		r.handleListSessions()
+	case MsgTypeListPods:
+		r.handleListPods()
 
 	case MsgTypeTerminalInput:
 		r.handleTerminalInput(msg)
@@ -48,38 +48,38 @@ func (r *MessageRouter) Route(msg ProtocolMessage) {
 	}
 }
 
-func (r *MessageRouter) handleCreateSession(msg ProtocolMessage) {
-	var req CreateSessionRequest
+func (r *MessageRouter) handleCreatePod(msg ProtocolMessage) {
+	var req CreatePodRequest
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		log.Printf("[router] Failed to parse create session request: %v", err)
+		log.Printf("[router] Failed to parse create pod request: %v", err)
 		return
 	}
 
-	log.Printf("[router] Received create session request: session_id=%s, initial_command=%s, permission_mode=%s",
-		req.SessionID, req.InitialCommand, req.PermissionMode)
+	log.Printf("[router] Received create pod request: pod_key=%s, initial_command=%s, permission_mode=%s",
+		req.PodKey, req.InitialCommand, req.PermissionMode)
 
-	if err := r.handler.OnCreateSession(req); err != nil {
-		log.Printf("[router] Failed to create session: %v", err)
+	if err := r.handler.OnCreatePod(req); err != nil {
+		log.Printf("[router] Failed to create pod: %v", err)
 	}
 }
 
-func (r *MessageRouter) handleTerminateSession(msg ProtocolMessage) {
-	var req TerminateSessionRequest
+func (r *MessageRouter) handleTerminatePod(msg ProtocolMessage) {
+	var req TerminatePodRequest
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		log.Printf("[router] Failed to parse terminate session request: %v", err)
+		log.Printf("[router] Failed to parse terminate pod request: %v", err)
 		return
 	}
 
-	log.Printf("[router] Received terminate session request: session_id=%s", req.SessionID)
-	if err := r.handler.OnTerminateSession(req); err != nil {
-		log.Printf("[router] Failed to terminate session: %v", err)
+	log.Printf("[router] Received terminate pod request: pod_key=%s", req.PodKey)
+	if err := r.handler.OnTerminatePod(req); err != nil {
+		log.Printf("[router] Failed to terminate pod: %v", err)
 	}
 }
 
-func (r *MessageRouter) handleListSessions() {
-	sessions := r.handler.OnListSessions()
-	if err := r.eventSender.SendEvent(MsgTypeSessionList, sessions); err != nil {
-		log.Printf("[router] Failed to send session list: %v", err)
+func (r *MessageRouter) handleListPods() {
+	pods := r.handler.OnListPods()
+	if err := r.eventSender.SendEvent(MsgTypePodList, pods); err != nil {
+		log.Printf("[router] Failed to send pod list: %v", err)
 	}
 }
 

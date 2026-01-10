@@ -16,7 +16,7 @@ const navigation = [
   {
     title: "Features",
     items: [
-      { title: "DevPod", href: "/docs/features/devpod" },
+      { title: "AgentPod", href: "/docs/features/agentpod" },
       { title: "DevMesh", href: "/docs/features/devmesh" },
       { title: "Tickets", href: "/docs/features/tickets" },
       { title: "Channels", href: "/docs/features/channels" },

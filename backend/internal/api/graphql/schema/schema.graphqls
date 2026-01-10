@@ -70,13 +70,13 @@ type Runner {
   description: String
   status: RunnerStatus!
   lastHeartbeat: Time
-  currentSessions: Int!
-  maxConcurrentSessions: Int!
+  currentPods: Int!
+  maxConcurrentPods: Int!
   runnerVersion: String
   hostInfo: JSON
   createdAt: Time!
   updatedAt: Time!
-  activeSessions: [Session!]!
+  activePods: [Pod!]!
 }
 
 enum RunnerStatus {
@@ -85,10 +85,10 @@ enum RunnerStatus {
   MAINTENANCE
 }
 
-type Session {
+type Pod {
   id: ID!
-  sessionKey: String!
-  status: SessionStatus!
+  podKey: String!
+  status: PodStatus!
   agentStatus: String!
   startedAt: Time
   finishedAt: Time
@@ -105,7 +105,7 @@ type Session {
   createdBy: User!
 }
 
-enum SessionStatus {
+enum PodStatus {
   INITIALIZING
   RUNNING
   PAUSED
@@ -155,7 +155,7 @@ type Ticket {
   reporter: User!
   assignees: [User!]!
   labels: [Label!]!
-  sessions: [Session!]!
+  pods: [Pod!]!
   mergeRequests: [MergeRequest!]!
   childTickets: [Ticket!]!
   parentTicket: Ticket
@@ -212,7 +212,7 @@ type Channel {
   createdAt: Time!
   updatedAt: Time!
   messages(limit: Int, offset: Int): [ChannelMessage!]!
-  sessions: [Session!]!
+  pods: [Pod!]!
 }
 
 type ChannelMessage {
@@ -221,7 +221,7 @@ type ChannelMessage {
   messageType: String!
   metadata: JSON
   createdAt: Time!
-  session: Session
+  pod: Pod
   user: User
 }
 
@@ -244,14 +244,14 @@ type TicketEdge {
   cursor: String!
 }
 
-type SessionConnection {
-  edges: [SessionEdge!]!
+type PodConnection {
+  edges: [PodEdge!]!
   pageInfo: PageInfo!
   totalCount: Int!
 }
 
-type SessionEdge {
-  node: Session!
+type PodEdge {
+  node: Pod!
   cursor: String!
 }
 
@@ -284,7 +284,7 @@ input UpdateTicketInput {
   dueDate: Time
 }
 
-input CreateSessionInput {
+input CreatePodInput {
   runnerID: ID!
   agentTypeID: ID
   customAgentTypeID: ID
@@ -318,9 +318,9 @@ input TicketFilter {
   search: String
 }
 
-input SessionFilter {
+input PodFilter {
   runnerID: ID
-  status: SessionStatus
+  status: PodStatus
   ticketID: ID
 }
 
@@ -342,9 +342,9 @@ type Query {
   runners(status: RunnerStatus): [Runner!]!
   availableRunners: [Runner!]!
 
-  # Sessions
-  session(key: String!): Session
-  sessions(filter: SessionFilter, first: Int, after: String): SessionConnection!
+  # Pods
+  pod(key: String!): Pod
+  pods(filter: PodFilter, first: Int, after: String): PodConnection!
 
   # Agent Types
   agentTypes: [AgentType!]!
@@ -375,9 +375,9 @@ type Query {
 # =============================================================================
 
 type Mutation {
-  # Sessions
-  createSession(input: CreateSessionInput!): Session!
-  terminateSession(key: String!): Session!
+  # Pods
+  createPod(input: CreatePodInput!): Pod!
+  terminatePod(key: String!): Pod!
 
   # Tickets
   createTicket(input: CreateTicketInput!): Ticket!
@@ -394,11 +394,11 @@ type Mutation {
   updateChannel(id: ID!, input: UpdateChannelInput!): Channel!
   archiveChannel(id: ID!): Channel!
   unarchiveChannel(id: ID!): Channel!
-  sendMessage(channelID: ID!, content: String!, sessionKey: String): ChannelMessage!
+  sendMessage(channelID: ID!, content: String!, podKey: String): ChannelMessage!
 
-  # Channel Session Management
-  joinChannel(channelID: ID!, sessionKey: String!): Boolean!
-  leaveChannel(channelID: ID!, sessionKey: String!): Boolean!
+  # Channel Pod Management
+  joinChannel(channelID: ID!, podKey: String!): Boolean!
+  leaveChannel(channelID: ID!, podKey: String!): Boolean!
 }
 
 # =============================================================================
@@ -406,8 +406,8 @@ type Mutation {
 # =============================================================================
 
 type Subscription {
-  # Session updates
-  sessionUpdated(key: String!): Session!
+  # Pod updates
+  podUpdated(key: String!): Pod!
 
   # Channel messages
   messageReceived(channelID: ID!): ChannelMessage!

@@ -10,7 +10,7 @@ import (
 // Basic unit tests for RunnerMessageHandler creation and interface
 
 func TestNewRunnerMessageHandler(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 	cfg := &config.Config{WorkspaceRoot: t.TempDir()}
 	runner := &Runner{cfg: cfg}
@@ -23,8 +23,8 @@ func TestNewRunnerMessageHandler(t *testing.T) {
 	if handler.runner != runner {
 		t.Error("handler.runner mismatch")
 	}
-	if handler.sessionStore != store {
-		t.Error("handler.sessionStore mismatch")
+	if handler.podStore != store {
+		t.Error("handler.podStore mismatch")
 	}
 	if handler.conn != mockConn {
 		t.Error("handler.conn mismatch")
@@ -32,7 +32,7 @@ func TestNewRunnerMessageHandler(t *testing.T) {
 }
 
 func TestRunnerMessageHandlerImplementsInterface(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 	runner := &Runner{cfg: &config.Config{}}
 
@@ -43,7 +43,7 @@ func TestRunnerMessageHandlerImplementsInterface(t *testing.T) {
 }
 
 func TestRunnerMessageHandlerWithNilRunner(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	// Should not panic with nil runner
@@ -66,13 +66,13 @@ func TestRunnerMessageHandlerWithNilStore(t *testing.T) {
 	if handler == nil {
 		t.Fatal("handler should not be nil even with nil store")
 	}
-	if handler.sessionStore != nil {
-		t.Error("handler.sessionStore should be nil")
+	if handler.podStore != nil {
+		t.Error("handler.podStore should be nil")
 	}
 }
 
 func TestRunnerMessageHandlerWithNilConnection(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 
 	handler := NewRunnerMessageHandler(runner, store, nil)
@@ -88,12 +88,12 @@ func TestRunnerMessageHandlerWithNilConnection(t *testing.T) {
 // --- Tests for buildPluginConfig ---
 
 func TestBuildPluginConfigEmpty(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, nil)
 
-	req := &client.CreateSessionRequest{
-		SessionID: "test-session",
+	req := &client.CreatePodRequest{
+		PodKey: "test-pod",
 	}
 
 	config := handler.buildPluginConfig(req)
@@ -107,12 +107,12 @@ func TestBuildPluginConfigEmpty(t *testing.T) {
 }
 
 func TestBuildPluginConfigWithLegacyFields(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, nil)
 
-	req := &client.CreateSessionRequest{
-		SessionID:        "test-session",
+	req := &client.CreatePodRequest{
+		PodKey:        "test-pod",
 		TicketIdentifier: "TICKET-123",
 		WorkingDir:       "/workspace/project",
 		EnvVars: map[string]string{
@@ -159,12 +159,12 @@ func TestBuildPluginConfigWithLegacyFields(t *testing.T) {
 }
 
 func TestBuildPluginConfigWithPluginConfig(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, nil)
 
-	req := &client.CreateSessionRequest{
-		SessionID: "test-session",
+	req := &client.CreatePodRequest{
+		PodKey: "test-pod",
 		PluginConfig: map[string]interface{}{
 			"repository_url": "https://github.com/org/repo.git",
 			"branch":         "develop",
@@ -186,13 +186,13 @@ func TestBuildPluginConfigWithPluginConfig(t *testing.T) {
 }
 
 func TestBuildPluginConfigMergeOverride(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, nil)
 
 	// PluginConfig should override legacy fields
-	req := &client.CreateSessionRequest{
-		SessionID:        "test-session",
+	req := &client.CreatePodRequest{
+		PodKey:        "test-pod",
 		TicketIdentifier: "TICKET-123",  // Legacy field
 		PluginConfig: map[string]interface{}{
 			"ticket_identifier": "TICKET-456",  // Override via PluginConfig
@@ -214,13 +214,13 @@ func TestBuildPluginConfigMergeOverride(t *testing.T) {
 }
 
 func TestBuildPluginConfigPartialPreparation(t *testing.T) {
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, nil)
 
 	// Test with only script, no timeout
-	req := &client.CreateSessionRequest{
-		SessionID: "test-session",
+	req := &client.CreatePodRequest{
+		PodKey: "test-pod",
 		PreparationConfig: &client.PreparationConfig{
 			Script: "echo hello",
 			// TimeoutSeconds is 0

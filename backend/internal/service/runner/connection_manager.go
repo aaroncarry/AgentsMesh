@@ -28,7 +28,7 @@ type RunnerConnection struct {
 // RunnerMessage represents a message from/to a runner
 type RunnerMessage struct {
 	Type      string          `json:"type"`
-	SessionID string          `json:"session_id,omitempty"`
+	PodKey    string          `json:"pod_key,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
 	Timestamp int64           `json:"timestamp"`
 }
@@ -36,31 +36,38 @@ type RunnerMessage struct {
 // Runner message types
 const (
 	// From runner
-	MsgTypeHeartbeat         = "heartbeat"
-	MsgTypeSessionCreated    = "session_created"
-	MsgTypeSessionTerminated = "session_terminated"
-	MsgTypeTerminalOutput    = "terminal_output"
-	MsgTypeAgentStatus       = "agent_status"
-	MsgTypePtyResized        = "pty_resized"
-	MsgTypeError             = "error"
+	MsgTypeHeartbeat      = "heartbeat"
+	MsgTypePodCreated     = "pod_created"
+	MsgTypePodTerminated  = "pod_terminated"
+	MsgTypeTerminalOutput = "terminal_output"
+	MsgTypeAgentStatus    = "agent_status"
+	MsgTypePtyResized     = "pty_resized"
+	MsgTypeError          = "error"
 
 	// To runner
-	MsgTypeCreateSession    = "create_session"
-	MsgTypeTerminateSession = "terminate_session"
-	MsgTypeTerminalInput    = "terminal_input"
-	MsgTypeTerminalResize   = "terminal_resize"
-	MsgTypeSendPrompt       = "send_prompt"
+	MsgTypeCreatePod      = "create_pod"
+	MsgTypeTerminatePod   = "terminate_pod"
+	MsgTypeTerminalInput  = "terminal_input"
+	MsgTypeTerminalResize = "terminal_resize"
+	MsgTypeSendPrompt     = "send_prompt"
 )
 
 // HeartbeatData represents heartbeat message data
 type HeartbeatData struct {
-	Sessions      []HeartbeatSession `json:"sessions"`
-	RunnerVersion string             `json:"runner_version,omitempty"`
+	Pods          []HeartbeatPod `json:"pods"`
+	RunnerVersion string         `json:"runner_version,omitempty"`
 }
 
-// SessionCreatedData represents session creation event data
-type SessionCreatedData struct {
-	SessionID    string `json:"session_id"`
+// HeartbeatPod represents a pod in heartbeat data
+type HeartbeatPod struct {
+	PodKey      string `json:"pod_key"`
+	Status      string `json:"status,omitempty"`
+	AgentStatus string `json:"agent_status,omitempty"`
+}
+
+// PodCreatedData represents pod creation event data
+type PodCreatedData struct {
+	PodKey       string `json:"pod_key"`
 	Pid          int    `json:"pid"`
 	BranchName   string `json:"branch_name,omitempty"`
 	WorktreePath string `json:"worktree_path,omitempty"`
@@ -68,30 +75,30 @@ type SessionCreatedData struct {
 	Rows         int    `json:"rows,omitempty"`
 }
 
-// SessionTerminatedData represents session termination event data
-type SessionTerminatedData struct {
-	SessionID string `json:"session_id"`
-	ExitCode  int    `json:"exit_code,omitempty"`
+// PodTerminatedData represents pod termination event data
+type PodTerminatedData struct {
+	PodKey   string `json:"pod_key"`
+	ExitCode int    `json:"exit_code,omitempty"`
 }
 
 // TerminalOutputData represents terminal output data
 type TerminalOutputData struct {
-	SessionID string `json:"session_id"`
-	Data      []byte `json:"data"`
+	PodKey string `json:"pod_key"`
+	Data   []byte `json:"data"`
 }
 
 // AgentStatusData represents agent status change data
 type AgentStatusData struct {
-	SessionID string `json:"session_id"`
-	Status    string `json:"status"`
-	Pid       int    `json:"pid,omitempty"`
+	PodKey string `json:"pod_key"`
+	Status string `json:"status"`
+	Pid    int    `json:"pid,omitempty"`
 }
 
 // PtyResizedData represents PTY resize event data
 type PtyResizedData struct {
-	SessionID string `json:"session_id"`
-	Cols      int    `json:"cols"`
-	Rows      int    `json:"rows"`
+	PodKey string `json:"pod_key"`
+	Cols   int    `json:"cols"`
+	Rows   int    `json:"rows"`
 }
 
 // PreparationConfig contains workspace preparation configuration
@@ -100,10 +107,10 @@ type PreparationConfig struct {
 	TimeoutSeconds int    `json:"timeout_seconds,omitempty"` // Script execution timeout
 }
 
-// CreateSessionRequest represents a request to create a session
-// Fields match Runner's client.CreateSessionRequest
-type CreateSessionRequest struct {
-	SessionID         string             `json:"session_id"`
+// CreatePodRequest represents a request to create a pod
+// Fields match Runner's client.CreatePodRequest
+type CreatePodRequest struct {
+	PodKey            string             `json:"pod_key"`
 	InitialCommand    string             `json:"initial_command,omitempty"`    // Command to run (e.g., "claude")
 	InitialPrompt     string             `json:"initial_prompt,omitempty"`     // Prompt to send after command starts
 	PermissionMode    string             `json:"permission_mode,omitempty"`    // Permission mode (plan/default)
@@ -120,15 +127,15 @@ type CreateSessionRequest struct {
 
 // TerminalInputRequest represents terminal input to send
 type TerminalInputRequest struct {
-	SessionID string `json:"session_id"`
-	Data      []byte `json:"data"`
+	PodKey string `json:"pod_key"`
+	Data   []byte `json:"data"`
 }
 
 // TerminalResizeRequest represents terminal resize request
 type TerminalResizeRequest struct {
-	SessionID string `json:"session_id"`
-	Cols      int    `json:"cols"`
-	Rows      int    `json:"rows"`
+	PodKey string `json:"pod_key"`
+	Cols   int    `json:"cols"`
+	Rows   int    `json:"rows"`
 }
 
 // ConnectionManager manages runner WebSocket connections
@@ -140,13 +147,13 @@ type ConnectionManager struct {
 	pingTimeout  time.Duration
 
 	// Event callbacks
-	onHeartbeat         func(runnerID int64, data *HeartbeatData)
-	onSessionCreated    func(runnerID int64, data *SessionCreatedData)
-	onSessionTerminated func(runnerID int64, data *SessionTerminatedData)
-	onTerminalOutput    func(runnerID int64, data *TerminalOutputData)
-	onAgentStatus       func(runnerID int64, data *AgentStatusData)
-	onPtyResized        func(runnerID int64, data *PtyResizedData)
-	onDisconnect        func(runnerID int64)
+	onHeartbeat      func(runnerID int64, data *HeartbeatData)
+	onPodCreated     func(runnerID int64, data *PodCreatedData)
+	onPodTerminated  func(runnerID int64, data *PodTerminatedData)
+	onTerminalOutput func(runnerID int64, data *TerminalOutputData)
+	onAgentStatus    func(runnerID int64, data *AgentStatusData)
+	onPtyResized     func(runnerID int64, data *PtyResizedData)
+	onDisconnect     func(runnerID int64)
 }
 
 // NewConnectionManager creates a new connection manager
@@ -164,14 +171,14 @@ func (cm *ConnectionManager) SetHeartbeatCallback(fn func(runnerID int64, data *
 	cm.onHeartbeat = fn
 }
 
-// SetSessionCreatedCallback sets the session created callback
-func (cm *ConnectionManager) SetSessionCreatedCallback(fn func(runnerID int64, data *SessionCreatedData)) {
-	cm.onSessionCreated = fn
+// SetPodCreatedCallback sets the pod created callback
+func (cm *ConnectionManager) SetPodCreatedCallback(fn func(runnerID int64, data *PodCreatedData)) {
+	cm.onPodCreated = fn
 }
 
-// SetSessionTerminatedCallback sets the session terminated callback
-func (cm *ConnectionManager) SetSessionTerminatedCallback(fn func(runnerID int64, data *SessionTerminatedData)) {
-	cm.onSessionTerminated = fn
+// SetPodTerminatedCallback sets the pod terminated callback
+func (cm *ConnectionManager) SetPodTerminatedCallback(fn func(runnerID int64, data *PodTerminatedData)) {
+	cm.onPodTerminated = fn
 }
 
 // SetTerminalOutputCallback sets the terminal output callback
@@ -288,19 +295,19 @@ func (cm *ConnectionManager) HandleMessage(runnerID int64, msgType int, data []b
 			}
 		}
 
-	case MsgTypeSessionCreated:
-		var scData SessionCreatedData
-		if err := json.Unmarshal(msg.Data, &scData); err == nil {
-			if cm.onSessionCreated != nil {
-				cm.onSessionCreated(runnerID, &scData)
+	case MsgTypePodCreated:
+		var pcData PodCreatedData
+		if err := json.Unmarshal(msg.Data, &pcData); err == nil {
+			if cm.onPodCreated != nil {
+				cm.onPodCreated(runnerID, &pcData)
 			}
 		}
 
-	case MsgTypeSessionTerminated:
-		var stData SessionTerminatedData
-		if err := json.Unmarshal(msg.Data, &stData); err == nil {
-			if cm.onSessionTerminated != nil {
-				cm.onSessionTerminated(runnerID, &stData)
+	case MsgTypePodTerminated:
+		var ptData PodTerminatedData
+		if err := json.Unmarshal(msg.Data, &ptData); err == nil {
+			if cm.onPodTerminated != nil {
+				cm.onPodTerminated(runnerID, &ptData)
 			}
 		}
 
@@ -348,91 +355,91 @@ func (cm *ConnectionManager) SendMessage(ctx context.Context, runnerID int64, ms
 	return conn.SendMessage(msg)
 }
 
-// SendCreateSession sends a create session request to a runner
-func (cm *ConnectionManager) SendCreateSession(ctx context.Context, runnerID int64, req *CreateSessionRequest) error {
-	cm.logger.Info("sending create_session to runner",
+// SendCreatePod sends a create pod request to a runner
+func (cm *ConnectionManager) SendCreatePod(ctx context.Context, runnerID int64, req *CreatePodRequest) error {
+	cm.logger.Info("sending create_pod to runner",
 		"runner_id", runnerID,
-		"session_id", req.SessionID,
+		"pod_key", req.PodKey,
 		"initial_command", req.InitialCommand,
 		"permission_mode", req.PermissionMode)
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		cm.logger.Error("failed to marshal create_session request", "error", err)
+		cm.logger.Error("failed to marshal create_pod request", "error", err)
 		return err
 	}
 
 	err = cm.SendMessage(ctx, runnerID, &RunnerMessage{
-		Type:      MsgTypeCreateSession,
-		SessionID: req.SessionID,
+		Type:      MsgTypeCreatePod,
+		PodKey:    req.PodKey,
 		Data:      data,
 		Timestamp: time.Now().UnixMilli(),
 	})
 
 	if err != nil {
-		cm.logger.Error("failed to send create_session to runner",
+		cm.logger.Error("failed to send create_pod to runner",
 			"runner_id", runnerID,
-			"session_id", req.SessionID,
+			"pod_key", req.PodKey,
 			"error", err)
 	} else {
-		cm.logger.Info("create_session sent successfully",
+		cm.logger.Info("create_pod sent successfully",
 			"runner_id", runnerID,
-			"session_id", req.SessionID)
+			"pod_key", req.PodKey)
 	}
 
 	return err
 }
 
-// SendTerminateSession sends a terminate session request to a runner
-func (cm *ConnectionManager) SendTerminateSession(ctx context.Context, runnerID int64, sessionID string) error {
+// SendTerminatePod sends a terminate pod request to a runner
+func (cm *ConnectionManager) SendTerminatePod(ctx context.Context, runnerID int64, podKey string) error {
 	return cm.SendMessage(ctx, runnerID, &RunnerMessage{
-		Type:      MsgTypeTerminateSession,
-		SessionID: sessionID,
+		Type:      MsgTypeTerminatePod,
+		PodKey:    podKey,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
 
 // SendTerminalInput sends terminal input to a runner
-func (cm *ConnectionManager) SendTerminalInput(ctx context.Context, runnerID int64, sessionID string, data []byte) error {
+func (cm *ConnectionManager) SendTerminalInput(ctx context.Context, runnerID int64, podKey string, data []byte) error {
 	inputData, _ := json.Marshal(&TerminalInputRequest{
-		SessionID: sessionID,
-		Data:      data,
+		PodKey: podKey,
+		Data:   data,
 	})
 
 	return cm.SendMessage(ctx, runnerID, &RunnerMessage{
 		Type:      MsgTypeTerminalInput,
-		SessionID: sessionID,
+		PodKey:    podKey,
 		Data:      inputData,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
 
 // SendTerminalResize sends terminal resize to a runner
-func (cm *ConnectionManager) SendTerminalResize(ctx context.Context, runnerID int64, sessionID string, cols, rows int) error {
+func (cm *ConnectionManager) SendTerminalResize(ctx context.Context, runnerID int64, podKey string, cols, rows int) error {
 	resizeData, _ := json.Marshal(&TerminalResizeRequest{
-		SessionID: sessionID,
-		Cols:      cols,
-		Rows:      rows,
+		PodKey: podKey,
+		Cols:   cols,
+		Rows:   rows,
 	})
 
 	return cm.SendMessage(ctx, runnerID, &RunnerMessage{
 		Type:      MsgTypeTerminalResize,
-		SessionID: sessionID,
+		PodKey:    podKey,
 		Data:      resizeData,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
 
-// SendPrompt sends a prompt to a session
-func (cm *ConnectionManager) SendPrompt(ctx context.Context, runnerID int64, sessionID, prompt string) error {
+// SendPrompt sends a prompt to a pod
+func (cm *ConnectionManager) SendPrompt(ctx context.Context, runnerID int64, podKey, prompt string) error {
 	promptData, _ := json.Marshal(map[string]string{
-		"session_id": sessionID,
-		"prompt":     prompt,
+		"pod_key": podKey,
+		"prompt":  prompt,
 	})
 
 	return cm.SendMessage(ctx, runnerID, &RunnerMessage{
 		Type:      MsgTypeSendPrompt,
-		SessionID: sessionID,
+		PodKey:    podKey,
 		Data:      promptData,
 		Timestamp: time.Now().UnixMilli(),
 	})

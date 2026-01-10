@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// Sandbox represents a session's isolated runtime environment.
+// Sandbox represents a pod's isolated runtime environment.
 type Sandbox struct {
-	// Session identification
-	SessionKey string `json:"session_key"`
+	// Pod identification
+	PodKey   string `json:"pod_key"`
 	RootPath   string `json:"root_path"` // Sandbox root directory
 
 	// Outputs filled by plugin chain
@@ -30,10 +30,10 @@ type Sandbox struct {
 }
 
 // NewSandbox creates a new Sandbox instance.
-func NewSandbox(sessionKey, rootPath string) *Sandbox {
+func NewSandbox(podKey, rootPath string) *Sandbox {
 	now := time.Now()
 	return &Sandbox{
-		SessionKey: sessionKey,
+		PodKey: podKey,
 		RootPath:   rootPath,
 		EnvVars:    make(map[string]string),
 		LaunchArgs: make([]string, 0),

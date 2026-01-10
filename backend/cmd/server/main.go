@@ -27,8 +27,8 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
+	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/session"
 	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
@@ -80,13 +80,13 @@ func main() {
 	gitProviderSvc := gitprovider.NewService(db)
 	repoSvc := repository.NewService(db)
 	runnerSvc := runner.NewService(db)
-	sessionSvc := session.NewService(db)
+	podSvc := agentpod.NewPodService(db)
 	channelSvc := channel.NewService(db)
 	ticketSvc := ticket.NewService(db)
 	sshKeySvc := sshkey.NewService(db)
 	billingSvc := billing.NewService(db, "") // Empty stripe key for now
-	bindingSvc := binding.NewService(db, sessionSvc) // sessionSvc implements SessionQuerier for auto-approve
-	devmeshSvc := devmesh.NewService(db, sessionSvc, channelSvc, bindingSvc)
+	bindingSvc := binding.NewService(db, podSvc) // podSvc implements PodQuerier for auto-approve
+	devmeshSvc := devmesh.NewService(db, podSvc, channelSvc, bindingSvc)
 
 	// Initialize email service for invitations
 	emailSvc := email.NewService(email.Config{
@@ -107,30 +107,30 @@ func main() {
 	// Initialize Terminal router (routes terminal data between frontend and runner)
 	terminalRouter := runner.NewTerminalRouter(runnerConnMgr, appLogger.Logger)
 
-	// Initialize Session coordinator (manages session lifecycle between backend and runner)
-	sessionCoordinator := runner.NewSessionCoordinator(db, runnerConnMgr, terminalRouter, appLogger.Logger)
+	// Initialize Pod coordinator (manages pod lifecycle between backend and runner)
+	podCoordinator := runner.NewPodCoordinator(db, runnerConnMgr, terminalRouter, appLogger.Logger)
 
 	// Create services container
 	svc := &v1.Services{
-		Auth:               authSvc,
-		User:               userSvc,
-		Org:                orgSvc,
-		Agent:              agentSvc,
-		GitProvider:        gitProviderSvc,
-		Repository:         repoSvc,
-		Runner:             runnerSvc,
-		RunnerConnMgr:      runnerConnMgr,
-		SessionCoordinator: sessionCoordinator,
-		TerminalRouter:     terminalRouter,
-		Session:            sessionSvc,
-		Channel:            channelSvc,
-		Binding:            bindingSvc,
-		Ticket:             ticketSvc,
-		SSHKey:             sshKeySvc,
-		DevMesh:            devmeshSvc,
-		Billing:            billingSvc,
-		Hub:                hub,
-		Invitation:         invitationSvc,
+		Auth:           authSvc,
+		User:           userSvc,
+		Org:            orgSvc,
+		Agent:          agentSvc,
+		GitProvider:    gitProviderSvc,
+		Repository:     repoSvc,
+		Runner:         runnerSvc,
+		RunnerConnMgr:  runnerConnMgr,
+		PodCoordinator: podCoordinator,
+		TerminalRouter: terminalRouter,
+		Pod:            podSvc,
+		Channel:        channelSvc,
+		Binding:        bindingSvc,
+		Ticket:         ticketSvc,
+		SSHKey:         sshKeySvc,
+		DevMesh:        devmeshSvc,
+		Billing:        billingSvc,
+		Hub:            hub,
+		Invitation:     invitationSvc,
 	}
 
 	// Initialize router

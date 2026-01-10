@@ -141,10 +141,10 @@ func (h *RunnerHandler) CreateRegistrationToken(c *gin.Context) {
 
 // RegisterRunnerRequest represents runner registration request
 type RegisterRunnerRequest struct {
-	RegistrationToken     string `json:"registration_token" binding:"required"`
-	NodeID                string `json:"node_id" binding:"required"`
-	Description           string `json:"description"`
-	MaxConcurrentSessions int    `json:"max_concurrent_sessions"`
+	RegistrationToken string `json:"registration_token" binding:"required"`
+	NodeID            string `json:"node_id" binding:"required"`
+	Description       string `json:"description"`
+	MaxConcurrentPods int    `json:"max_concurrent_pods"`
 }
 
 // RegisterRunner registers a new runner
@@ -156,9 +156,9 @@ func (h *RunnerHandler) RegisterRunner(c *gin.Context) {
 		return
 	}
 
-	maxSessions := req.MaxConcurrentSessions
-	if maxSessions == 0 {
-		maxSessions = 5
+	maxPods := req.MaxConcurrentPods
+	if maxPods == 0 {
+		maxPods = 5
 	}
 
 	r, authToken, err := h.runnerService.RegisterRunner(
@@ -166,7 +166,7 @@ func (h *RunnerHandler) RegisterRunner(c *gin.Context) {
 		req.RegistrationToken,
 		req.NodeID,
 		req.Description,
-		maxSessions,
+		maxPods,
 	)
 	if err != nil {
 		switch err {
@@ -192,9 +192,9 @@ func (h *RunnerHandler) RegisterRunner(c *gin.Context) {
 
 // UpdateRunnerRequest represents runner update request
 type UpdateRunnerRequest struct {
-	Description           *string `json:"description"`
-	MaxConcurrentSessions *int    `json:"max_concurrent_sessions"`
-	IsEnabled             *bool   `json:"is_enabled"`
+	Description       *string `json:"description"`
+	MaxConcurrentPods *int    `json:"max_concurrent_pods"`
+	IsEnabled         *bool   `json:"is_enabled"`
 }
 
 // UpdateRunner updates a runner
@@ -234,9 +234,9 @@ func (h *RunnerHandler) UpdateRunner(c *gin.Context) {
 
 	// Update runner
 	updated, err := h.runnerService.UpdateRunner(c.Request.Context(), runnerID, runner.RunnerUpdateInput{
-		Description:           req.Description,
-		MaxConcurrentSessions: req.MaxConcurrentSessions,
-		IsEnabled:             req.IsEnabled,
+		Description:       req.Description,
+		MaxConcurrentPods: req.MaxConcurrentPods,
+		IsEnabled:         req.IsEnabled,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update runner"})
@@ -288,7 +288,7 @@ func (h *RunnerHandler) RegenerateAuthToken(c *gin.Context) {
 	})
 }
 
-// ListAvailableRunners lists available runners for sessions
+// ListAvailableRunners lists available runners for pods
 // GET /api/v1/organizations/:slug/runners/available
 func (h *RunnerHandler) ListAvailableRunners(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
@@ -349,10 +349,10 @@ func (h *RunnerHandler) RevokeRegistrationToken(c *gin.Context) {
 
 // HeartbeatRequest represents runner heartbeat request
 type HeartbeatRequest struct {
-	RunnerID        int64  `json:"runner_id" binding:"required"`
-	AuthToken       string `json:"auth_token" binding:"required"`
-	CurrentSessions int    `json:"current_sessions"`
-	RunnerVersion   string `json:"runner_version"`
+	RunnerID      int64  `json:"runner_id" binding:"required"`
+	AuthToken     string `json:"auth_token" binding:"required"`
+	CurrentPods   int    `json:"current_pods"`
+	RunnerVersion string `json:"runner_version"`
 }
 
 // Heartbeat handles runner heartbeat
@@ -368,7 +368,7 @@ func (h *RunnerHandler) Heartbeat(c *gin.Context) {
 		c.Request.Context(),
 		req.RunnerID,
 		req.AuthToken,
-		req.CurrentSessions,
+		req.CurrentPods,
 		req.RunnerVersion,
 	)
 	if err != nil {

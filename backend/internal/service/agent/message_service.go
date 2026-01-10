@@ -25,10 +25,10 @@ func NewMessageService(db *gorm.DB) *MessageService {
 }
 
 // SendMessage creates and sends a message from one agent to another
-func (s *MessageService) SendMessage(ctx context.Context, senderSession, receiverSession, messageType string, content agent.MessageContent, correlationID *string, parentMessageID *int64) (*agent.AgentMessage, error) {
+func (s *MessageService) SendMessage(ctx context.Context, senderPod, receiverPod, messageType string, content agent.MessageContent, correlationID *string, parentMessageID *int64) (*agent.AgentMessage, error) {
 	message := &agent.AgentMessage{
-		SenderSession:   senderSession,
-		ReceiverSession: receiverSession,
+		SenderPod:       senderPod,
+		ReceiverPod:     receiverPod,
 		MessageType:     messageType,
 		Content:         content,
 		Status:          agent.MessageStatusPending,
@@ -56,9 +56,9 @@ func (s *MessageService) GetMessage(ctx context.Context, messageID int64) (*agen
 	return &message, nil
 }
 
-// GetMessages returns messages for a session
-func (s *MessageService) GetMessages(ctx context.Context, sessionKey string, unreadOnly bool, messageTypes []string, limit, offset int) ([]*agent.AgentMessage, error) {
-	query := s.db.WithContext(ctx).Where("receiver_session = ?", sessionKey)
+// GetMessages returns messages for a pod
+func (s *MessageService) GetMessages(ctx context.Context, podKey string, unreadOnly bool, messageTypes []string, limit, offset int) ([]*agent.AgentMessage, error) {
+	query := s.db.WithContext(ctx).Where("receiver_pod = ?", podKey)
 
 	if unreadOnly {
 		query = query.Where("status IN ?", []string{agent.MessageStatusPending, agent.MessageStatusDelivered})
@@ -80,11 +80,11 @@ func (s *MessageService) GetMessages(ctx context.Context, sessionKey string, unr
 	return messages, nil
 }
 
-// GetUnreadMessages returns unread messages for a session
-func (s *MessageService) GetUnreadMessages(ctx context.Context, sessionKey string, limit int) ([]*agent.AgentMessage, error) {
+// GetUnreadMessages returns unread messages for a pod
+func (s *MessageService) GetUnreadMessages(ctx context.Context, podKey string, limit int) ([]*agent.AgentMessage, error) {
 	var messages []*agent.AgentMessage
 	if err := s.db.WithContext(ctx).
-		Where("receiver_session = ? AND status IN ?", sessionKey,
+		Where("receiver_pod = ? AND status IN ?", podKey,
 			[]string{agent.MessageStatusPending, agent.MessageStatusDelivered}).
 		Order("created_at ASC").
 		Limit(limit).
@@ -95,13 +95,13 @@ func (s *MessageService) GetUnreadMessages(ctx context.Context, sessionKey strin
 }
 
 // MarkRead marks a message as read
-func (s *MessageService) MarkRead(ctx context.Context, messageID int64, sessionKey string) error {
+func (s *MessageService) MarkRead(ctx context.Context, messageID int64, podKey string) error {
 	message, err := s.GetMessage(ctx, messageID)
 	if err != nil {
 		return err
 	}
 
-	if message.ReceiverSession != sessionKey {
+	if message.ReceiverPod != podKey {
 		return ErrNotAuthorized
 	}
 
@@ -123,11 +123,11 @@ func (s *MessageService) MarkDelivered(ctx context.Context, messageID int64) err
 		}).Error
 }
 
-// MarkAllRead marks all messages for a session as read
-func (s *MessageService) MarkAllRead(ctx context.Context, sessionKey string) (int64, error) {
+// MarkAllRead marks all messages for a pod as read
+func (s *MessageService) MarkAllRead(ctx context.Context, podKey string) (int64, error) {
 	now := time.Now()
 	result := s.db.WithContext(ctx).Model(&agent.AgentMessage{}).
-		Where("receiver_session = ? AND status IN ?", sessionKey,
+		Where("receiver_pod = ? AND status IN ?", podKey,
 			[]string{agent.MessageStatusPending, agent.MessageStatusDelivered}).
 		Updates(map[string]interface{}{
 			"status":  agent.MessageStatusRead,
@@ -136,11 +136,11 @@ func (s *MessageService) MarkAllRead(ctx context.Context, sessionKey string) (in
 	return result.RowsAffected, result.Error
 }
 
-// GetUnreadCount returns the count of unread messages for a session
-func (s *MessageService) GetUnreadCount(ctx context.Context, sessionKey string) (int64, error) {
+// GetUnreadCount returns the count of unread messages for a pod
+func (s *MessageService) GetUnreadCount(ctx context.Context, podKey string) (int64, error) {
 	var count int64
 	err := s.db.WithContext(ctx).Model(&agent.AgentMessage{}).
-		Where("receiver_session = ? AND status IN ?", sessionKey,
+		Where("receiver_pod = ? AND status IN ?", podKey,
 			[]string{agent.MessageStatusPending, agent.MessageStatusDelivered}).
 		Count(&count).Error
 	return count, err
@@ -183,13 +183,13 @@ func (s *MessageService) GetThread(ctx context.Context, messageID int64) ([]*age
 }
 
 // DeleteMessage soft deletes a message (only sender can delete)
-func (s *MessageService) DeleteMessage(ctx context.Context, messageID int64, sessionKey string) error {
+func (s *MessageService) DeleteMessage(ctx context.Context, messageID int64, podKey string) error {
 	message, err := s.GetMessage(ctx, messageID)
 	if err != nil {
 		return err
 	}
 
-	if message.SenderSession != sessionKey {
+	if message.SenderPod != podKey {
 		return ErrNotAuthorized
 	}
 
@@ -247,11 +247,11 @@ func (s *MessageService) RecordDeliveryFailure(ctx context.Context, messageID in
 	return s.db.WithContext(ctx).Save(message).Error
 }
 
-// GetSentMessages returns messages sent by a session
-func (s *MessageService) GetSentMessages(ctx context.Context, sessionKey string, limit, offset int) ([]*agent.AgentMessage, error) {
+// GetSentMessages returns messages sent by a pod
+func (s *MessageService) GetSentMessages(ctx context.Context, podKey string, limit, offset int) ([]*agent.AgentMessage, error) {
 	var messages []*agent.AgentMessage
 	if err := s.db.WithContext(ctx).
-		Where("sender_session = ?", sessionKey).
+		Where("sender_pod = ?", podKey).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -261,12 +261,12 @@ func (s *MessageService) GetSentMessages(ctx context.Context, sessionKey string,
 	return messages, nil
 }
 
-// GetMessagesBetween returns messages between two sessions
-func (s *MessageService) GetMessagesBetween(ctx context.Context, sessionA, sessionB string, limit int) ([]*agent.AgentMessage, error) {
+// GetMessagesBetween returns messages between two pods
+func (s *MessageService) GetMessagesBetween(ctx context.Context, podA, podB string, limit int) ([]*agent.AgentMessage, error) {
 	var messages []*agent.AgentMessage
 	if err := s.db.WithContext(ctx).
-		Where("(sender_session = ? AND receiver_session = ?) OR (sender_session = ? AND receiver_session = ?)",
-			sessionA, sessionB, sessionB, sessionA).
+		Where("(sender_pod = ? AND receiver_pod = ?) OR (sender_pod = ? AND receiver_pod = ?)",
+			podA, podB, podB, podA).
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&messages).Error; err != nil {

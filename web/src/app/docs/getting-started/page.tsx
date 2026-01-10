@@ -48,7 +48,7 @@ export default function GettingStartedPage() {
             <h2 className="text-xl font-semibold">Configure AI Providers</h2>
           </div>
           <p className="text-muted-foreground mb-4">
-            Go to <strong>Settings → DevPod → AI Providers</strong> to configure
+            Go to <strong>Settings → AgentPod → AI Providers</strong> to configure
             your AI provider API keys. AgentMesh supports multiple providers:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -115,7 +115,7 @@ export default function GettingStartedPage() {
             <h2 className="text-xl font-semibold">Setup a Runner</h2>
           </div>
           <p className="text-muted-foreground mb-4">
-            Runners are the execution environments where AI agent sessions run.
+            Runners are the execution environments where AI agent Pods run.
             Download and configure the AgentMesh Runner on your development
             machine or server.
           </p>
@@ -153,24 +153,24 @@ chmod +x runner
             <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
               4
             </div>
-            <h2 className="text-xl font-semibold">Start a Session</h2>
+            <h2 className="text-xl font-semibold">Start a Pod</h2>
           </div>
           <p className="text-muted-foreground mb-4">
-            Create a new DevPod session and start coding with AI assistance!
+            Create a new AgentPod and start coding with AI assistance!
           </p>
           <ol className="list-decimal list-inside text-muted-foreground space-y-2">
             <li>
-              Navigate to <strong>DevPod</strong> in the sidebar
+              Navigate to <strong>AgentPod</strong> in the sidebar
             </li>
             <li>
-              Click <strong>New Session</strong>
+              Click <strong>New Pod</strong>
             </li>
             <li>Select an AI agent type (Claude Code, Codex CLI, etc.)</li>
-            <li>Choose a Runner to execute the session</li>
+            <li>Choose a Runner to execute the Pod</li>
             <li>Optionally link to a repository and ticket</li>
             <li>
               Click <strong>Create</strong> to start your AI-powered development
-              session
+              Pod
             </li>
           </ol>
         </div>
@@ -181,10 +181,10 @@ chmod +x runner
         <h2 className="text-2xl font-semibold mb-4">Next Steps</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
-            href="/docs/features/devpod"
+            href="/docs/features/agentpod"
             className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
           >
-            <h3 className="font-medium mb-1">Learn about DevPod →</h3>
+            <h3 className="font-medium mb-1">Learn about AgentPod →</h3>
             <p className="text-sm text-muted-foreground">
               Remote AI development workstations
             </p>

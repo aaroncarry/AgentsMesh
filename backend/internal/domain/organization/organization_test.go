@@ -19,15 +19,6 @@ func TestRoleConstants(t *testing.T) {
 	}
 }
 
-func TestTeamRoleConstants(t *testing.T) {
-	if TeamRoleLead != "lead" {
-		t.Errorf("expected 'lead', got %s", TeamRoleLead)
-	}
-	if TeamRoleMember != "member" {
-		t.Errorf("expected 'member', got %s", TeamRoleMember)
-	}
-}
-
 // --- Test Organization ---
 
 func TestOrganizationTableName(t *testing.T) {
@@ -87,38 +78,6 @@ func TestOrganizationGetName(t *testing.T) {
 	}
 }
 
-// --- Test Team ---
-
-func TestTeamTableName(t *testing.T) {
-	team := Team{}
-	if team.TableName() != "teams" {
-		t.Errorf("expected 'teams', got %s", team.TableName())
-	}
-}
-
-func TestTeamStruct(t *testing.T) {
-	now := time.Now()
-
-	team := Team{
-		ID:             1,
-		OrganizationID: 100,
-		Name:           "Engineering",
-		Description:    "Engineering Team",
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-
-	if team.ID != 1 {
-		t.Errorf("expected ID 1, got %d", team.ID)
-	}
-	if team.OrganizationID != 100 {
-		t.Errorf("expected OrganizationID 100, got %d", team.OrganizationID)
-	}
-	if team.Name != "Engineering" {
-		t.Errorf("expected Name 'Engineering', got %s", team.Name)
-	}
-}
-
 // --- Test Member ---
 
 func TestMemberTableName(t *testing.T) {
@@ -150,37 +109,6 @@ func TestMemberStruct(t *testing.T) {
 	}
 	if m.Role != "admin" {
 		t.Errorf("expected Role 'admin', got %s", m.Role)
-	}
-}
-
-// --- Test TeamMember ---
-
-func TestTeamMemberTableName(t *testing.T) {
-	tm := TeamMember{}
-	if tm.TableName() != "team_members" {
-		t.Errorf("expected 'team_members', got %s", tm.TableName())
-	}
-}
-
-func TestTeamMemberStruct(t *testing.T) {
-	tm := TeamMember{
-		ID:     1,
-		TeamID: 10,
-		UserID: 50,
-		Role:   TeamRoleLead,
-	}
-
-	if tm.ID != 1 {
-		t.Errorf("expected ID 1, got %d", tm.ID)
-	}
-	if tm.TeamID != 10 {
-		t.Errorf("expected TeamID 10, got %d", tm.TeamID)
-	}
-	if tm.UserID != 50 {
-		t.Errorf("expected UserID 50, got %d", tm.UserID)
-	}
-	if tm.Role != "lead" {
-		t.Errorf("expected Role 'lead', got %s", tm.Role)
 	}
 }
 

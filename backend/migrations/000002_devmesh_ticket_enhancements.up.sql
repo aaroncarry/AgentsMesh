@@ -13,25 +13,25 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS estimate INT;
 CREATE INDEX IF NOT EXISTS idx_tickets_severity ON tickets(severity);
 
 -- ==========================================
--- 2. Session Enhancements
+-- 2. Pod Enhancements
 -- ==========================================
 
--- Add model, permission_mode, think_level, agent_pid to sessions if not exist
-ALTER TABLE sessions ADD COLUMN IF NOT EXISTS model VARCHAR(50);
-ALTER TABLE sessions ADD COLUMN IF NOT EXISTS permission_mode VARCHAR(50);
-ALTER TABLE sessions ADD COLUMN IF NOT EXISTS think_level VARCHAR(50);
-ALTER TABLE sessions ADD COLUMN IF NOT EXISTS agent_pid INT;
+-- Add model, permission_mode, think_level, agent_pid to pods if not exist
+ALTER TABLE pods ADD COLUMN IF NOT EXISTS model VARCHAR(50);
+ALTER TABLE pods ADD COLUMN IF NOT EXISTS permission_mode VARCHAR(50);
+ALTER TABLE pods ADD COLUMN IF NOT EXISTS think_level VARCHAR(50);
+ALTER TABLE pods ADD COLUMN IF NOT EXISTS agent_pid INT;
 
 -- ==========================================
--- 3. Session Binding Enhancements
+-- 3. Pod Binding Enhancements
 -- ==========================================
 
--- Add pending_scopes and timestamp fields to session_bindings if not exist
-ALTER TABLE session_bindings ADD COLUMN IF NOT EXISTS pending_scopes TEXT[];
-ALTER TABLE session_bindings ADD COLUMN IF NOT EXISTS requested_at TIMESTAMPTZ;
-ALTER TABLE session_bindings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ;
-ALTER TABLE session_bindings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
-ALTER TABLE session_bindings ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(500);
+-- Add pending_scopes and timestamp fields to pod_bindings if not exist
+ALTER TABLE pod_bindings ADD COLUMN IF NOT EXISTS pending_scopes TEXT[];
+ALTER TABLE pod_bindings ADD COLUMN IF NOT EXISTS requested_at TIMESTAMPTZ;
+ALTER TABLE pod_bindings ADD COLUMN IF NOT EXISTS responded_at TIMESTAMPTZ;
+ALTER TABLE pod_bindings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE pod_bindings ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(500);
 
 -- ==========================================
 -- 4. Ticket Merge Request Enhancements
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS ticket_commits (
     organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     repository_id BIGINT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    session_id BIGINT REFERENCES sessions(id) ON DELETE SET NULL,
+    pod_id BIGINT REFERENCES pods(id) ON DELETE SET NULL,
 
     commit_sha VARCHAR(40) NOT NULL,
     commit_message TEXT,
@@ -91,19 +91,19 @@ CREATE INDEX IF NOT EXISTS idx_ticket_relations_source ON ticket_relations(sourc
 CREATE INDEX IF NOT EXISTS idx_ticket_relations_target ON ticket_relations(target_ticket_id);
 
 -- ==========================================
--- 7. Channel Sessions Table (for DevMesh)
+-- 7. Channel Pods Table (for DevMesh)
 -- ==========================================
 
-CREATE TABLE IF NOT EXISTS channel_sessions (
+CREATE TABLE IF NOT EXISTS channel_pods (
     id BIGSERIAL PRIMARY KEY,
     channel_id BIGINT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-    session_key VARCHAR(100) NOT NULL,
+    pod_key VARCHAR(100) NOT NULL,
     joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(channel_id, session_key)
+    UNIQUE(channel_id, pod_key)
 );
 
-CREATE INDEX IF NOT EXISTS idx_channel_sessions_channel ON channel_sessions(channel_id);
-CREATE INDEX IF NOT EXISTS idx_channel_sessions_session ON channel_sessions(session_key);
+CREATE INDEX IF NOT EXISTS idx_channel_pods_channel ON channel_pods(channel_id);
+CREATE INDEX IF NOT EXISTS idx_channel_pods_pod ON channel_pods(pod_key);
 
 -- ==========================================
 -- 8. Channel Access Tracking (for DevMesh)
@@ -112,10 +112,10 @@ CREATE INDEX IF NOT EXISTS idx_channel_sessions_session ON channel_sessions(sess
 CREATE TABLE IF NOT EXISTS channel_access (
     id BIGSERIAL PRIMARY KEY,
     channel_id BIGINT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-    session_key VARCHAR(100),
+    pod_key VARCHAR(100),
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     last_access TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_channel_access_channel ON channel_access(channel_id);
-CREATE INDEX IF NOT EXISTS idx_channel_access_session ON channel_access(session_key);
+CREATE INDEX IF NOT EXISTS idx_channel_access_pod ON channel_access(pod_key);

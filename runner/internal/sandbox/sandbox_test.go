@@ -8,13 +8,13 @@ import (
 )
 
 func TestNewSandbox(t *testing.T) {
-	sessionKey := "test-session"
+	podKey := "test-pod"
 	rootPath := "/tmp/sandbox/test"
 
-	sb := NewSandbox(sessionKey, rootPath)
+	sb := NewSandbox(podKey, rootPath)
 
-	if sb.SessionKey != sessionKey {
-		t.Errorf("SessionKey = %q, want %q", sb.SessionKey, sessionKey)
+	if sb.PodKey != podKey {
+		t.Errorf("PodKey = %q, want %q", sb.PodKey, podKey)
 	}
 	if sb.RootPath != rootPath {
 		t.Errorf("RootPath = %q, want %q", sb.RootPath, rootPath)
@@ -64,7 +64,7 @@ func TestSandboxSaveAndLoad(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create and save sandbox
-	sb := NewSandbox("test-session", tmpDir)
+	sb := NewSandbox("test-pod", tmpDir)
 	sb.WorkDir = "/work/dir"
 	sb.EnvVars["KEY1"] = "value1"
 	sb.LaunchArgs = []string{"--arg1", "--arg2"}
@@ -86,8 +86,8 @@ func TestSandboxSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	if sb2.SessionKey != "test-session" {
-		t.Errorf("SessionKey = %q, want %q", sb2.SessionKey, "test-session")
+	if sb2.PodKey != "test-pod" {
+		t.Errorf("PodKey = %q, want %q", sb2.PodKey, "test-pod")
 	}
 	if sb2.WorkDir != "/work/dir" {
 		t.Errorf("WorkDir = %q, want %q", sb2.WorkDir, "/work/dir")

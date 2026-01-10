@@ -11,7 +11,7 @@ const plans = [
     description: "Perfect for individual developers getting started.",
     features: [
       "1 Runner",
-      "3 concurrent sessions",
+      "3 concurrent pods",
       "1 organization member",
       "Community support",
       "Basic integrations",
@@ -27,7 +27,7 @@ const plans = [
     description: "For teams that need more power and collaboration.",
     features: [
       "Unlimited Runners",
-      "Unlimited sessions",
+      "Unlimited pods",
       "Up to 10 team members",
       "Priority email support",
       "API access",

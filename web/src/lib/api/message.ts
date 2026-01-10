@@ -3,8 +3,8 @@ import { request } from "./base";
 // Agent Message types
 export interface AgentMessage {
   id: number;
-  sender_session: string;
-  receiver_session: string;
+  sender_pod: string;
+  receiver_pod: string;
   message_type: string;
   content: Record<string, unknown>;
   status: "pending" | "delivered" | "read" | "failed" | "dead_letter";
@@ -31,27 +31,27 @@ export interface DeadLetterEntry {
 
 // Message API
 export const messageApi = {
-  // Send a message to another session
+  // Send a message to another pod
   sendMessage: (data: {
-    receiver_session: string;
+    receiver_pod: string;
     message_type: string;
     content: Record<string, unknown>;
     correlation_id?: string;
     reply_to_id?: number;
-  }, sessionKey?: string) =>
+  }, podKey?: string) =>
     request<{ message: AgentMessage }>("/api/v1/org/messages", {
       method: "POST",
       body: data,
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
-  // Get messages for the current session
+  // Get messages for the current pod
   getMessages: (params?: {
     unread_only?: boolean;
     message_types?: string[];
     limit?: number;
     offset?: number;
-  }, sessionKey?: string) => {
+  }, podKey?: string) => {
     const searchParams = new URLSearchParams();
     if (params?.unread_only) searchParams.append("unread_only", "true");
     if (params?.message_types) {
@@ -62,55 +62,55 @@ export const messageApi = {
     const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
     return request<{ messages: AgentMessage[]; total: number; unread_count: number }>(
       `/api/v1/org/messages${query}`,
-      { headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined }
+      { headers: podKey ? { "X-Pod-Key": podKey } : undefined }
     );
   },
 
   // Get count of unread messages
-  getUnreadCount: (sessionKey?: string) =>
+  getUnreadCount: (podKey?: string) =>
     request<{ count: number }>("/api/v1/org/messages/unread-count", {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Get a specific message by ID
-  getMessage: (id: number, sessionKey?: string) =>
+  getMessage: (id: number, podKey?: string) =>
     request<{ message: AgentMessage }>(`/api/v1/org/messages/${id}`, {
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Mark messages as read
-  markRead: (messageIds: number[], sessionKey?: string) =>
+  markRead: (messageIds: number[], podKey?: string) =>
     request<{ marked_count: number }>("/api/v1/org/messages/mark-read", {
       method: "POST",
       body: { message_ids: messageIds },
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Mark all messages as read
-  markAllRead: (sessionKey?: string) =>
+  markAllRead: (podKey?: string) =>
     request<{ marked_count: number }>("/api/v1/org/messages/mark-all-read", {
       method: "POST",
-      headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined,
+      headers: podKey ? { "X-Pod-Key": podKey } : undefined,
     }),
 
   // Get conversation by correlation ID
-  getConversation: (correlationId: string, limit?: number, sessionKey?: string) => {
+  getConversation: (correlationId: string, limit?: number, podKey?: string) => {
     const params = limit ? `?limit=${limit}` : "";
     return request<{ messages: AgentMessage[]; total: number }>(
       `/api/v1/org/messages/conversation/${correlationId}${params}`,
-      { headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined }
+      { headers: podKey ? { "X-Pod-Key": podKey } : undefined }
     );
   },
 
   // Get sent messages
-  getSentMessages: (params?: { limit?: number; offset?: number }, sessionKey?: string) => {
+  getSentMessages: (params?: { limit?: number; offset?: number }, podKey?: string) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.append("limit", String(params.limit));
     if (params?.offset) searchParams.append("offset", String(params.offset));
     const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
     return request<{ messages: AgentMessage[]; total: number }>(
       `/api/v1/org/messages/sent${query}`,
-      { headers: sessionKey ? { "X-Session-Key": sessionKey } : undefined }
+      { headers: podKey ? { "X-Pod-Key": podKey } : undefined }
     );
   },
 

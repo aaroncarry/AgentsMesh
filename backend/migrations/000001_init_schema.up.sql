@@ -254,7 +254,7 @@ CREATE TABLE custom_agent_types (
 CREATE INDEX idx_custom_agents_org ON custom_agent_types(organization_id);
 
 -- ==========================================
--- 4. DevPod/AgentMesh Tables
+-- 4. AgentPod Tables
 -- ==========================================
 
 -- Runner Registration Tokens
@@ -289,8 +289,8 @@ CREATE TABLE runners (
 
     status VARCHAR(50) NOT NULL DEFAULT 'offline',
     last_heartbeat TIMESTAMPTZ,
-    current_sessions INT NOT NULL DEFAULT 0,
-    max_concurrent_sessions INT NOT NULL DEFAULT 5,
+    current_pods INT NOT NULL DEFAULT 0,
+    max_concurrent_pods INT NOT NULL DEFAULT 5,
     runner_version VARCHAR(50),
 
     host_info JSONB,
@@ -304,13 +304,13 @@ CREATE TABLE runners (
 CREATE INDEX idx_runners_org ON runners(organization_id);
 CREATE INDEX idx_runners_status ON runners(status);
 
--- Sessions
-CREATE TABLE sessions (
+-- Pods (AgentPod instances)
+CREATE TABLE pods (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL,
 
-    session_key VARCHAR(100) NOT NULL UNIQUE,
+    pod_key VARCHAR(100) NOT NULL UNIQUE,
     runner_id BIGINT NOT NULL REFERENCES runners(id) ON DELETE CASCADE,
 
     agent_type_id BIGINT REFERENCES agent_types(id),
@@ -336,11 +336,11 @@ CREATE TABLE sessions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sessions_org ON sessions(organization_id);
-CREATE INDEX idx_sessions_team ON sessions(team_id);
-CREATE INDEX idx_sessions_runner ON sessions(runner_id);
-CREATE INDEX idx_sessions_key ON sessions(session_key);
-CREATE INDEX idx_sessions_status ON sessions(status);
+CREATE INDEX idx_pods_org ON pods(organization_id);
+CREATE INDEX idx_pods_team ON pods(team_id);
+CREATE INDEX idx_pods_runner ON pods(runner_id);
+CREATE INDEX idx_pods_key ON pods(pod_key);
+CREATE INDEX idx_pods_status ON pods(status);
 
 -- Channels
 CREATE TABLE channels (
@@ -355,7 +355,7 @@ CREATE TABLE channels (
     repository_id BIGINT REFERENCES repositories(id) ON DELETE SET NULL,
     ticket_id BIGINT, -- Will reference tickets table
 
-    created_by_session VARCHAR(100),
+    created_by_pod VARCHAR(100),
     created_by_user_id BIGINT REFERENCES users(id),
 
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
@@ -374,7 +374,7 @@ CREATE TABLE channel_messages (
     id BIGSERIAL PRIMARY KEY,
     channel_id BIGINT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
 
-    sender_session VARCHAR(100),
+    sender_pod VARCHAR(100),
     sender_user_id BIGINT REFERENCES users(id),
 
     message_type VARCHAR(50) NOT NULL DEFAULT 'text',
@@ -387,13 +387,13 @@ CREATE TABLE channel_messages (
 CREATE INDEX idx_channel_messages_channel ON channel_messages(channel_id);
 CREATE INDEX idx_channel_messages_time ON channel_messages(created_at);
 
--- Session Bindings
-CREATE TABLE session_bindings (
+-- Pod Bindings
+CREATE TABLE pod_bindings (
     id BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
-    initiator_session VARCHAR(100) NOT NULL,
-    target_session VARCHAR(100) NOT NULL,
+    initiator_pod VARCHAR(100) NOT NULL,
+    target_pod VARCHAR(100) NOT NULL,
 
     granted_scopes TEXT[],
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -401,12 +401,12 @@ CREATE TABLE session_bindings (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE(initiator_session, target_session)
+    UNIQUE(initiator_pod, target_pod)
 );
 
-CREATE INDEX idx_session_bindings_org ON session_bindings(organization_id);
-CREATE INDEX idx_session_bindings_initiator ON session_bindings(initiator_session);
-CREATE INDEX idx_session_bindings_target ON session_bindings(target_session);
+CREATE INDEX idx_pod_bindings_org ON pod_bindings(organization_id);
+CREATE INDEX idx_pod_bindings_initiator ON pod_bindings(initiator_pod);
+CREATE INDEX idx_pod_bindings_target ON pod_bindings(target_pod);
 
 -- ==========================================
 -- 5. Ticket Tables
@@ -449,8 +449,8 @@ CREATE INDEX idx_tickets_repo ON tickets(repository_id);
 CREATE INDEX idx_tickets_status ON tickets(status);
 CREATE INDEX idx_tickets_identifier ON tickets(identifier);
 
--- Add foreign key for sessions.ticket_id
-ALTER TABLE sessions ADD CONSTRAINT fk_sessions_ticket
+-- Add foreign key for pods.ticket_id
+ALTER TABLE pods ADD CONSTRAINT fk_pods_ticket
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL;
 
 -- Add foreign key for channels.ticket_id
@@ -495,7 +495,7 @@ CREATE TABLE ticket_merge_requests (
     organization_id BIGINT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     ticket_id BIGINT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    session_id BIGINT REFERENCES sessions(id) ON DELETE SET NULL,
+    pod_id BIGINT REFERENCES pods(id) ON DELETE SET NULL,
 
     mr_iid INT NOT NULL,
     mr_url TEXT NOT NULL UNIQUE,
@@ -522,7 +522,7 @@ CREATE TABLE subscription_plans (
     display_name VARCHAR(100) NOT NULL,
 
     price_per_seat_monthly DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    included_session_minutes INT NOT NULL DEFAULT 0,
+    included_pod_minutes INT NOT NULL DEFAULT 0,
     price_per_extra_minute DECIMAL(10, 4) NOT NULL DEFAULT 0,
 
     max_users INT NOT NULL,
@@ -537,7 +537,7 @@ CREATE TABLE subscription_plans (
 );
 
 -- Insert default plans
-INSERT INTO subscription_plans (name, display_name, max_users, max_runners, max_repositories, included_session_minutes) VALUES
+INSERT INTO subscription_plans (name, display_name, max_users, max_runners, max_repositories, included_pod_minutes) VALUES
 ('free', 'Free', 3, 1, 3, 100),
 ('pro', 'Pro', 10, 5, 20, 1000),
 ('enterprise', 'Enterprise', -1, -1, -1, -1);
@@ -634,9 +634,9 @@ CREATE TRIGGER update_organization_agents_updated_at BEFORE UPDATE ON organizati
 CREATE TRIGGER update_user_agent_credentials_updated_at BEFORE UPDATE ON user_agent_credentials FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_custom_agent_types_updated_at BEFORE UPDATE ON custom_agent_types FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_runners_updated_at BEFORE UPDATE ON runners FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pods_updated_at BEFORE UPDATE ON pods FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_channels_updated_at BEFORE UPDATE ON channels FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_session_bindings_updated_at BEFORE UPDATE ON session_bindings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_pod_bindings_updated_at BEFORE UPDATE ON pod_bindings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tickets_updated_at BEFORE UPDATE ON tickets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_ticket_merge_requests_updated_at BEFORE UPDATE ON ticket_merge_requests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -13,9 +13,9 @@ export default function MCPToolsPage() {
       <section className="mb-12">
         <h2 className="text-2xl font-semibold mb-4">Overview</h2>
         <p className="text-muted-foreground leading-relaxed mb-4">
-          MCP tools are automatically available to AI agents running in DevPod
-          sessions. The tools are served via HTTP on port 19000 and
-          authenticated using the session key.
+          MCP tools are automatically available to AI agents running in AgentPod.
+          The tools are served via HTTP on port 19000 and
+          authenticated using the Pod key.
         </p>
         <div className="bg-muted rounded-lg p-4">
           <p className="text-sm text-muted-foreground">
@@ -171,7 +171,7 @@ export default function MCPToolsPage() {
                   observe_terminal
                 </td>
                 <td className="p-3 border-b border-border">
-                  Watch another session&apos;s terminal output
+                  Watch another Pod&apos;s terminal output
                 </td>
                 <td className="p-3 border-b border-border font-mono text-xs">
                   terminal:read
@@ -182,7 +182,7 @@ export default function MCPToolsPage() {
                   send_terminal_text
                 </td>
                 <td className="p-3 border-b border-border">
-                  Send text to another session&apos;s terminal
+                  Send text to another Pod&apos;s terminal
                 </td>
                 <td className="p-3 border-b border-border font-mono text-xs">
                   terminal:write
@@ -200,9 +200,9 @@ export default function MCPToolsPage() {
         </div>
       </section>
 
-      {/* Session Discovery */}
+      {/* Pod Discovery */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Session Discovery</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pod Discovery</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border rounded-lg">
             <thead>
@@ -215,9 +215,9 @@ export default function MCPToolsPage() {
             </thead>
             <tbody className="text-muted-foreground">
               <tr>
-                <td className="p-3 font-medium">list_available_sessions</td>
+                <td className="p-3 font-medium">list_available_pods</td>
                 <td className="p-3">
-                  List other sessions available for collaboration
+                  List other Pods available for collaboration
                 </td>
               </tr>
             </tbody>
@@ -225,9 +225,9 @@ export default function MCPToolsPage() {
         </div>
       </section>
 
-      {/* Session Binding Tools */}
+      {/* Pod Binding Tools */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Session Binding Tools</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pod Binding Tools</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border rounded-lg">
             <thead>
@@ -244,13 +244,13 @@ export default function MCPToolsPage() {
             <tbody className="text-muted-foreground">
               <tr>
                 <td className="p-3 border-b border-border font-medium">
-                  bind_session
+                  bind_pod
                 </td>
                 <td className="p-3 border-b border-border">
-                  Request binding to another session
+                  Request binding to another Pod
                 </td>
                 <td className="p-3 border-b border-border font-mono text-xs">
-                  target_session, scopes[]
+                  target_pod, scopes[]
                 </td>
               </tr>
               <tr>
@@ -277,13 +277,13 @@ export default function MCPToolsPage() {
               </tr>
               <tr>
                 <td className="p-3 border-b border-border font-medium">
-                  unbind_session
+                  unbind_pod
                 </td>
                 <td className="p-3 border-b border-border">
                   Remove an existing binding
                 </td>
                 <td className="p-3 border-b border-border font-mono text-xs">
-                  target_session
+                  target_pod
                 </td>
               </tr>
               <tr>
@@ -291,15 +291,15 @@ export default function MCPToolsPage() {
                   get_bindings
                 </td>
                 <td className="p-3 border-b border-border">
-                  Get all bindings for this session
+                  Get all bindings for this Pod
                 </td>
                 <td className="p-3 border-b border-border font-mono text-xs">
                   status?
                 </td>
               </tr>
               <tr>
-                <td className="p-3 font-medium">get_bound_sessions</td>
-                <td className="p-3">Get sessions bound to this session</td>
+                <td className="p-3 font-medium">get_bound_pods</td>
+                <td className="p-3">Get Pods bound to this Pod</td>
                 <td className="p-3 font-mono text-xs">-</td>
               </tr>
             </tbody>
@@ -460,9 +460,9 @@ export default function MCPToolsPage() {
         </div>
       </section>
 
-      {/* Session Tools */}
+      {/* Pod Tools */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Session Tools</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pod Tools</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border rounded-lg">
             <thead>
@@ -478,8 +478,8 @@ export default function MCPToolsPage() {
             </thead>
             <tbody className="text-muted-foreground">
               <tr>
-                <td className="p-3 font-medium">create_devpod_session</td>
-                <td className="p-3">Create a new DevPod session</td>
+                <td className="p-3 font-medium">create_agentpod</td>
+                <td className="p-3">Create a new AgentPod</td>
                 <td className="p-3 font-mono text-xs">
                   runner_id?, ticket_id?, initial_prompt?, model?
                 </td>

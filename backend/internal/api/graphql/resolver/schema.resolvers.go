@@ -11,11 +11,11 @@ import (
 
 	"github.com/anthropics/agentmesh/backend/internal/api/graphql/generated"
 	"github.com/anthropics/agentmesh/backend/internal/domain/agent"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/channel"
 	"github.com/anthropics/agentmesh/backend/internal/domain/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/domain/organization"
 	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
 	"github.com/anthropics/agentmesh/backend/internal/domain/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/domain/user"
 )
@@ -30,9 +30,9 @@ func (r *channelResolver) Messages(ctx context.Context, obj *channel.Channel, li
 	panic(fmt.Errorf("not implemented: Messages - messages"))
 }
 
-// Sessions is the resolver for the sessions field.
-func (r *channelResolver) Sessions(ctx context.Context, obj *channel.Channel) ([]session.Session, error) {
-	panic(fmt.Errorf("not implemented: Sessions - sessions"))
+// Pods is the resolver for the pods field.
+func (r *channelResolver) Pods(ctx context.Context, obj *channel.Channel) ([]agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: Pods - pods"))
 }
 
 // CredentialSchema is the resolver for the credentialSchema field.
@@ -45,14 +45,14 @@ func (r *customAgentTypeResolver) StatusDetection(ctx context.Context, obj *agen
 	panic(fmt.Errorf("not implemented: StatusDetection - statusDetection"))
 }
 
-// CreateSession is the resolver for the createSession field.
-func (r *mutationResolver) CreateSession(ctx context.Context, input generated.CreateSessionInput) (*session.Session, error) {
-	panic(fmt.Errorf("not implemented: CreateSession - createSession"))
+// CreatePod is the resolver for the createPod field.
+func (r *mutationResolver) CreatePod(ctx context.Context, input generated.CreatePodInput) (*agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: CreatePod - createPod"))
 }
 
-// TerminateSession is the resolver for the terminateSession field.
-func (r *mutationResolver) TerminateSession(ctx context.Context, key string) (*session.Session, error) {
-	panic(fmt.Errorf("not implemented: TerminateSession - terminateSession"))
+// TerminatePod is the resolver for the terminatePod field.
+func (r *mutationResolver) TerminatePod(ctx context.Context, key string) (*agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: TerminatePod - terminatePod"))
 }
 
 // CreateTicket is the resolver for the createTicket field.
@@ -106,17 +106,17 @@ func (r *mutationResolver) UnarchiveChannel(ctx context.Context, id int64) (*cha
 }
 
 // SendMessage is the resolver for the sendMessage field.
-func (r *mutationResolver) SendMessage(ctx context.Context, channelID int64, content string, sessionKey *string) (*generated.ChannelMessage, error) {
+func (r *mutationResolver) SendMessage(ctx context.Context, channelID int64, content string, podKey *string) (*generated.ChannelMessage, error) {
 	panic(fmt.Errorf("not implemented: SendMessage - sendMessage"))
 }
 
 // JoinChannel is the resolver for the joinChannel field.
-func (r *mutationResolver) JoinChannel(ctx context.Context, channelID int64, sessionKey string) (bool, error) {
+func (r *mutationResolver) JoinChannel(ctx context.Context, channelID int64, podKey string) (bool, error) {
 	panic(fmt.Errorf("not implemented: JoinChannel - joinChannel"))
 }
 
 // LeaveChannel is the resolver for the leaveChannel field.
-func (r *mutationResolver) LeaveChannel(ctx context.Context, channelID int64, sessionKey string) (bool, error) {
+func (r *mutationResolver) LeaveChannel(ctx context.Context, channelID int64, podKey string) (bool, error) {
 	panic(fmt.Errorf("not implemented: LeaveChannel - leaveChannel"))
 }
 
@@ -128,6 +128,26 @@ func (r *organizationResolver) Members(ctx context.Context, obj *organization.Or
 // Runners is the resolver for the runners field.
 func (r *organizationResolver) Runners(ctx context.Context, obj *organization.Organization) ([]runner.Runner, error) {
 	panic(fmt.Errorf("not implemented: Runners - runners"))
+}
+
+// Status is the resolver for the status field.
+func (r *podResolver) Status(ctx context.Context, obj *agentpod.Pod) (generated.PodStatus, error) {
+	panic(fmt.Errorf("not implemented: Status - status"))
+}
+
+// Repository is the resolver for the repository field.
+func (r *podResolver) Repository(ctx context.Context, obj *agentpod.Pod) (*gitprovider.Repository, error) {
+	panic(fmt.Errorf("not implemented: Repository - repository"))
+}
+
+// Ticket is the resolver for the ticket field.
+func (r *podResolver) Ticket(ctx context.Context, obj *agentpod.Pod) (*ticket.Ticket, error) {
+	panic(fmt.Errorf("not implemented: Ticket - ticket"))
+}
+
+// CreatedBy is the resolver for the createdBy field.
+func (r *podResolver) CreatedBy(ctx context.Context, obj *agentpod.Pod) (*user.User, error) {
+	panic(fmt.Errorf("not implemented: CreatedBy - createdBy"))
 }
 
 // Me is the resolver for the me field.
@@ -165,14 +185,14 @@ func (r *queryResolver) AvailableRunners(ctx context.Context) ([]runner.Runner, 
 	panic(fmt.Errorf("not implemented: AvailableRunners - availableRunners"))
 }
 
-// Session is the resolver for the session field.
-func (r *queryResolver) Session(ctx context.Context, key string) (*session.Session, error) {
-	panic(fmt.Errorf("not implemented: Session - session"))
+// Pod is the resolver for the pod field.
+func (r *queryResolver) Pod(ctx context.Context, key string) (*agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: Pod - pod"))
 }
 
-// Sessions is the resolver for the sessions field.
-func (r *queryResolver) Sessions(ctx context.Context, filter *generated.SessionFilter, first *int, after *string) (*generated.SessionConnection, error) {
-	panic(fmt.Errorf("not implemented: Sessions - sessions"))
+// Pods is the resolver for the pods field.
+func (r *queryResolver) Pods(ctx context.Context, filter *generated.PodFilter, first *int, after *string) (*generated.PodConnection, error) {
+	panic(fmt.Errorf("not implemented: Pods - pods"))
 }
 
 // AgentTypes is the resolver for the agentTypes field.
@@ -240,34 +260,14 @@ func (r *runnerResolver) HostInfo(ctx context.Context, obj *runner.Runner) (map[
 	panic(fmt.Errorf("not implemented: HostInfo - hostInfo"))
 }
 
-// ActiveSessions is the resolver for the activeSessions field.
-func (r *runnerResolver) ActiveSessions(ctx context.Context, obj *runner.Runner) ([]session.Session, error) {
-	panic(fmt.Errorf("not implemented: ActiveSessions - activeSessions"))
+// ActivePods is the resolver for the activePods field.
+func (r *runnerResolver) ActivePods(ctx context.Context, obj *runner.Runner) ([]agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: ActivePods - activePods"))
 }
 
-// Status is the resolver for the status field.
-func (r *sessionResolver) Status(ctx context.Context, obj *session.Session) (generated.SessionStatus, error) {
-	panic(fmt.Errorf("not implemented: Status - status"))
-}
-
-// Repository is the resolver for the repository field.
-func (r *sessionResolver) Repository(ctx context.Context, obj *session.Session) (*gitprovider.Repository, error) {
-	panic(fmt.Errorf("not implemented: Repository - repository"))
-}
-
-// Ticket is the resolver for the ticket field.
-func (r *sessionResolver) Ticket(ctx context.Context, obj *session.Session) (*ticket.Ticket, error) {
-	panic(fmt.Errorf("not implemented: Ticket - ticket"))
-}
-
-// CreatedBy is the resolver for the createdBy field.
-func (r *sessionResolver) CreatedBy(ctx context.Context, obj *session.Session) (*user.User, error) {
-	panic(fmt.Errorf("not implemented: CreatedBy - createdBy"))
-}
-
-// SessionUpdated is the resolver for the sessionUpdated field.
-func (r *subscriptionResolver) SessionUpdated(ctx context.Context, key string) (<-chan *session.Session, error) {
-	panic(fmt.Errorf("not implemented: SessionUpdated - sessionUpdated"))
+// PodUpdated is the resolver for the podUpdated field.
+func (r *subscriptionResolver) PodUpdated(ctx context.Context, key string) (<-chan *agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: PodUpdated - podUpdated"))
 }
 
 // MessageReceived is the resolver for the messageReceived field.
@@ -305,9 +305,9 @@ func (r *ticketResolver) Assignees(ctx context.Context, obj *ticket.Ticket) ([]u
 	panic(fmt.Errorf("not implemented: Assignees - assignees"))
 }
 
-// Sessions is the resolver for the sessions field.
-func (r *ticketResolver) Sessions(ctx context.Context, obj *ticket.Ticket) ([]session.Session, error) {
-	panic(fmt.Errorf("not implemented: Sessions - sessions"))
+// Pods is the resolver for the pods field.
+func (r *ticketResolver) Pods(ctx context.Context, obj *ticket.Ticket) ([]agentpod.Pod, error) {
+	panic(fmt.Errorf("not implemented: Pods - pods"))
 }
 
 // ChildTickets is the resolver for the childTickets field.
@@ -342,14 +342,14 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 // Organization returns generated.OrganizationResolver implementation.
 func (r *Resolver) Organization() generated.OrganizationResolver { return &organizationResolver{r} }
 
+// Pod returns generated.PodResolver implementation.
+func (r *Resolver) Pod() generated.PodResolver { return &podResolver{r} }
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 // Runner returns generated.RunnerResolver implementation.
 func (r *Resolver) Runner() generated.RunnerResolver { return &runnerResolver{r} }
-
-// Session returns generated.SessionResolver implementation.
-func (r *Resolver) Session() generated.SessionResolver { return &sessionResolver{r} }
 
 // Subscription returns generated.SubscriptionResolver implementation.
 func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
@@ -365,9 +365,21 @@ type channelResolver struct{ *Resolver }
 type customAgentTypeResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type organizationResolver struct{ *Resolver }
+type podResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type runnerResolver struct{ *Resolver }
-type sessionResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
 type ticketResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *runnerResolver) CurrentPods(ctx context.Context, obj *runner.Runner) (int, error) {
+	panic(fmt.Errorf("not implemented: CurrentPods - currentPods"))
+}
+*/

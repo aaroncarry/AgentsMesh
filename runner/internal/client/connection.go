@@ -336,14 +336,14 @@ func (c *ServerConnection) heartbeatLoop(done <-chan struct{}) {
 
 // sendHeartbeat sends a heartbeat message.
 func (c *ServerConnection) sendHeartbeat() {
-	var sessions []SessionInfo
+	var pods []PodInfo
 	if c.handler != nil {
-		sessions = c.handler.OnListSessions()
+		pods = c.handler.OnListPods()
 	}
 
 	data := HeartbeatData{
-		NodeID:   c.nodeID,
-		Sessions: sessions,
+		NodeID: c.nodeID,
+		Pods:   pods,
 	}
 
 	if err := c.SendEvent(MsgTypeHeartbeat, data); err != nil {

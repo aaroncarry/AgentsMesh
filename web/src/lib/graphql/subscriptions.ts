@@ -1,30 +1,30 @@
 import { gql } from "@apollo/client";
-import { SESSION_FRAGMENT, MESSAGE_FRAGMENT, RUNNER_FRAGMENT } from "./queries";
+import { POD_FRAGMENT, MESSAGE_FRAGMENT, RUNNER_FRAGMENT } from "./queries";
 
-// Session Subscriptions
-export const SESSION_UPDATED = gql`
-  ${SESSION_FRAGMENT}
-  subscription SessionUpdated($sessionKey: String!) {
-    sessionUpdated(sessionKey: $sessionKey) {
-      ...SessionFields
+// Pod Subscriptions
+export const POD_UPDATED = gql`
+  ${POD_FRAGMENT}
+  subscription PodUpdated($podKey: String!) {
+    podUpdated(podKey: $podKey) {
+      ...PodFields
     }
   }
 `;
 
-export const SESSION_OUTPUT = gql`
-  subscription SessionOutput($sessionKey: String!) {
-    sessionOutput(sessionKey: $sessionKey) {
-      sessionKey
+export const POD_OUTPUT = gql`
+  subscription PodOutput($podKey: String!) {
+    podOutput(podKey: $podKey) {
+      podKey
       data
       timestamp
     }
   }
 `;
 
-export const SESSION_STATUS_CHANGED = gql`
-  subscription SessionStatusChanged($sessionKey: String!) {
-    sessionStatusChanged(sessionKey: $sessionKey) {
-      sessionKey
+export const POD_STATUS_CHANGED = gql`
+  subscription PodStatusChanged($podKey: String!) {
+    podStatusChanged(podKey: $podKey) {
+      podKey
       status
       agentStatus
       timestamp
@@ -54,22 +54,22 @@ export const CHANNEL_UPDATED = gql`
   }
 `;
 
-export const SESSION_JOINED_CHANNEL = gql`
-  subscription SessionJoinedChannel($channelId: ID!) {
-    sessionJoinedChannel(channelId: $channelId) {
+export const POD_JOINED_CHANNEL = gql`
+  subscription PodJoinedChannel($channelId: ID!) {
+    podJoinedChannel(channelId: $channelId) {
       channelId
-      sessionKey
+      podKey
       agentType
       timestamp
     }
   }
 `;
 
-export const SESSION_LEFT_CHANNEL = gql`
-  subscription SessionLeftChannel($channelId: ID!) {
-    sessionLeftChannel(channelId: $channelId) {
+export const POD_LEFT_CHANNEL = gql`
+  subscription PodLeftChannel($channelId: ID!) {
+    podLeftChannel(channelId: $channelId) {
       channelId
-      sessionKey
+      podKey
       timestamp
     }
   }
@@ -89,7 +89,7 @@ export const RUNNER_HEARTBEAT = gql`
   subscription RunnerHeartbeat($runnerId: ID!) {
     runnerHeartbeat(runnerId: $runnerId) {
       runnerId
-      currentSessions
+      currentPods
       timestamp
     }
   }

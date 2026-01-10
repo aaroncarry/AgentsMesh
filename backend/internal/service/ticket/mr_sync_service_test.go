@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/repository"
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
 	"github.com/anthropics/agentmesh/backend/internal/domain/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/infra/git"
 	"github.com/stretchr/testify/assert"
@@ -127,7 +127,7 @@ func setupMRSyncTestDB(t *testing.T) *gorm.DB {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
 			ticket_id INTEGER NOT NULL,
-			session_id INTEGER,
+			pod_id INTEGER,
 			mri_id INTEGER NOT NULL,
 			mr_url TEXT NOT NULL UNIQUE,
 			source_branch TEXT NOT NULL,
@@ -162,6 +162,7 @@ func setupMRSyncTestDB(t *testing.T) *gorm.DB {
 			visibility TEXT NOT NULL DEFAULT 'organization',
 			imported_by_user_id INTEGER,
 			is_active INTEGER DEFAULT 1,
+			deleted_at DATETIME,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
@@ -169,10 +170,10 @@ func setupMRSyncTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS sessions (
+		CREATE TABLE IF NOT EXISTS pods (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			organization_id INTEGER NOT NULL,
-			session_key TEXT NOT NULL UNIQUE,
+			pod_key TEXT NOT NULL UNIQUE,
 			status TEXT NOT NULL DEFAULT 'initializing',
 			branch_name TEXT,
 			ticket_id INTEGER,
@@ -256,21 +257,21 @@ func TestFindOrCreateMR(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("sets session ID on new MR", func(t *testing.T) {
+	t.Run("sets pod ID on new MR", func(t *testing.T) {
 		mrData := &MRData{
 			IID:          2,
 			WebURL:       "https://gitlab.com/org/repo/-/merge_requests/2",
-			Title:        "Feature with session",
+			Title:        "Feature with pod",
 			SourceBranch: "feature/MR-2",
 			TargetBranch: "main",
 			State:        "opened",
 		}
 
-		sessionID := int64(100)
-		mr, err := service.FindOrCreateMR(ctx, 1, tkt, mrData, &sessionID)
+		podID := int64(100)
+		mr, err := service.FindOrCreateMR(ctx, 1, tkt, mrData, &podID)
 		require.NoError(t, err)
-		assert.NotNil(t, mr.SessionID)
-		assert.Equal(t, sessionID, *mr.SessionID)
+		assert.NotNil(t, mr.PodID)
+		assert.Equal(t, podID, *mr.PodID)
 	})
 
 	t.Run("handles pipeline info", func(t *testing.T) {
@@ -303,38 +304,38 @@ func TestFindOrCreateMR(t *testing.T) {
 	})
 }
 
-func TestCheckSessionForNewMR(t *testing.T) {
+func TestCheckPodForNewMR(t *testing.T) {
 	ctx := context.Background()
 	db := setupMRSyncTestDB(t)
 
-	t.Run("returns nil for session without branch", func(t *testing.T) {
+	t.Run("returns nil for pod without branch", func(t *testing.T) {
 		provider := &MockGitProvider{}
 		service := NewMRSyncService(db, provider)
 
-		sess := &session.Session{
+		pod := &agentpod.Pod{
 			ID:             1,
 			OrganizationID: 1,
 			BranchName:     nil,
 		}
 
-		mr, err := service.CheckSessionForNewMR(ctx, sess)
+		mr, err := service.CheckPodForNewMR(ctx, pod)
 		assert.NoError(t, err)
 		assert.Nil(t, mr)
 	})
 
-	t.Run("returns nil for session without ticket", func(t *testing.T) {
+	t.Run("returns nil for pod without ticket", func(t *testing.T) {
 		provider := &MockGitProvider{}
 		service := NewMRSyncService(db, provider)
 
 		branchName := "feature/test"
-		sess := &session.Session{
+		pod := &agentpod.Pod{
 			ID:             2,
 			OrganizationID: 1,
 			BranchName:     &branchName,
 			TicketID:       nil,
 		}
 
-		mr, err := service.CheckSessionForNewMR(ctx, sess)
+		mr, err := service.CheckPodForNewMR(ctx, pod)
 		assert.NoError(t, err)
 		assert.Nil(t, mr)
 	})
@@ -344,36 +345,36 @@ func TestCheckSessionForNewMR(t *testing.T) {
 
 		branchName := "feature/test"
 		ticketID := int64(1)
-		sess := &session.Session{
+		pod := &agentpod.Pod{
 			ID:             3,
 			OrganizationID: 1,
 			BranchName:     &branchName,
 			TicketID:       &ticketID,
 		}
 
-		_, err := service.CheckSessionForNewMR(ctx, sess)
+		_, err := service.CheckPodForNewMR(ctx, pod)
 		assert.Error(t, err)
 		assert.Equal(t, ErrNoGitProvider, err)
 	})
 }
 
-func TestBatchCheckSessions(t *testing.T) {
+func TestBatchCheckPods(t *testing.T) {
 	ctx := context.Background()
 	db := setupMRSyncTestDB(t)
 
 	t.Run("returns error when git provider is nil", func(t *testing.T) {
 		service := NewMRSyncService(db, nil)
 
-		_, err := service.BatchCheckSessions(ctx)
+		_, err := service.BatchCheckPods(ctx)
 		assert.Error(t, err)
 		assert.Equal(t, ErrNoGitProvider, err)
 	})
 
-	t.Run("returns empty when no matching sessions", func(t *testing.T) {
+	t.Run("returns empty when no matching pods", func(t *testing.T) {
 		provider := &MockGitProvider{}
 		service := NewMRSyncService(db, provider)
 
-		mrs, err := service.BatchCheckSessions(ctx)
+		mrs, err := service.BatchCheckPods(ctx)
 		require.NoError(t, err)
 		assert.Empty(t, mrs)
 	})
@@ -452,18 +453,18 @@ func TestGetTicketMRs(t *testing.T) {
 	})
 }
 
-func TestGetSessionMRs(t *testing.T) {
+func TestGetPodMRs(t *testing.T) {
 	ctx := context.Background()
 	db := setupMRSyncTestDB(t)
 	service := NewMRSyncService(db, nil)
 
-	sessionID := int64(100)
+	podID := int64(100)
 
-	// Create MRs for a session
+	// Create MRs for a pod
 	mr := &ticket.MergeRequest{
 		OrganizationID: 1,
 		TicketID:       1,
-		SessionID:      &sessionID,
+		PodID:          &podID,
 		MRIID:          1,
 		MRURL:          "https://gitlab.com/org/repo/-/merge_requests/1",
 		SourceBranch:   "feature/1",
@@ -472,14 +473,14 @@ func TestGetSessionMRs(t *testing.T) {
 	}
 	db.Create(mr)
 
-	t.Run("returns MRs for session", func(t *testing.T) {
-		mrs, err := service.GetSessionMRs(ctx, sessionID)
+	t.Run("returns MRs for pod", func(t *testing.T) {
+		mrs, err := service.GetPodMRs(ctx, podID)
 		require.NoError(t, err)
 		assert.Len(t, mrs, 1)
 	})
 
-	t.Run("returns empty for session without MRs", func(t *testing.T) {
-		mrs, err := service.GetSessionMRs(ctx, 9999)
+	t.Run("returns empty for pod without MRs", func(t *testing.T) {
+		mrs, err := service.GetPodMRs(ctx, 9999)
 		require.NoError(t, err)
 		assert.Empty(t, mrs)
 	})

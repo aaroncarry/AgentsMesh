@@ -27,7 +27,7 @@ export default function MeshPage() {
     selectChannel(null);
   };
 
-  const activeSessionCount = topology?.nodes.filter(
+  const activePodCount = topology?.nodes.filter(
     (n) => n.status === "running" || n.status === "initializing"
   ).length || 0;
 
@@ -51,7 +51,7 @@ export default function MeshPage() {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500" />
                 <span className="text-muted-foreground">
-                  {activeSessionCount} active sessions
+                  {activePodCount} active pods
                 </span>
               </div>
               <div className="flex items-center gap-2">

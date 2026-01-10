@@ -1,6 +1,6 @@
 import { gql } from "@apollo/client";
 import {
-  SESSION_FRAGMENT,
+  POD_FRAGMENT,
   CHANNEL_FRAGMENT,
   MESSAGE_FRAGMENT,
   TICKET_FRAGMENT,
@@ -113,34 +113,34 @@ export const UPDATE_RUNNER_STATUS = gql`
   }
 `;
 
-// Session Mutations
-export const CREATE_SESSION = gql`
-  ${SESSION_FRAGMENT}
-  mutation CreateSession($input: CreateSessionInput!) {
-    createSession(input: $input) {
-      ...SessionFields
+// Pod Mutations
+export const CREATE_POD = gql`
+  ${POD_FRAGMENT}
+  mutation CreatePod($input: CreatePodInput!) {
+    createPod(input: $input) {
+      ...PodFields
     }
   }
 `;
 
-export const TERMINATE_SESSION = gql`
-  mutation TerminateSession($sessionKey: String!) {
-    terminateSession(sessionKey: $sessionKey) {
-      sessionKey
+export const TERMINATE_POD = gql`
+  mutation TerminatePod($podKey: String!) {
+    terminatePod(podKey: $podKey) {
+      podKey
       status
     }
   }
 `;
 
-export const SEND_SESSION_INPUT = gql`
-  mutation SendSessionInput($sessionKey: String!, $data: String!) {
-    sendSessionInput(sessionKey: $sessionKey, data: $data)
+export const SEND_POD_INPUT = gql`
+  mutation SendPodInput($podKey: String!, $data: String!) {
+    sendPodInput(podKey: $podKey, data: $data)
   }
 `;
 
-export const RESIZE_SESSION_TERMINAL = gql`
-  mutation ResizeSessionTerminal($sessionKey: String!, $rows: Int!, $cols: Int!) {
-    resizeSessionTerminal(sessionKey: $sessionKey, rows: $rows, cols: $cols)
+export const RESIZE_POD_TERMINAL = gql`
+  mutation ResizePodTerminal($podKey: String!, $rows: Int!, $cols: Int!) {
+    resizePodTerminal(podKey: $podKey, rows: $rows, cols: $cols)
   }
 `;
 
@@ -182,21 +182,21 @@ export const UNARCHIVE_CHANNEL = gql`
 `;
 
 export const JOIN_CHANNEL = gql`
-  mutation JoinChannel($channelId: ID!, $sessionKey: String!) {
-    joinChannel(channelId: $channelId, sessionKey: $sessionKey)
+  mutation JoinChannel($channelId: ID!, $podKey: String!) {
+    joinChannel(channelId: $channelId, podKey: $podKey)
   }
 `;
 
 export const LEAVE_CHANNEL = gql`
-  mutation LeaveChannel($channelId: ID!, $sessionKey: String!) {
-    leaveChannel(channelId: $channelId, sessionKey: $sessionKey)
+  mutation LeaveChannel($channelId: ID!, $podKey: String!) {
+    leaveChannel(channelId: $channelId, podKey: $podKey)
   }
 `;
 
 export const SEND_CHANNEL_MESSAGE = gql`
   ${MESSAGE_FRAGMENT}
-  mutation SendChannelMessage($channelId: ID!, $content: String!, $sessionKey: String) {
-    sendChannelMessage(channelId: $channelId, content: $content, sessionKey: $sessionKey) {
+  mutation SendChannelMessage($channelId: ID!, $content: String!, $podKey: String) {
+    sendChannelMessage(channelId: $channelId, content: $content, podKey: $podKey) {
       ...MessageFields
     }
   }

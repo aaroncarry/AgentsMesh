@@ -27,8 +27,8 @@ import {
   GET_RUNNERS,
   GET_RUNNER,
   GET_AVAILABLE_RUNNERS,
-  GET_SESSIONS,
-  GET_SESSION,
+  GET_PODS,
+  GET_POD,
   GET_CHANNELS,
   GET_CHANNEL,
   GET_CHANNEL_MESSAGES,
@@ -52,10 +52,10 @@ import {
   CREATE_REGISTRATION_TOKEN,
   DELETE_RUNNER,
   UPDATE_RUNNER_STATUS,
-  CREATE_SESSION,
-  TERMINATE_SESSION,
-  SEND_SESSION_INPUT,
-  RESIZE_SESSION_TERMINAL,
+  CREATE_POD,
+  TERMINATE_POD,
+  SEND_POD_INPUT,
+  RESIZE_POD_TERMINAL,
   CREATE_CHANNEL,
   UPDATE_CHANNEL,
   ARCHIVE_CHANNEL,
@@ -82,13 +82,13 @@ import {
 
 // Subscription imports
 import {
-  SESSION_UPDATED,
-  SESSION_OUTPUT,
-  SESSION_STATUS_CHANGED,
+  POD_UPDATED,
+  POD_OUTPUT,
+  POD_STATUS_CHANGED,
   MESSAGE_RECEIVED,
   CHANNEL_UPDATED,
-  SESSION_JOINED_CHANNEL,
-  SESSION_LEFT_CHANNEL,
+  POD_JOINED_CHANNEL,
+  POD_LEFT_CHANNEL,
   RUNNER_STATUS_CHANGED,
   RUNNER_HEARTBEAT,
   TICKET_UPDATED,
@@ -136,24 +136,24 @@ export const useAvailableRunners = (options?: QueryOptions) => {
   return useQuery(GET_AVAILABLE_RUNNERS, options);
 };
 
-interface SessionFilter {
+interface PodFilter {
   status?: string;
   runnerId?: string;
   limit?: number;
   offset?: number;
 }
 
-export const useSessions = (filter?: SessionFilter, options?: QueryOptions) => {
-  return useQuery(GET_SESSIONS, {
+export const usePods = (filter?: PodFilter, options?: QueryOptions) => {
+  return useQuery(GET_PODS, {
     variables: { filter },
     ...(options ?? {}),
   });
 };
 
-export const useSession = (sessionKey: string, options?: QueryOptions) => {
-  return useQuery(GET_SESSION, {
-    variables: { sessionKey },
-    skip: !sessionKey,
+export const usePod = (podKey: string, options?: QueryOptions) => {
+  return useQuery(GET_POD, {
+    variables: { podKey },
+    skip: !podKey,
     ...(options ?? {}),
   });
 };
@@ -282,20 +282,20 @@ export const useUpdateRunnerStatus = (options?: MutationOptions) => {
   return useMutation(UPDATE_RUNNER_STATUS, options);
 };
 
-export const useCreateSession = (options?: MutationOptions) => {
-  return useMutation(CREATE_SESSION, options);
+export const useCreatePod = (options?: MutationOptions) => {
+  return useMutation(CREATE_POD, options);
 };
 
-export const useTerminateSession = (options?: MutationOptions) => {
-  return useMutation(TERMINATE_SESSION, options);
+export const useTerminatePod = (options?: MutationOptions) => {
+  return useMutation(TERMINATE_POD, options);
 };
 
-export const useSendSessionInput = (options?: MutationOptions) => {
-  return useMutation(SEND_SESSION_INPUT, options);
+export const useSendPodInput = (options?: MutationOptions) => {
+  return useMutation(SEND_POD_INPUT, options);
 };
 
-export const useResizeSessionTerminal = (options?: MutationOptions) => {
-  return useMutation(RESIZE_SESSION_TERMINAL, options);
+export const useResizePodTerminal = (options?: MutationOptions) => {
+  return useMutation(RESIZE_POD_TERMINAL, options);
 };
 
 export const useCreateChannel = (options?: MutationOptions) => {
@@ -388,24 +388,24 @@ export const useDeleteAgentCredentials = (options?: MutationOptions) => {
 
 // ============ Subscription Hooks ============
 
-export const useSessionUpdated = (sessionKey: string) => {
-  return useSubscription(SESSION_UPDATED, {
-    variables: { sessionKey },
-    skip: !sessionKey,
+export const usePodUpdated = (podKey: string) => {
+  return useSubscription(POD_UPDATED, {
+    variables: { podKey },
+    skip: !podKey,
   });
 };
 
-export const useSessionOutput = (sessionKey: string) => {
-  return useSubscription(SESSION_OUTPUT, {
-    variables: { sessionKey },
-    skip: !sessionKey,
+export const usePodOutput = (podKey: string) => {
+  return useSubscription(POD_OUTPUT, {
+    variables: { podKey },
+    skip: !podKey,
   });
 };
 
-export const useSessionStatusChanged = (sessionKey: string) => {
-  return useSubscription(SESSION_STATUS_CHANGED, {
-    variables: { sessionKey },
-    skip: !sessionKey,
+export const usePodStatusChanged = (podKey: string) => {
+  return useSubscription(POD_STATUS_CHANGED, {
+    variables: { podKey },
+    skip: !podKey,
   });
 };
 
@@ -423,15 +423,15 @@ export const useChannelUpdated = (channelId: string) => {
   });
 };
 
-export const useSessionJoinedChannel = (channelId: string) => {
-  return useSubscription(SESSION_JOINED_CHANNEL, {
+export const usePodJoinedChannel = (channelId: string) => {
+  return useSubscription(POD_JOINED_CHANNEL, {
     variables: { channelId },
     skip: !channelId,
   });
 };
 
-export const useSessionLeftChannel = (channelId: string) => {
-  return useSubscription(SESSION_LEFT_CHANNEL, {
+export const usePodLeftChannel = (channelId: string) => {
+  return useSubscription(POD_LEFT_CHANNEL, {
     variables: { channelId },
     skip: !channelId,
   });

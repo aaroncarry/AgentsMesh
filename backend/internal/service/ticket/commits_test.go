@@ -15,7 +15,7 @@ func setupCommitsTestDB(t *testing.T) (*Service, context.Context) {
 		organization_id INTEGER NOT NULL,
 		ticket_id INTEGER NOT NULL,
 		repository_id INTEGER NOT NULL,
-		session_id INTEGER,
+		pod_id INTEGER,
 		commit_sha TEXT NOT NULL,
 		commit_message TEXT NOT NULL,
 		commit_url TEXT,
@@ -55,14 +55,14 @@ func TestLinkCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("link commit with session", func(t *testing.T) {
-		sessionID := int64(100)
-		commit, err := service.LinkCommit(ctx, 1, tkt.ID, 1, &sessionID, "def456", "Add feature", nil, nil, nil, nil)
+	t.Run("link commit with pod", func(t *testing.T) {
+		podID := int64(100)
+		commit, err := service.LinkCommit(ctx, 1, tkt.ID, 1, &podID, "def456", "Add feature", nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("LinkCommit() error = %v", err)
 		}
-		if commit.SessionID == nil || *commit.SessionID != sessionID {
-			t.Errorf("SessionID mismatch")
+		if commit.PodID == nil || *commit.PodID != podID {
+			t.Errorf("PodID mismatch")
 		}
 	})
 }

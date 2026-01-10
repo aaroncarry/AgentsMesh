@@ -13,7 +13,7 @@ import (
 
 func TestMessageHandlerIntegrationWithMockConnection(t *testing.T) {
 	tempDir := t.TempDir()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	ws, err := workspace.NewManager(tempDir, "")
@@ -23,7 +23,7 @@ func TestMessageHandlerIntegrationWithMockConnection(t *testing.T) {
 
 	runner := &Runner{
 		cfg: &config.Config{
-			MaxConcurrentSessions: 10,
+			MaxConcurrentPods: 10,
 			WorkspaceRoot:         tempDir,
 		},
 		workspace: ws,
@@ -33,45 +33,45 @@ func TestMessageHandlerIntegrationWithMockConnection(t *testing.T) {
 	mockConn.SetHandler(handler)
 
 	// Test flow: create -> list -> terminate
-	createReq := client.CreateSessionRequest{
-		SessionID:      "integration-session",
+	createReq := client.CreatePodRequest{
+		PodKey:      "integration-pod",
 		InitialCommand: "echo",
 		WorkingDir:     tempDir,
 	}
 
-	// Create session via mock connection simulation
-	err = mockConn.SimulateCreateSession(createReq)
+	// Create pod via mock connection simulation
+	err = mockConn.SimulateCreatePod(createReq)
 	if err != nil {
-		t.Logf("Create session: %v", err)
+		t.Logf("Create pod: %v", err)
 	}
 
-	// Give session time to start
+	// Give pod time to start
 	time.Sleep(50 * time.Millisecond)
 
-	// List sessions
-	sessions := mockConn.GetSessions()
-	t.Logf("Sessions after create: %d", len(sessions))
+	// List pods
+	pods := mockConn.GetPods()
+	t.Logf("Pods after create: %d", len(pods))
 
-	// Terminate session
-	terminateReq := client.TerminateSessionRequest{
-		SessionID: "integration-session",
+	// Terminate pod
+	terminateReq := client.TerminatePodRequest{
+		PodKey: "integration-pod",
 	}
-	err = mockConn.SimulateTerminateSession(terminateReq)
-	t.Logf("Terminate session: %v", err)
+	err = mockConn.SimulateTerminatePod(terminateReq)
+	t.Logf("Terminate pod: %v", err)
 
-	// List sessions again
-	sessions = mockConn.GetSessions()
-	t.Logf("Sessions after terminate: %d", len(sessions))
+	// List pods again
+	pods = mockConn.GetPods()
+	t.Logf("Pods after terminate: %d", len(pods))
 }
 
-func TestMessageHandlerIntegrationSessionLifecycle(t *testing.T) {
+func TestMessageHandlerIntegrationPodLifecycle(t *testing.T) {
 	tempDir := t.TempDir()
-	store := NewInMemorySessionStore()
+	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
 	runner := &Runner{
 		cfg: &config.Config{
-			MaxConcurrentSessions: 10,
+			MaxConcurrentPods: 10,
 			WorkspaceRoot:         tempDir,
 		},
 	}
@@ -79,39 +79,39 @@ func TestMessageHandlerIntegrationSessionLifecycle(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 	mockConn.SetHandler(handler)
 
-	// Create multiple sessions
+	// Create multiple pods
 	for i := 0; i < 3; i++ {
-		req := client.CreateSessionRequest{
-			SessionID:      "lifecycle-session-" + string(rune('a'+i)),
+		req := client.CreatePodRequest{
+			PodKey:      "lifecycle-pod-" + string(rune('a'+i)),
 			InitialCommand: "sleep",
 			WorkingDir:     tempDir,
 		}
-		err := mockConn.SimulateCreateSession(req)
+		err := mockConn.SimulateCreatePod(req)
 		if err != nil {
-			t.Logf("Create session %d: %v", i, err)
+			t.Logf("Create pod %d: %v", i, err)
 		}
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Check session count
-	sessions := mockConn.GetSessions()
-	if len(sessions) < 1 {
-		t.Log("Expected at least 1 session")
+	// Check pod count
+	pods := mockConn.GetPods()
+	if len(pods) < 1 {
+		t.Log("Expected at least 1 pod")
 	}
 
-	// Terminate all sessions
-	for _, s := range sessions {
-		req := client.TerminateSessionRequest{
-			SessionID: s.SessionID,
+	// Terminate all pods
+	for _, s := range pods {
+		req := client.TerminatePodRequest{
+			PodKey: s.PodKey,
 		}
-		mockConn.SimulateTerminateSession(req)
+		mockConn.SimulateTerminatePod(req)
 	}
 
-	// Verify all sessions terminated
+	// Verify all pods terminated
 	time.Sleep(50 * time.Millisecond)
-	sessions = mockConn.GetSessions()
-	if len(sessions) != 0 {
-		t.Errorf("Expected 0 sessions after termination, got %d", len(sessions))
+	pods = mockConn.GetPods()
+	if len(pods) != 0 {
+		t.Errorf("Expected 0 pods after termination, got %d", len(pods))
 	}
 }

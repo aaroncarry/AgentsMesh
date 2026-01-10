@@ -6,7 +6,7 @@ const footerLinks = {
   product: {
     title: "Product",
     links: [
-      { label: "DevPod", href: "/docs#devpod" },
+      { label: "AgentPod", href: "/docs#agentpod" },
       { label: "AgentMesh", href: "/docs#devmesh" },
       { label: "Tickets", href: "/docs#tickets" },
       { label: "Runners", href: "/docs#runner-setup" },

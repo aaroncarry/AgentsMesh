@@ -10,63 +10,63 @@ import (
 
 // --- Test Constants ---
 
-func TestSessionStatusConstants(t *testing.T) {
-	if SessionStatusInitializing != "initializing" {
-		t.Errorf("SessionStatusInitializing: got %v, want initializing", SessionStatusInitializing)
+func TestPodStatusConstants(t *testing.T) {
+	if PodStatusInitializing != "initializing" {
+		t.Errorf("PodStatusInitializing: got %v, want initializing", PodStatusInitializing)
 	}
-	if SessionStatusRunning != "running" {
-		t.Errorf("SessionStatusRunning: got %v, want running", SessionStatusRunning)
+	if PodStatusRunning != "running" {
+		t.Errorf("PodStatusRunning: got %v, want running", PodStatusRunning)
 	}
-	if SessionStatusStopped != "stopped" {
-		t.Errorf("SessionStatusStopped: got %v, want stopped", SessionStatusStopped)
+	if PodStatusStopped != "stopped" {
+		t.Errorf("PodStatusStopped: got %v, want stopped", PodStatusStopped)
 	}
-	if SessionStatusFailed != "failed" {
-		t.Errorf("SessionStatusFailed: got %v, want failed", SessionStatusFailed)
+	if PodStatusFailed != "failed" {
+		t.Errorf("PodStatusFailed: got %v, want failed", PodStatusFailed)
 	}
 }
 
-// --- Test Session Struct ---
+// --- Test Pod Struct ---
 
-func TestSessionStruct(t *testing.T) {
+func TestPodStruct(t *testing.T) {
 	now := time.Now()
-	session := Session{
-		ID:               "session-1",
-		SessionKey:       "key-123",
+	pod := Pod{
+		ID:               "pod-1",
+		PodKey:       "key-123",
 		AgentType:        "claude-code",
 		RepositoryURL:    "https://github.com/test/repo.git",
 		Branch:           "main",
-		WorktreePath:     "/workspace/worktrees/session-1",
+		WorktreePath:     "/workspace/worktrees/pod-1",
 		InitialPrompt:    "Hello",
 		Terminal:         nil,
 		StartedAt:        now,
-		Status:           SessionStatusRunning,
+		Status:           PodStatusRunning,
 		TicketIdentifier: "TICKET-123",
 	}
 
-	if session.ID != "session-1" {
-		t.Errorf("ID: got %v, want session-1", session.ID)
+	if pod.ID != "pod-1" {
+		t.Errorf("ID: got %v, want pod-1", pod.ID)
 	}
-	if session.SessionKey != "key-123" {
-		t.Errorf("SessionKey: got %v, want key-123", session.SessionKey)
+	if pod.PodKey != "key-123" {
+		t.Errorf("PodKey: got %v, want key-123", pod.PodKey)
 	}
-	if session.AgentType != "claude-code" {
-		t.Errorf("AgentType: got %v, want claude-code", session.AgentType)
+	if pod.AgentType != "claude-code" {
+		t.Errorf("AgentType: got %v, want claude-code", pod.AgentType)
 	}
-	if session.Status != SessionStatusRunning {
-		t.Errorf("Status: got %v, want running", session.Status)
+	if pod.Status != PodStatusRunning {
+		t.Errorf("Status: got %v, want running", pod.Status)
 	}
-	if session.TicketIdentifier != "TICKET-123" {
-		t.Errorf("TicketIdentifier: got %v, want TICKET-123", session.TicketIdentifier)
+	if pod.TicketIdentifier != "TICKET-123" {
+		t.Errorf("TicketIdentifier: got %v, want TICKET-123", pod.TicketIdentifier)
 	}
 }
 
-func TestSessionAllFields(t *testing.T) {
+func TestPodAllFields(t *testing.T) {
 	now := time.Now()
-	forwarder := &PTYForwarder{sessionKey: "test"}
+	forwarder := &PTYForwarder{podKey: "test"}
 
-	session := &Session{
+	pod := &Pod{
 		ID:               "id-1",
-		SessionKey:       "key-1",
+		PodKey:       "key-1",
 		AgentType:        "claude-code",
 		RepositoryURL:    "https://github.com/test/repo.git",
 		Branch:           "feature/test",
@@ -74,31 +74,31 @@ func TestSessionAllFields(t *testing.T) {
 		InitialPrompt:    "Hello, Claude!",
 		Terminal:         nil,
 		StartedAt:        now,
-		Status:           SessionStatusRunning,
+		Status:           PodStatusRunning,
 		TicketIdentifier: "TICKET-123",
 		OnOutput:         func([]byte) {},
 		OnExit:           func(int) {},
 		Forwarder:        forwarder,
 	}
 
-	if session.OnOutput == nil {
+	if pod.OnOutput == nil {
 		t.Error("OnOutput should not be nil")
 	}
-	if session.OnExit == nil {
+	if pod.OnExit == nil {
 		t.Error("OnExit should not be nil")
 	}
-	if session.Forwarder == nil {
+	if pod.Forwarder == nil {
 		t.Error("Forwarder should not be nil")
 	}
 }
 
-func TestSessionWithCallbacks(t *testing.T) {
+func TestPodWithCallbacks(t *testing.T) {
 	outputCalled := false
 	exitCalled := false
 
-	session := &Session{
-		ID:     "session-1",
-		Status: SessionStatusRunning,
+	pod := &Pod{
+		ID:     "pod-1",
+		Status: PodStatusRunning,
 		OnOutput: func(data []byte) {
 			outputCalled = true
 		},
@@ -107,11 +107,11 @@ func TestSessionWithCallbacks(t *testing.T) {
 		},
 	}
 
-	if session.OnOutput != nil {
-		session.OnOutput([]byte("test"))
+	if pod.OnOutput != nil {
+		pod.OnOutput([]byte("test"))
 	}
-	if session.OnExit != nil {
-		session.OnExit(0)
+	if pod.OnExit != nil {
+		pod.OnExit(0)
 	}
 
 	if !outputCalled {
@@ -124,9 +124,9 @@ func TestSessionWithCallbacks(t *testing.T) {
 
 // --- Test Payload Structs ---
 
-func TestSessionStartPayload(t *testing.T) {
-	payload := SessionStartPayload{
-		SessionKey:       "session-1",
+func TestPodStartPayload(t *testing.T) {
+	payload := PodStartPayload{
+		PodKey:       "pod-1",
 		AgentType:        "claude-code",
 		LaunchCommand:    "claude",
 		LaunchArgs:       []string{"--headless"},
@@ -141,8 +141,8 @@ func TestSessionStartPayload(t *testing.T) {
 		PrepTimeout:      300,
 	}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 	if payload.AgentType != "claude-code" {
 		t.Errorf("AgentType: got %v, want claude-code", payload.AgentType)
@@ -155,9 +155,9 @@ func TestSessionStartPayload(t *testing.T) {
 	}
 }
 
-func TestSessionStartPayloadJSON(t *testing.T) {
+func TestPodStartPayloadJSON(t *testing.T) {
 	jsonStr := `{
-		"session_key": "session-1",
+		"pod_key": "pod-1",
 		"agent_type": "claude-code",
 		"launch_command": "claude",
 		"launch_args": ["--headless"],
@@ -167,48 +167,48 @@ func TestSessionStartPayloadJSON(t *testing.T) {
 		"ticket_identifier": "TICKET-123"
 	}`
 
-	var payload SessionStartPayload
+	var payload PodStartPayload
 	if err := json.Unmarshal([]byte(jsonStr), &payload); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 	if payload.TicketIdentifier != "TICKET-123" {
 		t.Errorf("TicketIdentifier: got %v, want TICKET-123", payload.TicketIdentifier)
 	}
 }
 
-func TestSessionStopPayload(t *testing.T) {
-	payload := SessionStopPayload{SessionKey: "session-1"}
+func TestPodStopPayload(t *testing.T) {
+	payload := PodStopPayload{PodKey: "pod-1"}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 }
 
-func TestSessionStopPayloadJSON(t *testing.T) {
-	jsonStr := `{"session_key": "session-1"}`
+func TestPodStopPayloadJSON(t *testing.T) {
+	jsonStr := `{"pod_key": "pod-1"}`
 
-	var payload SessionStopPayload
+	var payload PodStopPayload
 	if err := json.Unmarshal([]byte(jsonStr), &payload); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 }
 
 func TestTerminalInputPayload(t *testing.T) {
 	payload := TerminalInputPayload{
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Data:       []byte("hello"),
 	}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 	if string(payload.Data) != "hello" {
 		t.Errorf("Data: got %v, want hello", string(payload.Data))
@@ -217,13 +217,13 @@ func TestTerminalInputPayload(t *testing.T) {
 
 func TestTerminalResizePayload(t *testing.T) {
 	payload := TerminalResizePayload{
-		SessionKey: "session-1",
+		PodKey: "pod-1",
 		Rows:       40,
 		Cols:       120,
 	}
 
-	if payload.SessionKey != "session-1" {
-		t.Errorf("SessionKey: got %v, want session-1", payload.SessionKey)
+	if payload.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", payload.PodKey)
 	}
 	if payload.Rows != 40 {
 		t.Errorf("Rows: got %v, want 40", payload.Rows)
@@ -233,10 +233,10 @@ func TestTerminalResizePayload(t *testing.T) {
 	}
 }
 
-func TestSessionListPayloadJSON(t *testing.T) {
+func TestPodListPayloadJSON(t *testing.T) {
 	jsonStr := `{"request_id": "req-123"}`
 
-	var payload SessionListPayload
+	var payload PodListPayload
 	if err := json.Unmarshal([]byte(jsonStr), &payload); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
@@ -250,12 +250,12 @@ func TestSessionListPayloadJSON(t *testing.T) {
 
 func TestRunnerStruct(t *testing.T) {
 	r := &Runner{
-		sessions: make(map[string]*Session),
+		pods: make(map[string]*Pod),
 		stopChan: make(chan struct{}),
 	}
 
-	if r.sessions == nil {
-		t.Error("sessions should be initialized")
+	if r.pods == nil {
+		t.Error("pods should be initialized")
 	}
 	if r.stopChan == nil {
 		t.Error("stopChan should be initialized")
@@ -266,9 +266,9 @@ func TestRunnerStructFields(t *testing.T) {
 	r := &Runner{
 		cfg: &config.Config{
 			NodeID:                "node-1",
-			MaxConcurrentSessions: 5,
+			MaxConcurrentPods: 5,
 		},
-		sessions: make(map[string]*Session),
+		pods: make(map[string]*Pod),
 		stopChan: make(chan struct{}),
 	}
 
@@ -278,37 +278,37 @@ func TestRunnerStructFields(t *testing.T) {
 	if r.cfg.NodeID != "node-1" {
 		t.Errorf("cfg.NodeID = %v, want node-1", r.cfg.NodeID)
 	}
-	if r.sessions == nil {
-		t.Error("sessions should not be nil")
+	if r.pods == nil {
+		t.Error("pods should not be nil")
 	}
 }
 
 // --- Test Runner Methods ---
 
-func TestRunnerStopAllSessionsEmpty(t *testing.T) {
-	store := NewInMemorySessionStore()
+func TestRunnerStopAllPodsEmpty(t *testing.T) {
+	store := NewInMemoryPodStore()
 	r := &Runner{
-		sessions:     make(map[string]*Session),
-		sessionStore: store,
+		pods:     make(map[string]*Pod),
+		podStore: store,
 	}
 
-	// Should not panic with empty sessions
-	r.stopAllSessions()
+	// Should not panic with empty pods
+	r.stopAllPods()
 }
 
-func TestRunnerStopAllSessionsWithNilTerminal(t *testing.T) {
-	store := NewInMemorySessionStore()
-	store.Put("session-1", &Session{ID: "session-1", SessionKey: "session-1", Terminal: nil})
+func TestRunnerStopAllPodsWithNilTerminal(t *testing.T) {
+	store := NewInMemoryPodStore()
+	store.Put("pod-1", &Pod{ID: "pod-1", PodKey: "pod-1", Terminal: nil})
 	r := &Runner{
-		sessions:     make(map[string]*Session),
-		sessionStore: store,
+		pods:     make(map[string]*Pod),
+		podStore: store,
 	}
 
 	// Should not panic
-	r.stopAllSessions()
+	r.stopAllPods()
 
 	if store.Count() != 0 {
-		t.Errorf("sessions should be empty after stopAllSessions")
+		t.Errorf("pods should be empty after stopAllPods")
 	}
 }
 
@@ -330,21 +330,21 @@ func TestBuildWebSocketURLHTTPS(t *testing.T) {
 	}
 }
 
-// --- Test ExtendedSession ---
+// --- Test ExtendedPod ---
 
-func TestExtendedSessionStruct(t *testing.T) {
-	session := &Session{ID: "session-1", Status: SessionStatusRunning}
+func TestExtendedPodStruct(t *testing.T) {
+	pod := &Pod{ID: "pod-1", Status: PodStatusRunning}
 
-	extended := ExtendedSession{
-		Session:          session,
-		OnOutput:         func([]byte) {},
-		OnExit:           func(int) {},
-		TicketIdentifier: "TICKET-123",
-		ManagedSession:   nil,
+	extended := ExtendedPod{
+		Pod:                    pod,
+		OnOutput:               func([]byte) {},
+		OnExit:                 func(int) {},
+		TicketIdentifier:       "TICKET-123",
+		ManagedTerminalSession: nil,
 	}
 
-	if extended.ID != "session-1" {
-		t.Errorf("ID: got %v, want session-1", extended.ID)
+	if extended.ID != "pod-1" {
+		t.Errorf("ID: got %v, want pod-1", extended.ID)
 	}
 	if extended.TicketIdentifier != "TICKET-123" {
 		t.Errorf("TicketIdentifier: got %v, want TICKET-123", extended.TicketIdentifier)
@@ -353,9 +353,9 @@ func TestExtendedSessionStruct(t *testing.T) {
 
 // --- Benchmarks ---
 
-func BenchmarkSessionStartPayloadUnmarshal(b *testing.B) {
+func BenchmarkPodStartPayloadUnmarshal(b *testing.B) {
 	jsonStr := []byte(`{
-		"session_key": "session-1",
+		"pod_key": "pod-1",
 		"agent_type": "claude-code",
 		"launch_command": "claude",
 		"launch_args": ["--headless"],
@@ -365,7 +365,7 @@ func BenchmarkSessionStartPayloadUnmarshal(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var payload SessionStartPayload
+		var payload PodStartPayload
 		json.Unmarshal(jsonStr, &payload)
 	}
 }

@@ -30,8 +30,8 @@ export type { Repository, Branch } from "./repository";
 // Runner store
 export { useRunnerStore } from "./runner";
 
-// Session store
-export { useSessionStore } from "./session";
+// Pod store
+export { usePodStore } from "./pod";
 
 // Channel store
 export { useChannelStore } from "./channel";

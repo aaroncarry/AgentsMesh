@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/domain/channel"
 	"github.com/anthropics/agentmesh/backend/internal/domain/devmesh"
-	"github.com/anthropics/agentmesh/backend/internal/domain/session"
 	bindingService "github.com/anthropics/agentmesh/backend/internal/service/binding"
 	channelService "github.com/anthropics/agentmesh/backend/internal/service/channel"
-	sessionService "github.com/anthropics/agentmesh/backend/internal/service/session"
+	podService "github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"gorm.io/gorm"
 )
 
@@ -21,7 +21,7 @@ var (
 // Service handles DevMesh operations
 type Service struct {
 	db             *gorm.DB
-	sessionService *sessionService.Service
+	podService     *podService.PodService
 	channelService *channelService.Service
 	bindingService *bindingService.Service
 }
@@ -29,13 +29,13 @@ type Service struct {
 // NewService creates a new DevMesh service
 func NewService(
 	db *gorm.DB,
-	ss *sessionService.Service,
+	ps *podService.PodService,
 	cs *channelService.Service,
 	bs *bindingService.Service,
 ) *Service {
 	return &Service{
 		db:             db,
-		sessionService: ss,
+		podService:     ps,
 		channelService: cs,
 		bindingService: bs,
 	}
@@ -43,29 +43,29 @@ func NewService(
 
 // GetTopology returns the complete DevMesh topology for an organization
 func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMeshTopology, error) {
-	// 1. Get active sessions
-	sessions, _, err := s.sessionService.ListSessions(ctx, orgID, nil, "", 100, 0)
+	// 1. Get active pods
+	pods, _, err := s.podService.ListPods(ctx, orgID, nil, "", 100, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	// Filter to only active sessions and convert to nodes
+	// Filter to only active pods and convert to nodes
 	nodes := make([]devmesh.DevMeshNode, 0)
-	sessionKeys := make([]string, 0)
+	podKeys := make([]string, 0)
 
-	for _, sess := range sessions {
-		if sess.IsActive() {
-			node := s.sessionToNode(sess)
+	for _, pod := range pods {
+		if pod.IsActive() {
+			node := s.podToNode(pod)
 			nodes = append(nodes, node)
-			sessionKeys = append(sessionKeys, sess.SessionKey)
+			podKeys = append(podKeys, pod.PodKey)
 		}
 	}
 
-	// 2. Get bindings (edges) for active sessions
+	// 2. Get bindings (edges) for active pods
 	edges := make([]devmesh.DevMeshEdge, 0)
-	for _, key := range sessionKeys {
+	for _, key := range podKeys {
 		activeStatus := channel.BindingStatusActive
-		bindings, err := s.bindingService.GetBindingsForSession(ctx, key, &activeStatus)
+		bindings, err := s.bindingService.GetBindingsForPod(ctx, key, &activeStatus)
 		if err != nil {
 			continue
 		}
@@ -73,8 +73,8 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 			if b.IsActive() {
 				edges = append(edges, devmesh.DevMeshEdge{
 					ID:            b.ID,
-					Source:        b.InitiatorSession,
-					Target:        b.TargetSession,
+					Source:        b.InitiatorPod,
+					Target:        b.TargetPod,
 					GrantedScopes: []string(b.GrantedScopes),
 					PendingScopes: []string(b.PendingScopes),
 					Status:        b.Status,
@@ -91,8 +91,8 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 
 	channelInfos := make([]devmesh.ChannelInfo, 0, len(channels))
 	for _, ch := range channels {
-		// Get sessions in this channel
-		channelSessions := s.getChannelSessions(ctx, ch.ID)
+		// Get pods in this channel
+		channelPods := s.getChannelPods(ctx, ch.ID)
 
 		// Get message count
 		messageCount := s.getChannelMessageCount(ctx, ch.ID)
@@ -101,7 +101,7 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 			ID:           ch.ID,
 			Name:         ch.Name,
 			Description:  ch.Description,
-			SessionKeys:  channelSessions,
+			PodKeys:      channelPods,
 			MessageCount: messageCount,
 			IsArchived:   ch.IsArchived,
 		})
@@ -114,31 +114,31 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*devmesh.DevMes
 	}, nil
 }
 
-// sessionToNode converts a session to a DevMesh node
-func (s *Service) sessionToNode(sess *session.Session) devmesh.DevMeshNode {
+// podToNode converts a pod to a DevMesh node
+func (s *Service) podToNode(pod *agentpod.Pod) devmesh.DevMeshNode {
 	return devmesh.DevMeshNode{
-		SessionKey:   sess.SessionKey,
-		Status:       sess.Status,
-		AgentStatus:  sess.AgentStatus,
-		Model:        sess.Model,
-		TicketID:     sess.TicketID,
-		RepositoryID: sess.RepositoryID,
-		CreatedByID:  sess.CreatedByID,
-		RunnerID:     sess.RunnerID,
-		StartedAt:    sess.StartedAt,
+		PodKey:       pod.PodKey,
+		Status:       pod.Status,
+		AgentStatus:  pod.AgentStatus,
+		Model:        pod.Model,
+		TicketID:     pod.TicketID,
+		RepositoryID: pod.RepositoryID,
+		CreatedByID:  pod.CreatedByID,
+		RunnerID:     pod.RunnerID,
+		StartedAt:    pod.StartedAt,
 	}
 }
 
-// getChannelSessions returns session keys in a channel
-func (s *Service) getChannelSessions(ctx context.Context, channelID int64) []string {
-	var channelSessions []devmesh.ChannelSession
+// getChannelPods returns pod keys in a channel
+func (s *Service) getChannelPods(ctx context.Context, channelID int64) []string {
+	var channelPods []devmesh.ChannelPod
 	s.db.WithContext(ctx).
 		Where("channel_id = ?", channelID).
-		Find(&channelSessions)
+		Find(&channelPods)
 
-	keys := make([]string, len(channelSessions))
-	for i, cs := range channelSessions {
-		keys[i] = cs.SessionKey
+	keys := make([]string, len(channelPods))
+	for i, cp := range channelPods {
+		keys[i] = cp.PodKey
 	}
 	return keys
 }
@@ -153,9 +153,9 @@ func (s *Service) getChannelMessageCount(ctx context.Context, channelID int64) i
 	return int(count)
 }
 
-// CreateSessionForTicket creates a new session associated with a ticket
-func (s *Service) CreateSessionForTicket(ctx context.Context, req *devmesh.CreateSessionForTicketRequest) (*session.Session, error) {
-	return s.sessionService.CreateSessionForTicket(ctx, &sessionService.CreateSessionRequest{
+// CreatePodForTicket creates a new pod associated with a ticket
+func (s *Service) CreatePodForTicket(ctx context.Context, req *devmesh.CreatePodForTicketRequest) (*agentpod.Pod, error) {
+	return s.podService.CreatePodForTicket(ctx, &podService.CreatePodRequest{
 		OrganizationID: req.OrganizationID,
 		RunnerID:       req.RunnerID,
 		TicketID:       &req.TicketID,
@@ -167,55 +167,55 @@ func (s *Service) CreateSessionForTicket(ctx context.Context, req *devmesh.Creat
 	})
 }
 
-// GetSessionsForTicket returns all sessions associated with a ticket
-func (s *Service) GetSessionsForTicket(ctx context.Context, ticketID int64) ([]devmesh.DevMeshNode, error) {
-	sessions, err := s.sessionService.GetSessionsByTicket(ctx, ticketID)
+// GetPodsForTicket returns all pods associated with a ticket
+func (s *Service) GetPodsForTicket(ctx context.Context, ticketID int64) ([]devmesh.DevMeshNode, error) {
+	pods, err := s.podService.GetPodsByTicket(ctx, ticketID)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes := make([]devmesh.DevMeshNode, len(sessions))
-	for i, sess := range sessions {
-		nodes[i] = s.sessionToNode(sess)
+	nodes := make([]devmesh.DevMeshNode, len(pods))
+	for i, pod := range pods {
+		nodes[i] = s.podToNode(pod)
 	}
 	return nodes, nil
 }
 
-// GetActiveSessionsForTicket returns only active sessions for a ticket
-func (s *Service) GetActiveSessionsForTicket(ctx context.Context, ticketID int64) ([]devmesh.DevMeshNode, error) {
-	sessions, err := s.sessionService.GetSessionsByTicket(ctx, ticketID)
+// GetActivePodsForTicket returns only active pods for a ticket
+func (s *Service) GetActivePodsForTicket(ctx context.Context, ticketID int64) ([]devmesh.DevMeshNode, error) {
+	pods, err := s.podService.GetPodsByTicket(ctx, ticketID)
 	if err != nil {
 		return nil, err
 	}
 
 	nodes := make([]devmesh.DevMeshNode, 0)
-	for _, sess := range sessions {
-		if sess.IsActive() {
-			nodes = append(nodes, s.sessionToNode(sess))
+	for _, pod := range pods {
+		if pod.IsActive() {
+			nodes = append(nodes, s.podToNode(pod))
 		}
 	}
 	return nodes, nil
 }
 
-// BatchGetTicketSessions returns sessions for multiple tickets
-func (s *Service) BatchGetTicketSessions(ctx context.Context, ticketIDs []int64) (*devmesh.BatchTicketSessionsResponse, error) {
-	// Get all sessions for the given ticket IDs
-	var sessions []*session.Session
+// BatchGetTicketPods returns pods for multiple tickets
+func (s *Service) BatchGetTicketPods(ctx context.Context, ticketIDs []int64) (*devmesh.BatchTicketPodsResponse, error) {
+	// Get all pods for the given ticket IDs
+	var pods []*agentpod.Pod
 	if err := s.db.WithContext(ctx).
 		Where("ticket_id IN ?", ticketIDs).
-		Find(&sessions).Error; err != nil {
+		Find(&pods).Error; err != nil {
 		return nil, err
 	}
 
 	// Group by ticket ID
 	result := make(map[int64][]devmesh.DevMeshNode)
-	for _, sess := range sessions {
-		if sess.TicketID != nil {
-			ticketID := *sess.TicketID
+	for _, pod := range pods {
+		if pod.TicketID != nil {
+			ticketID := *pod.TicketID
 			if _, exists := result[ticketID]; !exists {
 				result[ticketID] = make([]devmesh.DevMeshNode, 0)
 			}
-			result[ticketID] = append(result[ticketID], s.sessionToNode(sess))
+			result[ticketID] = append(result[ticketID], s.podToNode(pod))
 		}
 	}
 
@@ -226,33 +226,33 @@ func (s *Service) BatchGetTicketSessions(ctx context.Context, ticketIDs []int64)
 		}
 	}
 
-	return &devmesh.BatchTicketSessionsResponse{
-		TicketSessions: result,
+	return &devmesh.BatchTicketPodsResponse{
+		TicketPods: result,
 	}, nil
 }
 
-// JoinChannel adds a session to a channel
-func (s *Service) JoinChannel(ctx context.Context, channelID int64, sessionKey string) error {
-	cs := &devmesh.ChannelSession{
-		ChannelID:  channelID,
-		SessionKey: sessionKey,
+// JoinChannel adds a pod to a channel
+func (s *Service) JoinChannel(ctx context.Context, channelID int64, podKey string) error {
+	cp := &devmesh.ChannelPod{
+		ChannelID: channelID,
+		PodKey:    podKey,
 	}
-	return s.db.WithContext(ctx).Create(cs).Error
+	return s.db.WithContext(ctx).Create(cp).Error
 }
 
-// LeaveChannel removes a session from a channel
-func (s *Service) LeaveChannel(ctx context.Context, channelID int64, sessionKey string) error {
+// LeaveChannel removes a pod from a channel
+func (s *Service) LeaveChannel(ctx context.Context, channelID int64, podKey string) error {
 	return s.db.WithContext(ctx).
-		Where("channel_id = ? AND session_key = ?", channelID, sessionKey).
-		Delete(&devmesh.ChannelSession{}).Error
+		Where("channel_id = ? AND pod_key = ?", channelID, podKey).
+		Delete(&devmesh.ChannelPod{}).Error
 }
 
 // RecordChannelAccess records access to a channel
-func (s *Service) RecordChannelAccess(ctx context.Context, channelID int64, sessionKey *string, userID *int64) error {
+func (s *Service) RecordChannelAccess(ctx context.Context, channelID int64, podKey *string, userID *int64) error {
 	access := &devmesh.ChannelAccess{
-		ChannelID:  channelID,
-		SessionKey: sessionKey,
-		UserID:     userID,
+		ChannelID: channelID,
+		PodKey:    podKey,
+		UserID:    userID,
 	}
 	return s.db.WithContext(ctx).Create(access).Error
 }

@@ -21,16 +21,16 @@ type registrationClient struct {
 }
 
 // register registers the runner with the server and returns the auth token
-func (c *registrationClient) register(ctx context.Context, registrationToken, description string, maxSessions int) (string, error) {
+func (c *registrationClient) register(ctx context.Context, registrationToken, description string, maxPods int) (string, error) {
 	// Build registration URL
 	registerURL := fmt.Sprintf("%s/api/v1/runners/register", c.serverURL)
 
 	// Build request body
 	body := map[string]interface{}{
-		"node_id":                 c.nodeID,
-		"description":             description,
-		"registration_token":      registrationToken,
-		"max_concurrent_sessions": maxSessions,
+		"node_id":              c.nodeID,
+		"description":          description,
+		"registration_token":   registrationToken,
+		"max_concurrent_pods":  maxPods,
 	}
 
 	bodyBytes, err := json.Marshal(body)
@@ -78,19 +78,19 @@ func (c *registrationClient) register(ctx context.Context, registrationToken, de
 
 // savedConfig represents the configuration saved to ~/.agentmesh/config.yaml
 type savedConfig struct {
-	ServerURL             string `yaml:"server_url"`
-	NodeID                string `yaml:"node_id"`
-	Description           string `yaml:"description"`
-	MaxConcurrentSessions int    `yaml:"max_concurrent_sessions"`
-	WorkspaceRoot         string `yaml:"workspace_root"`
-	DefaultAgent          string `yaml:"default_agent"`
-	DefaultShell          string `yaml:"default_shell"`
-	HealthCheckPort       int    `yaml:"health_check_port"`
-	LogLevel              string `yaml:"log_level"`
+	ServerURL          string `yaml:"server_url"`
+	NodeID             string `yaml:"node_id"`
+	Description        string `yaml:"description"`
+	MaxConcurrentPods  int    `yaml:"max_concurrent_pods"`
+	WorkspaceRoot      string `yaml:"workspace_root"`
+	DefaultAgent       string `yaml:"default_agent"`
+	DefaultShell       string `yaml:"default_shell"`
+	HealthCheckPort    int    `yaml:"health_check_port"`
+	LogLevel           string `yaml:"log_level"`
 }
 
 // saveConfig saves the registration result to ~/.agentmesh/
-func saveConfig(nodeID, serverURL, authToken, description string, maxSessions int) error {
+func saveConfig(nodeID, serverURL, authToken, description string, maxPods int) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
@@ -109,15 +109,15 @@ func saveConfig(nodeID, serverURL, authToken, description string, maxSessions in
 
 	// Save config
 	cfg := savedConfig{
-		ServerURL:             serverURL,
-		NodeID:                nodeID,
-		Description:           description,
-		MaxConcurrentSessions: maxSessions,
-		WorkspaceRoot:         "/tmp/agentmesh-workspace",
-		DefaultAgent:          "claude-code",
-		DefaultShell:          getDefaultShell(),
-		HealthCheckPort:       9090,
-		LogLevel:              "info",
+		ServerURL:         serverURL,
+		NodeID:            nodeID,
+		Description:       description,
+		MaxConcurrentPods: maxPods,
+		WorkspaceRoot:     "/tmp/agentmesh-workspace",
+		DefaultAgent:      "claude-code",
+		DefaultShell:      getDefaultShell(),
+		HealthCheckPort:   9090,
+		LogLevel:          "info",
 	}
 
 	configData, err := yaml.Marshal(cfg)

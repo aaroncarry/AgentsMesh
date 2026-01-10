@@ -5,7 +5,7 @@ export default function DevMeshPage() {
 
       <p className="text-muted-foreground leading-relaxed mb-8">
         DevMesh visualizes and coordinates multiple AI agents working together.
-        See the topology of active sessions, their bindings, and communication
+        See the topology of active Pods, their bindings, and communication
         channels in real-time.
       </p>
 
@@ -17,7 +17,7 @@ export default function DevMeshPage() {
         </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>
-            <strong>Session Binding</strong> - Allow one agent to observe or
+            <strong>Pod Binding</strong> - Allow one agent to observe or
             control another
           </li>
           <li>
@@ -25,7 +25,7 @@ export default function DevMeshPage() {
             agents
           </li>
           <li>
-            <strong>Topology Visualization</strong> - See all sessions and their
+            <strong>Topology Visualization</strong> - See all Pods and their
             relationships
           </li>
           <li>
@@ -35,11 +35,11 @@ export default function DevMeshPage() {
         </ul>
       </section>
 
-      {/* Session Bindings */}
+      {/* Pod Bindings */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Session Bindings</h2>
+        <h2 className="text-2xl font-semibold mb-4">Pod Bindings</h2>
         <p className="text-muted-foreground leading-relaxed mb-4">
-          Sessions can bind to each other to share capabilities. Bindings
+          Pods can bind to each other to share capabilities. Bindings
           support scoped permissions for security and control.
         </p>
 
@@ -61,7 +61,7 @@ export default function DevMeshPage() {
                 </td>
                 <td className="p-3 border-b border-border">
                   Observe terminal output (view-only access to the target
-                  session&apos;s terminal)
+                  Pod&apos;s terminal)
                 </td>
               </tr>
               <tr>
@@ -86,9 +86,9 @@ export default function DevMeshPage() {
             <div>
               <p className="font-medium">Request Binding</p>
               <p className="text-sm text-muted-foreground">
-                Session A calls{" "}
-                <code className="bg-muted px-1 rounded">bind_session</code> to
-                request access to Session B with specific scopes.
+                Pod A calls{" "}
+                <code className="bg-muted px-1 rounded">bind_pod</code> to
+                request access to Pod B with specific scopes.
               </p>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function DevMeshPage() {
             <div>
               <p className="font-medium">Accept/Reject</p>
               <p className="text-sm text-muted-foreground">
-                Session B receives the request and can{" "}
+                Pod B receives the request and can{" "}
                 <code className="bg-muted px-1 rounded">accept_binding</code> or{" "}
                 <code className="bg-muted px-1 rounded">reject_binding</code>.
               </p>
@@ -112,7 +112,7 @@ export default function DevMeshPage() {
             <div>
               <p className="font-medium">Collaborate</p>
               <p className="text-sm text-muted-foreground">
-                Once active, Session A can use{" "}
+                Once active, Pod A can use{" "}
                 <code className="bg-muted px-1 rounded">observe_terminal</code>{" "}
                 or{" "}
                 <code className="bg-muted px-1 rounded">send_terminal_text</code>{" "}
@@ -131,7 +131,7 @@ export default function DevMeshPage() {
             <strong>active</strong> - Binding is active and scopes are granted
           </li>
           <li>
-            <strong>rejected</strong> - Target session rejected the binding
+            <strong>rejected</strong> - Target Pod rejected the binding
           </li>
           <li>
             <strong>inactive</strong> - Binding was manually deactivated
@@ -183,15 +183,15 @@ export default function DevMeshPage() {
         </p>
         <ul className="list-disc list-inside text-muted-foreground space-y-2">
           <li>
-            <strong>Session Nodes</strong> - Each active session with its agent
+            <strong>Pod Nodes</strong> - Each active Pod with its agent
             type and status
           </li>
           <li>
-            <strong>Binding Edges</strong> - Connections between bound sessions
+            <strong>Binding Edges</strong> - Connections between bound Pods
             with scope labels
           </li>
           <li>
-            <strong>Channel Membership</strong> - Which sessions belong to which
+            <strong>Channel Membership</strong> - Which Pods belong to which
             channels
           </li>
           <li>

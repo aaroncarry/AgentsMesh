@@ -186,7 +186,7 @@ func (m *Manager) monitorSession(session *Session) {
 		session.Cmd.Wait()
 	}
 
-	log.Printf("[terminal] Session process exited: session_id=%s", session.ID)
+	log.Printf("[terminal] Session process exited: pod_id=%s", session.ID)
 
 	// Check if we should call the callback (avoid double invocation)
 	m.mu.Lock()
@@ -231,7 +231,7 @@ func (m *Manager) CleanupStaleSessions(maxIdleTime time.Duration) int {
 		delete(m.closedSessions, id)
 		session.Close()
 
-		log.Printf("[terminal] Cleaned up stale session: session_id=%s, last_activity=%v",
+		log.Printf("[terminal] Cleaned up stale session: pod_id=%s, last_activity=%v",
 			id, session.LastActivity)
 	}
 

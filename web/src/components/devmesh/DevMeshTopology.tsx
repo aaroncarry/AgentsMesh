@@ -14,14 +14,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import SessionNode from "./SessionNode";
+import PodNode from "./PodNode";
 import ChannelNode from "./ChannelNode";
 import BindingEdge from "./BindingEdge";
 import { useDevMeshStore, type DevMeshNode, type ChannelInfo, type DevMeshEdge } from "@/stores/devmesh";
 
 // Custom node types - using 'any' to bypass strict type checking
 const nodeTypes = {
-  session: SessionNode as any,
+  pod: PodNode as any,
   channel: ChannelNode as any,
 };
 
@@ -32,28 +32,28 @@ const edgeTypes = {
 
 // Layout algorithm - simple force-directed-like placement
 function calculateLayout(
-  sessions: DevMeshNode[],
+  pods: DevMeshNode[],
   channels: ChannelInfo[],
   edges: DevMeshEdge[]
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const flowEdges: Edge[] = [];
 
-  // Create session nodes
-  const sessionCount = sessions.length;
-  const radius = Math.max(200, sessionCount * 40);
+  // Create pod nodes
+  const podCount = pods.length;
+  const radius = Math.max(200, podCount * 40);
 
-  sessions.forEach((session, index) => {
-    // Circular layout for sessions
-    const angle = (2 * Math.PI * index) / sessionCount;
-    const x = session.position?.x ?? 400 + radius * Math.cos(angle);
-    const y = session.position?.y ?? 300 + radius * Math.sin(angle);
+  pods.forEach((pod, index) => {
+    // Circular layout for pods
+    const angle = (2 * Math.PI * index) / podCount;
+    const x = pod.position?.x ?? 400 + radius * Math.cos(angle);
+    const y = pod.position?.y ?? 300 + radius * Math.sin(angle);
 
     nodes.push({
-      id: session.session_key,
-      type: "session",
+      id: pod.pod_key,
+      type: "pod",
       position: { x, y },
-      data: { node: session },
+      data: { node: pod },
     });
   });
 
@@ -69,12 +69,12 @@ function calculateLayout(
       data: { channel },
     });
 
-    // Create edges from channel to connected sessions
-    channel.session_keys.forEach((sessionKey) => {
+    // Create edges from channel to connected pods
+    channel.pod_keys.forEach((podKey) => {
       flowEdges.push({
-        id: `channel-${channel.id}-${sessionKey}`,
+        id: `channel-${channel.id}-${podKey}`,
         source: `channel-${channel.id}`,
-        target: sessionKey,
+        target: podKey,
         type: "smoothstep",
         style: { stroke: "#3b82f6", strokeWidth: 1, strokeDasharray: "4 2" },
         animated: true,
@@ -82,7 +82,7 @@ function calculateLayout(
     });
   });
 
-  // Create binding edges between sessions
+  // Create binding edges between pods
   edges.forEach((edge) => {
     flowEdges.push({
       id: `binding-${edge.id}`,
@@ -126,7 +126,7 @@ export default function DevMeshTopology() {
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
-        if (node.type === "session") {
+        if (node.type === "pod") {
           return {
             ...node,
             data: {
@@ -153,7 +153,7 @@ export default function DevMeshTopology() {
   // Handle node click
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      if (node.type === "session") {
+      if (node.type === "pod") {
         selectNode(node.id);
       } else if (node.type === "channel") {
         const channelId = parseInt(node.id.replace("channel-", ""), 10);
@@ -171,7 +171,7 @@ export default function DevMeshTopology() {
 
   // Node color for minimap
   const nodeColor = useCallback((node: Node) => {
-    if (node.type === "session") {
+    if (node.type === "pod") {
       const data = node.data as { node: DevMeshNode };
       switch (data.node?.status) {
         case "running":
@@ -212,9 +212,9 @@ export default function DevMeshTopology() {
               d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
             />
           </svg>
-          <h3 className="text-lg font-medium text-foreground mb-2">No Active Sessions</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">No Active Pods</h3>
           <p className="text-muted-foreground">
-            Start a DevPod session to see it in the mesh
+            Start an AgentPod to see it in the mesh
           </p>
         </div>
       </div>

@@ -17,9 +17,9 @@ const (
 
 // TerminalClient represents a frontend WebSocket client connected to a terminal
 type TerminalClient struct {
-	Conn      *websocket.Conn
-	SessionID string
-	Send      chan []byte
+	Conn   *websocket.Conn
+	PodKey string
+	Send   chan []byte
 }
 
 // TerminalRouter routes terminal data between frontend clients and runners
@@ -27,11 +27,11 @@ type TerminalRouter struct {
 	connectionManager *ConnectionManager
 	logger            *slog.Logger
 
-	// Session -> Runner mapping
-	sessionRunnerMap map[string]int64
-	sessionRunnerMu  sync.RWMutex
+	// Pod -> Runner mapping
+	podRunnerMap map[string]int64
+	podRunnerMu  sync.RWMutex
 
-	// Session -> Frontend clients
+	// Pod -> Frontend clients
 	terminalClients   map[string]map[*TerminalClient]bool
 	terminalClientsMu sync.RWMutex
 
@@ -147,7 +147,7 @@ func NewTerminalRouter(cm *ConnectionManager, logger *slog.Logger) *TerminalRout
 	tr := &TerminalRouter{
 		connectionManager: cm,
 		logger:            logger,
-		sessionRunnerMap:  make(map[string]int64),
+		podRunnerMap:      make(map[string]int64),
 		terminalClients:   make(map[string]map[*TerminalClient]bool),
 		scrollbackBuffers: make(map[string]*ScrollbackBuffer),
 		virtualTerminals:  make(map[string]*terminal.VirtualTerminal),
@@ -170,60 +170,60 @@ const DefaultTerminalRows = 24
 // DefaultVirtualTerminalHistory is the default scrollback history lines
 const DefaultVirtualTerminalHistory = 10000
 
-// RegisterSession registers a session's runner mapping
-func (tr *TerminalRouter) RegisterSession(sessionID string, runnerID int64) {
-	tr.RegisterSessionWithSize(sessionID, runnerID, DefaultTerminalCols, DefaultTerminalRows)
+// RegisterPod registers a pod's runner mapping
+func (tr *TerminalRouter) RegisterPod(podKey string, runnerID int64) {
+	tr.RegisterPodWithSize(podKey, runnerID, DefaultTerminalCols, DefaultTerminalRows)
 }
 
-// RegisterSessionWithSize registers a session with specific terminal size
-func (tr *TerminalRouter) RegisterSessionWithSize(sessionID string, runnerID int64, cols, rows int) {
-	tr.sessionRunnerMu.Lock()
-	tr.sessionRunnerMap[sessionID] = runnerID
-	tr.sessionRunnerMu.Unlock()
+// RegisterPodWithSize registers a pod with specific terminal size
+func (tr *TerminalRouter) RegisterPodWithSize(podKey string, runnerID int64, cols, rows int) {
+	tr.podRunnerMu.Lock()
+	tr.podRunnerMap[podKey] = runnerID
+	tr.podRunnerMu.Unlock()
 
 	// Initialize scrollback buffer
 	tr.scrollbackMu.Lock()
-	if _, exists := tr.scrollbackBuffers[sessionID]; !exists {
-		tr.scrollbackBuffers[sessionID] = NewScrollbackBuffer(tr.scrollbackSize)
+	if _, exists := tr.scrollbackBuffers[podKey]; !exists {
+		tr.scrollbackBuffers[podKey] = NewScrollbackBuffer(tr.scrollbackSize)
 	}
 	tr.scrollbackMu.Unlock()
 
 	// Initialize virtual terminal for agent observation
 	tr.virtualTermMu.Lock()
-	if vt, exists := tr.virtualTerminals[sessionID]; !exists {
-		tr.virtualTerminals[sessionID] = terminal.NewVirtualTerminal(cols, rows, DefaultVirtualTerminalHistory)
+	if vt, exists := tr.virtualTerminals[podKey]; !exists {
+		tr.virtualTerminals[podKey] = terminal.NewVirtualTerminal(cols, rows, DefaultVirtualTerminalHistory)
 	} else {
 		vt.Resize(cols, rows)
 	}
 	tr.virtualTermMu.Unlock()
 
-	tr.logger.Debug("session registered",
-		"session_id", sessionID,
+	tr.logger.Debug("pod registered",
+		"pod_key", podKey,
 		"runner_id", runnerID,
 		"cols", cols,
 		"rows", rows)
 }
 
-// UnregisterSession unregisters a session
-func (tr *TerminalRouter) UnregisterSession(sessionID string) {
-	tr.sessionRunnerMu.Lock()
-	delete(tr.sessionRunnerMap, sessionID)
-	tr.sessionRunnerMu.Unlock()
+// UnregisterPod unregisters a pod
+func (tr *TerminalRouter) UnregisterPod(podKey string) {
+	tr.podRunnerMu.Lock()
+	delete(tr.podRunnerMap, podKey)
+	tr.podRunnerMu.Unlock()
 
 	// Clean up scrollback buffer
 	tr.scrollbackMu.Lock()
-	delete(tr.scrollbackBuffers, sessionID)
+	delete(tr.scrollbackBuffers, podKey)
 	tr.scrollbackMu.Unlock()
 
 	// Clean up virtual terminal
 	tr.virtualTermMu.Lock()
-	delete(tr.virtualTerminals, sessionID)
+	delete(tr.virtualTerminals, podKey)
 	tr.virtualTermMu.Unlock()
 
 	// Disconnect all clients
 	tr.terminalClientsMu.Lock()
-	clients := tr.terminalClients[sessionID]
-	delete(tr.terminalClients, sessionID)
+	clients := tr.terminalClients[podKey]
+	delete(tr.terminalClients, podKey)
 	tr.terminalClientsMu.Unlock()
 
 	// Close client connections
@@ -232,29 +232,29 @@ func (tr *TerminalRouter) UnregisterSession(sessionID string) {
 		client.Conn.Close()
 	}
 
-	tr.logger.Debug("session unregistered", "session_id", sessionID)
+	tr.logger.Debug("pod unregistered", "pod_key", podKey)
 }
 
-// ConnectClient connects a frontend client to a session
-func (tr *TerminalRouter) ConnectClient(sessionID string, conn *websocket.Conn) (*TerminalClient, error) {
+// ConnectClient connects a frontend client to a pod
+func (tr *TerminalRouter) ConnectClient(podKey string, conn *websocket.Conn) (*TerminalClient, error) {
 	client := &TerminalClient{
-		Conn:      conn,
-		SessionID: sessionID,
-		Send:      make(chan []byte, 256),
+		Conn:   conn,
+		PodKey: podKey,
+		Send:   make(chan []byte, 256),
 	}
 
 	tr.terminalClientsMu.Lock()
-	if tr.terminalClients[sessionID] == nil {
-		tr.terminalClients[sessionID] = make(map[*TerminalClient]bool)
+	if tr.terminalClients[podKey] == nil {
+		tr.terminalClients[podKey] = make(map[*TerminalClient]bool)
 	}
-	tr.terminalClients[sessionID][client] = true
+	tr.terminalClients[podKey][client] = true
 	tr.terminalClientsMu.Unlock()
 
-	tr.logger.Info("terminal client connected", "session_id", sessionID)
+	tr.logger.Info("terminal client connected", "pod_key", podKey)
 
 	// Send scrollback data to the newly connected client
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer != nil {
@@ -263,7 +263,7 @@ func (tr *TerminalRouter) ConnectClient(sessionID string, conn *websocket.Conn) 
 			select {
 			case client.Send <- data:
 				tr.logger.Debug("sent scrollback to client",
-					"session_id", sessionID,
+					"pod_key", podKey,
 					"size", len(data))
 			default:
 				// Channel full, skip scrollback
@@ -277,25 +277,25 @@ func (tr *TerminalRouter) ConnectClient(sessionID string, conn *websocket.Conn) 
 // DisconnectClient disconnects a frontend client
 func (tr *TerminalRouter) DisconnectClient(client *TerminalClient) {
 	tr.terminalClientsMu.Lock()
-	if clients, ok := tr.terminalClients[client.SessionID]; ok {
+	if clients, ok := tr.terminalClients[client.PodKey]; ok {
 		delete(clients, client)
 		if len(clients) == 0 {
-			delete(tr.terminalClients, client.SessionID)
+			delete(tr.terminalClients, client.PodKey)
 		}
 	}
 	tr.terminalClientsMu.Unlock()
 
 	close(client.Send)
-	tr.logger.Info("terminal client disconnected", "session_id", client.SessionID)
+	tr.logger.Info("terminal client disconnected", "pod_key", client.PodKey)
 }
 
 // handleTerminalOutput handles terminal output from a runner
 func (tr *TerminalRouter) handleTerminalOutput(runnerID int64, data *TerminalOutputData) {
-	sessionID := data.SessionID
+	podKey := data.PodKey
 
 	// Store in scrollback buffer (raw data for frontend)
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer != nil {
@@ -304,7 +304,7 @@ func (tr *TerminalRouter) handleTerminalOutput(runnerID int64, data *TerminalOut
 
 	// Feed to virtual terminal (processed data for agent observation)
 	tr.virtualTermMu.RLock()
-	vt := tr.virtualTerminals[sessionID]
+	vt := tr.virtualTerminals[podKey]
 	tr.virtualTermMu.RUnlock()
 
 	if vt != nil {
@@ -313,11 +313,11 @@ func (tr *TerminalRouter) handleTerminalOutput(runnerID int64, data *TerminalOut
 
 	// Route to all connected clients
 	tr.terminalClientsMu.RLock()
-	clients := tr.terminalClients[sessionID]
+	clients := tr.terminalClients[podKey]
 	tr.terminalClientsMu.RUnlock()
 
 	if len(clients) == 0 {
-		tr.logger.Debug("no clients for terminal output", "session_id", sessionID)
+		tr.logger.Debug("no clients for terminal output", "pod_key", podKey)
 		return
 	}
 
@@ -336,7 +336,7 @@ func (tr *TerminalRouter) handleTerminalOutput(runnerID int64, data *TerminalOut
 	if len(deadClients) > 0 {
 		tr.terminalClientsMu.Lock()
 		for _, client := range deadClients {
-			delete(tr.terminalClients[sessionID], client)
+			delete(tr.terminalClients[podKey], client)
 		}
 		tr.terminalClientsMu.Unlock()
 	}
@@ -344,14 +344,14 @@ func (tr *TerminalRouter) handleTerminalOutput(runnerID int64, data *TerminalOut
 
 // handlePtyResized handles PTY resize notifications from runner
 func (tr *TerminalRouter) handlePtyResized(runnerID int64, data *PtyResizedData) {
-	sessionID := data.SessionID
+	podKey := data.PodKey
 
 	// Update virtual terminal size
 	tr.virtualTermMu.Lock()
-	if vt, exists := tr.virtualTerminals[sessionID]; exists {
+	if vt, exists := tr.virtualTerminals[podKey]; exists {
 		vt.Resize(data.Cols, data.Rows)
 		tr.logger.Debug("virtual terminal resized",
-			"session_id", sessionID,
+			"pod_key", podKey,
 			"cols", data.Cols,
 			"rows", data.Rows)
 	}
@@ -359,40 +359,40 @@ func (tr *TerminalRouter) handlePtyResized(runnerID int64, data *PtyResizedData)
 }
 
 // RouteInput routes terminal input from frontend to runner
-func (tr *TerminalRouter) RouteInput(sessionID string, data []byte) error {
-	tr.sessionRunnerMu.RLock()
-	runnerID, ok := tr.sessionRunnerMap[sessionID]
-	tr.sessionRunnerMu.RUnlock()
+func (tr *TerminalRouter) RouteInput(podKey string, data []byte) error {
+	tr.podRunnerMu.RLock()
+	runnerID, ok := tr.podRunnerMap[podKey]
+	tr.podRunnerMu.RUnlock()
 
 	if !ok {
-		tr.logger.Warn("no runner for session", "session_id", sessionID)
+		tr.logger.Warn("no runner for pod", "pod_key", podKey)
 		return ErrRunnerNotConnected
 	}
 
-	return tr.connectionManager.SendTerminalInput(nil, runnerID, sessionID, data)
+	return tr.connectionManager.SendTerminalInput(nil, runnerID, podKey, data)
 }
 
 // RouteResize routes terminal resize from frontend to runner
-func (tr *TerminalRouter) RouteResize(sessionID string, cols, rows int) error {
-	tr.sessionRunnerMu.RLock()
-	runnerID, ok := tr.sessionRunnerMap[sessionID]
-	tr.sessionRunnerMu.RUnlock()
+func (tr *TerminalRouter) RouteResize(podKey string, cols, rows int) error {
+	tr.podRunnerMu.RLock()
+	runnerID, ok := tr.podRunnerMap[podKey]
+	tr.podRunnerMu.RUnlock()
 
 	if !ok {
-		tr.logger.Warn("no runner for session", "session_id", sessionID)
+		tr.logger.Warn("no runner for pod", "pod_key", podKey)
 		return ErrRunnerNotConnected
 	}
 
-	return tr.connectionManager.SendTerminalResize(nil, runnerID, sessionID, cols, rows)
+	return tr.connectionManager.SendTerminalResize(nil, runnerID, podKey, cols, rows)
 }
 
 // GetRecentOutput returns recent terminal output for observation
 // If raw is true, returns raw scrollback data; otherwise returns processed output from virtual terminal
-func (tr *TerminalRouter) GetRecentOutput(sessionID string, lines int, raw bool) []byte {
+func (tr *TerminalRouter) GetRecentOutput(podKey string, lines int, raw bool) []byte {
 	if raw {
 		// Return raw scrollback data
 		tr.scrollbackMu.RLock()
-		buffer := tr.scrollbackBuffers[sessionID]
+		buffer := tr.scrollbackBuffers[podKey]
 		tr.scrollbackMu.RUnlock()
 
 		if buffer == nil {
@@ -403,7 +403,7 @@ func (tr *TerminalRouter) GetRecentOutput(sessionID string, lines int, raw bool)
 
 	// Try to return processed output from virtual terminal
 	tr.virtualTermMu.RLock()
-	vt := tr.virtualTerminals[sessionID]
+	vt := tr.virtualTerminals[podKey]
 	tr.virtualTermMu.RUnlock()
 
 	if vt != nil {
@@ -415,7 +415,7 @@ func (tr *TerminalRouter) GetRecentOutput(sessionID string, lines int, raw bool)
 
 	// Fallback: if virtual terminal has no data, strip ANSI from raw scrollback
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer == nil {
@@ -432,9 +432,9 @@ func (tr *TerminalRouter) GetRecentOutput(sessionID string, lines int, raw bool)
 }
 
 // GetScreenSnapshot returns the current screen snapshot for agent observation
-func (tr *TerminalRouter) GetScreenSnapshot(sessionID string) string {
+func (tr *TerminalRouter) GetScreenSnapshot(podKey string) string {
 	tr.virtualTermMu.RLock()
-	vt := tr.virtualTerminals[sessionID]
+	vt := tr.virtualTerminals[podKey]
 	tr.virtualTermMu.RUnlock()
 
 	if vt != nil {
@@ -446,7 +446,7 @@ func (tr *TerminalRouter) GetScreenSnapshot(sessionID string) string {
 
 	// Fallback: strip ANSI from raw scrollback and return last screen worth of lines
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer == nil {
@@ -462,10 +462,10 @@ func (tr *TerminalRouter) GetScreenSnapshot(sessionID string) string {
 	return terminal.StripANSI(string(rawData))
 }
 
-// GetCursorPosition returns the current cursor position (row, col) for a session
-func (tr *TerminalRouter) GetCursorPosition(sessionID string) (row, col int) {
+// GetCursorPosition returns the current cursor position (row, col) for a pod
+func (tr *TerminalRouter) GetCursorPosition(podKey string) (row, col int) {
 	tr.virtualTermMu.RLock()
-	vt := tr.virtualTerminals[sessionID]
+	vt := tr.virtualTerminals[podKey]
 	tr.virtualTermMu.RUnlock()
 
 	if vt == nil {
@@ -474,33 +474,33 @@ func (tr *TerminalRouter) GetCursorPosition(sessionID string) (row, col int) {
 	return vt.CursorPosition()
 }
 
-// GetClientCount returns the number of clients connected to a session
-func (tr *TerminalRouter) GetClientCount(sessionID string) int {
+// GetClientCount returns the number of clients connected to a pod
+func (tr *TerminalRouter) GetClientCount(podKey string) int {
 	tr.terminalClientsMu.RLock()
 	defer tr.terminalClientsMu.RUnlock()
-	return len(tr.terminalClients[sessionID])
+	return len(tr.terminalClients[podKey])
 }
 
-// IsSessionRegistered checks if a session is registered
-func (tr *TerminalRouter) IsSessionRegistered(sessionID string) bool {
-	tr.sessionRunnerMu.RLock()
-	defer tr.sessionRunnerMu.RUnlock()
-	_, ok := tr.sessionRunnerMap[sessionID]
+// IsPodRegistered checks if a pod is registered
+func (tr *TerminalRouter) IsPodRegistered(podKey string) bool {
+	tr.podRunnerMu.RLock()
+	defer tr.podRunnerMu.RUnlock()
+	_, ok := tr.podRunnerMap[podKey]
 	return ok
 }
 
-// GetRunnerID returns the runner ID for a session
-func (tr *TerminalRouter) GetRunnerID(sessionID string) (int64, bool) {
-	tr.sessionRunnerMu.RLock()
-	defer tr.sessionRunnerMu.RUnlock()
-	id, ok := tr.sessionRunnerMap[sessionID]
+// GetRunnerID returns the runner ID for a pod
+func (tr *TerminalRouter) GetRunnerID(podKey string) (int64, bool) {
+	tr.podRunnerMu.RLock()
+	defer tr.podRunnerMu.RUnlock()
+	id, ok := tr.podRunnerMap[podKey]
 	return id, ok
 }
 
 // GetAllScrollbackData returns all scrollback buffer data
-func (tr *TerminalRouter) GetAllScrollbackData(sessionID string) []byte {
+func (tr *TerminalRouter) GetAllScrollbackData(podKey string) []byte {
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer == nil {
@@ -510,10 +510,10 @@ func (tr *TerminalRouter) GetAllScrollbackData(sessionID string) []byte {
 	return buffer.GetData()
 }
 
-// ClearScrollback clears the scrollback buffer for a session
-func (tr *TerminalRouter) ClearScrollback(sessionID string) {
+// ClearScrollback clears the scrollback buffer for a pod
+func (tr *TerminalRouter) ClearScrollback(podKey string) {
 	tr.scrollbackMu.RLock()
-	buffer := tr.scrollbackBuffers[sessionID]
+	buffer := tr.scrollbackBuffers[podKey]
 	tr.scrollbackMu.RUnlock()
 
 	if buffer != nil {

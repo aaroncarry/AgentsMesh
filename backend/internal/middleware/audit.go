@@ -208,7 +208,7 @@ func parseAction(method, path string) (action string, resourceType string, resou
 	// Handle special cases
 	switch {
 	case strings.Contains(path, "/terminate"):
-		action = "sessions.terminated"
+		action = "pods.terminated"
 	case strings.Contains(path, "/archive"):
 		action = "channels.archived"
 	case strings.Contains(path, "/unarchive"):
@@ -315,11 +315,11 @@ const (
 	AuditRunnerOnline     AuditAction = "runners.online"
 	AuditRunnerOffline    AuditAction = "runners.offline"
 
-	// Session actions
-	AuditSessionCreated   AuditAction = "sessions.created"
-	AuditSessionStarted   AuditAction = "sessions.started"
-	AuditSessionTerminated AuditAction = "sessions.terminated"
-	AuditSessionFailed    AuditAction = "sessions.failed"
+	// Pod actions
+	AuditPodCreated    AuditAction = "pods.created"
+	AuditPodStarted    AuditAction = "pods.started"
+	AuditPodTerminated AuditAction = "pods.terminated"
+	AuditPodFailed     AuditAction = "pods.failed"
 
 	// Channel actions
 	AuditChannelCreated  AuditAction = "channels.created"

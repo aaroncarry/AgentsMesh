@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useTicketStore, getStatusInfo, getPriorityInfo, getTypeInfo, Ticket, TicketStatus } from "@/stores/ticket";
 import { ticketApi, TicketRelation, TicketCommit } from "@/lib/api/client";
-import TicketSessionPanel from "./TicketSessionPanel";
+import TicketPodPanel from "./TicketPodPanel";
 
 interface TicketDetailProps {
   identifier: string;
@@ -284,8 +284,8 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
           </div>
         )}
 
-        {/* DevPod Sessions */}
-        <TicketSessionPanel
+        {/* AgentPods */}
+        <TicketPodPanel
           ticketIdentifier={identifier}
           ticketTitle={currentTicket.title}
         />

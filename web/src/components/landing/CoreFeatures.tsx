@@ -3,20 +3,20 @@
 const features = [
   {
     number: "01",
-    title: "DevPod",
+    title: "AgentPod",
     subtitle: "Remote AI Workstation",
     description:
-      "Run AI agents in the cloud, access a complete development environment through your browser. Each session runs on isolated Git worktrees with real-time terminal access.",
+      "Run AI agents in the cloud, access a complete development environment through your browser. Each AgentPod runs on isolated Git worktrees with real-time terminal access.",
     highlights: [
       "Web Terminal with real-time interaction",
-      "Git Worktree isolation per session",
-      "Multiple concurrent sessions",
+      "Git Worktree isolation per AgentPod",
+      "Multiple concurrent AgentPods",
       "Auto-cleanup on completion",
     ],
     terminal: {
-      title: "DevPod Session",
+      title: "AgentPod Terminal",
       lines: [
-        "$ claude-code --session dev-42",
+        "$ claude-code --pod dev-42",
         "> Workspace: /projects/my-app",
         "> Branch: feature/auth-system",
         "> Status: Running",
@@ -35,9 +35,9 @@ const features = [
     title: "AgentMesh",
     subtitle: "Multi-Agent Collaboration",
     description:
-      "Enable multiple AI agents to work together through session bindings and channel communication. Visualize the collaboration topology in real-time.",
+      "Enable multiple AI agents to work together through pod bindings and channel communication. Visualize the collaboration topology in real-time.",
     highlights: [
-      "Session Binding with permission control",
+      "Pod Binding with permission control",
       "Channel-based message broadcasting",
       "Real-time topology visualization",
       "Cross-agent task coordination",
@@ -61,10 +61,10 @@ const features = [
     title: "Tickets",
     subtitle: "Task-Driven Development",
     description:
-      "Integrate AI sessions with your task management workflow. Create tickets, bind them to sessions, and track progress through a Kanban board.",
+      "Integrate AI pods with your task management workflow. Create tickets, bind them to pods, and track progress through a Kanban board.",
     highlights: [
       "Kanban board visualization",
-      "Ticket ↔ Session binding",
+      "Ticket ↔ Pod binding",
       "Progress tracking",
       "MR/PR integration",
     ],
@@ -191,11 +191,11 @@ export function CoreFeatures() {
                       {/* Agent nodes */}
                       <div className="absolute left-[10%] top-[20%] px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg">
                         <div className="text-sm font-medium text-primary">Claude Code</div>
-                        <div className="text-xs text-muted-foreground">Session A</div>
+                        <div className="text-xs text-muted-foreground">Pod A</div>
                       </div>
                       <div className="absolute right-[10%] top-[20%] px-4 py-2 bg-primary/10 border border-primary/30 rounded-lg">
                         <div className="text-sm font-medium text-primary">Codex CLI</div>
-                        <div className="text-xs text-muted-foreground">Session B</div>
+                        <div className="text-xs text-muted-foreground">Pod B</div>
                       </div>
                       {/* Channel */}
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-[20%] px-6 py-3 bg-secondary/50 border border-border rounded-lg">

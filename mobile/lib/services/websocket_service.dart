@@ -6,7 +6,7 @@ import 'package:agentmesh/utils/constants.dart';
 enum WebSocketMessageType {
   ping,
   pong,
-  sessionUpdate,
+  podUpdate,
   terminalOutput,
   terminalInput,
   terminalResize,
@@ -17,14 +17,14 @@ enum WebSocketMessageType {
 
 class WebSocketMessage {
   final WebSocketMessageType type;
-  final String? sessionId;
+  final String? podId;
   final int? channelId;
   final dynamic data;
   final int timestamp;
 
   WebSocketMessage({
     required this.type,
-    this.sessionId,
+    this.podId,
     this.channelId,
     this.data,
     required this.timestamp,
@@ -33,7 +33,7 @@ class WebSocketMessage {
   factory WebSocketMessage.fromJson(Map<String, dynamic> json) {
     return WebSocketMessage(
       type: _parseType(json['type'] as String),
-      sessionId: json['session_id'] as String?,
+      podId: json['pod_id'] as String?,
       channelId: json['channel_id'] as int?,
       data: json['data'],
       timestamp: json['timestamp'] as int,
@@ -43,7 +43,7 @@ class WebSocketMessage {
   Map<String, dynamic> toJson() {
     return {
       'type': _typeToString(type),
-      if (sessionId != null) 'session_id': sessionId,
+      if (podId != null) 'pod_id': podId,
       if (channelId != null) 'channel_id': channelId,
       if (data != null) 'data': data,
       'timestamp': timestamp,
@@ -56,8 +56,8 @@ class WebSocketMessage {
         return WebSocketMessageType.ping;
       case 'pong':
         return WebSocketMessageType.pong;
-      case 'session_update':
-        return WebSocketMessageType.sessionUpdate;
+      case 'pod_update':
+        return WebSocketMessageType.podUpdate;
       case 'terminal_output':
         return WebSocketMessageType.terminalOutput;
       case 'terminal_input':
@@ -81,8 +81,8 @@ class WebSocketMessage {
         return 'ping';
       case WebSocketMessageType.pong:
         return 'pong';
-      case WebSocketMessageType.sessionUpdate:
-        return 'session_update';
+      case WebSocketMessageType.podUpdate:
+        return 'pod_update';
       case WebSocketMessageType.terminalOutput:
         return 'terminal_output';
       case WebSocketMessageType.terminalInput:
@@ -210,18 +210,18 @@ class WebSocketService {
     }
   }
 
-  void subscribeToSession(String sessionId) {
+  void subscribeToPod(String podId) {
     send(WebSocketMessage(
-      type: WebSocketMessageType.sessionUpdate,
-      data: {'action': 'subscribe_session', 'session_id': sessionId},
+      type: WebSocketMessageType.podUpdate,
+      data: {'action': 'subscribe_pod', 'pod_id': podId},
       timestamp: DateTime.now().millisecondsSinceEpoch,
     ));
   }
 
-  void unsubscribeFromSession(String sessionId) {
+  void unsubscribeFromPod(String podId) {
     send(WebSocketMessage(
-      type: WebSocketMessageType.sessionUpdate,
-      data: {'action': 'unsubscribe_session', 'session_id': sessionId},
+      type: WebSocketMessageType.podUpdate,
+      data: {'action': 'unsubscribe_pod', 'pod_id': podId},
       timestamp: DateTime.now().millisecondsSinceEpoch,
     ));
   }

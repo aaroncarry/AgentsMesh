@@ -17,29 +17,29 @@ import (
 // BackendClient calls the AgentMesh Backend API for collaboration operations.
 type BackendClient struct {
 	baseURL    string
-	sessionKey string
+	podKey     string
 	httpClient *http.Client
 }
 
 // NewBackendClient creates a new backend API client.
-func NewBackendClient(baseURL, sessionKey string) *BackendClient {
+func NewBackendClient(baseURL, podKey string) *BackendClient {
 	return &BackendClient{
-		baseURL:    baseURL,
-		sessionKey: sessionKey,
+		baseURL: baseURL,
+		podKey:  podKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
 }
 
-// SetSessionKey updates the session key for the client.
-func (c *BackendClient) SetSessionKey(sessionKey string) {
-	c.sessionKey = sessionKey
+// SetPodKey updates the pod key for the client.
+func (c *BackendClient) SetPodKey(podKey string) {
+	c.podKey = podKey
 }
 
-// GetSessionKey returns the current session key.
-func (c *BackendClient) GetSessionKey() string {
-	return c.sessionKey
+// GetPodKey returns the current pod key.
+func (c *BackendClient) GetPodKey() string {
+	return c.podKey
 }
 
 // request makes an HTTP request to the backend.
@@ -61,7 +61,7 @@ func (c *BackendClient) request(ctx context.Context, method, path string, body i
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Session-Key", c.sessionKey)
+	req.Header.Set("X-Pod-Key", c.podKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -89,14 +89,14 @@ func (c *BackendClient) request(ctx context.Context, method, path string, body i
 
 // Terminal Operations
 
-// ObserveTerminal gets terminal output from another session.
-func (c *BackendClient) ObserveTerminal(ctx context.Context, sessionKey string, lines int, raw bool, includeScreen bool) (*tools.TerminalOutput, error) {
+// ObserveTerminal gets terminal output from another pod.
+func (c *BackendClient) ObserveTerminal(ctx context.Context, podKey string, lines int, raw bool, includeScreen bool) (*tools.TerminalOutput, error) {
 	params := url.Values{}
 	params.Set("lines", strconv.Itoa(lines))
 	params.Set("raw", strconv.FormatBool(raw))
 	params.Set("include_screen", strconv.FormatBool(includeScreen))
 
-	path := fmt.Sprintf("/api/v1/session/sessions/%s/terminal/observe?%s", url.PathEscape(sessionKey), params.Encode())
+	path := fmt.Sprintf("/api/v1/pod/pods/%s/terminal/observe?%s", url.PathEscape(podKey), params.Encode())
 
 	var result tools.TerminalOutput
 	err := c.request(ctx, http.MethodGet, path, nil, &result)
@@ -107,21 +107,21 @@ func (c *BackendClient) ObserveTerminal(ctx context.Context, sessionKey string, 
 }
 
 // SendTerminalText sends text input to a terminal.
-func (c *BackendClient) SendTerminalText(ctx context.Context, sessionKey string, text string) error {
+func (c *BackendClient) SendTerminalText(ctx context.Context, podKey string, text string) error {
 	body := map[string]interface{}{
 		"input": text,
 	}
-	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
+	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/pod/pods/%s/terminal/input", url.PathEscape(podKey)), body, nil)
 }
 
 // SendTerminalKey sends special keys to a terminal.
-func (c *BackendClient) SendTerminalKey(ctx context.Context, sessionKey string, keys []string) error {
+func (c *BackendClient) SendTerminalKey(ctx context.Context, podKey string, keys []string) error {
 	// Convert keys to escape sequences and concatenate
 	input := convertKeysToInput(keys)
 	body := map[string]interface{}{
 		"input": input,
 	}
-	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/sessions/%s/terminal/input", url.PathEscape(sessionKey)), body, nil)
+	return c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/pod/pods/%s/terminal/input", url.PathEscape(podKey)), body, nil)
 }
 
 // convertKeysToInput converts key names to terminal escape sequences.
@@ -187,17 +187,17 @@ func convertKeysToInput(keys []string) string {
 
 // Discovery Operations
 
-// ListAvailableSessions lists sessions available for collaboration.
-func (c *BackendClient) ListAvailableSessions(ctx context.Context) ([]tools.AvailableSession, error) {
+// ListAvailablePods lists pods available for collaboration.
+func (c *BackendClient) ListAvailablePods(ctx context.Context) ([]tools.AvailablePod, error) {
 	var result struct {
-		Sessions []tools.AvailableSession `json:"sessions"`
+		Pods []tools.AvailablePod `json:"pods"`
 	}
-	// Use sessions endpoint with status filter
-	err := c.request(ctx, http.MethodGet, "/api/v1/session/sessions?status=running", nil, &result)
+	// Use pods endpoint with status filter
+	err := c.request(ctx, http.MethodGet, "/api/v1/pod/pods?status=running", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Sessions, nil
+	return result.Pods, nil
 }
 
 // ListRunners lists available runners in the organization.
@@ -205,7 +205,7 @@ func (c *BackendClient) ListRunners(ctx context.Context) ([]tools.Runner, error)
 	var result struct {
 		Runners []tools.Runner `json:"runners"`
 	}
-	err := c.request(ctx, http.MethodGet, "/api/v1/session/runners", nil, &result)
+	err := c.request(ctx, http.MethodGet, "/api/v1/pod/runners", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (c *BackendClient) ListRepositories(ctx context.Context) ([]tools.Repositor
 	var result struct {
 		Repositories []tools.Repository `json:"repositories"`
 	}
-	err := c.request(ctx, http.MethodGet, "/api/v1/session/repositories", nil, &result)
+	err := c.request(ctx, http.MethodGet, "/api/v1/pod/repositories", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -226,17 +226,17 @@ func (c *BackendClient) ListRepositories(ctx context.Context) ([]tools.Repositor
 
 // Binding Operations
 
-// RequestBinding requests a binding with another session.
-func (c *BackendClient) RequestBinding(ctx context.Context, targetSession string, scopes []tools.BindingScope) (*tools.Binding, error) {
+// RequestBinding requests a binding with another pod.
+func (c *BackendClient) RequestBinding(ctx context.Context, targetPod string, scopes []tools.BindingScope) (*tools.Binding, error) {
 	body := map[string]interface{}{
-		"target_session": targetSession,
-		"scopes":         scopes,
+		"target_pod": targetPod,
+		"scopes":     scopes,
 	}
 
 	var result struct {
 		Binding tools.Binding `json:"binding"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings", body, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/bindings", body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (c *BackendClient) AcceptBinding(ctx context.Context, bindingID int) (*tool
 	var result struct {
 		Binding tools.Binding `json:"binding"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings/accept", body, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/bindings/accept", body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -269,24 +269,24 @@ func (c *BackendClient) RejectBinding(ctx context.Context, bindingID int, reason
 	var result struct {
 		Binding tools.Binding `json:"binding"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/bindings/reject", body, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/bindings/reject", body, &result)
 	if err != nil {
 		return nil, err
 	}
 	return &result.Binding, nil
 }
 
-// UnbindSession unbinds from another session.
-func (c *BackendClient) UnbindSession(ctx context.Context, targetSession string) error {
+// UnbindPod unbinds from another pod.
+func (c *BackendClient) UnbindPod(ctx context.Context, targetPod string) error {
 	body := map[string]interface{}{
-		"target_session": targetSession,
+		"target_pod": targetPod,
 	}
-	return c.request(ctx, http.MethodPost, "/api/v1/session/bindings/unbind", body, nil)
+	return c.request(ctx, http.MethodPost, "/api/v1/pod/bindings/unbind", body, nil)
 }
 
-// GetBindings gets all bindings for the current session.
+// GetBindings gets all bindings for the current pod.
 func (c *BackendClient) GetBindings(ctx context.Context, status *tools.BindingStatus) ([]tools.Binding, error) {
-	path := "/api/v1/session/bindings"
+	path := "/api/v1/pod/bindings"
 	if status != nil {
 		path += "?status=" + url.QueryEscape(string(*status))
 	}
@@ -301,16 +301,16 @@ func (c *BackendClient) GetBindings(ctx context.Context, status *tools.BindingSt
 	return result.Bindings, nil
 }
 
-// GetBoundSessions gets sessions that are bound to the current session.
-func (c *BackendClient) GetBoundSessions(ctx context.Context) ([]tools.AvailableSession, error) {
+// GetBoundPods gets pods that are bound to the current pod.
+func (c *BackendClient) GetBoundPods(ctx context.Context) ([]tools.AvailablePod, error) {
 	var result struct {
-		Sessions []tools.AvailableSession `json:"sessions"`
+		Pods []tools.AvailablePod `json:"pods"`
 	}
-	err := c.request(ctx, http.MethodGet, "/api/v1/session/bindings/sessions", nil, &result)
+	err := c.request(ctx, http.MethodGet, "/api/v1/pod/bindings/pods", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Sessions, nil
+	return result.Pods, nil
 }
 
 // Channel Operations
@@ -333,7 +333,7 @@ func (c *BackendClient) SearchChannels(ctx context.Context, name string, project
 	params.Set("offset", strconv.Itoa(offset))
 	params.Set("limit", strconv.Itoa(limit))
 
-	path := "/api/v1/session/channels?" + params.Encode()
+	path := "/api/v1/pod/channels?" + params.Encode()
 
 	var result struct {
 		Channels []tools.Channel `json:"channels"`
@@ -361,7 +361,7 @@ func (c *BackendClient) CreateChannel(ctx context.Context, name, description str
 	var result struct {
 		Channel tools.Channel `json:"channel"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/channels", body, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/channels", body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +373,7 @@ func (c *BackendClient) GetChannel(ctx context.Context, channelID int) (*tools.C
 	var result struct {
 		Channel tools.Channel `json:"channel"`
 	}
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/channels/%d", channelID), nil, &result)
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/pod/channels/%d", channelID), nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +396,7 @@ func (c *BackendClient) SendMessage(ctx context.Context, channelID int, content 
 	var result struct {
 		Message tools.ChannelMessage `json:"message"`
 	}
-	err := c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/session/channels/%d/messages", channelID), body, &result)
+	err := c.request(ctx, http.MethodPost, fmt.Sprintf("/api/v1/pod/channels/%d/messages", channelID), body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func (c *BackendClient) SendMessage(ctx context.Context, channelID int, content 
 }
 
 // GetMessages gets messages from a channel.
-func (c *BackendClient) GetMessages(ctx context.Context, channelID int, beforeTime, afterTime *string, mentionedSession *string, limit int) ([]tools.ChannelMessage, error) {
+func (c *BackendClient) GetMessages(ctx context.Context, channelID int, beforeTime, afterTime *string, mentionedPod *string, limit int) ([]tools.ChannelMessage, error) {
 	params := url.Values{}
 	if beforeTime != nil {
 		params.Set("before_time", *beforeTime)
@@ -412,12 +412,12 @@ func (c *BackendClient) GetMessages(ctx context.Context, channelID int, beforeTi
 	if afterTime != nil {
 		params.Set("after_time", *afterTime)
 	}
-	if mentionedSession != nil {
-		params.Set("mentioned_session", *mentionedSession)
+	if mentionedPod != nil {
+		params.Set("mentioned_pod", *mentionedPod)
 	}
 	params.Set("limit", strconv.Itoa(limit))
 
-	path := fmt.Sprintf("/api/v1/session/channels/%d/messages?%s", channelID, params.Encode())
+	path := fmt.Sprintf("/api/v1/pod/channels/%d/messages?%s", channelID, params.Encode())
 
 	var result struct {
 		Messages []tools.ChannelMessage `json:"messages"`
@@ -434,7 +434,7 @@ func (c *BackendClient) GetDocument(ctx context.Context, channelID int) (string,
 	var result struct {
 		Document string `json:"document"`
 	}
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/channels/%d/document", channelID), nil, &result)
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/pod/channels/%d/document", channelID), nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -446,7 +446,7 @@ func (c *BackendClient) UpdateDocument(ctx context.Context, channelID int, docum
 	body := map[string]interface{}{
 		"document": document,
 	}
-	return c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session/channels/%d/document", channelID), body, nil)
+	return c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/pod/channels/%d/document", channelID), body, nil)
 }
 
 // Ticket Operations
@@ -479,7 +479,7 @@ func (c *BackendClient) SearchTickets(ctx context.Context, productID *int, statu
 		params.Set("query", query)
 	}
 
-	path := "/api/v1/session/tickets?" + params.Encode()
+	path := "/api/v1/pod/tickets?" + params.Encode()
 
 	var result struct {
 		Tickets []tools.Ticket `json:"tickets"`
@@ -496,7 +496,7 @@ func (c *BackendClient) GetTicket(ctx context.Context, ticketID string) (*tools.
 	var result struct {
 		Ticket tools.Ticket `json:"ticket"`
 	}
-	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/session/tickets/%s", url.PathEscape(ticketID)), nil, &result)
+	err := c.request(ctx, http.MethodGet, fmt.Sprintf("/api/v1/pod/tickets/%s", url.PathEscape(ticketID)), nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +519,7 @@ func (c *BackendClient) CreateTicket(ctx context.Context, productID int, title, 
 	var result struct {
 		Ticket tools.Ticket `json:"ticket"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/tickets", body, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/tickets", body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -548,30 +548,30 @@ func (c *BackendClient) UpdateTicket(ctx context.Context, ticketID string, title
 	var result struct {
 		Ticket tools.Ticket `json:"ticket"`
 	}
-	err := c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/session/tickets/%s", url.PathEscape(ticketID)), body, &result)
+	err := c.request(ctx, http.MethodPut, fmt.Sprintf("/api/v1/pod/tickets/%s", url.PathEscape(ticketID)), body, &result)
 	if err != nil {
 		return nil, err
 	}
 	return &result.Ticket, nil
 }
 
-// Session Operations
+// Pod Operations
 
-// CreateSession creates a new DevPod session.
-func (c *BackendClient) CreateSession(ctx context.Context, req *tools.SessionCreateRequest) (*tools.SessionCreateResponse, error) {
+// CreatePod creates a new AgentPod.
+func (c *BackendClient) CreatePod(ctx context.Context, req *tools.PodCreateRequest) (*tools.PodCreateResponse, error) {
 	var result struct {
-		Session struct {
-			SessionKey string `json:"session_key"`
-			Status     string `json:"status"`
-		} `json:"session"`
+		Pod struct {
+			PodKey string `json:"pod_key"`
+			Status string `json:"status"`
+		} `json:"pod"`
 	}
-	err := c.request(ctx, http.MethodPost, "/api/v1/session/sessions", req, &result)
+	err := c.request(ctx, http.MethodPost, "/api/v1/pod/pods", req, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &tools.SessionCreateResponse{
-		SessionKey: result.Session.SessionKey,
-		Status:     result.Session.Status,
+	return &tools.PodCreateResponse{
+		PodKey: result.Pod.PodKey,
+		Status: result.Pod.Status,
 	}, nil
 }
 

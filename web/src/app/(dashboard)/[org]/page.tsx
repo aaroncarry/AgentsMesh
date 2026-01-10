@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth";
-import { ticketApi, sessionApi, runnerApi } from "@/lib/api/client";
+import { ticketApi, podApi, runnerApi } from "@/lib/api/client";
 
 interface DashboardStats {
   totalTickets: number;
   openTickets: number;
-  activeSessions: number;
+  activePods: number;
   onlineRunners: number;
 }
 
@@ -17,7 +17,7 @@ export default function OrganizationDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalTickets: 0,
     openTickets: 0,
-    activeSessions: 0,
+    activePods: 0,
     onlineRunners: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -32,10 +32,10 @@ export default function OrganizationDashboard() {
           (t: { status: string }) => !["done", "cancelled"].includes(t.status)
         );
 
-        // Fetch sessions
-        const sessionsRes = await sessionApi.list().catch(() => ({ sessions: [] }));
-        const sessions = sessionsRes.sessions || [];
-        const activeSessions = sessions.filter(
+        // Fetch pods
+        const podsRes = await podApi.list().catch(() => ({ pods: [] }));
+        const pods = podsRes.pods || [];
+        const activePods = pods.filter(
           (s: { status: string }) => s.status === "running"
         );
 
@@ -49,7 +49,7 @@ export default function OrganizationDashboard() {
         setStats({
           totalTickets: tickets.length,
           openTickets: openTickets.length,
-          activeSessions: activeSessions.length,
+          activePods: activePods.length,
           onlineRunners: onlineRunners.length,
         });
       } catch (error) {
@@ -106,9 +106,9 @@ export default function OrganizationDashboard() {
           highlight={stats.openTickets > 0}
         />
         <StatCard
-          title="Active Sessions"
-          value={stats.activeSessions}
-          href={currentOrg ? `/${currentOrg.slug}/mesh` : "#"}
+          title="Active Pods"
+          value={stats.activePods}
+          href={currentOrg ? `/${currentOrg.slug}/agentpod` : "#"}
           icon={
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

@@ -3,7 +3,7 @@ package tools
 
 import "context"
 
-// BindingScope represents permission scopes for session bindings.
+// BindingScope represents permission scopes for pod bindings.
 type BindingScope string
 
 const (
@@ -13,7 +13,7 @@ const (
 	ScopeTerminalWrite BindingScope = "terminal:write"
 )
 
-// BindingStatus represents the status of a session binding.
+// BindingStatus represents the status of a pod binding.
 type BindingStatus string
 
 const (
@@ -24,16 +24,16 @@ const (
 	BindingStatusExpired  BindingStatus = "expired"
 )
 
-// SessionStatus represents the status of a session.
-type SessionStatus string
+// PodStatus represents the status of a pod.
+type PodStatus string
 
 const (
-	SessionStatusInitializing SessionStatus = "initializing"
-	SessionStatusRunning      SessionStatus = "running"
-	SessionStatusDisconnected SessionStatus = "disconnected"
-	SessionStatusCompleted    SessionStatus = "completed"
-	SessionStatusError        SessionStatus = "error"
-	SessionStatusOrphaned     SessionStatus = "orphaned"
+	PodStatusInitializing PodStatus = "initializing"
+	PodStatusRunning      PodStatus = "running"
+	PodStatusDisconnected PodStatus = "disconnected"
+	PodStatusCompleted    PodStatus = "completed"
+	PodStatusError        PodStatus = "error"
+	PodStatusOrphaned     PodStatus = "orphaned"
 )
 
 // TicketStatus represents ticket workflow states.
@@ -78,41 +78,41 @@ const (
 	ChannelMessageTypeSystem ChannelMessageType = "system"
 )
 
-// Binding represents a session binding.
+// Binding represents a pod binding.
 type Binding struct {
-	ID               int            `json:"id"`
-	InitiatorSession string         `json:"initiator_session"`
-	TargetSession    string         `json:"target_session"`
-	GrantedScopes    []BindingScope `json:"granted_scopes"`
-	PendingScopes    []BindingScope `json:"pending_scopes"`
-	Status           BindingStatus  `json:"status"`
-	CreatedAt        string         `json:"created_at"`
-	UpdatedAt        string         `json:"updated_at"`
+	ID            int            `json:"id"`
+	InitiatorPod  string         `json:"initiator_pod"`
+	TargetPod     string         `json:"target_pod"`
+	GrantedScopes []BindingScope `json:"granted_scopes"`
+	PendingScopes []BindingScope `json:"pending_scopes"`
+	Status        BindingStatus  `json:"status"`
+	CreatedAt     string         `json:"created_at"`
+	UpdatedAt     string         `json:"updated_at"`
 }
 
-// AvailableSession represents a session available for collaboration.
-type AvailableSession struct {
-	SessionKey     string        `json:"session_key"`
-	UserID         int           `json:"user_id"`
-	Username       string        `json:"username"`
-	Status         SessionStatus `json:"status"`
-	TicketID       *int          `json:"ticket_id,omitempty"`
-	TicketTitle    string        `json:"ticket_title,omitempty"`
-	ProjectID      *int          `json:"project_id,omitempty"`
-	ProjectName    string        `json:"project_name,omitempty"`
-	AgentType      string        `json:"agent_type,omitempty"`
-	CreatedAt      string        `json:"created_at"`
+// AvailablePod represents a pod available for collaboration.
+type AvailablePod struct {
+	PodKey      string    `json:"pod_key"`
+	UserID      int       `json:"user_id"`
+	Username    string    `json:"username"`
+	Status      PodStatus `json:"status"`
+	TicketID    *int      `json:"ticket_id,omitempty"`
+	TicketTitle string    `json:"ticket_title,omitempty"`
+	ProjectID   *int      `json:"project_id,omitempty"`
+	ProjectName string    `json:"project_name,omitempty"`
+	AgentType   string    `json:"agent_type,omitempty"`
+	CreatedAt   string    `json:"created_at"`
 }
 
 // TerminalOutput represents terminal observation output.
 type TerminalOutput struct {
-	SessionKey   string `json:"session_key"`
-	Output       string `json:"output"`
-	Screen       string `json:"screen,omitempty"`
-	CursorX      int    `json:"cursor_x"`
-	CursorY      int    `json:"cursor_y"`
-	TotalLines   int    `json:"total_lines"`
-	HasMore      bool   `json:"has_more"`
+	PodKey     string `json:"pod_key"`
+	Output     string `json:"output"`
+	Screen     string `json:"screen,omitempty"`
+	CursorX    int    `json:"cursor_x"`
+	CursorY    int    `json:"cursor_y"`
+	TotalLines int    `json:"total_lines"`
+	HasMore    bool   `json:"has_more"`
 }
 
 // Channel represents a collaboration channel.
@@ -131,15 +131,15 @@ type Channel struct {
 
 // ChannelMessage represents a message in a channel.
 type ChannelMessage struct {
-	ID             int                `json:"id"`
-	ChannelID      int                `json:"channel_id"`
-	SenderSession  string             `json:"sender_session"`
-	SenderUserID   *int               `json:"sender_user_id,omitempty"`
-	Content        string             `json:"content"`
-	MessageType    ChannelMessageType `json:"message_type"`
-	Mentions       []string           `json:"mentions,omitempty"`
-	ReplyTo        *int               `json:"reply_to,omitempty"`
-	CreatedAt      string             `json:"created_at"`
+	ID           int                `json:"id"`
+	ChannelID    int                `json:"channel_id"`
+	SenderPod    string             `json:"sender_pod"`
+	SenderUserID *int               `json:"sender_user_id,omitempty"`
+	Content      string             `json:"content"`
+	MessageType  ChannelMessageType `json:"message_type"`
+	Mentions     []string           `json:"mentions,omitempty"`
+	ReplyTo      *int               `json:"reply_to,omitempty"`
+	CreatedAt    string             `json:"created_at"`
 }
 
 // Ticket represents a ticket in the system.
@@ -169,8 +169,8 @@ type Runner struct {
 	Description           string                 `json:"description,omitempty"`
 	Status                string                 `json:"status"`
 	LastHeartbeat         string                 `json:"last_heartbeat,omitempty"`
-	CurrentSessions       int                    `json:"current_sessions"`
-	MaxConcurrentSessions int                    `json:"max_concurrent_sessions"`
+	CurrentPods       int                    `json:"current_pods"`
+	MaxConcurrentPods int                    `json:"max_concurrent_pods"`
 	RunnerVersion         string                 `json:"runner_version,omitempty"`
 	IsEnabled             bool                   `json:"is_enabled"`
 	HostInfo              map[string]interface{} `json:"host_info,omitempty"`
@@ -195,43 +195,43 @@ type Repository struct {
 	UpdatedAt       string `json:"updated_at"`
 }
 
-// SessionCreateRequest represents a request to create a new session.
-type SessionCreateRequest struct {
+// PodCreateRequest represents a request to create a new pod.
+type PodCreateRequest struct {
 	RunnerID      int    `json:"runner_id,omitempty"`
 	TicketID      *int   `json:"ticket_id,omitempty"`
 	InitialPrompt string `json:"initial_prompt,omitempty"`
 	Model         string `json:"model,omitempty"`
 }
 
-// SessionCreateResponse represents the response from creating a session.
-type SessionCreateResponse struct {
-	SessionKey    string `json:"session_key"`
-	Status        string `json:"status"`
-	TerminalURL   string `json:"terminal_url,omitempty"`
+// PodCreateResponse represents the response from creating a pod.
+type PodCreateResponse struct {
+	PodKey      string `json:"pod_key"`
+	Status      string `json:"status"`
+	TerminalURL string `json:"terminal_url,omitempty"`
 }
 
 // TerminalClient defines the interface for terminal operations.
 type TerminalClient interface {
-	ObserveTerminal(ctx context.Context, sessionKey string, lines int, raw bool, includeScreen bool) (*TerminalOutput, error)
-	SendTerminalText(ctx context.Context, sessionKey string, text string) error
-	SendTerminalKey(ctx context.Context, sessionKey string, keys []string) error
+	ObserveTerminal(ctx context.Context, podKey string, lines int, raw bool, includeScreen bool) (*TerminalOutput, error)
+	SendTerminalText(ctx context.Context, podKey string, text string) error
+	SendTerminalKey(ctx context.Context, podKey string, keys []string) error
 }
 
-// DiscoveryClient defines the interface for session discovery.
+// DiscoveryClient defines the interface for pod discovery.
 type DiscoveryClient interface {
-	ListAvailableSessions(ctx context.Context) ([]AvailableSession, error)
+	ListAvailablePods(ctx context.Context) ([]AvailablePod, error)
 	ListRunners(ctx context.Context) ([]Runner, error)
 	ListRepositories(ctx context.Context) ([]Repository, error)
 }
 
-// BindingClient defines the interface for session binding operations.
+// BindingClient defines the interface for pod binding operations.
 type BindingClient interface {
-	RequestBinding(ctx context.Context, targetSession string, scopes []BindingScope) (*Binding, error)
+	RequestBinding(ctx context.Context, targetPod string, scopes []BindingScope) (*Binding, error)
 	AcceptBinding(ctx context.Context, bindingID int) (*Binding, error)
 	RejectBinding(ctx context.Context, bindingID int, reason string) (*Binding, error)
-	UnbindSession(ctx context.Context, targetSession string) error
+	UnbindPod(ctx context.Context, targetPod string) error
 	GetBindings(ctx context.Context, status *BindingStatus) ([]Binding, error)
-	GetBoundSessions(ctx context.Context) ([]AvailableSession, error)
+	GetBoundPods(ctx context.Context) ([]AvailablePod, error)
 }
 
 // ChannelClient defines the interface for channel operations.
@@ -240,7 +240,7 @@ type ChannelClient interface {
 	CreateChannel(ctx context.Context, name, description string, projectID, ticketID *int) (*Channel, error)
 	GetChannel(ctx context.Context, channelID int) (*Channel, error)
 	SendMessage(ctx context.Context, channelID int, content string, msgType ChannelMessageType, mentions []string, replyTo *int) (*ChannelMessage, error)
-	GetMessages(ctx context.Context, channelID int, beforeTime, afterTime *string, mentionedSession *string, limit int) ([]ChannelMessage, error)
+	GetMessages(ctx context.Context, channelID int, beforeTime, afterTime *string, mentionedPod *string, limit int) ([]ChannelMessage, error)
 	GetDocument(ctx context.Context, channelID int) (string, error)
 	UpdateDocument(ctx context.Context, channelID int, document string) error
 }
@@ -253,9 +253,9 @@ type TicketClient interface {
 	UpdateTicket(ctx context.Context, ticketID string, title, description *string, status *TicketStatus, priority *TicketPriority, ticketType *TicketType) (*Ticket, error)
 }
 
-// SessionClient defines the interface for session creation.
-type SessionClient interface {
-	CreateSession(ctx context.Context, req *SessionCreateRequest) (*SessionCreateResponse, error)
+// PodClient defines the interface for pod creation.
+type PodClient interface {
+	CreatePod(ctx context.Context, req *PodCreateRequest) (*PodCreateResponse, error)
 }
 
 // CollaborationClient combines all collaboration interfaces.
@@ -265,8 +265,8 @@ type CollaborationClient interface {
 	BindingClient
 	ChannelClient
 	TicketClient
-	SessionClient
+	PodClient
 
-	// GetSessionKey returns the current session's key.
-	GetSessionKey() string
+	// GetPodKey returns the current pod's key.
+	GetPodKey() string
 }

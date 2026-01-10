@@ -82,4 +82,5 @@ runner/*.out
 # =========================
 .docker/
 runner/*.out
-*.out
+*.out# Test binaries
+*.test

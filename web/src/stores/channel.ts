@@ -21,8 +21,8 @@ export interface Channel {
     identifier: string;
     title: string;
   };
-  sessions?: Array<{
-    session_key: string;
+  pods?: Array<{
+    pod_key: string;
     status: string;
     agent_type?: {
       name: string;
@@ -65,10 +65,10 @@ interface ChannelState {
   sendMessage: (
     channelId: number,
     content: string,
-    sessionKey?: string
+    podKey?: string
   ) => Promise<Message>;
-  joinChannel: (channelId: number, sessionKey: string) => Promise<void>;
-  leaveChannel: (channelId: number, sessionKey: string) => Promise<void>;
+  joinChannel: (channelId: number, podKey: string) => Promise<void>;
+  leaveChannel: (channelId: number, podKey: string) => Promise<void>;
   setCurrentChannel: (channel: Channel | null) => void;
   addMessage: (message: Message) => void;
   clearError: () => void;
@@ -208,9 +208,9 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     }
   },
 
-  sendMessage: async (channelId, content, sessionKey) => {
+  sendMessage: async (channelId, content, podKey) => {
     try {
-      const response = await channelApi.sendMessage(channelId, content, sessionKey);
+      const response = await channelApi.sendMessage(channelId, content, podKey);
       set((state) => ({
         messages: [...state.messages, response.message],
       }));
@@ -221,10 +221,10 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     }
   },
 
-  joinChannel: async (channelId, sessionKey) => {
+  joinChannel: async (channelId, podKey) => {
     try {
-      await channelApi.joinSession(channelId, sessionKey);
-      // Refresh channel to get updated session list
+      await channelApi.joinPod(channelId, podKey);
+      // Refresh channel to get updated pod list
       const response = await channelApi.get(channelId);
       set((state) => ({
         channels: state.channels.map((c) => (c.id === channelId ? response.channel : c)),
@@ -237,10 +237,10 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
     }
   },
 
-  leaveChannel: async (channelId, sessionKey) => {
+  leaveChannel: async (channelId, podKey) => {
     try {
-      await channelApi.leaveSession(channelId, sessionKey);
-      // Refresh channel to get updated session list
+      await channelApi.leavePod(channelId, podKey);
+      // Refresh channel to get updated pod list
       const response = await channelApi.get(channelId);
       set((state) => ({
         channels: state.channels.map((c) => (c.id === channelId ? response.channel : c)),

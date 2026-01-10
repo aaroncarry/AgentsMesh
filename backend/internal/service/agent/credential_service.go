@@ -88,9 +88,9 @@ func (s *CredentialService) GetEffectiveCredentials(ctx context.Context, userID,
 	return s.GetOrganizationCredentials(ctx, orgID, agentTypeID)
 }
 
-// GetEnvVarsForSession returns environment variables to inject into a session
+// GetEnvVarsForPod returns environment variables to inject into a pod
 // based on the agent type's credential schema
-func (s *CredentialService) GetEnvVarsForSession(ctx context.Context, userID, orgID, agentTypeID int64) (map[string]string, error) {
+func (s *CredentialService) GetEnvVarsForPod(ctx context.Context, userID, orgID, agentTypeID int64) (map[string]string, error) {
 	// Get the agent type to understand the credential schema
 	var agentType agent.AgentType
 	if err := s.db.WithContext(ctx).First(&agentType, agentTypeID).Error; err != nil {

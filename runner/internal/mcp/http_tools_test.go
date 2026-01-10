@@ -12,7 +12,7 @@ import (
 
 func TestHTTPServerMCPToolsCallSendTerminalKey(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -21,14 +21,14 @@ func TestHTTPServerMCPToolsCallSendTerminalKey(t *testing.T) {
 		"params": {
 			"name": "send_terminal_key",
 			"arguments": {
-				"session_key": "target-session",
+				"pod_key": "target-pod",
 				"key": "ctrl_c"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -46,7 +46,7 @@ func TestHTTPServerMCPToolsCallSendTerminalKey(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSendTerminalKeyMissingArgs(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -55,13 +55,13 @@ func TestHTTPServerMCPToolsCallSendTerminalKeyMissingArgs(t *testing.T) {
 		"params": {
 			"name": "send_terminal_key",
 			"arguments": {
-				"session_key": "target-session"
+				"pod_key": "target-pod"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -73,7 +73,7 @@ func TestHTTPServerMCPToolsCallSendTerminalKeyMissingArgs(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallAcceptBinding(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -88,7 +88,7 @@ func TestHTTPServerMCPToolsCallAcceptBinding(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -100,7 +100,7 @@ func TestHTTPServerMCPToolsCallAcceptBinding(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallRejectBinding(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -116,7 +116,7 @@ func TestHTTPServerMCPToolsCallRejectBinding(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -126,16 +126,16 @@ func TestHTTPServerMCPToolsCallRejectBinding(t *testing.T) {
 	// Tool should be found
 }
 
-func TestHTTPServerMCPToolsCallUnbindSession(t *testing.T) {
+func TestHTTPServerMCPToolsCallUnbindPod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
 		"id": 1,
 		"method": "tools/call",
 		"params": {
-			"name": "unbind_session",
+			"name": "unbind_pod",
 			"arguments": {
 				"binding_id": 123
 			}
@@ -143,7 +143,7 @@ func TestHTTPServerMCPToolsCallUnbindSession(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -155,7 +155,7 @@ func TestHTTPServerMCPToolsCallUnbindSession(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetBindings(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -168,7 +168,7 @@ func TestHTTPServerMCPToolsCallGetBindings(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -178,22 +178,22 @@ func TestHTTPServerMCPToolsCallGetBindings(t *testing.T) {
 	// Tool should be found
 }
 
-func TestHTTPServerMCPToolsCallGetBoundSessions(t *testing.T) {
+func TestHTTPServerMCPToolsCallGetBoundPods(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
 		"id": 1,
 		"method": "tools/call",
 		"params": {
-			"name": "get_bound_sessions",
+			"name": "get_bound_pods",
 			"arguments": {}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -205,7 +205,7 @@ func TestHTTPServerMCPToolsCallGetBoundSessions(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetChannel(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -220,7 +220,7 @@ func TestHTTPServerMCPToolsCallGetChannel(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -232,7 +232,7 @@ func TestHTTPServerMCPToolsCallGetChannel(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSendChannelMessage(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -248,7 +248,7 @@ func TestHTTPServerMCPToolsCallSendChannelMessage(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -260,7 +260,7 @@ func TestHTTPServerMCPToolsCallSendChannelMessage(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetChannelMessages(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -276,7 +276,7 @@ func TestHTTPServerMCPToolsCallGetChannelMessages(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -288,7 +288,7 @@ func TestHTTPServerMCPToolsCallGetChannelMessages(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetChannelDocument(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -303,7 +303,7 @@ func TestHTTPServerMCPToolsCallGetChannelDocument(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -315,7 +315,7 @@ func TestHTTPServerMCPToolsCallGetChannelDocument(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallUpdateChannelDocument(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -331,7 +331,7 @@ func TestHTTPServerMCPToolsCallUpdateChannelDocument(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -343,7 +343,7 @@ func TestHTTPServerMCPToolsCallUpdateChannelDocument(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallUpdateTicket(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -359,7 +359,7 @@ func TestHTTPServerMCPToolsCallUpdateTicket(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -369,16 +369,16 @@ func TestHTTPServerMCPToolsCallUpdateTicket(t *testing.T) {
 	// Tool should be found
 }
 
-func TestHTTPServerMCPToolsCallCreateSession(t *testing.T) {
+func TestHTTPServerMCPToolsCallCreatePod(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
 		"id": 1,
 		"method": "tools/call",
 		"params": {
-			"name": "create_session",
+			"name": "create_pod",
 			"arguments": {
 				"ticket_id": 123,
 				"command": "echo hello"
@@ -387,7 +387,7 @@ func TestHTTPServerMCPToolsCallCreateSession(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -476,7 +476,7 @@ func TestGetStringSliceArgNonSlice(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSearchTicketsWithAllParams(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -497,7 +497,7 @@ func TestHTTPServerMCPToolsCallSearchTicketsWithAllParams(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -508,7 +508,7 @@ func TestHTTPServerMCPToolsCallSearchTicketsWithAllParams(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallSearchChannelsWithAllParams(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -519,14 +519,14 @@ func TestHTTPServerMCPToolsCallSearchChannelsWithAllParams(t *testing.T) {
 			"arguments": {
 				"name": "test",
 				"type": "public",
-				"owner_type": "session",
-				"owner_id": "session-123"
+				"owner_type": "pod",
+				"owner_id": "pod-123"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -537,7 +537,7 @@ func TestHTTPServerMCPToolsCallSearchChannelsWithAllParams(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallCreateChannelWithAllParams(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -554,7 +554,7 @@ func TestHTTPServerMCPToolsCallCreateChannelWithAllParams(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -565,7 +565,7 @@ func TestHTTPServerMCPToolsCallCreateChannelWithAllParams(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallObserveTerminalWithDefaultLines(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -574,13 +574,13 @@ func TestHTTPServerMCPToolsCallObserveTerminalWithDefaultLines(t *testing.T) {
 		"params": {
 			"name": "observe_terminal",
 			"arguments": {
-				"session_key": "target-session"
+				"pod_key": "target-pod"
 			}
 		}
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)
@@ -591,7 +591,7 @@ func TestHTTPServerMCPToolsCallObserveTerminalWithDefaultLines(t *testing.T) {
 
 func TestHTTPServerMCPToolsCallGetChannelMessagesWithAllParams(t *testing.T) {
 	server := NewHTTPServer("http://localhost:8080", 9090)
-	server.RegisterSession("test-session", nil, nil, "claude")
+	server.RegisterPod("test-pod", nil, nil, "claude")
 
 	body := bytes.NewBufferString(`{
 		"jsonrpc": "2.0",
@@ -608,7 +608,7 @@ func TestHTTPServerMCPToolsCallGetChannelMessagesWithAllParams(t *testing.T) {
 	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", body)
-	req.Header.Set("X-Session-Key", "test-session")
+	req.Header.Set("X-Pod-Key", "test-pod")
 	rec := httptest.NewRecorder()
 
 	server.handleMCP(rec, req)

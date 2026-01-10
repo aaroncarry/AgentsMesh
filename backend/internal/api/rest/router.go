@@ -81,7 +81,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
 			// User-level routes (no tenant context required)
-			v1.RegisterUserRoutes(protected.Group("/users"), svc.User, svc.Org, svc.Agent, svc.DevPodSettings, svc.DevPodAIProvider)
+			v1.RegisterUserRoutes(protected.Group("/users"), svc.User, svc.Org, svc.Agent, svc.AgentPodSettings, svc.AgentPodAIProvider)
 
 			// User Git connections routes (no tenant context required)
 			gitConnHandler := v1.NewUserGitConnectionHandler(svc.User)
@@ -107,68 +107,68 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 		}
 	}
 
-	// Session-based API routes (for MCP tools)
-	// These routes use X-Session-Key header for authentication instead of JWT
-	// The session key identifies both the session and its organization
-	sessionAPI := apiV1.Group("/session")
-	sessionAPI.Use(middleware.SessionAuthMiddleware(svc.Session, svc.Org))
+	// Pod-based API routes (for MCP tools)
+	// These routes use X-Pod-Key header for authentication instead of JWT
+	// The pod key identifies both the pod and its organization
+	podAPI := apiV1.Group("/pod")
+	podAPI.Use(middleware.PodAuthMiddleware(svc.Pod, svc.Org))
 	{
 		// Channel routes for MCP tools
 		channelHandler := v1.NewChannelHandler(svc.Channel)
-		sessionAPI.GET("/channels", channelHandler.ListChannels)
-		sessionAPI.POST("/channels", channelHandler.CreateChannel)
-		sessionAPI.GET("/channels/:id", channelHandler.GetChannel)
-		sessionAPI.GET("/channels/:id/messages", channelHandler.ListMessages)
-		sessionAPI.POST("/channels/:id/messages", channelHandler.SendMessage)
-		sessionAPI.POST("/channels/:id/sessions", channelHandler.JoinSession)
-		sessionAPI.GET("/channels/:id/document", channelHandler.GetDocument)
-		sessionAPI.PUT("/channels/:id/document", channelHandler.UpdateDocument)
+		podAPI.GET("/channels", channelHandler.ListChannels)
+		podAPI.POST("/channels", channelHandler.CreateChannel)
+		podAPI.GET("/channels/:id", channelHandler.GetChannel)
+		podAPI.GET("/channels/:id/messages", channelHandler.ListMessages)
+		podAPI.POST("/channels/:id/messages", channelHandler.SendMessage)
+		podAPI.POST("/channels/:id/pods", channelHandler.JoinPod)
+		podAPI.GET("/channels/:id/document", channelHandler.GetDocument)
+		podAPI.PUT("/channels/:id/document", channelHandler.UpdateDocument)
 
-		// Session routes for MCP tools
-		sessionHandler := v1.NewSessionHandler(svc.Session, svc.Runner, svc.Agent)
-		if svc.SessionCoordinator != nil {
-			sessionHandler.SetSessionCoordinator(svc.SessionCoordinator)
+		// Pod routes for MCP tools
+		podHandler := v1.NewPodHandler(svc.Pod, svc.Runner, svc.Agent)
+		if svc.PodCoordinator != nil {
+			podHandler.SetPodCoordinator(svc.PodCoordinator)
 		}
 		if svc.TerminalRouter != nil {
-			sessionHandler.SetTerminalRouter(svc.TerminalRouter)
+			podHandler.SetTerminalRouter(svc.TerminalRouter)
 		}
 		if svc.Repository != nil {
-			sessionHandler.SetRepositoryService(svc.Repository)
+			podHandler.SetRepositoryService(svc.Repository)
 		}
 		if svc.Ticket != nil {
-			sessionHandler.SetTicketService(svc.Ticket)
+			podHandler.SetTicketService(svc.Ticket)
 		}
 		if svc.User != nil {
-			sessionHandler.SetUserService(svc.User)
+			podHandler.SetUserService(svc.User)
 		}
-		sessionAPI.GET("/sessions", sessionHandler.ListSessions)
-		sessionAPI.POST("/sessions", sessionHandler.CreateSession)
-		sessionAPI.GET("/sessions/:key/terminal/observe", sessionHandler.ObserveTerminal)
-		sessionAPI.POST("/sessions/:key/terminal/input", sessionHandler.SendTerminalInput)
+		podAPI.GET("/pods", podHandler.ListPods)
+		podAPI.POST("/pods", podHandler.CreatePod)
+		podAPI.GET("/pods/:key/terminal/observe", podHandler.ObserveTerminal)
+		podAPI.POST("/pods/:key/terminal/input", podHandler.SendTerminalInput)
 
 		// Ticket routes for MCP tools
 		ticketHandler := v1.NewTicketHandler(svc.Ticket)
-		sessionAPI.GET("/tickets", ticketHandler.ListTickets)
-		sessionAPI.GET("/tickets/:identifier", ticketHandler.GetTicket)
-		sessionAPI.POST("/tickets", ticketHandler.CreateTicket)
-		sessionAPI.PUT("/tickets/:identifier", ticketHandler.UpdateTicket)
+		podAPI.GET("/tickets", ticketHandler.ListTickets)
+		podAPI.GET("/tickets/:identifier", ticketHandler.GetTicket)
+		podAPI.POST("/tickets", ticketHandler.CreateTicket)
+		podAPI.PUT("/tickets/:identifier", ticketHandler.UpdateTicket)
 
 		// Binding routes for MCP tools
 		bindingHandler := v1.NewBindingHandler(svc.Binding)
-		sessionAPI.POST("/bindings", bindingHandler.RequestBinding)
-		sessionAPI.GET("/bindings", bindingHandler.ListBindings)
-		sessionAPI.POST("/bindings/accept", bindingHandler.AcceptBinding)
-		sessionAPI.POST("/bindings/reject", bindingHandler.RejectBinding)
-		sessionAPI.POST("/bindings/unbind", bindingHandler.Unbind)
-		sessionAPI.GET("/bindings/sessions", bindingHandler.GetBoundSessions)
+		podAPI.POST("/bindings", bindingHandler.RequestBinding)
+		podAPI.GET("/bindings", bindingHandler.ListBindings)
+		podAPI.POST("/bindings/accept", bindingHandler.AcceptBinding)
+		podAPI.POST("/bindings/reject", bindingHandler.RejectBinding)
+		podAPI.POST("/bindings/unbind", bindingHandler.Unbind)
+		podAPI.GET("/bindings/pods", bindingHandler.GetBoundPods)
 
 		// Runner routes for MCP tools (discovery)
 		runnerHandler := v1.NewRunnerHandler(svc.Runner)
-		sessionAPI.GET("/runners", runnerHandler.ListRunners)
+		podAPI.GET("/runners", runnerHandler.ListRunners)
 
 		// Repository routes for MCP tools (discovery)
 		repositoryHandler := v1.NewRepositoryHandler(svc.Repository)
-		sessionAPI.GET("/repositories", repositoryHandler.ListRepositories)
+		podAPI.GET("/repositories", repositoryHandler.ListRepositories)
 	}
 
 	// WebSocket endpoints
@@ -176,11 +176,11 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 	wsGroup.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 	wsGroup.Use(middleware.TenantMiddleware(svc.Org))
 	{
-		terminalHandler := ws.NewTerminalHandler(svc.Hub, svc.Session)
+		terminalHandler := ws.NewTerminalHandler(svc.Hub, svc.Pod)
 		if svc.TerminalRouter != nil {
 			terminalHandler.SetTerminalRouter(svc.TerminalRouter)
 		}
-		wsGroup.GET("/terminal/:session_key", terminalHandler.HandleTerminal)
+		wsGroup.GET("/terminal/:pod_key", terminalHandler.HandleTerminal)
 
 		eventHandler := ws.NewEventsHandler(svc.Hub)
 		wsGroup.GET("/events", eventHandler.HandleEvents)

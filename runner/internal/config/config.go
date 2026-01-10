@@ -22,7 +22,7 @@ type Config struct {
 	RegistrationToken string `mapstructure:"registration_token"`
 
 	// Capacity
-	MaxConcurrentSessions int `mapstructure:"max_concurrent_sessions"`
+	MaxConcurrentPods int `mapstructure:"max_concurrent_pods"`
 
 	// Workspace settings
 	WorkspaceRoot string `mapstructure:"workspace_root"`
@@ -42,7 +42,7 @@ type Config struct {
 
 	// Agent settings
 	DefaultAgent string            `mapstructure:"default_agent"`
-	DefaultShell string            `mapstructure:"default_shell"` // Default shell for sessions
+	DefaultShell string            `mapstructure:"default_shell"` // Default shell for pods
 	AgentEnvVars map[string]string `mapstructure:"agent_env_vars"`
 
 	// Health check
@@ -59,7 +59,7 @@ func Load(configFile string) (*Config, error) {
 
 	// Set defaults
 	v.SetDefault("server_url", "https://api.agentmesh.dev")
-	v.SetDefault("max_concurrent_sessions", 5)
+	v.SetDefault("max_concurrent_pods", 5)
 	v.SetDefault("workspace_root", "/workspace")
 	v.SetDefault("mcp_port", 19000)
 	v.SetDefault("health_check_port", 9090)
@@ -121,8 +121,8 @@ func (c *Config) Validate() error {
 		return errors.New("either auth_token or registration_token is required")
 	}
 
-	if c.MaxConcurrentSessions < 1 {
-		return errors.New("max_concurrent_sessions must be at least 1")
+	if c.MaxConcurrentPods < 1 {
+		return errors.New("max_concurrent_pods must be at least 1")
 	}
 
 	// Ensure workspace root exists

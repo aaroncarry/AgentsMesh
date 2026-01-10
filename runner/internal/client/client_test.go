@@ -146,17 +146,17 @@ func TestClientSendTerminalOutput(t *testing.T) {
 	client := New("http://localhost:8080", "test-node", "test-token")
 
 	// Should error since not connected
-	err := client.SendTerminalOutput("session-1", []byte("output"))
+	err := client.SendTerminalOutput("pod-1", []byte("output"))
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
 }
 
-func TestClientSendSessionStatus(t *testing.T) {
+func TestClientSendPodStatus(t *testing.T) {
 	client := New("http://localhost:8080", "test-node", "test-token")
 
 	// Should error since not connected
-	err := client.SendSessionStatus("session-1", "running", map[string]interface{}{"key": "value"})
+	err := client.SendPodStatus("pod-1", "running", map[string]interface{}{"key": "value"})
 	if err == nil {
 		t.Error("expected error when not connected")
 	}
@@ -198,17 +198,17 @@ func TestMessageStruct(t *testing.T) {
 
 func TestMessageTypeConstants(t *testing.T) {
 	// Test that message type constants match backend protocol
-	if MessageTypeSessionStart != "create_session" {
-		t.Errorf("MessageTypeSessionStart: got %v, want create_session", MessageTypeSessionStart)
+	if MessageTypePodStart != "create_pod" {
+		t.Errorf("MessageTypePodStart: got %v, want create_pod", MessageTypePodStart)
 	}
-	if MessageTypeSessionStop != "terminate_session" {
-		t.Errorf("MessageTypeSessionStop: got %v, want terminate_session", MessageTypeSessionStop)
+	if MessageTypePodStop != "terminate_pod" {
+		t.Errorf("MessageTypePodStop: got %v, want terminate_pod", MessageTypePodStop)
 	}
-	if MessageTypeSessionStatus != "agent_status" {
-		t.Errorf("MessageTypeSessionStatus: got %v, want agent_status", MessageTypeSessionStatus)
+	if MessageTypePodStatus != "agent_status" {
+		t.Errorf("MessageTypePodStatus: got %v, want agent_status", MessageTypePodStatus)
 	}
-	if MessageTypeSessionList != "session_list" {
-		t.Errorf("MessageTypeSessionList: got %v, want session_list", MessageTypeSessionList)
+	if MessageTypePodList != "pod_list" {
+		t.Errorf("MessageTypePodList: got %v, want pod_list", MessageTypePodList)
 	}
 	if MessageTypeTerminalInput != "terminal_input" {
 		t.Errorf("MessageTypeTerminalInput: got %v, want terminal_input", MessageTypeTerminalInput)
@@ -233,17 +233,17 @@ func TestProtocolMessageTypes(t *testing.T) {
 	if MsgTypeHeartbeat != "heartbeat" {
 		t.Errorf("MsgTypeHeartbeat: got %v, want heartbeat", MsgTypeHeartbeat)
 	}
-	if MsgTypeSessionCreated != "session_created" {
-		t.Errorf("MsgTypeSessionCreated: got %v, want session_created", MsgTypeSessionCreated)
+	if MsgTypePodCreated != "pod_created" {
+		t.Errorf("MsgTypePodCreated: got %v, want pod_created", MsgTypePodCreated)
 	}
-	if MsgTypeSessionTerminated != "session_terminated" {
-		t.Errorf("MsgTypeSessionTerminated: got %v, want session_terminated", MsgTypeSessionTerminated)
+	if MsgTypePodTerminated != "pod_terminated" {
+		t.Errorf("MsgTypePodTerminated: got %v, want pod_terminated", MsgTypePodTerminated)
 	}
 	if MsgTypeStatusChange != "status_change" {
 		t.Errorf("MsgTypeStatusChange: got %v, want status_change", MsgTypeStatusChange)
 	}
-	if MsgTypeSessionList != "session_list" {
-		t.Errorf("MsgTypeSessionList: got %v, want session_list", MsgTypeSessionList)
+	if MsgTypePodList != "pod_list" {
+		t.Errorf("MsgTypePodList: got %v, want pod_list", MsgTypePodList)
 	}
 	if MsgTypeTerminalOutput != "terminal_output" {
 		t.Errorf("MsgTypeTerminalOutput: got %v, want terminal_output", MsgTypeTerminalOutput)
@@ -251,14 +251,14 @@ func TestProtocolMessageTypes(t *testing.T) {
 	if MsgTypePtyResized != "pty_resized" {
 		t.Errorf("MsgTypePtyResized: got %v, want pty_resized", MsgTypePtyResized)
 	}
-	if MsgTypeCreateSession != "create_session" {
-		t.Errorf("MsgTypeCreateSession: got %v, want create_session", MsgTypeCreateSession)
+	if MsgTypeCreatePod != "create_pod" {
+		t.Errorf("MsgTypeCreatePod: got %v, want create_pod", MsgTypeCreatePod)
 	}
-	if MsgTypeTerminateSession != "terminate_session" {
-		t.Errorf("MsgTypeTerminateSession: got %v, want terminate_session", MsgTypeTerminateSession)
+	if MsgTypeTerminatePod != "terminate_pod" {
+		t.Errorf("MsgTypeTerminatePod: got %v, want terminate_pod", MsgTypeTerminatePod)
 	}
-	if MsgTypeListSessions != "list_sessions" {
-		t.Errorf("MsgTypeListSessions: got %v, want list_sessions", MsgTypeListSessions)
+	if MsgTypeListPods != "list_pods" {
+		t.Errorf("MsgTypeListPods: got %v, want list_pods", MsgTypeListPods)
 	}
 	if MsgTypeTerminalInput != "terminal_input" {
 		t.Errorf("MsgTypeTerminalInput: got %v, want terminal_input", MsgTypeTerminalInput)
@@ -286,30 +286,30 @@ func TestProtocolMessageStruct(t *testing.T) {
 func TestHeartbeatData(t *testing.T) {
 	data := HeartbeatData{
 		NodeID: "test-node",
-		Sessions: []SessionInfo{
-			{SessionID: "session-1", Status: "running"},
+		Pods: []PodInfo{
+			{PodKey: "pod-1", Status: "running"},
 		},
 	}
 
 	if data.NodeID != "test-node" {
 		t.Errorf("NodeID: got %v, want test-node", data.NodeID)
 	}
-	if len(data.Sessions) != 1 {
-		t.Errorf("Sessions length: got %v, want 1", len(data.Sessions))
+	if len(data.Pods) != 1 {
+		t.Errorf("Pods length: got %v, want 1", len(data.Pods))
 	}
 }
 
-func TestSessionInfoStruct(t *testing.T) {
-	info := SessionInfo{
-		SessionID:    "session-1",
+func TestPodInfoStruct(t *testing.T) {
+	info := PodInfo{
+		PodKey:       "pod-1",
 		Status:       "running",
 		ClaudeStatus: "active",
 		Pid:          12345,
 		ClientCount:  3,
 	}
 
-	if info.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", info.SessionID)
+	if info.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", info.PodKey)
 	}
 	if info.Pid != 12345 {
 		t.Errorf("Pid: got %v, want 12345", info.Pid)
@@ -327,9 +327,9 @@ func TestPreparationConfig(t *testing.T) {
 	}
 }
 
-func TestCreateSessionRequest(t *testing.T) {
-	req := CreateSessionRequest{
-		SessionID:        "session-1",
+func TestCreatePodRequest(t *testing.T) {
+	req := CreatePodRequest{
+		PodKey:           "pod-1",
 		InitialCommand:   "claude-code",
 		InitialPrompt:    "Hello",
 		PermissionMode:   "plan",
@@ -343,8 +343,8 @@ func TestCreateSessionRequest(t *testing.T) {
 		},
 	}
 
-	if req.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", req.SessionID)
+	if req.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", req.PodKey)
 	}
 	if req.PermissionMode != "plan" {
 		t.Errorf("PermissionMode: got %v, want plan", req.PermissionMode)
@@ -354,9 +354,9 @@ func TestCreateSessionRequest(t *testing.T) {
 	}
 }
 
-func TestCreateSessionRequestWithPluginConfig(t *testing.T) {
-	req := CreateSessionRequest{
-		SessionID:      "session-2",
+func TestCreatePodRequestWithPluginConfig(t *testing.T) {
+	req := CreatePodRequest{
+		PodKey:         "pod-2",
 		InitialCommand: "claude",
 		PluginConfig: map[string]interface{}{
 			"repository_url":    "https://github.com/org/repo.git",
@@ -371,8 +371,8 @@ func TestCreateSessionRequestWithPluginConfig(t *testing.T) {
 		},
 	}
 
-	if req.SessionID != "session-2" {
-		t.Errorf("SessionID: got %v, want session-2", req.SessionID)
+	if req.PodKey != "pod-2" {
+		t.Errorf("PodKey: got %v, want pod-2", req.PodKey)
 	}
 	if req.PluginConfig == nil {
 		t.Fatal("PluginConfig should not be nil")
@@ -397,10 +397,10 @@ func TestCreateSessionRequestWithPluginConfig(t *testing.T) {
 	}
 }
 
-func TestCreateSessionRequestPluginConfigJSON(t *testing.T) {
+func TestCreatePodRequestPluginConfigJSON(t *testing.T) {
 	// Test that PluginConfig serializes correctly to JSON
-	req := CreateSessionRequest{
-		SessionID: "session-json",
+	req := CreatePodRequest{
+		PodKey: "pod-json",
 		PluginConfig: map[string]interface{}{
 			"repository_url": "https://github.com/test/repo.git",
 			"nested": map[string]interface{}{
@@ -414,7 +414,7 @@ func TestCreateSessionRequestPluginConfigJSON(t *testing.T) {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 
-	var parsed CreateSessionRequest
+	var parsed CreatePodRequest
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
@@ -432,53 +432,53 @@ func TestCreateSessionRequestPluginConfigJSON(t *testing.T) {
 	}
 }
 
-func TestTerminateSessionRequest(t *testing.T) {
-	req := TerminateSessionRequest{
-		SessionID: "session-1",
+func TestTerminatePodRequest(t *testing.T) {
+	req := TerminatePodRequest{
+		PodKey: "pod-1",
 	}
 
-	if req.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", req.SessionID)
+	if req.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", req.PodKey)
 	}
 }
 
-func TestSessionCreatedEvent(t *testing.T) {
-	event := SessionCreatedEvent{
-		SessionID:    "session-1",
+func TestPodCreatedEvent(t *testing.T) {
+	event := PodCreatedEvent{
+		PodKey:       "pod-1",
 		Pid:          12345,
-		WorktreePath: "/workspace/worktrees/session-1",
+		WorktreePath: "/workspace/worktrees/pod-1",
 		BranchName:   "feature/test",
 		PtyCols:      120,
 		PtyRows:      40,
 	}
 
-	if event.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", event.SessionID)
+	if event.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", event.PodKey)
 	}
 	if event.PtyCols != 120 {
 		t.Errorf("PtyCols: got %v, want 120", event.PtyCols)
 	}
 }
 
-func TestSessionTerminatedEvent(t *testing.T) {
-	event := SessionTerminatedEvent{
-		SessionID: "session-1",
+func TestPodTerminatedEvent(t *testing.T) {
+	event := PodTerminatedEvent{
+		PodKey: "pod-1",
 	}
 
-	if event.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", event.SessionID)
+	if event.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", event.PodKey)
 	}
 }
 
 func TestStatusChangeEvent(t *testing.T) {
 	event := StatusChangeEvent{
-		SessionID:    "session-1",
+		PodKey:       "pod-1",
 		ClaudeStatus: "active",
 		ClaudePid:    12345,
 	}
 
-	if event.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", event.SessionID)
+	if event.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", event.PodKey)
 	}
 	if event.ClaudeStatus != "active" {
 		t.Errorf("ClaudeStatus: got %v, want active", event.ClaudeStatus)
@@ -487,35 +487,35 @@ func TestStatusChangeEvent(t *testing.T) {
 
 func TestTerminalOutputEvent(t *testing.T) {
 	event := TerminalOutputEvent{
-		SessionID: "session-1",
-		Data:      "SGVsbG8gV29ybGQ=", // Base64 encoded
+		PodKey: "pod-1",
+		Data:   "SGVsbG8gV29ybGQ=", // Base64 encoded
 	}
 
-	if event.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", event.SessionID)
+	if event.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", event.PodKey)
 	}
 }
 
 func TestTerminalInputRequest(t *testing.T) {
 	req := TerminalInputRequest{
-		SessionID: "session-1",
-		Data:      "SGVsbG8=",
+		PodKey: "pod-1",
+		Data:   "SGVsbG8=",
 	}
 
-	if req.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", req.SessionID)
+	if req.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", req.PodKey)
 	}
 }
 
 func TestTerminalResizeRequest(t *testing.T) {
 	req := TerminalResizeRequest{
-		SessionID: "session-1",
-		Cols:      120,
-		Rows:      40,
+		PodKey: "pod-1",
+		Cols:   120,
+		Rows:   40,
 	}
 
-	if req.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", req.SessionID)
+	if req.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", req.PodKey)
 	}
 	if req.Cols != 120 {
 		t.Errorf("Cols: got %v, want 120", req.Cols)
@@ -524,13 +524,13 @@ func TestTerminalResizeRequest(t *testing.T) {
 
 func TestPtyResizedEvent(t *testing.T) {
 	event := PtyResizedEvent{
-		SessionID: "session-1",
-		Cols:      120,
-		Rows:      40,
+		PodKey: "pod-1",
+		Cols:   120,
+		Rows:   40,
 	}
 
-	if event.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", event.SessionID)
+	if event.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", event.PodKey)
 	}
 }
 
@@ -649,40 +649,40 @@ func TestReconnectStrategyCurrentInterval(t *testing.T) {
 
 // mockHandler is a mock implementation of MessageHandler
 type mockHandler struct {
-	createSessionCalled    bool
-	terminateSessionCalled bool
-	listSessionsCalled     bool
+	createPodCalled    bool
+	terminatePodCalled bool
+	listPodsCalled     bool
 	terminalInputCalled    bool
 	terminalResizeCalled   bool
-	lastCreateReq          CreateSessionRequest
-	lastTerminateReq       TerminateSessionRequest
+	lastCreateReq          CreatePodRequest
+	lastTerminateReq       TerminatePodRequest
 	lastInputReq           TerminalInputRequest
 	lastResizeReq          TerminalResizeRequest
-	sessions               []SessionInfo
+	pods                   []PodInfo
 	mu                     sync.Mutex
 }
 
-func (m *mockHandler) OnCreateSession(req CreateSessionRequest) error {
+func (m *mockHandler) OnCreatePod(req CreatePodRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.createSessionCalled = true
+	m.createPodCalled = true
 	m.lastCreateReq = req
 	return nil
 }
 
-func (m *mockHandler) OnTerminateSession(req TerminateSessionRequest) error {
+func (m *mockHandler) OnTerminatePod(req TerminatePodRequest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.terminateSessionCalled = true
+	m.terminatePodCalled = true
 	m.lastTerminateReq = req
 	return nil
 }
 
-func (m *mockHandler) OnListSessions() []SessionInfo {
+func (m *mockHandler) OnListPods() []PodInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.listSessionsCalled = true
-	return m.sessions
+	m.listPodsCalled = true
+	return m.pods
 }
 
 func (m *mockHandler) OnTerminalInput(req TerminalInputRequest) error {
@@ -739,78 +739,78 @@ func TestNewMessageRouter(t *testing.T) {
 	}
 }
 
-func TestMessageRouterRouteCreateSession(t *testing.T) {
+func TestMessageRouterRouteCreatePod(t *testing.T) {
 	handler := &mockHandler{}
 	sender := &mockEventSender{}
 	router := NewMessageRouter(handler, sender)
 
-	reqData, _ := json.Marshal(CreateSessionRequest{
-		SessionID:      "session-1",
+	reqData, _ := json.Marshal(CreatePodRequest{
+		PodKey:         "pod-1",
 		InitialCommand: "claude-code",
 	})
 
 	msg := ProtocolMessage{
-		Type: MsgTypeCreateSession,
+		Type: MsgTypeCreatePod,
 		Data: reqData,
 	}
 
 	router.Route(msg)
 
-	if !handler.createSessionCalled {
-		t.Error("OnCreateSession should be called")
+	if !handler.createPodCalled {
+		t.Error("OnCreatePod should be called")
 	}
 
-	if handler.lastCreateReq.SessionID != "session-1" {
-		t.Errorf("SessionID: got %v, want session-1", handler.lastCreateReq.SessionID)
+	if handler.lastCreateReq.PodKey != "pod-1" {
+		t.Errorf("PodKey: got %v, want pod-1", handler.lastCreateReq.PodKey)
 	}
 }
 
-func TestMessageRouterRouteTerminateSession(t *testing.T) {
+func TestMessageRouterRouteTerminatePod(t *testing.T) {
 	handler := &mockHandler{}
 	sender := &mockEventSender{}
 	router := NewMessageRouter(handler, sender)
 
-	reqData, _ := json.Marshal(TerminateSessionRequest{
-		SessionID: "session-1",
+	reqData, _ := json.Marshal(TerminatePodRequest{
+		PodKey: "pod-1",
 	})
 
 	msg := ProtocolMessage{
-		Type: MsgTypeTerminateSession,
+		Type: MsgTypeTerminatePod,
 		Data: reqData,
 	}
 
 	router.Route(msg)
 
-	if !handler.terminateSessionCalled {
-		t.Error("OnTerminateSession should be called")
+	if !handler.terminatePodCalled {
+		t.Error("OnTerminatePod should be called")
 	}
 }
 
-func TestMessageRouterRouteListSessions(t *testing.T) {
+func TestMessageRouterRouteListPods(t *testing.T) {
 	handler := &mockHandler{
-		sessions: []SessionInfo{
-			{SessionID: "session-1", Status: "running"},
+		pods: []PodInfo{
+			{PodKey: "pod-1", Status: "running"},
 		},
 	}
 	sender := &mockEventSender{}
 	router := NewMessageRouter(handler, sender)
 
 	msg := ProtocolMessage{
-		Type: MsgTypeListSessions,
+		Type: MsgTypeListPods,
 	}
 
 	router.Route(msg)
 
-	if !handler.listSessionsCalled {
-		t.Error("OnListSessions should be called")
+	if !handler.listPodsCalled {
+		t.Error("OnListPods should be called")
 	}
 
 	if len(sender.sentEvents) != 1 {
 		t.Errorf("sentEvents length: got %v, want 1", len(sender.sentEvents))
 	}
 
-	if sender.sentEvents[0].msgType != MsgTypeSessionList {
-		t.Errorf("sent event type: got %v, want %v", sender.sentEvents[0].msgType, MsgTypeSessionList)
+	if sender.sentEvents[0].msgType != MsgTypePodList {
+		t.Errorf("sent event type: got %v, want %v", sender.sentEvents[0].msgType, MsgTypePodList)
 	}
 }
 
@@ -820,8 +820,8 @@ func TestMessageRouterRouteTerminalInput(t *testing.T) {
 	router := NewMessageRouter(handler, sender)
 
 	reqData, _ := json.Marshal(TerminalInputRequest{
-		SessionID: "session-1",
-		Data:      "SGVsbG8=",
+		PodKey: "pod-1",
+		Data:   "SGVsbG8=",
 	})
 
 	msg := ProtocolMessage{
@@ -842,9 +842,9 @@ func TestMessageRouterRouteTerminalResize(t *testing.T) {
 	router := NewMessageRouter(handler, sender)
 
 	reqData, _ := json.Marshal(TerminalResizeRequest{
-		SessionID: "session-1",
-		Cols:      120,
-		Rows:      40,
+		PodKey: "pod-1",
+		Cols:   120,
+		Rows:   40,
 	})
 
 	msg := ProtocolMessage{
@@ -876,8 +876,8 @@ func TestMessageRouterRouteUnknown(t *testing.T) {
 	router.Route(msg)
 
 	// None of the handlers should be called
-	if handler.createSessionCalled || handler.terminateSessionCalled ||
-		handler.listSessionsCalled || handler.terminalInputCalled || handler.terminalResizeCalled {
+	if handler.createPodCalled || handler.terminatePodCalled ||
+		handler.listPodsCalled || handler.terminalInputCalled || handler.terminalResizeCalled {
 		t.Error("no handler should be called for unknown type")
 	}
 }
@@ -886,7 +886,7 @@ func TestMessageRouterRouteNilHandler(t *testing.T) {
 	router := NewMessageRouter(nil, nil)
 
 	msg := ProtocolMessage{
-		Type: MsgTypeCreateSession,
+		Type: MsgTypeCreatePod,
 	}
 
 	// Should not panic
@@ -899,7 +899,7 @@ func TestMessageRouterRouteInvalidJSON(t *testing.T) {
 	router := NewMessageRouter(handler, sender)
 
 	msg := ProtocolMessage{
-		Type: MsgTypeCreateSession,
+		Type: MsgTypeCreatePod,
 		Data: json.RawMessage(`invalid json`),
 	}
 
@@ -907,7 +907,7 @@ func TestMessageRouterRouteInvalidJSON(t *testing.T) {
 	router.Route(msg)
 
 	// Handler should not be called due to JSON parsing error
-	if handler.createSessionCalled {
+	if handler.createPodCalled {
 		t.Error("handler should not be called for invalid JSON")
 	}
 }
@@ -1240,12 +1240,12 @@ func BenchmarkMessageRouterRoute(b *testing.B) {
 	sender := &mockEventSender{}
 	router := NewMessageRouter(handler, sender)
 
-	reqData, _ := json.Marshal(CreateSessionRequest{
-		SessionID: "session-1",
+	reqData, _ := json.Marshal(CreatePodRequest{
+		PodKey: "pod-1",
 	})
 
 	msg := ProtocolMessage{
-		Type: MsgTypeCreateSession,
+		Type: MsgTypeCreatePod,
 		Data: reqData,
 	}
 

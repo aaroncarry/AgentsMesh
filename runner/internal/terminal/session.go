@@ -121,7 +121,7 @@ func NewSession(cfg *SessionConfig) (*Session, error) {
 		done:         make(chan struct{}),
 	}
 
-	log.Printf("[terminal] Created new PTY session: session_id=%s, command=%s, pid=%d",
+	log.Printf("[terminal] Created new PTY session: pty_session_id=%s, command=%s, pid=%d",
 		cfg.ID, cfg.Command, cmd.Process.Pid)
 
 	return session, nil
@@ -139,7 +139,7 @@ func (s *Session) Resize(rows, cols uint16) error {
 		return fmt.Errorf("failed to resize pty: %w", err)
 	}
 
-	log.Printf("[terminal] Resized PTY: session_id=%s, rows=%d, cols=%d", s.ID, rows, cols)
+	log.Printf("[terminal] Resized PTY: pty_session_id=%s, rows=%d, cols=%d", s.ID, rows, cols)
 
 	return nil
 }
@@ -277,7 +277,7 @@ func (s *Session) Close() error {
 		}
 	}
 
-	log.Printf("[terminal] Closed PTY session: session_id=%s", s.ID)
+	log.Printf("[terminal] Closed PTY session: pty_session_id=%s", s.ID)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors closing session: %v", errs)

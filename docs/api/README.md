@@ -182,16 +182,16 @@ Organization-scoped endpoints require the organization slug in the URL path:
 | POST | `/runners/register` | Register runner (public) |
 | POST | `/runners/heartbeat` | Runner heartbeat (public) |
 
-### Sessions
+### Pods
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/organizations/{slug}/sessions` | List sessions |
-| POST | `/organizations/{slug}/sessions` | Create session |
-| GET | `/organizations/{slug}/sessions/{key}` | Get session |
-| POST | `/organizations/{slug}/sessions/{key}/terminate` | Terminate session |
-| GET | `/organizations/{slug}/sessions/{key}/connect` | Get connection info |
-| POST | `/organizations/{slug}/sessions/{key}/send-prompt` | Send prompt |
+| GET | `/organizations/{slug}/pods` | List pods |
+| POST | `/organizations/{slug}/pods` | Create pod |
+| GET | `/organizations/{slug}/pods/{key}` | Get pod |
+| POST | `/organizations/{slug}/pods/{key}/terminate` | Terminate pod |
+| GET | `/organizations/{slug}/pods/{key}/connect` | Get connection info |
+| POST | `/organizations/{slug}/pods/{key}/send-prompt` | Send prompt |
 
 ### Channels
 
@@ -205,8 +205,8 @@ Organization-scoped endpoints require the organization slug in the URL path:
 | POST | `/organizations/{slug}/channels/{id}/unarchive` | Unarchive channel |
 | GET | `/organizations/{slug}/channels/{id}/messages` | List messages |
 | POST | `/organizations/{slug}/channels/{id}/messages` | Send message |
-| POST | `/organizations/{slug}/channels/{id}/sessions` | Join session |
-| DELETE | `/organizations/{slug}/channels/{id}/sessions/{key}` | Leave session |
+| POST | `/organizations/{slug}/channels/{id}/pods` | Join pod |
+| DELETE | `/organizations/{slug}/channels/{id}/pods/{key}` | Leave pod |
 
 ### Tickets
 
@@ -252,13 +252,13 @@ Organization-scoped endpoints require the organization slug in the URL path:
 ### Terminal WebSocket
 
 ```
-ws://localhost:8080/ws/terminal/{session_key}
+ws://localhost:8080/ws/terminal/{pod_key}
 ```
 
-Connect to a session's terminal. Requires JWT authentication via query parameter:
+Connect to a pod's terminal. Requires JWT authentication via query parameter:
 
 ```
-ws://localhost:8080/ws/terminal/{session_key}?token=<jwt>
+ws://localhost:8080/ws/terminal/{pod_key}?token=<jwt>
 ```
 
 ### Events WebSocket
