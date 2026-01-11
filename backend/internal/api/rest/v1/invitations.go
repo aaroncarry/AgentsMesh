@@ -6,6 +6,7 @@ import (
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/organization"
 	"github.com/anthropics/agentmesh/backend/internal/middleware"
+	billingSvc "github.com/anthropics/agentmesh/backend/internal/service/billing"
 	invitationSvc "github.com/anthropics/agentmesh/backend/internal/service/invitation"
 	orgSvc "github.com/anthropics/agentmesh/backend/internal/service/organization"
 	userSvc "github.com/anthropics/agentmesh/backend/internal/service/user"
@@ -17,6 +18,7 @@ type InvitationHandler struct {
 	invitationService *invitationSvc.Service
 	orgService        *orgSvc.Service
 	userService       *userSvc.Service
+	billingService    *billingSvc.Service
 }
 
 // NewInvitationHandler creates a new invitation handler
@@ -24,11 +26,13 @@ func NewInvitationHandler(
 	invitationService *invitationSvc.Service,
 	orgService *orgSvc.Service,
 	userService *userSvc.Service,
+	billingService *billingSvc.Service,
 ) *InvitationHandler {
 	return &InvitationHandler{
 		invitationService: invitationService,
 		orgService:        orgService,
 		userService:       userService,
+		billingService:    billingService,
 	}
 }
 
@@ -81,6 +85,19 @@ func (h *InvitationHandler) CreateInvitation(c *gin.Context) {
 	// Only admins and owners can invite
 	if tc.UserRole != organization.RoleOwner && tc.UserRole != organization.RoleAdmin {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only admins and owners can invite members"})
+		return
+	}
+
+	// Check seat quota before inviting
+	if err := h.billingService.CheckQuota(c.Request.Context(), tc.OrganizationID, "users", 1); err != nil {
+		if err == billingSvc.ErrQuotaExceeded {
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Seat quota exceeded. Please upgrade your plan to invite more members.",
+				"code":  "SEAT_QUOTA_EXCEEDED",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check quota"})
 		return
 	}
 

@@ -174,12 +174,12 @@ func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
 	agentSvc := agent.NewService(db)
 	gitProviderSvc := gitprovider.NewService(db)
 	repoSvc := repository.NewService(db)
-	runnerSvc := runner.NewService(db)
+	billingSvc := billing.NewService(db, "") // Empty stripe key for now
+	runnerSvc := runner.NewService(db, billingSvc)
 	podSvc := agentpod.NewPodService(db)
 	channelSvc := channel.NewService(db)
 	ticketSvc := ticket.NewService(db)
 	sshKeySvc := sshkey.NewService(db)
-	billingSvc := billing.NewService(db, "") // Empty stripe key for now
 	bindingSvc := binding.NewService(db, podSvc)
 	devmeshSvc := devmesh.NewService(db, podSvc, channelSvc, bindingSvc)
 

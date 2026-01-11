@@ -36,7 +36,6 @@ export function PricingSection() {
         t("landing.pricing.pro.features.3"),
         t("landing.pricing.pro.features.4"),
         t("landing.pricing.pro.features.5"),
-        t("landing.pricing.pro.features.6"),
       ],
       cta: t("landing.pricing.pro.cta"),
       href: "/register?plan=pro",
@@ -57,6 +56,24 @@ export function PricingSection() {
         t("landing.pricing.enterprise.features.6"),
       ],
       cta: t("landing.pricing.enterprise.cta"),
+      href: "/register?plan=enterprise",
+      highlighted: false,
+    },
+    {
+      name: t("landing.pricing.onpremise.name"),
+      price: t("landing.pricing.onpremise.price"),
+      period: t("landing.pricing.onpremise.period"),
+      description: t("landing.pricing.onpremise.description"),
+      features: [
+        t("landing.pricing.onpremise.features.0"),
+        t("landing.pricing.onpremise.features.1"),
+        t("landing.pricing.onpremise.features.2"),
+        t("landing.pricing.onpremise.features.3"),
+        t("landing.pricing.onpremise.features.4"),
+        t("landing.pricing.onpremise.features.5"),
+        t("landing.pricing.onpremise.features.6"),
+      ],
+      cta: t("landing.pricing.onpremise.cta"),
       href: "/contact",
       highlighted: false,
     },
@@ -76,7 +93,7 @@ export function PricingSection() {
         </div>
 
         {/* Pricing cards */}
-        <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {plans.map((plan, index) => (
             <div
               key={index}

@@ -358,56 +358,73 @@
     "pricing": {
       "title": "Simple, Transparent",
       "titleHighlight": "Pricing",
-      "description": "Start free and scale as you grow. No hidden fees.",
+      "description": "BYOK model - Bring Your Own API Key. AI costs on your side, no usage caps.",
       "mostPopular": "Most Popular",
+      "annualDiscount": "Save 20%",
+      "perSeat": "/seat",
       "free": {
         "name": "Free",
         "price": "$0",
         "period": "forever",
-        "description": "Perfect for individual developers getting started.",
+        "description": "Perfect for individual developers exploring AI coding agents.",
         "features": [
+          "1 seat (solo mode)",
+          "2 concurrent pods",
           "1 Runner",
-          "3 concurrent pods",
-          "1 organization member",
-          "Community support",
-          "Basic integrations"
+          "3 repositories",
+          "Community support"
         ],
         "cta": "Get Started"
       },
       "pro": {
         "name": "Pro",
-        "price": "$29",
-        "period": "per user/month",
-        "description": "For teams that need more power and collaboration.",
+        "price": "$20",
+        "period": "per seat/month",
+        "description": "For small teams that want to scale AI collaboration.",
         "features": [
-          "Unlimited Runners",
-          "Unlimited pods",
-          "Up to 10 team members",
+          "Up to 5 seats",
+          "10 concurrent pods",
+          "10 Runners",
+          "10 repositories",
           "Priority email support",
-          "API access",
-          "Advanced analytics",
-          "Custom integrations"
+          "Multi-Git provider support"
         ],
-        "cta": "Start Pro Trial"
+        "cta": "Upgrade to Pro"
       },
       "enterprise": {
         "name": "Enterprise",
+        "price": "$40",
+        "period": "per seat/month",
+        "description": "For organizations requiring advanced scale and security.",
+        "features": [
+          "Up to 50 seats",
+          "50 concurrent pods",
+          "100 Runners",
+          "Unlimited repositories",
+          "Priority support",
+          "SSO integration (coming soon)",
+          "Audit logs (coming soon)"
+        ],
+        "cta": "Upgrade to Enterprise"
+      },
+      "onpremise": {
+        "name": "OnPremise",
         "price": "Custom",
         "period": "contact us",
-        "description": "For organizations with advanced security needs.",
+        "description": "Full private deployment with complete data control.",
         "features": [
-          "Everything in Pro",
-          "SAML/LDAP SSO",
-          "Audit logs",
+          "Unlimited seats",
+          "Unlimited pods",
+          "Unlimited Runners",
+          "Air-gapped support",
           "Dedicated support",
-          "Private deployment",
-          "SLA guarantee",
-          "Custom contracts"
+          "Custom SLA",
+          "White-glove onboarding"
         ],
         "cta": "Contact Sales"
       },
-      "footer": "All plans include SSL encryption, 99.9% uptime SLA, and regular backups.",
-      "customPlan": "Need a custom plan?",
+      "footer": "All plans include BYOK (Bring Your Own Key) - use your own AI API keys with no usage limits.",
+      "customPlan": "Need enterprise deployment?",
       "contactUs": "Contact us"
     },
     "selfHosted": {

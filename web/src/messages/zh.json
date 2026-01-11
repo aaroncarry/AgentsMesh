@@ -358,56 +358,73 @@
     "pricing": {
       "title": "简单透明的",
       "titleHighlight": "定价",
-      "description": "免费开始，按需扩展。无隐藏费用。",
+      "description": "BYOK 模式 - 使用您自己的 AI API Key，无使用量限制。",
       "mostPopular": "最受欢迎",
+      "annualDiscount": "年付省20%",
+      "perSeat": "/席位",
       "free": {
         "name": "免费版",
         "price": "¥0",
         "period": "永久免费",
-        "description": "适合刚开始使用的个人开发者。",
+        "description": "适合个人开发者探索 AI 编程智能体。",
         "features": [
-          "1 个运行节点",
-          "3 个并发 Pod",
-          "1 个组织成员",
-          "社区支持",
-          "基础集成"
+          "1 个席位（单人模式）",
+          "2 个并发 Pod",
+          "1 个 Runner",
+          "3 个仓库",
+          "社区支持"
         ],
         "cta": "立即开始"
       },
       "pro": {
         "name": "专业版",
-        "price": "¥199",
-        "period": "每用户/月",
-        "description": "适合需要更强大功能和协作的团队。",
+        "price": "¥139",
+        "period": "每席位/月",
+        "description": "适合想要扩展 AI 协作的小型团队。",
         "features": [
-          "无限运行节点",
-          "无限 Pod",
-          "最多 10 名团队成员",
+          "最多 5 个席位",
+          "10 个并发 Pod",
+          "10 个 Runner",
+          "10 个仓库",
           "优先邮件支持",
-          "API 访问",
-          "高级分析",
-          "自定义集成"
+          "多 Git 平台支持"
         ],
-        "cta": "开始试用"
+        "cta": "升级专业版"
       },
       "enterprise": {
         "name": "企业版",
-        "price": "定制",
-        "period": "联系我们",
-        "description": "适合有高级安全需求的组织。",
+        "price": "¥279",
+        "period": "每席位/月",
+        "description": "适合需要高级规模和安全性的组织。",
         "features": [
-          "专业版全部功能",
-          "SAML/LDAP SSO",
-          "审计日志",
+          "最多 50 个席位",
+          "50 个并发 Pod",
+          "100 个 Runner",
+          "无限仓库",
+          "优先支持",
+          "SSO 集成（即将推出）",
+          "审计日志（即将推出）"
+        ],
+        "cta": "升级企业版"
+      },
+      "onpremise": {
+        "name": "私有部署版",
+        "price": "商务报价",
+        "period": "联系我们",
+        "description": "完全私有部署，数据完全可控。",
+        "features": [
+          "无限席位",
+          "无限 Pod",
+          "无限 Runner",
+          "离线环境支持",
           "专属支持",
-          "私有部署",
-          "SLA 保障",
-          "定制合同"
+          "定制 SLA",
+          "白手套上门服务"
         ],
         "cta": "联系销售"
       },
-      "footer": "所有方案均包含 SSL 加密、99.9% 正常运行时间 SLA 和定期备份。",
-      "customPlan": "需要定制方案？",
+      "footer": "所有方案均支持 BYOK（自带 API Key）- 使用您自己的 AI API Key，无使用量限制。",
+      "customPlan": "需要私有部署？",
       "contactUs": "联系我们"
     },
     "selfHosted": {

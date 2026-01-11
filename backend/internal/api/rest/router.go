@@ -72,7 +72,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 
 		// Public invitation routes (token-based access)
 		if svc.Invitation != nil {
-			invitationHandler := v1.NewInvitationHandler(svc.Invitation, svc.Org, svc.User)
+			invitationHandler := v1.NewInvitationHandler(svc.Invitation, svc.Org, svc.User, svc.Billing)
 			invitationHandler.RegisterRoutes(apiV1, middleware.AuthMiddleware(cfg.JWT.Secret))
 		}
 
@@ -162,6 +162,9 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			if svc.User != nil {
 				mcpPodOpts = append(mcpPodOpts, v1.WithUserService(svc.User))
 			}
+			if svc.Billing != nil {
+				mcpPodOpts = append(mcpPodOpts, v1.WithBillingService(svc.Billing))
+			}
 			podHandler := v1.NewPodHandler(svc.Pod, svc.Runner, svc.Agent, mcpPodOpts...)
 			podOrgScoped.GET("/pods", podHandler.ListPods)
 			podOrgScoped.POST("/pods", podHandler.CreatePod)
@@ -189,7 +192,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			podOrgScoped.GET("/runners", runnerHandler.ListRunners)
 
 			// Repository routes for MCP tools (discovery)
-			repositoryHandler := v1.NewRepositoryHandler(svc.Repository)
+			repositoryHandler := v1.NewRepositoryHandler(svc.Repository, svc.Billing)
 			podOrgScoped.GET("/repositories", repositoryHandler.ListRepositories)
 		}
 	}

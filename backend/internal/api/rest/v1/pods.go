@@ -8,6 +8,7 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/middleware"
 	"github.com/anthropics/agentmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
+	"github.com/anthropics/agentmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
@@ -22,6 +23,7 @@ type PodHandler struct {
 	podService         *agentpod.PodService
 	runnerService      *runner.Service
 	agentService       *agent.Service
+	billingService     *billing.Service
 	repositoryService  *repository.Service
 	ticketService      *ticket.Service
 	gitProviderService *gitprovider.Service
@@ -88,6 +90,13 @@ func WithSSHKeyService(sks *sshkey.Service) PodHandlerOption {
 func WithUserService(us *user.Service) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.userService = us
+	}
+}
+
+// WithBillingService sets the billing service for quota checking
+func WithBillingService(bs *billing.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.billingService = bs
 	}
 }
 
@@ -177,6 +186,21 @@ func (h *PodHandler) CreatePod(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+
+	// Check concurrent pod quota before creation
+	if h.billingService != nil {
+		if err := h.billingService.CheckQuota(c.Request.Context(), tenant.OrganizationID, "concurrent_pods", 1); err != nil {
+			if err == billing.ErrQuotaExceeded {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Concurrent pod quota exceeded. Please upgrade your plan or terminate existing pods.",
+					"code":  "CONCURRENT_POD_QUOTA_EXCEEDED",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check quota"})
+			return
+		}
+	}
 
 	// Create pod record in database
 	pod, err := h.podService.CreatePod(c.Request.Context(), &agentpod.CreatePodRequest{
