@@ -311,5 +311,5 @@ func GetConfigDir() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".agentmesh")
+	return filepath.Join(home, ".agentsmesh")
 }

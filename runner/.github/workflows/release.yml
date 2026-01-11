@@ -1,4 +1,4 @@
-# Release workflow for AgentMesh Runner
+# Release workflow for AgentsMesh Runner
 # Triggers on version tags (v*) and releases to AgentsMesh/AgentsMeshRunner
 #
 # Required secrets:
@@ -154,7 +154,7 @@ jobs:
 
       - name: Create .app bundle
         run: |
-          APP_NAME="AgentMesh Runner.app"
+          APP_NAME="AgentsMesh Runner.app"
           mkdir -p "$APP_NAME/Contents/MacOS"
           mkdir -p "$APP_NAME/Contents/Resources"
 
@@ -169,20 +169,20 @@ jobs:
       - name: Create DMG
         run: |
           create-dmg \
-            --volname "AgentMesh Runner" \
+            --volname "AgentsMesh Runner" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --icon "AgentMesh Runner.app" 150 185 \
-            --hide-extension "AgentMesh Runner.app" \
+            --icon "AgentsMesh Runner.app" 150 185 \
+            --hide-extension "AgentsMesh Runner.app" \
             --app-drop-link 450 185 \
-            "AgentMesh-Runner-${{ steps.version.outputs.VERSION }}.dmg" \
-            "AgentMesh Runner.app" || true
+            "AgentsMesh-Runner-${{ steps.version.outputs.VERSION }}.dmg" \
+            "AgentsMesh Runner.app" || true
 
       - name: Upload DMG to release
         uses: softprops/action-gh-release@v2
         with:
           repository: AgentsMesh/AgentsMeshRunner
           files: |
-            AgentMesh-Runner-*.dmg
+            AgentsMesh-Runner-*.dmg
           token: ${{ secrets.RELEASE_GITHUB_TOKEN }}

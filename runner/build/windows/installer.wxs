@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  WiX Toolset installer configuration for AgentMesh Runner
+  WiX Toolset installer configuration for AgentsMesh Runner
   Build with: candle.exe installer.wxs && light.exe -ext WixUIExtension installer.wixobj
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*"
-           Name="AgentMesh Runner"
+           Name="AgentsMesh Runner"
            Language="1033"
            Version="1.0.0.0"
-           Manufacturer="AgentMesh"
+           Manufacturer="AgentsMesh"
            UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
 
     <Package InstallerVersion="500"
              Compressed="yes"
              InstallScope="perMachine"
-             Description="AgentMesh Runner - AI Agent Task Executor"
-             Comments="This installer will install AgentMesh Runner on your computer." />
+             Description="AgentsMesh Runner - AI Agent Task Executor"
+             Comments="This installer will install AgentsMesh Runner on your computer." />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Feature Id="ProductFeature" Title="AgentMesh Runner" Level="1">
+    <Feature Id="ProductFeature" Title="AgentsMesh Runner" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
       <ComponentRef Id="ApplicationShortcut" />
     </Feature>
@@ -32,12 +32,12 @@
     <!-- Icon -->
     <Icon Id="ProductIcon" SourceFile="icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
-    <Property Id="ARPHELPLINK" Value="https://agentmesh.dev/docs/runner" />
+    <Property Id="ARPHELPLINK" Value="https://agentsmesh.ai/docs/runner" />
 
     <!-- Install directory -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLFOLDER" Name="AgentMesh Runner">
+        <Directory Id="INSTALLFOLDER" Name="AgentsMesh Runner">
           <Component Id="MainExecutable" Guid="*">
             <File Id="RunnerExe"
                   Source="runner.exe"
@@ -60,21 +60,21 @@
 
       <!-- Start Menu shortcuts -->
       <Directory Id="ProgramMenuFolder">
-        <Directory Id="ApplicationProgramsFolder" Name="AgentMesh Runner" />
+        <Directory Id="ApplicationProgramsFolder" Name="AgentsMesh Runner" />
       </Directory>
     </Directory>
 
     <DirectoryRef Id="ApplicationProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="*">
         <Shortcut Id="ApplicationStartMenuShortcut"
-                  Name="AgentMesh Runner"
-                  Description="Start AgentMesh Runner in desktop mode"
+                  Name="AgentsMesh Runner"
+                  Description="Start AgentsMesh Runner in desktop mode"
                   Target="[INSTALLFOLDER]runner-desktop.exe"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="ProductIcon" />
         <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU"
-                       Key="Software\AgentMesh\Runner"
+                       Key="Software\AgentsMesh\Runner"
                        Name="installed"
                        Type="integer"
                        Value="1"
@@ -91,9 +91,9 @@
     <Component Id="ServiceComponent" Directory="INSTALLFOLDER" Guid="*">
       <ServiceInstall Id="ServiceInstaller"
                       Type="ownProcess"
-                      Name="AgentMeshRunner"
-                      DisplayName="AgentMesh Runner"
-                      Description="AgentMesh Runner - executes AI agent tasks"
+                      Name="AgentsMeshRunner"
+                      DisplayName="AgentsMesh Runner"
+                      Description="AgentsMesh Runner - executes AI agent tasks"
                       Start="auto"
                       Account="LocalSystem"
                       ErrorControl="normal"
@@ -102,7 +102,7 @@
                       Start="install"
                       Stop="both"
                       Remove="uninstall"
-                      Name="AgentMeshRunner"
+                      Name="AgentsMeshRunner"
                       Wait="yes" />
     </Component>
 

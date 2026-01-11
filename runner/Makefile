@@ -1,4 +1,4 @@
-# AgentMesh Runner Makefile
+# AgentsMesh Runner Makefile
 # Provides build, test, and packaging commands
 
 # Version info
@@ -114,29 +114,29 @@ package: package-darwin package-linux package-windows
 .PHONY: package-darwin
 package-darwin: build-desktop
 	@echo "Creating macOS .app bundle..."
-	@mkdir -p $(DIST_DIR)/AgentMesh\ Runner.app/Contents/MacOS
-	@mkdir -p $(DIST_DIR)/AgentMesh\ Runner.app/Contents/Resources
-	@cp $(BUILD_DIR)/darwin/Info.plist $(DIST_DIR)/AgentMesh\ Runner.app/Contents/
-	@cp $(RUNNER_DESKTOP) $(DIST_DIR)/AgentMesh\ Runner.app/Contents/MacOS/
+	@mkdir -p $(DIST_DIR)/AgentsMesh\ Runner.app/Contents/MacOS
+	@mkdir -p $(DIST_DIR)/AgentsMesh\ Runner.app/Contents/Resources
+	@cp $(BUILD_DIR)/darwin/Info.plist $(DIST_DIR)/AgentsMesh\ Runner.app/Contents/
+	@cp $(RUNNER_DESKTOP) $(DIST_DIR)/AgentsMesh\ Runner.app/Contents/MacOS/
 	@# Copy icon if exists
 	@if [ -f $(BUILD_DIR)/darwin/AppIcon.icns ]; then \
-		cp $(BUILD_DIR)/darwin/AppIcon.icns $(DIST_DIR)/AgentMesh\ Runner.app/Contents/Resources/; \
+		cp $(BUILD_DIR)/darwin/AppIcon.icns $(DIST_DIR)/AgentsMesh\ Runner.app/Contents/Resources/; \
 	fi
 	@echo "macOS .app bundle created"
 	@# Create DMG if create-dmg is available
 	@if command -v create-dmg >/dev/null 2>&1; then \
 		echo "Creating DMG..."; \
 		create-dmg \
-			--volname "AgentMesh Runner" \
+			--volname "AgentsMesh Runner" \
 			--volicon "$(BUILD_DIR)/darwin/AppIcon.icns" \
 			--window-pos 200 120 \
 			--window-size 600 400 \
 			--icon-size 100 \
-			--icon "AgentMesh Runner.app" 150 185 \
-			--hide-extension "AgentMesh Runner.app" \
+			--icon "AgentsMesh Runner.app" 150 185 \
+			--hide-extension "AgentsMesh Runner.app" \
 			--app-drop-link 450 185 \
-			$(DIST_DIR)/AgentMesh-Runner-$(VERSION).dmg \
-			$(DIST_DIR)/AgentMesh\ Runner.app || true; \
+			$(DIST_DIR)/AgentsMesh-Runner-$(VERSION).dmg \
+			$(DIST_DIR)/AgentsMesh\ Runner.app || true; \
 	else \
 		echo "Skipping DMG creation (install create-dmg: brew install create-dmg)"; \
 	fi
@@ -174,7 +174,7 @@ package-windows: build-windows
 		echo "Building MSI installer..."; \
 		cd $(BUILD_DIR)/windows && \
 		candle.exe installer.wxs -dVersion=$(VERSION) && \
-		light.exe -ext WixUIExtension installer.wixobj -o ../../$(DIST_DIR)/AgentMesh-Runner-$(VERSION).msi; \
+		light.exe -ext WixUIExtension installer.wixobj -o ../../$(DIST_DIR)/AgentsMesh-Runner-$(VERSION).msi; \
 	else \
 		echo "WiX Toolset not found. Skipping MSI creation."; \
 	fi
@@ -250,7 +250,7 @@ service-uninstall:
 
 .PHONY: help
 help:
-	@echo "AgentMesh Runner Makefile"
+	@echo "AgentsMesh Runner Makefile"
 	@echo ""
 	@echo "Development:"
 	@echo "  make build          - Build unified binary with desktop support (CGO)"

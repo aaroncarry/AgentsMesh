@@ -92,7 +92,7 @@ func (c *registrationClient) register(ctx context.Context, registrationToken, de
 	}, nil
 }
 
-// savedConfig represents the configuration saved to ~/.agentmesh/config.yaml
+// savedConfig represents the configuration saved to ~/.agentsmesh/config.yaml
 type savedConfig struct {
 	ServerURL         string `yaml:"server_url"`
 	NodeID            string `yaml:"node_id"`
@@ -106,14 +106,14 @@ type savedConfig struct {
 	LogLevel          string `yaml:"log_level"`
 }
 
-// saveConfig saves the registration result to ~/.agentmesh/
+// saveConfig saves the registration result to ~/.agentsmesh/
 func saveConfig(nodeID, serverURL, authToken, orgSlug, description string, maxPods int) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	configDir := filepath.Join(home, ".agentmesh")
+	configDir := filepath.Join(home, ".agentsmesh")
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
