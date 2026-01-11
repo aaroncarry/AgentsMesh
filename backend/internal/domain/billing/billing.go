@@ -36,6 +36,7 @@ const (
 	PlanFree       = "free"
 	PlanPro        = "pro"
 	PlanEnterprise = "enterprise"
+	PlanOnPremise  = "onpremise"
 )
 
 // SubscriptionPlan represents a subscription plan
@@ -48,9 +49,10 @@ type SubscriptionPlan struct {
 	IncludedPodMinutes int     `gorm:"not null;default:0" json:"included_pod_minutes"`
 	PricePerExtraMinute   float64 `gorm:"type:decimal(10,4);not null;default:0" json:"price_per_extra_minute"`
 
-	MaxUsers        int `gorm:"not null" json:"max_users"`
-	MaxRunners      int `gorm:"not null" json:"max_runners"`
-	MaxRepositories int `gorm:"not null" json:"max_repositories"`
+	MaxUsers          int `gorm:"not null" json:"max_users"`
+	MaxRunners        int `gorm:"not null" json:"max_runners"`
+	MaxConcurrentPods int `gorm:"not null;default:0" json:"max_concurrent_pods"`
+	MaxRepositories   int `gorm:"not null" json:"max_repositories"`
 
 	Features Features `gorm:"type:jsonb;not null;default:'{}'" json:"features"`
 

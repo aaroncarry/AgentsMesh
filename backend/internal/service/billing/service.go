@@ -256,6 +256,8 @@ func (s *Service) CheckQuota(ctx context.Context, orgID int64, resource string, 
 		limit = plan.MaxUsers
 	case "runners":
 		limit = plan.MaxRunners
+	case "concurrent_pods":
+		limit = plan.MaxConcurrentPods
 	case "repositories":
 		limit = plan.MaxRepositories
 	case "pod_minutes":
@@ -285,6 +287,11 @@ func (s *Service) getCurrentResourceCount(ctx context.Context, orgID int64, reso
 		s.db.WithContext(ctx).Table("organization_members").Where("organization_id = ?", orgID).Count(&count)
 	case "runners":
 		s.db.WithContext(ctx).Table("runners").Where("organization_id = ?", orgID).Count(&count)
+	case "concurrent_pods":
+		// Count active pods (running or initializing)
+		s.db.WithContext(ctx).Table("pods").
+			Where("organization_id = ? AND status IN ?", orgID, []string{"running", "initializing"}).
+			Count(&count)
 	case "repositories":
 		s.db.WithContext(ctx).Table("repositories").Where("organization_id = ?", orgID).Count(&count)
 	case "pod_minutes":
@@ -293,6 +300,11 @@ func (s *Service) getCurrentResourceCount(ctx context.Context, orgID int64, reso
 	}
 
 	return int(count), nil
+}
+
+// GetCurrentConcurrentPods returns the number of currently active pods for an organization
+func (s *Service) GetCurrentConcurrentPods(ctx context.Context, orgID int64) (int, error) {
+	return s.getCurrentResourceCount(ctx, orgID, "concurrent_pods")
 }
 
 // GetPlanByID returns a plan by ID
@@ -354,10 +366,13 @@ func (s *Service) GetBillingOverview(ctx context.Context, orgID int64) (*Billing
 	podMinutes, _ := s.GetUsage(ctx, orgID, billing.UsageTypePodMinutes)
 
 	// Count resources
-	var userCount, runnerCount, repoCount int64
+	var userCount, runnerCount, repoCount, concurrentPodCount int64
 	s.db.WithContext(ctx).Table("organization_members").Where("organization_id = ?", orgID).Count(&userCount)
 	s.db.WithContext(ctx).Table("runners").Where("organization_id = ?", orgID).Count(&runnerCount)
 	s.db.WithContext(ctx).Table("repositories").Where("organization_id = ?", orgID).Count(&repoCount)
+	s.db.WithContext(ctx).Table("pods").
+		Where("organization_id = ? AND status IN ?", orgID, []string{"running", "initializing"}).
+		Count(&concurrentPodCount)
 
 	return &BillingOverview{
 		Plan:              plan,
@@ -368,12 +383,14 @@ func (s *Service) GetBillingOverview(ctx context.Context, orgID int64) (*Billing
 		Usage: UsageOverview{
 			PodMinutes:         podMinutes,
 			IncludedPodMinutes: float64(plan.IncludedPodMinutes),
-			Users:                  int(userCount),
-			MaxUsers:               plan.MaxUsers,
-			Runners:                int(runnerCount),
-			MaxRunners:             plan.MaxRunners,
-			Repositories:           int(repoCount),
-			MaxRepositories:        plan.MaxRepositories,
+			Users:              int(userCount),
+			MaxUsers:           plan.MaxUsers,
+			Runners:            int(runnerCount),
+			MaxRunners:         plan.MaxRunners,
+			ConcurrentPods:     int(concurrentPodCount),
+			MaxConcurrentPods:  plan.MaxConcurrentPods,
+			Repositories:       int(repoCount),
+			MaxRepositories:    plan.MaxRepositories,
 		},
 	}, nil
 }
@@ -392,10 +409,12 @@ type BillingOverview struct {
 type UsageOverview struct {
 	PodMinutes         float64 `json:"pod_minutes"`
 	IncludedPodMinutes float64 `json:"included_pod_minutes"`
-	Users                  int     `json:"users"`
-	MaxUsers               int     `json:"max_users"`
-	Runners                int     `json:"runners"`
-	MaxRunners             int     `json:"max_runners"`
-	Repositories           int     `json:"repositories"`
-	MaxRepositories        int     `json:"max_repositories"`
+	Users              int     `json:"users"`
+	MaxUsers           int     `json:"max_users"`
+	Runners            int     `json:"runners"`
+	MaxRunners         int     `json:"max_runners"`
+	ConcurrentPods     int     `json:"concurrent_pods"`
+	MaxConcurrentPods  int     `json:"max_concurrent_pods"`
+	Repositories       int     `json:"repositories"`
+	MaxRepositories    int     `json:"max_repositories"`
 }

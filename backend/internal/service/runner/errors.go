@@ -12,4 +12,5 @@ var (
 	ErrTokenExhausted      = errors.New("registration token usage exhausted")
 	ErrRunnerAlreadyExists = errors.New("runner already exists")
 	ErrRunnerDisabled      = errors.New("runner is disabled")
+	ErrRunnerQuotaExceeded = errors.New("runner quota exceeded")
 )

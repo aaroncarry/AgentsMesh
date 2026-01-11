@@ -186,6 +186,11 @@ func (h *RunnerHandler) RegisterRunner(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Registration token usage exhausted"})
 		case runner.ErrRunnerAlreadyExists:
 			c.JSON(http.StatusConflict, gin.H{"error": "Runner with this node_id already exists"})
+		case runner.ErrRunnerQuotaExceeded:
+			c.JSON(http.StatusPaymentRequired, gin.H{
+				"error": "Runner quota exceeded. Please upgrade your plan to register more runners.",
+				"code":  "RUNNER_QUOTA_EXCEEDED",
+			})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register runner"})
 		}

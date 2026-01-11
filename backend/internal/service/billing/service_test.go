@@ -28,6 +28,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			price_per_extra_minute REAL NOT NULL DEFAULT 0,
 			max_users INTEGER NOT NULL DEFAULT 0,
 			max_runners INTEGER NOT NULL DEFAULT 0,
+			max_concurrent_pods INTEGER NOT NULL DEFAULT 0,
 			max_repositories INTEGER NOT NULL DEFAULT 0,
 			features TEXT,
 			is_active INTEGER NOT NULL DEFAULT 1,
@@ -79,15 +80,16 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func seedTestPlan(t *testing.T, db *gorm.DB) *billing.SubscriptionPlan {
 	plan := &billing.SubscriptionPlan{
-		Name:                   "free",
-		DisplayName:            "Free Plan",
-		PricePerSeatMonthly:    0,
-		IncludedPodMinutes: 100,
-		PricePerExtraMinute:    0,
-		MaxUsers:               5,
-		MaxRunners:             1,
-		MaxRepositories:        3,
-		IsActive:               true,
+		Name:                "free",
+		DisplayName:         "Free Plan",
+		PricePerSeatMonthly: 0,
+		IncludedPodMinutes:  100,
+		PricePerExtraMinute: 0,
+		MaxUsers:            5,
+		MaxRunners:          1,
+		MaxConcurrentPods:   2,
+		MaxRepositories:     3,
+		IsActive:            true,
 	}
 	if err := db.Create(plan).Error; err != nil {
 		t.Fatalf("failed to seed plan: %v", err)

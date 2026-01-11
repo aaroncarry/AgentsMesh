@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/anthropics/agentmesh/backend/internal/middleware"
+	"github.com/anthropics/agentmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/gin-gonic/gin"
 )
@@ -12,13 +13,18 @@ import (
 // RepositoryHandler handles repository-related requests
 type RepositoryHandler struct {
 	repositoryService *repository.Service
+	billingService    *billing.Service
 }
 
 // NewRepositoryHandler creates a new repository handler
-func NewRepositoryHandler(repositoryService *repository.Service) *RepositoryHandler {
-	return &RepositoryHandler{
+func NewRepositoryHandler(repositoryService *repository.Service, billingService ...*billing.Service) *RepositoryHandler {
+	h := &RepositoryHandler{
 		repositoryService: repositoryService,
 	}
+	if len(billingService) > 0 {
+		h.billingService = billingService[0]
+	}
+	return h
 }
 
 // ListRepositories lists configured repositories
@@ -65,6 +71,21 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin permission required"})
 		return
+	}
+
+	// Check repository quota before creation
+	if h.billingService != nil {
+		if err := h.billingService.CheckQuota(c.Request.Context(), tenant.OrganizationID, "repositories", 1); err != nil {
+			if err == billing.ErrQuotaExceeded {
+				c.JSON(http.StatusPaymentRequired, gin.H{
+					"error": "Repository quota exceeded. Please upgrade your plan to add more repositories.",
+					"code":  "REPOSITORY_QUOTA_EXCEEDED",
+				})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check quota"})
+			return
+		}
 	}
 
 	defaultBranch := req.DefaultBranch

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
+	"github.com/anthropics/agentmesh/backend/internal/service/billing"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -16,6 +17,16 @@ func (s *Service) RegisterRunner(ctx context.Context, token, nodeID, description
 	regToken, err := s.ValidateRegistrationToken(ctx, token)
 	if err != nil {
 		return nil, "", err
+	}
+
+	// Check runner quota before registration
+	if s.billingService != nil {
+		if err := s.billingService.CheckQuota(ctx, regToken.OrganizationID, "runners", 1); err != nil {
+			if err == billing.ErrQuotaExceeded {
+				return nil, "", ErrRunnerQuotaExceeded
+			}
+			return nil, "", err
+		}
 	}
 
 	// Check if runner already exists

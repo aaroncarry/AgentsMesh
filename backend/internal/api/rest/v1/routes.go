@@ -112,7 +112,7 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 	}
 
 	// Repositories
-	repositoryHandler := NewRepositoryHandler(svc.Repository)
+	repositoryHandler := NewRepositoryHandler(svc.Repository, svc.Billing)
 	repositories := rg.Group("/repositories")
 	{
 		repositories.GET("", repositoryHandler.ListRepositories)
@@ -157,6 +157,9 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 	}
 	if svc.User != nil {
 		podOpts = append(podOpts, WithUserService(svc.User))
+	}
+	if svc.Billing != nil {
+		podOpts = append(podOpts, WithBillingService(svc.Billing))
 	}
 	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.Agent, podOpts...)
 	pods := rg.Group("/pods")
@@ -275,7 +278,7 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 
 	// Invitations (organization-scoped)
 	if svc.Invitation != nil {
-		invitationHandler := NewInvitationHandler(svc.Invitation, svc.Org, svc.User)
+		invitationHandler := NewInvitationHandler(svc.Invitation, svc.Org, svc.User, svc.Billing)
 		invitationHandler.RegisterOrgRoutes(rg)
 	}
 
