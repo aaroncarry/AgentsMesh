@@ -48,6 +48,9 @@ type Config struct {
 	DefaultShell string            `mapstructure:"default_shell"` // Default shell for pods
 	AgentEnvVars map[string]string `mapstructure:"agent_env_vars"`
 
+	// Plugin settings
+	PluginsDir string `mapstructure:"plugins_dir"` // User custom plugins directory (default: ~/.agentmesh/plugins)
+
 	// Health check
 	HealthCheckPort int `mapstructure:"health_check_port"`
 
@@ -250,4 +253,18 @@ func (c *Config) GetMCPPort() int {
 		return c.MCPPort
 	}
 	return 19000 // Default port
+}
+
+// GetPluginsDir returns the user plugins directory path.
+// Returns empty string if no plugins directory is configured.
+func (c *Config) GetPluginsDir() string {
+	if c.PluginsDir != "" {
+		return os.ExpandEnv(c.PluginsDir)
+	}
+	// Default to ~/.agentmesh/plugins
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".agentmesh", "plugins")
 }

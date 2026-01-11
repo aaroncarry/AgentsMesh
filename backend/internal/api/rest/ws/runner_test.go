@@ -57,6 +57,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			runner_version TEXT,
 			is_enabled INTEGER NOT NULL DEFAULT 1,
 			host_info TEXT,
+			capabilities TEXT,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)

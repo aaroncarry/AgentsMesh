@@ -1,7 +1,7 @@
 import { request, orgPath } from "./base";
 
 // Agent type interface
-interface AgentTypeResponse {
+export interface AgentTypeData {
   id: number;
   slug: string;
   name: string;
@@ -15,8 +15,8 @@ interface AgentTypeResponse {
 export const agentApi = {
   listTypes: async () => {
     const response = await request<{
-      builtin_types: AgentTypeResponse[];
-      custom_types: AgentTypeResponse[];
+      builtin_types: AgentTypeData[];
+      custom_types: AgentTypeData[];
     }>(orgPath("/agents/types"));
     // Combine builtin and custom types for frontend compatibility
     return {

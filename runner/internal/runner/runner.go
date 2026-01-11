@@ -162,9 +162,13 @@ func (r *Runner) initEnhancedComponents(cfg *config.Config) {
 	}()
 
 	// Initialize Sandbox Manager with plugins
-	r.sandboxManager = sandbox.NewManager(cfg.GetWorkspace(), mcpPort)
+	r.sandboxManager = sandbox.NewManagerWithConfig(sandbox.ManagerConfig{
+		Workspace:      cfg.GetWorkspace(),
+		MCPPort:        mcpPort,
+		UserPluginsDir: cfg.GetPluginsDir(),
+	})
 	r.registerSandboxPlugins(cfg)
-	log.Printf("[runner] Sandbox manager initialized: workspace=%s", cfg.GetWorkspace())
+	log.Printf("[runner] Sandbox manager initialized: workspace=%s, plugins_dir=%s", cfg.GetWorkspace(), cfg.GetPluginsDir())
 
 	// Initialize Claude monitor for status tracking
 	r.claudeMonitor = monitor.NewMonitor(5 * time.Second)
@@ -178,16 +182,15 @@ func (r *Runner) initEnhancedComponents(cfg *config.Config) {
 }
 
 // registerSandboxPlugins registers all sandbox plugins in order.
+// Note: MCP, Skills, Env, InitScript plugins have been migrated to Lua plugins.
+// See runner/internal/luaplugin/builtin/ for the Lua implementations.
 func (r *Runner) registerSandboxPlugins(cfg *config.Config) {
-	// Plugin order: Worktree(10) -> TempDir(20) -> InitScript(30) -> Env(40) -> MCP(50) -> Skills(60)
+	// Go plugins: Worktree(10) -> TempDir(20)
+	// Lua plugins handle: Env, MCP, Skills, etc. (executed after Go plugins)
 	r.sandboxManager.RegisterPlugin(plugins.NewWorktreePlugin(cfg.GetReposDir()))
 	r.sandboxManager.RegisterPlugin(plugins.NewTempDirPlugin())
-	r.sandboxManager.RegisterPlugin(plugins.NewInitScriptPlugin())
-	r.sandboxManager.RegisterPlugin(plugins.NewEnvPlugin())
-	r.sandboxManager.RegisterPlugin(plugins.NewMCPPlugin(cfg.GetMCPPort()))
-	r.sandboxManager.RegisterPlugin(plugins.NewSkillsPlugin())
 
-	log.Printf("[runner] Registered 6 sandbox plugins")
+	log.Printf("[runner] Registered 2 Go sandbox plugins (Lua plugins loaded separately)")
 }
 
 // GetSandboxManager returns the sandbox manager.

@@ -8,31 +8,81 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+
+	"github.com/anthropics/agentmesh/runner/internal/luaplugin"
 )
 
 // Manager manages sandbox lifecycle for pods.
 type Manager struct {
-	sandboxesDir string             // Directory where sandboxes are created
-	reposDir     string             // Directory for repository cache
-	mcpPort      int                // MCP HTTP Server port
-	plugins      []Plugin           // Registered plugins
-	sandboxes    map[string]*Sandbox // Active sandboxes by pod key
-	mu           sync.RWMutex
+	sandboxesDir     string                   // Directory where sandboxes are created
+	reposDir         string                   // Directory for repository cache
+	mcpPort          int                      // MCP HTTP Server port
+	plugins          []Plugin                 // Registered Go plugins
+	luaPluginManager *luaplugin.PluginManager // Lua plugin manager
+	sandboxes        map[string]*Sandbox      // Active sandboxes by pod key
+	mu               sync.RWMutex
+}
+
+// ManagerConfig holds configuration options for SandboxManager.
+type ManagerConfig struct {
+	Workspace      string // Workspace root for sandboxes and repos cache
+	MCPPort        int    // MCP HTTP Server port
+	UserPluginsDir string // User custom plugins directory
 }
 
 // NewManager creates a new SandboxManager.
 func NewManager(workspace string, mcpPort int) *Manager {
-	if mcpPort == 0 {
-		mcpPort = 19000 // Default MCP port
+	return NewManagerWithConfig(ManagerConfig{
+		Workspace: workspace,
+		MCPPort:   mcpPort,
+	})
+}
+
+// NewManagerWithConfig creates a new SandboxManager with full configuration.
+func NewManagerWithConfig(cfg ManagerConfig) *Manager {
+	if cfg.MCPPort == 0 {
+		cfg.MCPPort = 19000 // Default MCP port
+	}
+
+	// Initialize Lua plugin manager with user plugins directory
+	luaPluginMgr := luaplugin.NewPluginManager(cfg.UserPluginsDir)
+	if err := luaPluginMgr.LoadPlugins(); err != nil {
+		log.Printf("[sandbox] Warning: failed to load Lua plugins: %v", err)
+	} else {
+		plugins := luaPluginMgr.GetPlugins()
+		builtinCount := 0
+		userCount := 0
+		for _, p := range plugins {
+			if p.IsBuiltin() {
+				builtinCount++
+			} else {
+				userCount++
+			}
+		}
+		log.Printf("[sandbox] Loaded %d Lua plugins (%d builtin, %d user)", len(plugins), builtinCount, userCount)
 	}
 
 	return &Manager{
-		sandboxesDir: filepath.Join(workspace, "sandboxes"),
-		reposDir:     filepath.Join(workspace, "repos"),
-		mcpPort:      mcpPort,
-		plugins:      make([]Plugin, 0),
-		sandboxes:    make(map[string]*Sandbox),
+		sandboxesDir:     filepath.Join(cfg.Workspace, "sandboxes"),
+		reposDir:         filepath.Join(cfg.Workspace, "repos"),
+		mcpPort:          cfg.MCPPort,
+		plugins:          make([]Plugin, 0),
+		luaPluginManager: luaPluginMgr,
+		sandboxes:        make(map[string]*Sandbox),
 	}
+}
+
+// GetLuaPluginCapabilities returns capabilities of loaded Lua plugins.
+func (m *Manager) GetLuaPluginCapabilities() []luaplugin.PluginCapability {
+	if m.luaPluginManager == nil {
+		return nil
+	}
+	return m.luaPluginManager.GetCapabilities()
+}
+
+// GetLuaPluginManager returns the Lua plugin manager.
+func (m *Manager) GetLuaPluginManager() *luaplugin.PluginManager {
+	return m.luaPluginManager
 }
 
 // RegisterPlugin adds a plugin to the manager.
@@ -79,9 +129,9 @@ func (m *Manager) Create(ctx context.Context, podKey string, config map[string]i
 		return sortedPlugins[i].Order() < sortedPlugins[j].Order()
 	})
 
-	// Execute plugin Setup in order
+	// Execute Go plugin Setup in order
 	for _, p := range sortedPlugins {
-		log.Printf("[sandbox] Running plugin %s for pod %s", p.Name(), podKey)
+		log.Printf("[sandbox] Running Go plugin %s for pod %s", p.Name(), podKey)
 		if err := p.Setup(ctx, sb, config); err != nil {
 			// Rollback: teardown plugins that were successfully set up
 			m.teardownPlugins(sb)
@@ -90,6 +140,29 @@ func (m *Manager) Create(ctx context.Context, podKey string, config map[string]i
 			return nil, fmt.Errorf("plugin %s setup failed: %w", p.Name(), err)
 		}
 		sb.AddPlugin(p)
+	}
+
+	// Execute Lua plugins
+	if m.luaPluginManager != nil {
+		// Get agent type from config
+		agentType := GetStringConfig(config, "agent_type")
+		if agentType == "" {
+			agentType = "claude-code" // Default agent type
+		}
+
+		// Merge mcp_port into config for Lua plugins
+		luaConfig := make(map[string]interface{})
+		for k, v := range config {
+			luaConfig[k] = v
+		}
+		luaConfig["mcp_port"] = m.mcpPort
+
+		log.Printf("[sandbox] Running Lua plugins for agent type: %s", agentType)
+		if err := m.luaPluginManager.Execute(ctx, agentType, sb, luaConfig); err != nil {
+			m.teardownPlugins(sb)
+			os.RemoveAll(sandboxPath)
+			return nil, fmt.Errorf("lua plugin execution failed: %w", err)
+		}
 	}
 
 	// Save sandbox metadata

@@ -138,26 +138,27 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		runners.PUT("/:id", runnerHandler.UpdateRunner)
 		runners.DELETE("/:id", runnerHandler.DeleteRunner)
 		runners.POST("/:id/regenerate-token", runnerHandler.RegenerateAuthToken)
+		runners.GET("/:id/plugins", runnerHandler.GetPluginOptions)
 	}
 
-	// Pods
-	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.Agent)
-	// Inject dependencies for pod handling
+	// Pods - using functional options for cleaner dependency injection
+	var podOpts []PodHandlerOption
 	if svc.PodCoordinator != nil {
-		podHandler.SetPodCoordinator(svc.PodCoordinator)
+		podOpts = append(podOpts, WithPodCoordinator(svc.PodCoordinator))
 	}
 	if svc.TerminalRouter != nil {
-		podHandler.SetTerminalRouter(svc.TerminalRouter)
+		podOpts = append(podOpts, WithTerminalRouter(svc.TerminalRouter))
 	}
 	if svc.Repository != nil {
-		podHandler.SetRepositoryService(svc.Repository)
+		podOpts = append(podOpts, WithRepositoryService(svc.Repository))
 	}
 	if svc.Ticket != nil {
-		podHandler.SetTicketService(svc.Ticket)
+		podOpts = append(podOpts, WithTicketService(svc.Ticket))
 	}
 	if svc.User != nil {
-		podHandler.SetUserService(svc.User)
+		podOpts = append(podOpts, WithUserService(svc.User))
 	}
+	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.Agent, podOpts...)
 	pods := rg.Group("/pods")
 	{
 		pods.GET("", podHandler.ListPods)

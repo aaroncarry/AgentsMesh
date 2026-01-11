@@ -1,137 +1,85 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { podApi, agentApi, runnerApi, repositoryApi, RepositoryData } from "@/lib/api/client";
+import React, { useEffect, useRef } from "react";
+import { PodData } from "@/lib/api/client";
 import { useTranslations } from "@/lib/i18n/client";
 import { Button } from "@/components/ui/button";
-
-interface AgentType {
-  id: number;
-  slug: string;
-  name: string;
-  description?: string;
-}
-
-interface Runner {
-  id: number;
-  node_id: string;
-  status: string;
-  current_pods: number;
-  max_concurrent_pods?: number;
-}
-
-interface Pod {
-  id: number;
-  pod_key: string;
-  status: string;
-  agent_status: string;
-  created_at: string;
-}
+import { PluginConfigForm } from "./PluginConfigForm/index";
+import {
+  usePodCreationData,
+  usePluginOptions,
+  useFocusTrap,
+  useCreatePodForm,
+} from "./hooks";
 
 interface CreatePodModalProps {
   open: boolean;
   onClose: () => void;
-  onCreated: (pod?: Pod) => void;
+  onCreated: (pod?: PodData) => void;
 }
 
 export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps) {
   const t = useTranslations();
-  const [agentTypes, setAgentTypes] = useState<AgentType[]>([]);
-  const [runners, setRunners] = useState<Runner[]>([]);
-  const [repositories, setRepositories] = useState<RepositoryData[]>([]);
 
-  const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
-  const [selectedRunner, setSelectedRunner] = useState<number | null>(null);
-  const [selectedRepository, setSelectedRepository] = useState<number | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>("");
-  const [prompt, setPrompt] = useState("");
+  // Load base data (runners, agents, repositories)
+  const {
+    runners,
+    agentTypes,
+    repositories,
+    loading: loadingData,
+  } = usePodCreationData(open);
 
-  const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
+  // Form state management
+  const form = useCreatePodForm(agentTypes, repositories, onCreated);
 
-  // Load data when modal opens
+  // Plugin options management
+  const {
+    plugins: pluginOptions,
+    loading: loadingPlugins,
+    config: pluginConfig,
+    updateConfig: handlePluginConfigChange,
+    resetConfig: resetPluginConfig,
+  } = usePluginOptions(form.selectedRunner, form.selectedAgentSlug);
+
+  // Focus trap for modal accessibility
+  const modalRef = useFocusTrap<HTMLDivElement>(open, onClose);
+
+  // Track previous open state to detect close transition
+  const prevOpenRef = useRef(open);
+
+  // Reset form when modal closes (transition from open to closed)
   useEffect(() => {
-    if (!open) return;
-
-    const loadData = async () => {
-      setLoadingData(true);
-      try {
-        const [runnersRes, agentsRes, reposRes] = await Promise.allSettled([
-          runnerApi.list(),
-          agentApi.listTypes(),
-          repositoryApi.list(),
-        ]);
-
-        if (runnersRes.status === "fulfilled") {
-          // Only online runners
-          setRunners((runnersRes.value.runners || []).filter(r => r.status === "online"));
-        }
-        if (agentsRes.status === "fulfilled") {
-          setAgentTypes(agentsRes.value.agent_types || []);
-        }
-        if (reposRes.status === "fulfilled") {
-          setRepositories(reposRes.value.repositories || []);
-        }
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-
-    loadData();
-  }, [open]);
-
-  // Auto-select default branch when repository is selected
-  useEffect(() => {
-    if (!selectedRepository) {
-      setSelectedBranch("");
-      return;
+    if (prevOpenRef.current && !open) {
+      // Modal just closed
+      form.reset();
+      resetPluginConfig();
     }
+    prevOpenRef.current = open;
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: form.reset and resetPluginConfig are intentionally excluded from deps
+  // because we only want this to run on open state change, not on every render
 
-    const repo = repositories.find((r) => r.id === selectedRepository);
-    if (repo?.default_branch) {
-      setSelectedBranch(repo.default_branch);
-    }
-  }, [selectedRepository, repositories]);
-
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!open) {
-      setSelectedAgent(null);
-      setSelectedRunner(null);
-      setSelectedRepository(null);
-      setSelectedBranch("");
-      setPrompt("");
-    }
-  }, [open]);
-
+  // Handle form submission
   const handleCreate = async () => {
-    if (!selectedAgent || !selectedRunner) return;
-
-    setLoading(true);
-    try {
-      const response = await podApi.create({
-        agent_type_id: selectedAgent,
-        runner_id: selectedRunner,
-        repository_id: selectedRepository || undefined,
-        branch_name: selectedBranch || undefined,
-        initial_prompt: prompt,
-      });
-      onCreated(response.pod);
-    } catch (error) {
-      console.error("Failed to create pod:", error);
-    } finally {
-      setLoading(false);
-    }
+    await form.submit(pluginConfig);
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background border border-border rounded-lg w-full max-w-md p-4 md:p-6 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg md:text-xl font-semibold mb-4">{t("ide.createPod.title")}</h2>
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-pod-title"
+    >
+      <div
+        ref={modalRef}
+        className="bg-background border border-border rounded-lg w-full max-w-md p-4 md:p-6 max-h-[90vh] overflow-y-auto"
+      >
+        <h2 id="create-pod-title" className="text-lg md:text-xl font-semibold mb-4">
+          {t("ide.createPod.title")}
+        </h2>
 
         {loadingData ? (
           <div className="flex items-center justify-center py-8">
@@ -139,12 +87,21 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Agent Type Select */}
             <div>
-              <label className="block text-sm font-medium mb-2">{t("ide.createPod.selectAgent")}</label>
+              <label htmlFor="agent-type-select" className="block text-sm font-medium mb-2">
+                {t("ide.createPod.selectAgent")}
+              </label>
               <select
-                className="w-full px-3 py-2 border border-border rounded-md bg-background"
-                value={selectedAgent || ""}
-                onChange={(e) => setSelectedAgent(Number(e.target.value))}
+                id="agent-type-select"
+                className={`w-full px-3 py-2 border rounded-md bg-background ${
+                  form.validationErrors.agent ? "border-destructive" : "border-border"
+                }`}
+                value={form.selectedAgent || ""}
+                onChange={(e) => form.setSelectedAgent(e.target.value ? Number(e.target.value) : null)}
+                aria-required="true"
+                aria-invalid={!!form.validationErrors.agent}
+                aria-describedby={form.validationErrors.agent ? "agent-error" : undefined}
               >
                 <option value="">{t("ide.createPod.selectAgentPlaceholder")}</option>
                 {agentTypes.map((agent) => (
@@ -153,14 +110,34 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
                   </option>
                 ))}
               </select>
+              {form.validationErrors.agent && (
+                <p id="agent-error" className="text-xs text-destructive mt-1">
+                  {form.validationErrors.agent}
+                </p>
+              )}
             </div>
 
+            {/* Runner Select */}
             <div>
-              <label className="block text-sm font-medium mb-2">{t("ide.createPod.selectRunner")}</label>
+              <label htmlFor="runner-select" className="block text-sm font-medium mb-2">
+                {t("ide.createPod.selectRunner")}
+              </label>
               <select
-                className="w-full px-3 py-2 border border-border rounded-md bg-background"
-                value={selectedRunner || ""}
-                onChange={(e) => setSelectedRunner(Number(e.target.value))}
+                id="runner-select"
+                className={`w-full px-3 py-2 border rounded-md bg-background ${
+                  form.validationErrors.runner ? "border-destructive" : "border-border"
+                }`}
+                value={form.selectedRunner || ""}
+                onChange={(e) => form.setSelectedRunner(e.target.value ? Number(e.target.value) : null)}
+                aria-required="true"
+                aria-invalid={!!form.validationErrors.runner}
+                aria-describedby={
+                  form.validationErrors.runner
+                    ? "runner-error"
+                    : runners.length === 0
+                    ? "runner-help"
+                    : undefined
+                }
               >
                 <option value="">{t("ide.createPod.selectRunnerPlaceholder")}</option>
                 {runners.map((runner) => (
@@ -169,19 +146,28 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
                   </option>
                 ))}
               </select>
-              {runners.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
+              {form.validationErrors.runner && (
+                <p id="runner-error" className="text-xs text-destructive mt-1">
+                  {form.validationErrors.runner}
+                </p>
+              )}
+              {!form.validationErrors.runner && runners.length === 0 && (
+                <p id="runner-help" className="text-xs text-muted-foreground mt-1">
                   {t("ide.createPod.selectRunnerPlaceholder")}
                 </p>
               )}
             </div>
 
+            {/* Repository Select */}
             <div>
-              <label className="block text-sm font-medium mb-2">{t("ide.createPod.selectRepository")}</label>
+              <label htmlFor="repository-select" className="block text-sm font-medium mb-2">
+                {t("ide.createPod.selectRepository")}
+              </label>
               <select
+                id="repository-select"
                 className="w-full px-3 py-2 border border-border rounded-md bg-background"
-                value={selectedRepository || ""}
-                onChange={(e) => setSelectedRepository(e.target.value ? Number(e.target.value) : null)}
+                value={form.selectedRepository || ""}
+                onChange={(e) => form.setSelectedRepository(e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">{t("ide.createPod.selectRepositoryPlaceholder")}</option>
                 {repositories.map((repo) => (
@@ -192,42 +178,90 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
               </select>
             </div>
 
-            {selectedRepository && (
+            {/* Branch Input */}
+            {form.selectedRepository && (
               <div>
-                <label className="block text-sm font-medium mb-2">{t("ide.createPod.branch")}</label>
+                <label htmlFor="branch-input" className="block text-sm font-medium mb-2">
+                  {t("ide.createPod.branch")}
+                </label>
                 <input
+                  id="branch-input"
                   type="text"
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                  className={`w-full px-3 py-2 border rounded-md bg-background ${
+                    form.validationErrors.branch ? "border-destructive" : "border-border"
+                  }`}
                   placeholder={t("ide.createPod.branchPlaceholder")}
-                  value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  value={form.selectedBranch}
+                  onChange={(e) => form.setSelectedBranch(e.target.value)}
+                  aria-invalid={!!form.validationErrors.branch}
+                  aria-describedby={form.validationErrors.branch ? "branch-error" : undefined}
                 />
+                {form.validationErrors.branch && (
+                  <p id="branch-error" className="text-xs text-destructive mt-1">
+                    {form.validationErrors.branch}
+                  </p>
+                )}
               </div>
             )}
 
+            {/* Initial Prompt */}
             <div>
-              <label className="block text-sm font-medium mb-2">{t("ide.createPod.initialPrompt")}</label>
+              <label htmlFor="prompt-input" className="block text-sm font-medium mb-2">
+                {t("ide.createPod.initialPrompt")}
+              </label>
               <textarea
+                id="prompt-input"
                 className="w-full px-3 py-2 border border-border rounded-md bg-background resize-none"
                 rows={3}
                 placeholder={t("ide.createPod.initialPromptPlaceholder")}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                value={form.prompt}
+                onChange={(e) => form.setPrompt(e.target.value)}
               />
             </div>
+
+            {/* Plugin Configuration Section */}
+            {loadingPlugins ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                <span className="text-sm text-muted-foreground">Loading plugin options...</span>
+              </div>
+            ) : (
+              pluginOptions.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Plugin Configuration</label>
+                  <PluginConfigForm
+                    plugins={pluginOptions}
+                    values={pluginConfig}
+                    onChange={handlePluginConfigChange}
+                  />
+                </div>
+              )
+            )}
+
+            {/* Error Display */}
+            {form.error && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="bg-destructive/10 border border-destructive/30 rounded-md p-3"
+              >
+                <p className="text-sm text-destructive">{form.error}</p>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Action Buttons */}
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
           <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             {t("ide.createPod.cancel")}
           </Button>
           <Button
             onClick={handleCreate}
-            disabled={!selectedAgent || !selectedRunner || loading || loadingData}
+            disabled={!form.selectedAgent || !form.selectedRunner || form.loading || loadingData}
             className="w-full sm:w-auto"
           >
-            {loading ? t("ide.createPod.creating") : t("ide.createPod.create")}
+            {form.loading ? t("ide.createPod.creating") : t("ide.createPod.create")}
           </Button>
         </div>
       </div>

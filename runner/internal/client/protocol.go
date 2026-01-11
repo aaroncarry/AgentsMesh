@@ -37,8 +37,47 @@ type ProtocolMessage struct {
 
 // HeartbeatData contains heartbeat information.
 type HeartbeatData struct {
-	NodeID string    `json:"node_id"`
-	Pods   []PodInfo `json:"pods"`
+	NodeID        string               `json:"node_id"`
+	Pods          []PodInfo            `json:"pods"`
+	RunnerVersion string               `json:"runner_version,omitempty"`
+	Capabilities  []PluginCapability   `json:"capabilities,omitempty"`
+}
+
+// PluginCapability represents a plugin's capability for server reporting.
+type PluginCapability struct {
+	Name            string    `json:"name"`
+	Version         string    `json:"version"`
+	Description     string    `json:"description"`
+	SupportedAgents []string  `json:"supported_agents"`
+	Executable      string    `json:"executable,omitempty"` // Required CLI command (if any)
+	Available       bool      `json:"available"`            // Whether the executable is available on this system
+	UI              *UIConfig `json:"ui,omitempty"`
+}
+
+// UIConfig represents the UI configuration for a plugin.
+type UIConfig struct {
+	Configurable bool      `json:"configurable"`
+	Fields       []UIField `json:"fields"`
+}
+
+// UIField represents a single UI field configuration.
+type UIField struct {
+	Name        string      `json:"name"`
+	Type        string      `json:"type"` // boolean, string, select, number, secret
+	Label       string      `json:"label"`
+	Default     interface{} `json:"default,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Placeholder string      `json:"placeholder,omitempty"`
+	Options     []UIOption  `json:"options,omitempty"`
+	Min         *float64    `json:"min,omitempty"`
+	Max         *float64    `json:"max,omitempty"`
+	Required    bool        `json:"required,omitempty"`
+}
+
+// UIOption represents an option for select fields.
+type UIOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 // PodInfo contains pod information for protocol messages.
@@ -133,4 +172,7 @@ type MessageHandler interface {
 	OnListPods() []PodInfo
 	OnTerminalInput(req TerminalInputRequest) error
 	OnTerminalResize(req TerminalResizeRequest) error
+	// GetCapabilities returns plugin capabilities for heartbeat reporting.
+	// Can return nil if no capabilities are available.
+	GetCapabilities() []PluginCapability
 }

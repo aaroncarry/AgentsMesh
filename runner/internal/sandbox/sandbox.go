@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -11,7 +12,7 @@ import (
 type Sandbox struct {
 	// Pod identification
 	PodKey   string `json:"pod_key"`
-	RootPath   string `json:"root_path"` // Sandbox root directory
+	RootPath string `json:"root_path"` // Sandbox root directory
 
 	// Outputs filled by plugin chain
 	WorkDir    string            `json:"work_dir"`    // Final working directory
@@ -26,7 +27,8 @@ type Sandbox struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// Internal state (not serialized)
-	plugins []Plugin `json:"-"` // Applied plugins (for Teardown)
+	plugins []Plugin   `json:"-"` // Applied plugins (for Teardown)
+	mu      sync.Mutex `json:"-"` // Protects concurrent access to maps
 }
 
 // NewSandbox creates a new Sandbox instance.
@@ -86,4 +88,107 @@ func (s *Sandbox) GetLogsDir() string {
 // EnsureLogsDir creates the logs directory if it doesn't exist.
 func (s *Sandbox) EnsureLogsDir() error {
 	return os.MkdirAll(s.GetLogsDir(), 0755)
+}
+
+// The following methods implement the luaplugin.SandboxAdapter interface
+// to allow Lua plugins to interact with the sandbox without import cycles.
+
+// GetPodKey returns the pod key.
+func (s *Sandbox) GetPodKey() string {
+	return s.PodKey
+}
+
+// GetRootPath returns the sandbox root path.
+func (s *Sandbox) GetRootPath() string {
+	return s.RootPath
+}
+
+// GetWorkDir returns the working directory.
+func (s *Sandbox) GetWorkDir() string {
+	return s.WorkDir
+}
+
+// GetLaunchArgs returns a copy of the launch arguments.
+// Thread-safe: protected by mutex for concurrent access.
+func (s *Sandbox) GetLaunchArgs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.LaunchArgs == nil {
+		return nil
+	}
+	// Return a copy to prevent concurrent modification
+	result := make([]string, len(s.LaunchArgs))
+	copy(result, s.LaunchArgs)
+	return result
+}
+
+// SetLaunchArgs sets the launch arguments.
+// Thread-safe: protected by mutex for concurrent access.
+func (s *Sandbox) SetLaunchArgs(args []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.LaunchArgs = args
+}
+
+// AppendLaunchArgs appends arguments to the launch args atomically.
+// Thread-safe: this is the preferred method for adding arguments.
+func (s *Sandbox) AppendLaunchArgs(args ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.LaunchArgs = append(s.LaunchArgs, args...)
+}
+
+// GetEnvVars returns a copy of the environment variables.
+// Thread-safe: protected by mutex for concurrent access.
+func (s *Sandbox) GetEnvVars() map[string]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.EnvVars == nil {
+		return nil
+	}
+	// Return a copy to prevent concurrent modification
+	result := make(map[string]string, len(s.EnvVars))
+	for k, v := range s.EnvVars {
+		result[k] = v
+	}
+	return result
+}
+
+// SetEnvVar sets an environment variable.
+// Thread-safe: protected by mutex for concurrent Lua plugin execution.
+func (s *Sandbox) SetEnvVar(key, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.EnvVars == nil {
+		s.EnvVars = make(map[string]string)
+	}
+	s.EnvVars[key] = value
+}
+
+// GetMetadata returns a copy of the metadata map.
+// Thread-safe: protected by mutex for concurrent access.
+// Note: nested objects are not deep-copied.
+func (s *Sandbox) GetMetadata() map[string]interface{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.Metadata == nil {
+		return nil
+	}
+	// Return a shallow copy to prevent concurrent modification
+	result := make(map[string]interface{}, len(s.Metadata))
+	for k, v := range s.Metadata {
+		result[k] = v
+	}
+	return result
+}
+
+// SetMetadata sets a metadata value.
+// Thread-safe: protected by mutex for concurrent Lua plugin execution.
+func (s *Sandbox) SetMetadata(key string, value interface{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.Metadata == nil {
+		s.Metadata = make(map[string]interface{})
+	}
+	s.Metadata[key] = value
 }

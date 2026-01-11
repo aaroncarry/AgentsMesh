@@ -2,10 +2,14 @@ package runner
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
+	runnerDomain "github.com/anthropics/agentmesh/backend/internal/domain/runner"
 	"gorm.io/gorm"
 )
 
@@ -18,6 +22,9 @@ type PodCoordinator struct {
 
 	// Callbacks
 	onStatusChange func(podKey string, status string, agentStatus string)
+
+	// Cache for capabilities hash to avoid unnecessary DB updates
+	capabilitiesHashCache map[int64]string
 }
 
 // NewPodCoordinator creates a new pod coordinator
@@ -28,10 +35,11 @@ func NewPodCoordinator(
 	logger *slog.Logger,
 ) *PodCoordinator {
 	pc := &PodCoordinator{
-		db:                db,
-		connectionManager: cm,
-		terminalRouter:    tr,
-		logger:            logger,
+		db:                    db,
+		connectionManager:     cm,
+		terminalRouter:        tr,
+		logger:                logger,
+		capabilitiesHashCache: make(map[int64]string),
 	}
 
 	// Set up callbacks from connection manager
@@ -62,6 +70,19 @@ func (pc *PodCoordinator) handleHeartbeat(runnerID int64, data *HeartbeatData) {
 	}
 	if data.RunnerVersion != "" {
 		updates["runner_version"] = data.RunnerVersion
+	}
+
+	// Only update capabilities if they changed (using hash comparison)
+	if len(data.Capabilities) > 0 {
+		newHash := pc.hashCapabilities(data.Capabilities)
+		cachedHash, ok := pc.capabilitiesHashCache[runnerID]
+		if !ok || cachedHash != newHash {
+			updates["capabilities"] = runnerDomain.Capabilities(data.Capabilities)
+			pc.capabilitiesHashCache[runnerID] = newHash
+			pc.logger.Debug("updating runner capabilities",
+				"runner_id", runnerID,
+				"capabilities_count", len(data.Capabilities))
+		}
 	}
 
 	if err := pc.db.WithContext(ctx).
@@ -378,4 +399,15 @@ func (pc *PodCoordinator) MarkReconnected(ctx context.Context, podKey string) er
 			"status":        agentpod.StatusRunning,
 			"last_activity": time.Now(),
 		}).Error
+}
+
+// hashCapabilities computes a SHA256 hash of capabilities for change detection.
+// This avoids unnecessary database updates when capabilities haven't changed.
+func (pc *PodCoordinator) hashCapabilities(caps []runnerDomain.PluginCapability) string {
+	data, err := json.Marshal(caps)
+	if err != nil {
+		return ""
+	}
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x", hash)
 }

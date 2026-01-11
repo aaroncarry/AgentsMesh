@@ -101,12 +101,17 @@ func (c *ServerConnection) GetOrgSlug() string {
 
 // Connect establishes a connection to the server.
 func (c *ServerConnection) Connect() error {
-	// Build org-scoped URL with query parameters for authentication
-	// New format: {serverURL}/api/v1/orgs/{orgSlug}/ws/runners?node_id=xxx&token=xxx
-	connectURL := fmt.Sprintf("%s/api/v1/orgs/%s/ws/runners?node_id=%s&token=%s",
-		c.serverURL, c.orgSlug, c.nodeID, c.authToken)
+	// Build org-scoped URL with only node_id in query (non-sensitive)
+	// Authentication token is passed via Authorization header
+	connectURL := fmt.Sprintf("%s/api/v1/orgs/%s/ws/runners?node_id=%s",
+		c.serverURL, c.orgSlug, c.nodeID)
 
-	conn, _, err := c.dialer.Dial(connectURL, nil)
+	// Create headers with Authorization token (more secure than query string)
+	headers := map[string][]string{
+		"Authorization": {fmt.Sprintf("Bearer %s", c.authToken)},
+	}
+
+	conn, _, err := c.dialer.Dial(connectURL, headers)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
@@ -357,13 +362,16 @@ func (c *ServerConnection) heartbeatLoop(done <-chan struct{}) {
 // sendHeartbeat sends a heartbeat message.
 func (c *ServerConnection) sendHeartbeat() {
 	var pods []PodInfo
+	var capabilities []PluginCapability
 	if c.handler != nil {
 		pods = c.handler.OnListPods()
+		capabilities = c.handler.GetCapabilities()
 	}
 
 	data := HeartbeatData{
-		NodeID: c.nodeID,
-		Pods:   pods,
+		NodeID:       c.nodeID,
+		Pods:         pods,
+		Capabilities: capabilities,
 	}
 
 	if err := c.SendEvent(MsgTypeHeartbeat, data); err != nil {

@@ -39,6 +39,38 @@ export interface RegistrationToken {
   created_at: string;
 }
 
+// Plugin capability types for dynamic forms
+export interface UIOption {
+  value: string;
+  label: string;
+}
+
+export interface UIField {
+  name: string;
+  type: "boolean" | "string" | "select" | "number" | "secret";
+  label: string;
+  default?: unknown;
+  description?: string;
+  placeholder?: string;
+  options?: UIOption[];
+  min?: number;
+  max?: number;
+  required?: boolean;
+}
+
+export interface UIConfig {
+  configurable: boolean;
+  fields: UIField[];
+}
+
+export interface PluginCapability {
+  name: string;
+  version: string;
+  description: string;
+  supported_agents: string[];
+  ui?: UIConfig;
+}
+
 export const runnerApi = {
   list: (status?: string) => {
     const params = status ? `?status=${status}` : "";
@@ -81,4 +113,10 @@ export const runnerApi = {
     request<{ message: string }>(`${orgPath("/runners/tokens")}/${id}`, {
       method: "DELETE",
     }),
+
+  // Get plugin options for a runner and agent type
+  getPluginOptions: (runnerId: number, agentType?: string) => {
+    const params = agentType ? `?agent_type=${encodeURIComponent(agentType)}` : "";
+    return request<{ plugins: PluginCapability[] }>(`${orgPath("/runners")}/${runnerId}/plugins${params}`);
+  },
 };

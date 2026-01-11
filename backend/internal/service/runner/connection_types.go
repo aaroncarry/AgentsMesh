@@ -2,15 +2,23 @@ package runner
 
 import (
 	"encoding/json"
-	"errors"
+	"sync"
+	"time"
+
+	runnerDomain "github.com/anthropics/agentmesh/backend/internal/domain/runner"
+	"github.com/gorilla/websocket"
 )
 
-// ========== Errors ==========
+// ========== Connection Types ==========
 
-var (
-	ErrRunnerNotConnected = errors.New("runner not connected")
-	ErrConnectionClosed   = errors.New("connection closed")
-)
+// RunnerConnection represents an active connection to a runner
+type RunnerConnection struct {
+	RunnerID int64
+	Conn     *websocket.Conn
+	Send     chan []byte
+	LastPing time.Time
+	mu       sync.Mutex
+}
 
 // ========== Message Types ==========
 
@@ -45,8 +53,9 @@ type RunnerMessage struct {
 
 // HeartbeatData represents heartbeat message data
 type HeartbeatData struct {
-	Pods          []HeartbeatPod `json:"pods"`
-	RunnerVersion string         `json:"runner_version,omitempty"`
+	Pods          []HeartbeatPod                   `json:"pods"`
+	RunnerVersion string                           `json:"runner_version,omitempty"`
+	Capabilities  []runnerDomain.PluginCapability `json:"capabilities,omitempty"`
 }
 
 // HeartbeatPod represents a pod in heartbeat data

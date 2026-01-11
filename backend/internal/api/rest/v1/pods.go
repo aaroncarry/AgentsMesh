@@ -32,54 +32,78 @@ type PodHandler struct {
 	terminalRouter     interface{} // *runner.TerminalRouter, optional
 }
 
-// NewPodHandler creates a new pod handler
-func NewPodHandler(podService *agentpod.PodService, runnerService *runner.Service, agentService *agent.Service) *PodHandler {
-	return &PodHandler{
+// PodHandlerOption is a functional option for configuring PodHandler
+type PodHandlerOption func(*PodHandler)
+
+// WithRunnerConnectionManager sets the runner connection manager
+func WithRunnerConnectionManager(cm *runner.ConnectionManager) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.runnerConnMgr = cm
+	}
+}
+
+// WithPodCoordinator sets the pod coordinator
+func WithPodCoordinator(pc *runner.PodCoordinator) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.podCoordinator = pc
+	}
+}
+
+// WithTerminalRouter sets the terminal router
+func WithTerminalRouter(tr interface{}) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.terminalRouter = tr
+	}
+}
+
+// WithRepositoryService sets the repository service
+func WithRepositoryService(rs *repository.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.repositoryService = rs
+	}
+}
+
+// WithTicketService sets the ticket service
+func WithTicketService(ts *ticket.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.ticketService = ts
+	}
+}
+
+// WithGitProviderService sets the git provider service
+func WithGitProviderService(gps *gitprovider.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.gitProviderService = gps
+	}
+}
+
+// WithSSHKeyService sets the SSH key service
+func WithSSHKeyService(sks *sshkey.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.sshKeyService = sks
+	}
+}
+
+// WithUserService sets the user service for credential retrieval (权限跟人走)
+func WithUserService(us *user.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.userService = us
+	}
+}
+
+// NewPodHandler creates a new pod handler with required dependencies and optional configurations
+func NewPodHandler(podService *agentpod.PodService, runnerService *runner.Service, agentService *agent.Service, opts ...PodHandlerOption) *PodHandler {
+	h := &PodHandler{
 		podService:    podService,
 		runnerService: runnerService,
 		agentService:  agentService,
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
-// SetRunnerConnectionManager sets the runner connection manager
-func (h *PodHandler) SetRunnerConnectionManager(cm *runner.ConnectionManager) {
-	h.runnerConnMgr = cm
-}
-
-// SetPodCoordinator sets the pod coordinator for pod lifecycle management
-func (h *PodHandler) SetPodCoordinator(pc *runner.PodCoordinator) {
-	h.podCoordinator = pc
-}
-
-// SetTerminalRouter sets the terminal router for terminal operations
-func (h *PodHandler) SetTerminalRouter(tr interface{}) {
-	h.terminalRouter = tr
-}
-
-// SetRepositoryService sets the repository service for repository lookups
-func (h *PodHandler) SetRepositoryService(rs *repository.Service) {
-	h.repositoryService = rs
-}
-
-// SetTicketService sets the ticket service for ticket lookups
-func (h *PodHandler) SetTicketService(ts *ticket.Service) {
-	h.ticketService = ts
-}
-
-// SetGitProviderService sets the git provider service for git token lookups
-func (h *PodHandler) SetGitProviderService(gps *gitprovider.Service) {
-	h.gitProviderService = gps
-}
-
-// SetSSHKeyService sets the SSH key service for SSH private key lookups
-func (h *PodHandler) SetSSHKeyService(sks *sshkey.Service) {
-	h.sshKeyService = sks
-}
-
-// SetUserService sets the user service for user credential retrieval (权限跟人走)
-func (h *PodHandler) SetUserService(us *user.Service) {
-	h.userService = us
-}
 
 // ListPodsRequest represents pod list request
 type ListPodsRequest struct {
