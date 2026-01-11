@@ -1,7 +1,10 @@
 // Package tools provides MCP tools for agent collaboration.
 package tools
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 // BindingScope represents permission scopes for pod bindings.
 type BindingScope string
@@ -90,18 +93,44 @@ type Binding struct {
 	UpdatedAt     string         `json:"updated_at"`
 }
 
+// AgentTypeField can unmarshal both string and object formats of agent_type.
+// Backend returns agent_type as an object {id, slug, name, ...}, but we only need the slug.
+type AgentTypeField string
+
+// UnmarshalJSON implements custom JSON unmarshaling for AgentTypeField.
+func (a *AgentTypeField) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as string first
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*a = AgentTypeField(str)
+		return nil
+	}
+
+	// Try to unmarshal as object, extract slug
+	var obj struct {
+		Slug string `json:"slug"`
+	}
+	if err := json.Unmarshal(data, &obj); err == nil {
+		*a = AgentTypeField(obj.Slug)
+		return nil
+	}
+
+	// Ignore unparseable data
+	return nil
+}
+
 // AvailablePod represents a pod available for collaboration.
 type AvailablePod struct {
-	PodKey      string    `json:"pod_key"`
-	UserID      int       `json:"user_id"`
-	Username    string    `json:"username"`
-	Status      PodStatus `json:"status"`
-	TicketID    *int      `json:"ticket_id,omitempty"`
-	TicketTitle string    `json:"ticket_title,omitempty"`
-	ProjectID   *int      `json:"project_id,omitempty"`
-	ProjectName string    `json:"project_name,omitempty"`
-	AgentType   string    `json:"agent_type,omitempty"`
-	CreatedAt   string    `json:"created_at"`
+	PodKey      string         `json:"pod_key"`
+	UserID      int            `json:"user_id"`
+	Username    string         `json:"username"`
+	Status      PodStatus      `json:"status"`
+	TicketID    *int           `json:"ticket_id,omitempty"`
+	TicketTitle string         `json:"ticket_title,omitempty"`
+	ProjectID   *int           `json:"project_id,omitempty"`
+	ProjectName string         `json:"project_name,omitempty"`
+	AgentType   AgentTypeField `json:"agent_type,omitempty"`
+	CreatedAt   string         `json:"created_at"`
 }
 
 // TerminalOutput represents terminal observation output.

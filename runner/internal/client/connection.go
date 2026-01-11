@@ -33,6 +33,7 @@ type ServerConnection struct {
 
 	// Heartbeat
 	heartbeatInterval time.Duration
+	capabilitiesSent  bool // Only send capabilities on first heartbeat after connect
 
 	// Channels
 	sendCh   chan ProtocolMessage
@@ -247,6 +248,9 @@ func (c *ServerConnection) connectionLoop() {
 func (c *ServerConnection) runConnection() {
 	done := make(chan struct{})
 
+	// Reset capabilities flag for new connection (will be sent on first heartbeat)
+	c.capabilitiesSent = false
+
 	// Start write loop
 	go c.writeLoop(done)
 
@@ -360,12 +364,18 @@ func (c *ServerConnection) heartbeatLoop(done <-chan struct{}) {
 }
 
 // sendHeartbeat sends a heartbeat message.
+// Capabilities are only sent on the first heartbeat after connection to reduce bandwidth.
 func (c *ServerConnection) sendHeartbeat() {
 	var pods []PodInfo
 	var capabilities []PluginCapability
+
 	if c.handler != nil {
 		pods = c.handler.OnListPods()
-		capabilities = c.handler.GetCapabilities()
+		// Only send capabilities on first heartbeat after connect
+		if !c.capabilitiesSent {
+			capabilities = c.handler.GetCapabilities()
+			c.capabilitiesSent = true
+		}
 	}
 
 	data := HeartbeatData{
@@ -373,6 +383,8 @@ func (c *ServerConnection) sendHeartbeat() {
 		Pods:         pods,
 		Capabilities: capabilities,
 	}
+
+	log.Printf("[connection] Sending heartbeat with %d pods, %d capabilities", len(pods), len(capabilities))
 
 	if err := c.SendEvent(MsgTypeHeartbeat, data); err != nil {
 		log.Printf("[connection] Failed to send heartbeat: %v", err)

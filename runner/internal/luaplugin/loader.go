@@ -33,7 +33,11 @@ func (l *PluginLoader) LoadBuiltinPlugins() ([]*LuaPlugin, error) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".lua") {
+		// Only load files with .agentmesh.lua extension
+		if entry.IsDir() || !l.isPluginFile(entry.Name()) {
+			continue
+		}
+		{
 			content, err := builtin.BuiltinPlugins.ReadFile(entry.Name())
 			if err != nil {
 				log.Printf("[luaplugin] Warning: failed to read builtin plugin %s: %v", entry.Name(), err)
@@ -72,8 +76,8 @@ func (l *PluginLoader) LoadUserPlugins(dir string, loadedNames map[string]bool) 
 		return nil, fmt.Errorf("user plugins path is not a directory: %s", dir)
 	}
 
-	// Find all .lua files
-	pattern := filepath.Join(dir, "*.lua")
+	// Find all .agentmesh.lua files
+	pattern := filepath.Join(dir, "*.agentmesh.lua")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to glob user plugins: %w", err)
@@ -122,8 +126,16 @@ func (l *PluginLoader) loadFromContent(filename string, content []byte, isBuilti
 	return plugin, nil
 }
 
+// isPluginFile checks if the file is a plugin file that should be loaded.
+// Plugin files must have the .agentmesh.lua extension.
+// Other .lua files are treated as utility/library files and skipped.
+func (l *PluginLoader) isPluginFile(filename string) bool {
+	return strings.HasSuffix(filename, ".agentmesh.lua")
+}
+
 // checkExecutable checks if the plugin's required executable is available.
 // Updates the plugin's isAvailable field based on the result.
+// Uses login shell to ensure full PATH is loaded (includes user-installed tools).
 func (l *PluginLoader) checkExecutable(plugin *LuaPlugin) {
 	// Plugins without an executable requirement are always available
 	if plugin.Executable == "" {
@@ -131,15 +143,51 @@ func (l *PluginLoader) checkExecutable(plugin *LuaPlugin) {
 		return
 	}
 
-	// Check if the executable exists in PATH
-	_, err := exec.LookPath(plugin.Executable)
-	plugin.isAvailable = (err == nil)
+	// First try direct LookPath (fastest)
+	if _, err := exec.LookPath(plugin.Executable); err == nil {
+		plugin.isAvailable = true
+		log.Printf("[luaplugin] Plugin '%s' available: executable '%s' found",
+			plugin.Name, plugin.Executable)
+		return
+	}
+
+	// Fallback: use login shell to check (loads full PATH from .zshrc/.bashrc)
+	// This handles cases where Runner is started without user's shell config
+	plugin.isAvailable = l.checkExecutableViaLoginShell(plugin.Executable)
 
 	if !plugin.isAvailable {
 		log.Printf("[luaplugin] Plugin '%s' unavailable: executable '%s' not found in PATH",
 			plugin.Name, plugin.Executable)
 	} else {
-		log.Printf("[luaplugin] Plugin '%s' available: executable '%s' found",
+		log.Printf("[luaplugin] Plugin '%s' available: executable '%s' found (via login shell)",
 			plugin.Name, plugin.Executable)
 	}
+}
+
+// checkExecutableViaLoginShell checks if an executable exists using a login shell.
+// This ensures the full PATH is loaded, including tools installed via Homebrew, etc.
+func (l *PluginLoader) checkExecutableViaLoginShell(executable string) bool {
+	// Determine which shell to use
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+
+	// Use login shell (-l) to load full shell config
+	// "command -v" is POSIX-compliant and works across shells
+	cmd := exec.Command(shell, "-l", "-c", fmt.Sprintf("command -v %s", executable))
+
+	// Set environment variables to disable interactive prompts
+	// These prevent shell frameworks from blocking with update prompts
+	cmd.Env = append(os.Environ(),
+		"DISABLE_AUTO_UPDATE=true",          // oh-my-zsh: disable auto update
+		"DISABLE_UPDATE_PROMPT=true",        // oh-my-zsh: disable update prompt
+		"ZSH_DISABLE_COMPFIX=true",          // oh-my-zsh: disable compfix warnings
+		"PYENV_VIRTUALENV_DISABLE_PROMPT=1", // pyenv: disable prompt
+		"VIRTUAL_ENV_DISABLE_PROMPT=1",      // venv: disable prompt
+		"HOMEBREW_NO_AUTO_UPDATE=1",         // homebrew: disable auto update
+	)
+
+	err := cmd.Run()
+	return err == nil
 }

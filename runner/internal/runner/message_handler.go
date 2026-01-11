@@ -357,6 +357,8 @@ func (h *RunnerMessageHandler) GetCapabilities() []client.PluginCapability {
 			Version:         c.Version,
 			Description:     c.Description,
 			SupportedAgents: c.SupportedAgents,
+			Executable:      c.Executable,
+			Available:       c.Available,
 		}
 		if c.UI != nil {
 			caps[i].UI = &client.UIConfig{
