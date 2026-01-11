@@ -34,10 +34,18 @@ export type {
 
 // Runner
 export { runnerApi } from "./runner";
-export type { RunnerData, RegistrationToken } from "./runner";
+export type {
+  RunnerData,
+  RegistrationToken,
+  PluginCapability,
+  UIConfig,
+  UIField,
+  UIOption,
+} from "./runner";
 
 // Agent
 export { agentApi } from "./agent";
+export type { AgentTypeData } from "./agent";
 
 // Git Provider
 export { gitProviderApi } from "./git-provider";

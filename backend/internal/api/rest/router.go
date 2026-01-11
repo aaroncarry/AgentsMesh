@@ -145,23 +145,24 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			podOrgScoped.GET("/channels/:id/document", channelHandler.GetDocument)
 			podOrgScoped.PUT("/channels/:id/document", channelHandler.UpdateDocument)
 
-			// Pod routes for MCP tools
-			podHandler := v1.NewPodHandler(svc.Pod, svc.Runner, svc.Agent)
+			// Pod routes for MCP tools - using functional options
+			var mcpPodOpts []v1.PodHandlerOption
 			if svc.PodCoordinator != nil {
-				podHandler.SetPodCoordinator(svc.PodCoordinator)
+				mcpPodOpts = append(mcpPodOpts, v1.WithPodCoordinator(svc.PodCoordinator))
 			}
 			if svc.TerminalRouter != nil {
-				podHandler.SetTerminalRouter(svc.TerminalRouter)
+				mcpPodOpts = append(mcpPodOpts, v1.WithTerminalRouter(svc.TerminalRouter))
 			}
 			if svc.Repository != nil {
-				podHandler.SetRepositoryService(svc.Repository)
+				mcpPodOpts = append(mcpPodOpts, v1.WithRepositoryService(svc.Repository))
 			}
 			if svc.Ticket != nil {
-				podHandler.SetTicketService(svc.Ticket)
+				mcpPodOpts = append(mcpPodOpts, v1.WithTicketService(svc.Ticket))
 			}
 			if svc.User != nil {
-				podHandler.SetUserService(svc.User)
+				mcpPodOpts = append(mcpPodOpts, v1.WithUserService(svc.User))
 			}
+			podHandler := v1.NewPodHandler(svc.Pod, svc.Runner, svc.Agent, mcpPodOpts...)
 			podOrgScoped.GET("/pods", podHandler.ListPods)
 			podOrgScoped.POST("/pods", podHandler.CreatePod)
 			podOrgScoped.GET("/pods/:key/terminal/observe", podHandler.ObserveTerminal)

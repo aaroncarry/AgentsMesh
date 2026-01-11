@@ -336,5 +336,59 @@ func (h *RunnerMessageHandler) sendPodError(podKey, errorMsg string) {
 	}
 }
 
+// GetCapabilities returns plugin capabilities for heartbeat reporting.
+// Implements client.MessageHandler interface.
+func (h *RunnerMessageHandler) GetCapabilities() []client.PluginCapability {
+	if h.runner.sandboxManager == nil {
+		return nil
+	}
+
+	luaMgr := h.runner.sandboxManager.GetLuaPluginManager()
+	if luaMgr == nil {
+		return nil
+	}
+
+	// Convert luaplugin.PluginCapability to client.PluginCapability
+	luaCaps := luaMgr.GetCapabilities()
+	caps := make([]client.PluginCapability, len(luaCaps))
+	for i, c := range luaCaps {
+		caps[i] = client.PluginCapability{
+			Name:            c.Name,
+			Version:         c.Version,
+			Description:     c.Description,
+			SupportedAgents: c.SupportedAgents,
+		}
+		if c.UI != nil {
+			caps[i].UI = &client.UIConfig{
+				Configurable: c.UI.Configurable,
+				Fields:       make([]client.UIField, len(c.UI.Fields)),
+			}
+			for j, f := range c.UI.Fields {
+				caps[i].UI.Fields[j] = client.UIField{
+					Name:        f.Name,
+					Type:        f.Type,
+					Label:       f.Label,
+					Default:     f.Default,
+					Description: f.Description,
+					Placeholder: f.Placeholder,
+					Min:         f.Min,
+					Max:         f.Max,
+					Required:    f.Required,
+				}
+				if len(f.Options) > 0 {
+					caps[i].UI.Fields[j].Options = make([]client.UIOption, len(f.Options))
+					for k, o := range f.Options {
+						caps[i].UI.Fields[j].Options[k] = client.UIOption{
+							Value: o.Value,
+							Label: o.Label,
+						}
+					}
+				}
+			}
+		}
+	}
+	return caps
+}
+
 // Ensure RunnerMessageHandler implements client.MessageHandler
 var _ client.MessageHandler = (*RunnerMessageHandler)(nil)

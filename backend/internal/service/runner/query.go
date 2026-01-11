@@ -1,0 +1,93 @@
+package runner
+
+import (
+	"context"
+
+	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
+)
+
+// GetRunner returns a runner by ID
+func (s *Service) GetRunner(ctx context.Context, runnerID int64) (*runner.Runner, error) {
+	var r runner.Runner
+	if err := s.db.WithContext(ctx).First(&r, runnerID).Error; err != nil {
+		return nil, ErrRunnerNotFound
+	}
+	return &r, nil
+}
+
+// ListRunners returns runners for an organization
+func (s *Service) ListRunners(ctx context.Context, orgID int64) ([]*runner.Runner, error) {
+	var runners []*runner.Runner
+	if err := s.db.WithContext(ctx).Where("organization_id = ?", orgID).Find(&runners).Error; err != nil {
+		return nil, err
+	}
+	return runners, nil
+}
+
+// ListAvailableRunners returns online runners that can accept pods
+func (s *Service) ListAvailableRunners(ctx context.Context, orgID int64) ([]*runner.Runner, error) {
+	var runners []*runner.Runner
+	if err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods", orgID, runner.RunnerStatusOnline, true).
+		Find(&runners).Error; err != nil {
+		return nil, err
+	}
+	return runners, nil
+}
+
+// SelectAvailableRunner selects an available runner using least-pods strategy
+func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64) (*runner.Runner, error) {
+	var runners []*runner.Runner
+	if err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods", orgID, runner.RunnerStatusOnline, true).
+		Order("current_pods ASC").
+		Find(&runners).Error; err != nil {
+		return nil, err
+	}
+
+	if len(runners) == 0 {
+		return nil, ErrRunnerOffline
+	}
+
+	// Return the runner with least pods
+	return runners[0], nil
+}
+
+// RunnerUpdateInput represents input for updating a runner
+type RunnerUpdateInput struct {
+	Description       *string `json:"description"`
+	MaxConcurrentPods *int    `json:"max_concurrent_pods"`
+	IsEnabled         *bool   `json:"is_enabled"`
+}
+
+// UpdateRunner updates a runner's configuration
+func (s *Service) UpdateRunner(ctx context.Context, runnerID int64, input RunnerUpdateInput) (*runner.Runner, error) {
+	var r runner.Runner
+	if err := s.db.WithContext(ctx).First(&r, runnerID).Error; err != nil {
+		return nil, ErrRunnerNotFound
+	}
+
+	updates := make(map[string]interface{})
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+	if input.MaxConcurrentPods != nil {
+		updates["max_concurrent_pods"] = *input.MaxConcurrentPods
+	}
+	if input.IsEnabled != nil {
+		updates["is_enabled"] = *input.IsEnabled
+	}
+
+	if len(updates) > 0 {
+		if err := s.db.WithContext(ctx).Model(&r).Updates(updates).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	// Reload the runner
+	if err := s.db.WithContext(ctx).First(&r, runnerID).Error; err != nil {
+		return nil, err
+	}
+
+	return &r, nil
+}

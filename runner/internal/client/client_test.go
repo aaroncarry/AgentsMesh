@@ -701,6 +701,10 @@ func (m *mockHandler) OnTerminalResize(req TerminalResizeRequest) error {
 	return nil
 }
 
+func (m *mockHandler) GetCapabilities() []PluginCapability {
+	return nil
+}
+
 // mockEventSender is a mock implementation of EventSender
 type mockEventSender struct {
 	sentEvents []struct {

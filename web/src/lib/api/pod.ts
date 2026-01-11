@@ -60,6 +60,7 @@ export const podApi = {
     ticket_id?: number;
     initial_prompt?: string;
     branch_name?: string;
+    plugin_config?: Record<string, unknown>;
   }) =>
     request<{ message: string; pod: PodData }>(
       orgPath("/pods"),
