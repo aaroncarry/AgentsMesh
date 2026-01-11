@@ -98,7 +98,9 @@ end
 function setup_permission(ctx)
     ctx.log("skip_permissions=" .. tostring(ctx.config.skip_permissions) .. ", permission_mode=" .. tostring(ctx.config.permission_mode))
     if ctx.config.skip_permissions then
-        ctx.log("Adding --dangerously-skip-permissions")
+        -- Must enable allow flag first, then use the skip flag
+        ctx.log("Adding --allow-dangerously-skip-permissions --dangerously-skip-permissions")
+        ctx.add_args("--allow-dangerously-skip-permissions")
         ctx.add_args("--dangerously-skip-permissions")
     elseif ctx.config.permission_mode and ctx.config.permission_mode ~= "" then
         ctx.log("Adding --permission-mode " .. ctx.config.permission_mode)
