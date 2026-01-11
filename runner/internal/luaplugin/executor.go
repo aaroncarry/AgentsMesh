@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/anthropics/agentmesh/runner/internal/luaplugin/builtin"
@@ -109,6 +110,34 @@ func (e *PluginExecutor) filterPlugins(plugins []*LuaPlugin, agentType string) [
 	return result
 }
 
+// filterConfigForPlugin extracts plugin-specific config by stripping the plugin name prefix.
+// Frontend sends namespaced keys like "claude-code.skip_permissions" to avoid conflicts
+// between plugins. This function extracts only the keys for the specified plugin and
+// removes the prefix so Lua plugins can access config as ctx.config.skip_permissions.
+// Non-namespaced keys (legacy support) are preserved as-is.
+func filterConfigForPlugin(config map[string]interface{}, pluginName string) map[string]interface{} {
+	if config == nil {
+		return nil
+	}
+
+	prefix := pluginName + "."
+	result := make(map[string]interface{})
+
+	for k, v := range config {
+		if strings.HasPrefix(k, prefix) {
+			// Strip prefix: "claude-code.skip_permissions" → "skip_permissions"
+			newKey := strings.TrimPrefix(k, prefix)
+			result[newKey] = v
+		} else if !strings.Contains(k, ".") {
+			// Keep non-namespaced keys (legacy support): "ticket_identifier", "working_dir"
+			result[k] = v
+		}
+		// Ignore other plugins' namespaced config
+	}
+
+	return result
+}
+
 // loadSharedModules loads shared Lua modules into the state.
 func (e *PluginExecutor) loadSharedModules(L *lua.LState) error {
 	// Initialize shared modules on first use
@@ -156,8 +185,15 @@ func (e *PluginExecutor) executePlugin(ctx context.Context, plugin *LuaPlugin, s
 		return nil
 	}
 
-	// Create context table
-	ctxTable := createContextTable(L, sb, config)
+	// Filter config for this specific plugin (strip namespace prefix)
+	pluginConfig := filterConfigForPlugin(config, plugin.Name)
+
+	// Debug: log original and filtered config
+	log.Printf("[luaplugin] Plugin %s - original config: %+v", plugin.Name, config)
+	log.Printf("[luaplugin] Plugin %s - filtered config: %+v", plugin.Name, pluginConfig)
+
+	// Create context table with filtered config
+	ctxTable := createContextTable(L, sb, pluginConfig)
 
 	// Call setup(ctx)
 	if err := L.CallByParam(lua.P{

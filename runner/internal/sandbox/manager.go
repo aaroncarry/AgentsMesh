@@ -173,7 +173,7 @@ func (m *Manager) Create(ctx context.Context, podKey string, config map[string]i
 	// Store sandbox
 	m.sandboxes[podKey] = sb
 
-	log.Printf("[sandbox] Created sandbox for pod %s at %s", podKey, sandboxPath)
+	log.Printf("[sandbox] Created sandbox for pod %s at %s (LaunchArgs=%v)", podKey, sandboxPath, sb.LaunchArgs)
 	return sb, nil
 }
 
