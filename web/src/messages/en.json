@@ -258,45 +258,45 @@
         "title": "AgentPod",
         "subtitle": "Remote AI Workstation",
         "description": "Run AI agents in the cloud, access a complete development environment through your browser. Each AgentPod runs on isolated Git worktrees with real-time terminal access.",
-        "highlights": [
-          "Web Terminal with real-time interaction",
-          "Git Worktree isolation per AgentPod",
-          "Multiple concurrent AgentPods",
-          "Auto-cleanup on completion"
-        ]
+        "highlights": {
+          "0": "Web Terminal with real-time interaction",
+          "1": "Git Worktree isolation per AgentPod",
+          "2": "Multiple concurrent AgentPods",
+          "3": "Auto-cleanup on completion"
+        }
       },
       "agentmesh": {
         "title": "AgentMesh",
         "subtitle": "Multi-Agent Collaboration",
         "description": "Enable multiple AI agents to work together through pod bindings and channel communication. Visualize the collaboration topology in real-time.",
-        "highlights": [
-          "Pod Binding with permission control",
-          "Channel-based message broadcasting",
-          "Real-time topology visualization",
-          "Cross-agent task coordination"
-        ]
+        "highlights": {
+          "0": "Pod Binding with permission control",
+          "1": "Channel-based message broadcasting",
+          "2": "Real-time topology visualization",
+          "3": "Cross-agent task coordination"
+        }
       },
       "tickets": {
         "title": "Tickets",
         "subtitle": "Task-Driven Development",
         "description": "Integrate AI pods with your task management workflow. Create tickets, bind them to pods, and track progress through a Kanban board.",
-        "highlights": [
-          "Kanban board visualization",
-          "Ticket - Pod binding",
-          "Progress tracking",
-          "MR/PR integration"
-        ]
+        "highlights": {
+          "0": "Kanban board visualization",
+          "1": "Ticket - Pod binding",
+          "2": "Progress tracking",
+          "3": "MR/PR integration"
+        }
       },
       "runners": {
         "title": "Self-hosted Runners",
         "subtitle": "Your Infrastructure, Your Data",
         "description": "Deploy runners on your own infrastructure. Your code and data never leave your environment, meeting the strictest security and compliance requirements.",
-        "highlights": [
-          "Docker/Kubernetes deployment",
-          "Complete data localization",
-          "Air-gapped environment support",
-          "Full audit trail"
-        ]
+        "highlights": {
+          "0": "Docker/Kubernetes deployment",
+          "1": "Complete data localization",
+          "2": "Air-gapped environment support",
+          "3": "Full audit trail"
+        }
       }
     },
     "howItWorks": {
@@ -367,13 +367,13 @@
         "price": "$0",
         "period": "forever",
         "description": "Perfect for individual developers exploring AI coding agents.",
-        "features": [
-          "1 seat (solo mode)",
-          "2 concurrent pods",
-          "1 Runner",
-          "3 repositories",
-          "Community support"
-        ],
+        "features": {
+          "0": "1 seat (solo mode)",
+          "1": "2 concurrent pods",
+          "2": "1 Runner",
+          "3": "3 repositories",
+          "4": "Community support"
+        },
         "cta": "Get Started"
       },
       "pro": {
@@ -381,14 +381,14 @@
         "price": "$20",
         "period": "per seat/month",
         "description": "For small teams that want to scale AI collaboration.",
-        "features": [
-          "Up to 5 seats",
-          "10 concurrent pods",
-          "10 Runners",
-          "10 repositories",
-          "Priority email support",
-          "Multi-Git provider support"
-        ],
+        "features": {
+          "0": "Up to 5 seats",
+          "1": "10 concurrent pods",
+          "2": "10 Runners",
+          "3": "10 repositories",
+          "4": "Priority email support",
+          "5": "Multi-Git provider support"
+        },
         "cta": "Upgrade to Pro"
       },
       "enterprise": {
@@ -396,15 +396,15 @@
         "price": "$40",
         "period": "per seat/month",
         "description": "For organizations requiring advanced scale and security.",
-        "features": [
-          "Up to 50 seats",
-          "50 concurrent pods",
-          "100 Runners",
-          "Unlimited repositories",
-          "Priority support",
-          "SSO integration (coming soon)",
-          "Audit logs (coming soon)"
-        ],
+        "features": {
+          "0": "Up to 50 seats",
+          "1": "50 concurrent pods",
+          "2": "100 Runners",
+          "3": "Unlimited repositories",
+          "4": "Priority support",
+          "5": "SSO integration (coming soon)",
+          "6": "Audit logs (coming soon)"
+        },
         "cta": "Upgrade to Enterprise"
       },
       "onpremise": {
@@ -412,15 +412,15 @@
         "price": "Custom",
         "period": "contact us",
         "description": "Full private deployment with complete data control.",
-        "features": [
-          "Unlimited seats",
-          "Unlimited pods",
-          "Unlimited Runners",
-          "Air-gapped support",
-          "Dedicated support",
-          "Custom SLA",
-          "White-glove onboarding"
-        ],
+        "features": {
+          "0": "Unlimited seats",
+          "1": "Unlimited pods",
+          "2": "Unlimited Runners",
+          "3": "Air-gapped support",
+          "4": "Dedicated support",
+          "5": "Custom SLA",
+          "6": "White-glove onboarding"
+        },
         "cta": "Contact Sales"
       },
       "footer": "All plans include BYOK (Bring Your Own Key) - use your own AI API keys with no usage limits.",

@@ -223,21 +223,32 @@ func (s *Service) GetUsageHistory(ctx context.Context, orgID int64, usageType st
 // CheckQuota checks if organization has quota available
 func (s *Service) CheckQuota(ctx context.Context, orgID int64, resource string, requestedAmount int) error {
 	sub, err := s.GetSubscription(ctx, orgID)
-	if err != nil {
-		return err
-	}
 
-	plan := sub.Plan
-	if plan == nil {
-		plan, _ = s.GetPlanByID(ctx, sub.PlanID)
+	var plan *billing.SubscriptionPlan
+	if err != nil {
+		// No subscription found, use Free plan as default
+		if errors.Is(err, ErrSubscriptionNotFound) {
+			plan, _ = s.GetPlan(ctx, "free")
+			if plan == nil {
+				// No Free plan in database, allow by default
+				return nil
+			}
+		} else {
+			return err
+		}
+	} else {
+		plan = sub.Plan
+		if plan == nil {
+			plan, _ = s.GetPlanByID(ctx, sub.PlanID)
+		}
 	}
 
 	if plan == nil {
 		return ErrPlanNotFound
 	}
 
-	// Check custom quotas first
-	if sub.CustomQuotas != nil {
+	// Check custom quotas first (only if subscription exists)
+	if sub != nil && sub.CustomQuotas != nil {
 		if customLimit, ok := sub.CustomQuotas[resource]; ok {
 			if limit, ok := customLimit.(float64); ok && int(limit) != -1 {
 				current, _ := s.getCurrentResourceCount(ctx, orgID, resource)

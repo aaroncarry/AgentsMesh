@@ -164,9 +164,9 @@ export function PricingSection() {
           </p>
           <p className="text-muted-foreground mt-2">
             {t("landing.pricing.customPlan")}{" "}
-            <Link href="/contact" className="text-primary hover:underline">
+            <a href="mailto:bd@agentsmesh.ai" className="text-primary hover:underline">
               {t("landing.pricing.contactUs")}
-            </Link>
+            </a>
           </p>
         </div>
       </div>

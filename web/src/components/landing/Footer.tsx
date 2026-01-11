@@ -63,7 +63,7 @@ export function Footer() {
         { label: t("landing.footer.company.about"), href: "/about" },
         { label: t("landing.footer.company.blog"), href: "/blog" },
         { label: t("landing.footer.company.careers"), href: "/careers" },
-        { label: t("landing.footer.company.contact"), href: "/contact" },
+        { label: t("landing.footer.company.contact"), href: "mailto:support@agentsmesh.ai" },
       ],
     },
     legal: {

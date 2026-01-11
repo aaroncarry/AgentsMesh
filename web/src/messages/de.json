@@ -116,45 +116,45 @@
         "title": "AgentPod",
         "subtitle": "Remote-KI-Workstation",
         "description": "Führen Sie KI-Agenten in der Cloud aus, greifen Sie über Ihren Browser auf eine vollständige Entwicklungsumgebung zu. Jeder AgentPod läuft auf isolierten Git-Worktrees mit Echtzeit-Terminal-Zugang.",
-        "highlights": [
-          "Web-Terminal mit Echtzeit-Interaktion",
-          "Git Worktree-Isolation pro AgentPod",
-          "Mehrere gleichzeitige AgentPods",
-          "Automatische Bereinigung nach Abschluss"
-        ]
+        "highlights": {
+          "0": "Web-Terminal mit Echtzeit-Interaktion",
+          "1": "Git Worktree-Isolation pro AgentPod",
+          "2": "Mehrere gleichzeitige AgentPods",
+          "3": "Automatische Bereinigung nach Abschluss"
+        }
       },
       "agentmesh": {
         "title": "AgentMesh",
         "subtitle": "Multi-Agent-Kollaboration",
         "description": "Ermöglichen Sie mehreren KI-Agenten die Zusammenarbeit durch Pod-Bindungen und Kanal-Kommunikation. Visualisieren Sie die Kollaborations-Topologie in Echtzeit.",
-        "highlights": [
-          "Pod-Bindung mit Berechtigungskontrolle",
-          "Kanal-basierte Nachrichtenübertragung",
-          "Echtzeit-Topologie-Visualisierung",
-          "Agenten-übergreifende Aufgabenkoordination"
-        ]
+        "highlights": {
+          "0": "Pod-Bindung mit Berechtigungskontrolle",
+          "1": "Kanal-basierte Nachrichtenübertragung",
+          "2": "Echtzeit-Topologie-Visualisierung",
+          "3": "Agenten-übergreifende Aufgabenkoordination"
+        }
       },
       "tickets": {
         "title": "Tickets",
         "subtitle": "Aufgabengesteuerte Entwicklung",
         "description": "Integrieren Sie KI-Pods in Ihren Aufgabenmanagement-Workflow. Erstellen Sie Tickets, binden Sie sie an Pods und verfolgen Sie den Fortschritt über ein Kanban-Board.",
-        "highlights": [
-          "Kanban-Board-Visualisierung",
-          "Ticket-Pod-Bindung",
-          "Fortschrittsverfolgung",
-          "MR/PR-Integration"
-        ]
+        "highlights": {
+          "0": "Kanban-Board-Visualisierung",
+          "1": "Ticket-Pod-Bindung",
+          "2": "Fortschrittsverfolgung",
+          "3": "MR/PR-Integration"
+        }
       },
       "runners": {
         "title": "Selbst gehostete Runner",
         "subtitle": "Ihre Infrastruktur, Ihre Daten",
         "description": "Stellen Sie Runner auf Ihrer eigenen Infrastruktur bereit. Ihr Code und Ihre Daten verlassen Ihre Umgebung nie und erfüllen die strengsten Sicherheits- und Compliance-Anforderungen.",
-        "highlights": [
-          "Docker/Kubernetes-Bereitstellung",
-          "Vollständige Datenlokalisierung",
-          "Air-Gapped-Umgebungsunterstützung",
-          "Vollständiger Audit-Trail"
-        ]
+        "highlights": {
+          "0": "Docker/Kubernetes-Bereitstellung",
+          "1": "Vollständige Datenlokalisierung",
+          "2": "Air-Gapped-Umgebungsunterstützung",
+          "3": "Vollständiger Audit-Trail"
+        }
       }
     },
     "howItWorks": {
@@ -223,13 +223,13 @@
         "price": "0$",
         "period": "für immer",
         "description": "Perfekt für einzelne Entwickler, die gerade anfangen.",
-        "features": [
-          "1 Runner",
-          "3 gleichzeitige Pods",
-          "1 Organisationsmitglied",
-          "Community-Support",
-          "Basis-Integrationen"
-        ],
+        "features": {
+          "0": "1 Runner",
+          "1": "3 gleichzeitige Pods",
+          "2": "1 Organisationsmitglied",
+          "3": "Community-Support",
+          "4": "Basis-Integrationen"
+        },
         "cta": "Loslegen"
       },
       "pro": {
@@ -237,15 +237,15 @@
         "price": "29$",
         "period": "pro Benutzer/Monat",
         "description": "Für Teams, die mehr Leistung und Zusammenarbeit brauchen.",
-        "features": [
-          "Unbegrenzte Runner",
-          "Unbegrenzte Pods",
-          "Bis zu 10 Teammitglieder",
-          "Prioritäts-E-Mail-Support",
-          "API-Zugang",
-          "Erweiterte Analysen",
-          "Benutzerdefinierte Integrationen"
-        ],
+        "features": {
+          "0": "Unbegrenzte Runner",
+          "1": "Unbegrenzte Pods",
+          "2": "Bis zu 10 Teammitglieder",
+          "3": "Prioritäts-E-Mail-Support",
+          "4": "API-Zugang",
+          "5": "Erweiterte Analysen",
+          "6": "Benutzerdefinierte Integrationen"
+        },
         "cta": "Pro-Testversion starten"
       },
       "enterprise": {
@@ -253,15 +253,15 @@
         "price": "Individuell",
         "period": "kontaktieren Sie uns",
         "description": "Für Organisationen mit erweiterten Sicherheitsanforderungen.",
-        "features": [
-          "Alles in Pro",
-          "SAML/LDAP SSO",
-          "Audit-Logs",
-          "Dedizierter Support",
-          "Private Bereitstellung",
-          "SLA-Garantie",
-          "Individuelle Verträge"
-        ],
+        "features": {
+          "0": "Alles in Pro",
+          "1": "SAML/LDAP SSO",
+          "2": "Audit-Logs",
+          "3": "Dedizierter Support",
+          "4": "Private Bereitstellung",
+          "5": "SLA-Garantie",
+          "6": "Individuelle Verträge"
+        },
         "cta": "Vertrieb kontaktieren"
       },
       "footer": "Alle Pläne beinhalten SSL-Verschlüsselung, 99,9% Verfügbarkeits-SLA und regelmäßige Backups.",

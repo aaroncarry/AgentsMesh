@@ -34,11 +34,11 @@ export function FinalCTA() {
                 {t("landing.finalCta.getStartedFree")}
               </Button>
             </Link>
-            <Link href="/contact">
+            <a href="mailto:bd@agentsmesh.ai">
               <Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8">
                 {t("landing.finalCta.scheduleDemo")}
               </Button>
-            </Link>
+            </a>
           </div>
 
           {/* Quick stats */}
