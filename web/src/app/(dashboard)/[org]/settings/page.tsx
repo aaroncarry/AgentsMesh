@@ -5,20 +5,37 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/stores/auth";
-import { organizationApi, agentApi, billingApi, BillingOverview, SubscriptionPlan, gitProviderApi, sshKeyApi, SSHKeyData, RedeemPromoCodeResponse } from "@/lib/api/client";
+import { organizationApi, agentApi, billingApi, BillingOverview, SubscriptionPlan, RedeemPromoCodeResponse } from "@/lib/api/client";
 import { PromoCodeInput } from "@/components/promo-code/PromoCodeInput";
 import { useRunnerStore, Runner, RegistrationToken, getRunnerStatusInfo } from "@/stores/runner";
-import { NotificationSettings, LanguageSettings } from "@/components/settings";
+import { LanguageSettings, NotificationSettings } from "@/components/settings";
 import { useTranslations } from "@/lib/i18n/client";
+import { GitSettingsContent } from "@/components/settings/GitSettingsContent";
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
+  const scope = searchParams.get("scope") || "personal";
   const activeTab = searchParams.get("tab") || "general";
   const { currentOrg } = useAuthStore();
   const t = useTranslations();
 
-  // Tab content mapping
+  // Tab content mapping based on scope
   const renderContent = () => {
+    // Personal settings
+    if (scope === "personal") {
+      switch (activeTab) {
+        case "general":
+          return <PersonalGeneralSettings t={t} />;
+        case "git":
+          return <PersonalGitSettings t={t} />;
+        case "notifications":
+          return <PersonalNotificationsSettings t={t} />;
+        default:
+          return <PersonalGeneralSettings t={t} />;
+      }
+    }
+
+    // Organization settings
     switch (activeTab) {
       case "general":
         return <GeneralSettings org={currentOrg} t={t} />;
@@ -28,10 +45,6 @@ export default function SettingsPage() {
         return <AgentsSettings t={t} />;
       case "runners":
         return <RunnersSettings t={t} />;
-      case "git-providers":
-        return <GitProvidersSettings t={t} />;
-      case "notifications":
-        return <NotificationsSettings t={t} />;
       case "billing":
         return <BillingSettings t={t} />;
       default:
@@ -44,6 +57,35 @@ export default function SettingsPage() {
       {/* Content - navigation controlled by IDE Sidebar */}
       <div className="max-w-4xl">
         {renderContent()}
+      </div>
+    </div>
+  );
+}
+
+// ===== Personal Settings Components =====
+
+function PersonalGeneralSettings({ t }: { t: TranslationFn }) {
+  return (
+    <div className="space-y-6">
+      {/* Language Settings */}
+      <LanguageSettings />
+    </div>
+  );
+}
+
+function PersonalGitSettings({ t }: { t: TranslationFn }) {
+  return <GitSettingsContent />;
+}
+
+function PersonalNotificationsSettings({ t }: { t: TranslationFn }) {
+  return (
+    <div className="space-y-6">
+      <div className="border border-border rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">{t("settings.notifications.title")}</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          {t("settings.notifications.description")}
+        </p>
+        <NotificationSettings />
       </div>
     </div>
   );
@@ -68,9 +110,6 @@ function GeneralSettings({ org, t }: { org: { name: string; slug: string } | nul
 
   return (
     <div className="space-y-6">
-      {/* Language Settings */}
-      <LanguageSettings />
-
       <div className="border border-border rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4">{t("settings.organizationDetails.title")}</h2>
         <div className="space-y-4">
@@ -335,9 +374,16 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
   const [agentTypes, setAgentTypes] = useState<
     Array<{ id: number; slug: string; name: string; description?: string }>
   >([]);
+  const [defaultConfigs, setDefaultConfigs] = useState<Record<number, Record<string, unknown>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Config dialog state
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<{ id: number; name: string } | null>(null);
+  const [configJson, setConfigJson] = useState("");
+  const [savingConfig, setSavingConfig] = useState(false);
 
   // Credentials state
   const [anthropicKey, setAnthropicKey] = useState("");
@@ -347,6 +393,7 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
 
   useEffect(() => {
     loadAgentTypes();
+    loadDefaultConfigs();
   }, []);
 
   const loadAgentTypes = async () => {
@@ -357,6 +404,51 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
       console.error("Failed to load agent types:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDefaultConfigs = async () => {
+    try {
+      const response = await agentApi.listDefaultConfigs();
+      const configs: Record<number, Record<string, unknown>> = {};
+      for (const cfg of response.configs || []) {
+        configs[cfg.agent_type_id] = cfg.config_values;
+      }
+      setDefaultConfigs(configs);
+    } catch (error) {
+      console.error("Failed to load default configs:", error);
+    }
+  };
+
+  const handleOpenConfigDialog = (agent: { id: number; name: string }) => {
+    setSelectedAgent(agent);
+    const currentConfig = defaultConfigs[agent.id] || {};
+    setConfigJson(JSON.stringify(currentConfig, null, 2));
+    setConfigDialogOpen(true);
+  };
+
+  const handleSaveConfig = async () => {
+    if (!selectedAgent) return;
+    setSavingConfig(true);
+    setError(null);
+    try {
+      const configValues = JSON.parse(configJson);
+      await agentApi.setDefaultConfig(selectedAgent.id, configValues);
+      setDefaultConfigs((prev) => ({
+        ...prev,
+        [selectedAgent.id]: configValues,
+      }));
+      setConfigDialogOpen(false);
+      setSuccess(t("settings.agentConfig.configSaved"));
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        setError(t("settings.agentConfig.invalidJson"));
+      } else {
+        console.error("Failed to save config:", err);
+        setError(t("settings.agentConfig.configSaveFailed"));
+      }
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -384,22 +476,27 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
       }
 
       if (promises.length === 0) {
-        setError("Please enter at least one API key to save");
+        setError(t("settings.credentials.enterAtLeastOne"));
         return;
       }
 
       await Promise.all(promises);
-      setSuccess("Credentials saved successfully");
+      setSuccess(t("settings.credentials.savedSuccess"));
       // Clear the inputs after saving
       setAnthropicKey("");
       setOpenaiKey("");
       setGoogleKey("");
     } catch (err) {
       console.error("Failed to save credentials:", err);
-      setError("Failed to save credentials. Please try again.");
+      setError(t("settings.credentials.failedToSave"));
     } finally {
       setSavingCredentials(false);
     }
+  };
+
+  const hasConfig = (agentId: number) => {
+    const config = defaultConfigs[agentId];
+    return config && Object.keys(config).length > 0;
   };
 
   return (
@@ -420,19 +517,26 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
                 className="flex items-center justify-between p-4 border border-border rounded-lg"
               >
                 <div>
-                  <h3 className="font-medium">{agent.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium">{agent.name}</h3>
+                    {hasConfig(agent.id) && (
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                        {t("settings.agentConfig.configured")}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {agent.description || t("settings.agentConfig.configureDefault", { name: agent.name })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenConfigDialog(agent)}
+                  >
                     {t("settings.agentConfig.configure")}
                   </Button>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
                 </div>
               </div>
             ))}
@@ -541,590 +645,51 @@ function AgentsSettings({ t }: { t: TranslationFn }) {
           </Button>
         </div>
       </div>
+
+      {/* Config Dialog */}
+      {configDialogOpen && selectedAgent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background border border-border rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold mb-4">
+              {t("settings.agentConfig.configureTitle", { name: selectedAgent.name })}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("settings.agentConfig.configureHint")}
+            </p>
+            <textarea
+              className="w-full h-64 p-3 font-mono text-sm border border-border rounded-lg bg-muted/50 resize-none"
+              value={configJson}
+              onChange={(e) => setConfigJson(e.target.value)}
+              placeholder="{}"
+            />
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setConfigDialogOpen(false);
+                  setSelectedAgent(null);
+                  setError(null);
+                }}
+              >
+                {t("settings.agentConfig.cancel")}
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleSaveConfig}
+                disabled={savingConfig}
+              >
+                {savingConfig ? t("settings.agentConfig.saving") : t("settings.agentConfig.saveConfig")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function GitProvidersSettings({ t }: { t: TranslationFn }) {
-  const [providers, setProviders] = useState<Array<{
-    id: number;
-    provider_type: string;
-    name: string;
-    base_url: string;
-    ssh_key_id?: number;
-    is_default: boolean;
-    is_active: boolean;
-  }>>([]);
-  const [sshKeys, setSSHKeys] = useState<SSHKeyData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // SSH Key management
-  const [showSSHKeyDialog, setShowSSHKeyDialog] = useState(false);
-  const [newSSHKeyName, setNewSSHKeyName] = useState("");
-  const [newSSHKeyPrivate, setNewSSHKeyPrivate] = useState("");
-  const [createdSSHKey, setCreatedSSHKey] = useState<SSHKeyData | null>(null);
-  const [savingSSHKey, setSavingSSHKey] = useState(false);
-
-  // Form states
-  const [formType, setFormType] = useState("github");
-  const [formName, setFormName] = useState("");
-  const [formBaseUrl, setFormBaseUrl] = useState("");
-  const [formClientId, setFormClientId] = useState("");
-  const [formClientSecret, setFormClientSecret] = useState("");
-  const [formBotToken, setFormBotToken] = useState("");
-  const [formSSHKeyId, setFormSSHKeyId] = useState<number | null>(null);
-  const [formIsDefault, setFormIsDefault] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [providersRes, sshKeysRes] = await Promise.all([
-        gitProviderApi.list(),
-        sshKeyApi.list(),
-      ]);
-      setProviders(providersRes.git_providers || []);
-      setSSHKeys(sshKeysRes.ssh_keys || []);
-    } catch (err) {
-      console.error("Failed to load data:", err);
-      setError("Failed to load git providers");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const getDefaultBaseUrl = (type: string) => {
-    switch (type) {
-      case "github": return "https://github.com";
-      case "gitlab": return "https://gitlab.com";
-      case "gitee": return "https://gitee.com";
-      case "ssh": return "";
-      default: return "";
-    }
-  };
-
-  const resetForm = () => {
-    setFormType("github");
-    setFormName("");
-    setFormBaseUrl("");
-    setFormClientId("");
-    setFormClientSecret("");
-    setFormBotToken("");
-    setFormSSHKeyId(null);
-    setFormIsDefault(false);
-    setEditingProvider(null);
-  };
-
-  const handleAddProvider = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      await gitProviderApi.create({
-        provider_type: formType,
-        name: formName || `${formType.charAt(0).toUpperCase() + formType.slice(1)}`,
-        base_url: formBaseUrl || getDefaultBaseUrl(formType),
-        client_id: formClientId || undefined,
-        client_secret: formClientSecret || undefined,
-        bot_token: formBotToken || undefined,
-        ssh_key_id: formType === "ssh" && formSSHKeyId ? formSSHKeyId : undefined,
-        is_default: formIsDefault,
-      });
-      setShowAddDialog(false);
-      resetForm();
-      await loadData();
-    } catch (err) {
-      console.error("Failed to add provider:", err);
-      setError("Failed to add provider");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdateProvider = async (id: number) => {
-    setSaving(true);
-    setError(null);
-    try {
-      await gitProviderApi.update(id, {
-        name: formName || undefined,
-        base_url: formBaseUrl || undefined,
-        client_id: formClientId || undefined,
-        client_secret: formClientSecret || undefined,
-        bot_token: formBotToken || undefined,
-        ssh_key_id: formType === "ssh" && formSSHKeyId ? formSSHKeyId : undefined,
-        is_default: formIsDefault,
-      });
-      setEditingProvider(null);
-      resetForm();
-      await loadData();
-    } catch (err) {
-      console.error("Failed to update provider:", err);
-      setError("Failed to update provider");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteProvider = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this provider?")) return;
-    try {
-      await gitProviderApi.delete(id);
-      await loadData();
-    } catch (err) {
-      console.error("Failed to delete provider:", err);
-      setError("Failed to delete provider");
-    }
-  };
-
-  const handleToggleActive = async (id: number, isActive: boolean) => {
-    try {
-      await gitProviderApi.update(id, { is_active: !isActive });
-      await loadData();
-    } catch (err) {
-      console.error("Failed to toggle provider:", err);
-      setError("Failed to toggle provider status");
-    }
-  };
-
-  const openEditDialog = (provider: typeof providers[0]) => {
-    setFormType(provider.provider_type);
-    setFormName(provider.name);
-    setFormBaseUrl(provider.base_url);
-    setFormSSHKeyId(provider.ssh_key_id || null);
-    setFormIsDefault(provider.is_default);
-    setEditingProvider(provider.id);
-  };
-
-  const handleCreateSSHKey = async () => {
-    if (!newSSHKeyName) {
-      setError("SSH key name is required");
-      return;
-    }
-    setSavingSSHKey(true);
-    setError(null);
-    try {
-      const res = await sshKeyApi.create({
-        name: newSSHKeyName,
-        private_key: newSSHKeyPrivate || undefined, // If empty, generate new key pair
-      });
-      setCreatedSSHKey(res.ssh_key);
-      setSuccess("SSH key created successfully");
-      await loadData();
-    } catch (err) {
-      console.error("Failed to create SSH key:", err);
-      setError("Failed to create SSH key");
-    } finally {
-      setSavingSSHKey(false);
-    }
-  };
-
-  const handleDeleteSSHKey = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this SSH key?")) return;
-    try {
-      await sshKeyApi.delete(id);
-      await loadData();
-      setSuccess("SSH key deleted");
-    } catch (err) {
-      console.error("Failed to delete SSH key:", err);
-      setError("Failed to delete SSH key");
-    }
-  };
-
-  const resetSSHKeyDialog = () => {
-    setShowSSHKeyDialog(false);
-    setNewSSHKeyName("");
-    setNewSSHKeyPrivate("");
-    setCreatedSSHKey(null);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const getProviderIcon = (type: string) => {
-    switch (type) {
-      case "github": return "GH";
-      case "gitlab": return "GL";
-      case "gitee": return "GE";
-      case "ssh": return "🔑";
-      default: return "?";
-    }
-  };
-
-  const isSSHProvider = formType === "ssh";
-
-  return (
-    <div className="space-y-6">
-      {/* Git Providers */}
-      <div className="border border-border rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold">{t("settings.gitProviders.title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.gitProviders.description")}
-            </p>
-          </div>
-          <Button onClick={() => setShowAddDialog(true)}>{t("settings.gitProviders.addProvider")}</Button>
-        </div>
-
-        {error && (
-          <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg mb-4">
-            {error}
-            <button onClick={() => setError(null)} className="ml-4 underline text-sm">
-              {t("settings.members.dismiss")}
-            </button>
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-50 border border-green-500 text-green-700 px-4 py-3 rounded-lg mb-4">
-            {success}
-            <button onClick={() => setSuccess(null)} className="ml-4 underline text-sm">
-              {t("settings.members.dismiss")}
-            </button>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="text-center py-8 text-muted-foreground">{t("settings.gitProviders.loading")}</div>
-        ) : providers.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            {t("settings.gitProviders.noProviders")}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {providers.map((provider) => (
-              <div
-                key={provider.id}
-                className={`flex items-center justify-between p-4 border border-border rounded-lg ${
-                  !provider.is_active ? "opacity-60" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center font-medium">
-                    {getProviderIcon(provider.provider_type)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">{provider.name}</h3>
-                      <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                        {provider.provider_type.toUpperCase()}
-                      </span>
-                      {provider.is_default && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          {t("settings.gitProviders.default")}
-                        </span>
-                      )}
-                      {!provider.is_active && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                          {t("settings.gitProviders.disabled")}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {provider.base_url || (provider.provider_type === "ssh" ? t("settings.gitProviders.sshAuth") : "")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(provider)}>
-                    {t("settings.gitProviders.configure")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggleActive(provider.id, provider.is_active)}
-                  >
-                    {provider.is_active ? t("settings.gitProviders.disable") : t("settings.gitProviders.enable")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteProvider(provider.id)}
-                  >
-                    {t("settings.gitProviders.delete")}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add/Edit Dialog */}
-        {(showAddDialog || editingProvider !== null) && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-background border border-border rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4">
-                {editingProvider ? t("settings.gitProviders.dialog.editTitle") : t("settings.gitProviders.dialog.addTitle")}
-              </h3>
-              <div className="space-y-4">
-                {!editingProvider && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.providerType")}</label>
-                    <select
-                      value={formType}
-                      onChange={(e) => {
-                        setFormType(e.target.value);
-                        setFormBaseUrl(getDefaultBaseUrl(e.target.value));
-                      }}
-                      className="w-full border border-border rounded px-3 py-2 bg-background"
-                    >
-                      <option value="github">GitHub</option>
-                      <option value="gitlab">GitLab</option>
-                      <option value="gitee">Gitee</option>
-                      <option value="ssh">SSH (Generic)</option>
-                    </select>
-                    {isSSHProvider && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("settings.gitProviders.dialog.sshHint")}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.nameLabel")}</label>
-                  <Input
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder={isSSHProvider ? t("settings.gitProviders.dialog.namePlaceholderSSH") : t("settings.gitProviders.dialog.namePlaceholder")}
-                  />
-                </div>
-                {!isSSHProvider && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.baseUrlLabel")}</label>
-                      <Input
-                        value={formBaseUrl}
-                        onChange={(e) => setFormBaseUrl(e.target.value)}
-                        placeholder={getDefaultBaseUrl(formType)}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("settings.gitProviders.dialog.baseUrlHint")}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.clientIdLabel")}</label>
-                      <Input
-                        value={formClientId}
-                        onChange={(e) => setFormClientId(e.target.value)}
-                        placeholder={t("settings.gitProviders.dialog.clientIdPlaceholder")}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.clientSecretLabel")}</label>
-                      <Input
-                        type="password"
-                        value={formClientSecret}
-                        onChange={(e) => setFormClientSecret(e.target.value)}
-                        placeholder={t("settings.gitProviders.dialog.clientSecretPlaceholder")}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.botTokenLabel")}</label>
-                      <Input
-                        type="password"
-                        value={formBotToken}
-                        onChange={(e) => setFormBotToken(e.target.value)}
-                        placeholder={t("settings.gitProviders.dialog.botTokenPlaceholder")}
-                      />
-                    </div>
-                  </>
-                )}
-                {isSSHProvider && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">{t("settings.gitProviders.dialog.sshKeyLabel")}</label>
-                    <select
-                      value={formSSHKeyId || ""}
-                      onChange={(e) => setFormSSHKeyId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full border border-border rounded px-3 py-2 bg-background"
-                    >
-                      <option value="">{t("settings.gitProviders.dialog.sshKeyPlaceholder")}</option>
-                      {sshKeys.map((key) => (
-                        <option key={key.id} value={key.id}>
-                          {key.name} ({key.fingerprint.substring(0, 16)}...)
-                        </option>
-                      ))}
-                    </select>
-                    {sshKeys.length === 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("settings.gitProviders.dialog.noSSHKeys")}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="isDefault"
-                    checked={formIsDefault}
-                    onChange={(e) => setFormIsDefault(e.target.checked)}
-                  />
-                  <label htmlFor="isDefault" className="text-sm">{t("settings.gitProviders.dialog.setDefault")}</label>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowAddDialog(false);
-                    resetForm();
-                  }}
-                >
-                  {t("settings.gitProviders.dialog.cancel")}
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => editingProvider ? handleUpdateProvider(editingProvider) : handleAddProvider()}
-                  disabled={saving || (isSSHProvider && !formSSHKeyId)}
-                >
-                  {saving ? t("settings.gitProviders.dialog.saving") : editingProvider ? t("settings.gitProviders.dialog.saveChanges") : t("settings.gitProviders.dialog.addProvider")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* SSH Keys Management */}
-      <div className="border border-border rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold">{t("settings.sshKeys.title")}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t("settings.sshKeys.description")}
-            </p>
-          </div>
-          <Button onClick={() => setShowSSHKeyDialog(true)}>{t("settings.sshKeys.addSSHKey")}</Button>
-        </div>
-
-        {sshKeys.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            {t("settings.sshKeys.noKeys")}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sshKeys.map((key) => (
-              <div
-                key={key.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    🔑
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{key.name}</h3>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {key.fingerprint}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(key.public_key)}
-                  >
-                    {t("settings.sshKeys.copyPublicKey")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteSSHKey(key.id)}
-                  >
-                    {t("settings.sshKeys.delete")}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add SSH Key Dialog */}
-        {showSSHKeyDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-background border border-border rounded-lg p-6 w-full max-w-lg">
-              {createdSSHKey ? (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">{t("settings.sshKeys.dialog.createdTitle")}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {t("settings.sshKeys.dialog.createdHint")}
-                  </p>
-                  <div className="bg-muted p-3 rounded-lg mb-4">
-                    <code className="text-xs break-all">{createdSSHKey.public_key}</code>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => copyToClipboard(createdSSHKey.public_key)}
-                    >
-                      {t("settings.sshKeys.copyPublicKey")}
-                    </Button>
-                    <Button className="flex-1" onClick={resetSSHKeyDialog}>
-                      {t("settings.sshKeys.dialog.done")}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-lg font-semibold mb-4">{t("settings.sshKeys.dialog.addTitle")}</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">{t("settings.sshKeys.dialog.nameLabel")}</label>
-                      <Input
-                        value={newSSHKeyName}
-                        onChange={(e) => setNewSSHKeyName(e.target.value)}
-                        placeholder={t("settings.sshKeys.dialog.namePlaceholder")}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        {t("settings.sshKeys.dialog.privateKeyLabel")}
-                      </label>
-                      <textarea
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background font-mono text-xs"
-                        rows={6}
-                        value={newSSHKeyPrivate}
-                        onChange={(e) => setNewSSHKeyPrivate(e.target.value)}
-                        placeholder={t("settings.sshKeys.dialog.privateKeyPlaceholder")}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("settings.sshKeys.dialog.privateKeyHint")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-6">
-                    <Button variant="outline" className="flex-1" onClick={resetSSHKeyDialog}>
-                      {t("settings.sshKeys.dialog.cancel")}
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={handleCreateSSHKey}
-                      disabled={savingSSHKey || !newSSHKeyName}
-                    >
-                      {savingSSHKey ? t("settings.sshKeys.dialog.creating") : newSSHKeyPrivate ? t("settings.sshKeys.dialog.importKey") : t("settings.sshKeys.dialog.generateKey")}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+// NOTE: GitProvidersSettings has been removed and moved to personal settings (/settings/git)
 
 function BillingSettings({ t }: { t: TranslationFn }) {
   const [loading, setLoading] = useState(true);
@@ -2022,18 +1587,4 @@ function EditRunnerDialog({
   );
 }
 
-// ===== Notifications Settings =====
-
-function NotificationsSettings({ t }: { t: TranslationFn }) {
-  return (
-    <div className="space-y-6">
-      <div className="border border-border rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">{t("settings.notifications.title")}</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          {t("settings.notifications.description")}
-        </p>
-        <NotificationSettings />
-      </div>
-    </div>
-  );
-}
+// NOTE: NotificationsSettings has been removed and moved to personal settings (/settings/notifications)

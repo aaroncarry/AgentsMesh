@@ -247,3 +247,86 @@ func (s *Service) GetCustomAgentType(ctx context.Context, id int64) (*agent.Cust
 	}
 	return &customAgent, nil
 }
+
+// Organization Default Config Methods
+
+// GetOrganizationDefaultConfig returns the organization's default config for an agent type
+func (s *Service) GetOrganizationDefaultConfig(ctx context.Context, orgID, agentTypeID int64) (*agent.OrganizationAgentConfig, error) {
+	var config agent.OrganizationAgentConfig
+	err := s.db.WithContext(ctx).
+		Preload("AgentType").
+		Where("organization_id = ? AND agent_type_id = ?", orgID, agentTypeID).
+		First(&config).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Return empty config if not found
+			return &agent.OrganizationAgentConfig{
+				OrganizationID: orgID,
+				AgentTypeID:    agentTypeID,
+				ConfigValues:   make(agent.ConfigValues),
+			}, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// SetOrganizationDefaultConfig sets the organization's default config for an agent type
+func (s *Service) SetOrganizationDefaultConfig(ctx context.Context, orgID, agentTypeID int64, configValues agent.ConfigValues) (*agent.OrganizationAgentConfig, error) {
+	// Verify agent type exists
+	if _, err := s.GetAgentType(ctx, agentTypeID); err != nil {
+		return nil, err
+	}
+
+	config := &agent.OrganizationAgentConfig{
+		OrganizationID: orgID,
+		AgentTypeID:    agentTypeID,
+		ConfigValues:   configValues,
+	}
+
+	err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND agent_type_id = ?", orgID, agentTypeID).
+		Assign(config).
+		FirstOrCreate(config).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetOrganizationDefaultConfig(ctx, orgID, agentTypeID)
+}
+
+// DeleteOrganizationDefaultConfig deletes the organization's default config for an agent type
+func (s *Service) DeleteOrganizationDefaultConfig(ctx context.Context, orgID, agentTypeID int64) error {
+	return s.db.WithContext(ctx).
+		Where("organization_id = ? AND agent_type_id = ?", orgID, agentTypeID).
+		Delete(&agent.OrganizationAgentConfig{}).Error
+}
+
+// ListOrganizationDefaultConfigs returns all default configs for an organization
+func (s *Service) ListOrganizationDefaultConfigs(ctx context.Context, orgID int64) ([]*agent.OrganizationAgentConfig, error) {
+	var configs []*agent.OrganizationAgentConfig
+	err := s.db.WithContext(ctx).
+		Preload("AgentType").
+		Where("organization_id = ?", orgID).
+		Find(&configs).Error
+	return configs, err
+}
+
+// GetEffectiveConfig returns the effective config by merging system defaults, org defaults, and overrides
+func (s *Service) GetEffectiveConfig(ctx context.Context, orgID, agentTypeID int64, overrides agent.ConfigValues) agent.ConfigValues {
+	// Start with empty config
+	result := make(agent.ConfigValues)
+
+	// Get organization default config
+	orgConfig, err := s.GetOrganizationDefaultConfig(ctx, orgID, agentTypeID)
+	if err == nil && orgConfig.ConfigValues != nil {
+		result = agent.MergeConfigs(result, orgConfig.ConfigValues)
+	}
+
+	// Apply overrides
+	if overrides != nil {
+		result = agent.MergeConfigs(result, overrides)
+	}
+
+	return result
+}

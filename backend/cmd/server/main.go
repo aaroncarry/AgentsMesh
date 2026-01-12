@@ -29,14 +29,14 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/service/channel"
 	"github.com/anthropics/agentmesh/backend/internal/service/devmesh"
 	fileservice "github.com/anthropics/agentmesh/backend/internal/service/file"
-	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentmesh/backend/internal/service/organization"
+	"github.com/anthropics/agentmesh/backend/internal/service/promocode"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
+	"github.com/anthropics/agentmesh/backend/pkg/crypto"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -105,28 +105,30 @@ func main() {
 	setupPodEventCallbacks(db, podCoordinator, eventBus)
 
 	// Create services container for HTTP handlers
+	// NOTE: GitProvider and SSHKey services removed - now handled via user.Service
 	svc := &v1.Services{
-		Auth:           services.auth,
-		User:           services.user,
-		Org:            services.org,
-		Agent:          services.agent,
-		GitProvider:    services.gitProvider,
-		Repository:     services.repository,
-		Runner:         services.runner,
-		RunnerConnMgr:  runnerConnMgr,
-		PodCoordinator: podCoordinator,
-		TerminalRouter: terminalRouter,
-		Pod:            services.pod,
-		Channel:        services.channel,
-		Binding:        services.binding,
-		Ticket:         services.ticket,
-		SSHKey:         services.sshKey,
-		DevMesh:        services.devmesh,
-		Billing:        services.billing,
-		Hub:            hub,
-		EventBus:       eventBus,
-		Invitation:     services.invitation,
-		File:           services.file,
+		Auth:              services.auth,
+		User:              services.user,
+		Org:               services.org,
+		Agent:             services.agent,
+		Repository:        services.repository,
+		Runner:            services.runner,
+		RunnerConnMgr:     runnerConnMgr,
+		PodCoordinator:    podCoordinator,
+		TerminalRouter:    terminalRouter,
+		Pod:               services.pod,
+		Channel:           services.channel,
+		Binding:           services.binding,
+		Ticket:            services.ticket,
+		DevMesh:           services.devmesh,
+		Billing:           services.billing,
+		Hub:               hub,
+		EventBus:          eventBus,
+		Invitation:        services.invitation,
+		File:              services.file,
+		PromoCode:         services.promoCode,
+		AgentPodSettings:  services.agentpodSettings,
+		AgentPodAIProvider: services.agentpodAIProvider,
 	}
 
 	// Initialize router
@@ -141,22 +143,24 @@ func main() {
 
 // serviceContainer holds all initialized services
 type serviceContainer struct {
-	auth        *auth.Service
-	user        *user.Service
-	org         *organization.Service
-	agent       *agent.Service
-	gitProvider *gitprovider.Service
-	repository  *repository.Service
-	runner      *runner.Service
-	pod         *agentpod.PodService
-	channel     *channel.Service
-	ticket      *ticket.Service
-	sshKey      *sshkey.Service
-	billing     *billing.Service
-	binding     *binding.Service
-	devmesh     *devmesh.Service
-	invitation  *invitation.Service
-	file        *fileservice.Service
+	auth               *auth.Service
+	user               *user.Service
+	org                *organization.Service
+	agent              *agent.Service
+	repository         *repository.Service
+	runner             *runner.Service
+	pod                *agentpod.PodService
+	channel            *channel.Service
+	ticket             *ticket.Service
+	billing            *billing.Service
+	binding            *binding.Service
+	devmesh            *devmesh.Service
+	invitation         *invitation.Service
+	file               *fileservice.Service
+	promoCode          *promocode.Service
+	agentpodSettings   *agentpod.SettingsService
+	agentpodAIProvider *agentpod.AIProviderService
+	// NOTE: gitProvider and sshKey removed - now handled via user.Service
 }
 
 // initializeServices creates all business services
@@ -172,14 +176,12 @@ func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
 	authSvc := auth.NewService(authCfg, userSvc)
 	orgSvc := organization.NewService(db)
 	agentSvc := agent.NewService(db)
-	gitProviderSvc := gitprovider.NewService(db)
 	repoSvc := repository.NewService(db)
 	billingSvc := billing.NewService(db, "") // Empty stripe key for now
 	runnerSvc := runner.NewService(db, billingSvc)
 	podSvc := agentpod.NewPodService(db)
 	channelSvc := channel.NewService(db)
 	ticketSvc := ticket.NewService(db)
-	sshKeySvc := sshkey.NewService(db)
 	bindingSvc := binding.NewService(db, podSvc)
 	devmeshSvc := devmesh.NewService(db, podSvc, channelSvc, bindingSvc)
 
@@ -191,6 +193,14 @@ func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
 		BaseURL:     cfg.Email.BaseURL,
 	})
 	invitationSvc := invitation.NewService(db, emailSvc)
+
+	// Initialize promo code service
+	promoCodeSvc := promocode.NewService(db)
+
+	// Initialize AgentPod settings and AI provider services
+	agentpodSettingsSvc := agentpod.NewSettingsService(db)
+	encryptor := crypto.NewEncryptor(cfg.JWT.Secret)
+	agentpodAIProviderSvc := agentpod.NewAIProviderService(db, encryptor)
 
 	// Initialize storage (S3-compatible)
 	var fileSvc *fileservice.Service
@@ -220,22 +230,23 @@ func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
 	}
 
 	return &serviceContainer{
-		auth:        authSvc,
-		user:        userSvc,
-		org:         orgSvc,
-		agent:       agentSvc,
-		gitProvider: gitProviderSvc,
-		repository:  repoSvc,
-		runner:      runnerSvc,
-		pod:         podSvc,
-		channel:     channelSvc,
-		ticket:      ticketSvc,
-		sshKey:      sshKeySvc,
-		billing:     billingSvc,
-		binding:     bindingSvc,
-		devmesh:     devmeshSvc,
-		invitation:  invitationSvc,
-		file:        fileSvc,
+		auth:               authSvc,
+		user:               userSvc,
+		org:                orgSvc,
+		agent:              agentSvc,
+		repository:         repoSvc,
+		runner:             runnerSvc,
+		pod:                podSvc,
+		channel:            channelSvc,
+		ticket:             ticketSvc,
+		billing:            billingSvc,
+		binding:            bindingSvc,
+		devmesh:            devmeshSvc,
+		invitation:         invitationSvc,
+		file:               fileSvc,
+		promoCode:          promoCodeSvc,
+		agentpodSettings:   agentpodSettingsSvc,
+		agentpodAIProvider: agentpodAIProviderSvc,
 	}
 }
 

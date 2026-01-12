@@ -45,11 +45,7 @@ export type {
 
 // Agent
 export { agentApi } from "./agent";
-export type { AgentTypeData } from "./agent";
-
-// Git Provider
-export { gitProviderApi } from "./git-provider";
-export type { GitProviderData } from "./git-provider";
+export type { AgentTypeData, OrganizationAgentConfigData } from "./agent";
 
 // Repository
 export { repositoryApi } from "./repository";
@@ -59,9 +55,25 @@ export type {
   UpdateRepositoryRequest,
 } from "./repository";
 
-// SSH Key
-export { sshKeyApi } from "./ssh-key";
-export type { SSHKeyData } from "./ssh-key";
+// User Repository Provider (Personal Settings)
+export { userRepositoryProviderApi } from "./user-repository-provider";
+export type {
+  RepositoryProviderData,
+  RepositoryData as UserRemoteRepositoryData,
+  CreateRepositoryProviderRequest,
+  UpdateRepositoryProviderRequest,
+} from "./user-repository-provider";
+
+// User Git Credential (Personal Settings)
+export { userGitCredentialApi, CredentialType, getCredentialTypeLabel, isRunnerLocalCredential } from "./user-git-credential";
+export type {
+  CredentialTypeValue,
+  GitCredentialData,
+  RunnerLocalCredentialData,
+  CreateGitCredentialRequest,
+  UpdateGitCredentialRequest,
+  SetDefaultRequest,
+} from "./user-git-credential";
 
 // Binding
 export { bindingApi } from "./binding";

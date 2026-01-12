@@ -13,13 +13,11 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/service/channel"
 	"github.com/anthropics/agentmesh/backend/internal/service/devmesh"
 	fileservice "github.com/anthropics/agentmesh/backend/internal/service/file"
-	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentmesh/backend/internal/service/promocode"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
 	"github.com/gin-gonic/gin"
@@ -34,7 +32,6 @@ type Services struct {
 	User              *user.Service
 	Org               *organization.Service
 	Agent             *agent.Service
-	GitProvider       *gitprovider.Service
 	Repository        *repository.Service
 	Runner            *runner.Service
 	RunnerConnMgr     *runner.ConnectionManager // Runner WebSocket connection manager
@@ -51,11 +48,11 @@ type Services struct {
 	Message           *MessageService    // Agent-to-agent messaging
 	Hub               *websocket.Hub     // WebSocket hub for real-time communication
 	EventBus          *eventbus.EventBus // Event bus for real-time events
-	SSHKey            *sshkey.Service      // SSH key management
 	Email             email.Service        // Email service
 	Invitation        *invitation.Service  // Organization invitations
 	File              *fileservice.Service // File storage service
 	PromoCode         *promocode.Service   // Promo code management
+	// NOTE: GitProvider and SSHKey services have been removed (moved to user-level settings)
 }
 
 // RegisterAllRoutes registers all API v1 routes with proper handlers
@@ -96,33 +93,15 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 		agents.POST("/custom", agentHandler.CreateCustomAgent)
 		agents.PUT("/custom/:id", agentHandler.UpdateCustomAgent)
 		agents.DELETE("/custom/:id", agentHandler.DeleteCustomAgent)
+		// Default configs (organization-level agent configuration)
+		agents.GET("/default-configs", agentHandler.ListDefaultConfigs)
+		agents.GET("/:agent_type_id/default-config", agentHandler.GetDefaultConfig)
+		agents.PUT("/:agent_type_id/default-config", agentHandler.SetDefaultConfig)
+		agents.DELETE("/:agent_type_id/default-config", agentHandler.DeleteDefaultConfig)
 	}
 
-	// Git Providers
-	gitProviderHandler := NewGitProviderHandler(svc.GitProvider)
-	gitProviders := rg.Group("/git-providers")
-	{
-		gitProviders.GET("", gitProviderHandler.ListGitProviders)
-		gitProviders.POST("", gitProviderHandler.CreateGitProvider)
-		gitProviders.GET("/:id", gitProviderHandler.GetGitProvider)
-		gitProviders.PUT("/:id", gitProviderHandler.UpdateGitProvider)
-		gitProviders.DELETE("/:id", gitProviderHandler.DeleteGitProvider)
-		gitProviders.POST("/:id/test", gitProviderHandler.TestConnection)
-		gitProviders.POST("/:id/sync", gitProviderHandler.SyncProjects)
-	}
-
-	// SSH Keys
-	if svc.SSHKey != nil {
-		sshKeyHandler := NewSSHKeyHandler(svc.SSHKey)
-		sshKeys := rg.Group("/ssh-keys")
-		{
-			sshKeys.GET("", sshKeyHandler.ListSSHKeys)
-			sshKeys.POST("", sshKeyHandler.CreateSSHKey)
-			sshKeys.GET("/:id", sshKeyHandler.GetSSHKey)
-			sshKeys.PUT("/:id", sshKeyHandler.UpdateSSHKey)
-			sshKeys.DELETE("/:id", sshKeyHandler.DeleteSSHKey)
-		}
-	}
+	// NOTE: Git Providers and SSH Keys have been moved to user-level settings
+	// Use /api/v1/user/repository-providers and /api/v1/user/git-credentials instead
 
 	// Repositories
 	repositoryHandler := NewRepositoryHandler(svc.Repository, svc.Billing)
@@ -350,6 +329,18 @@ func RegisterUserRoutes(rg *gin.RouterGroup, userSvc *user.Service, orgSvc *orga
 			}
 		}
 	}
+
+	// User Repository Providers (for importing repositories)
+	repositoryProviderHandler := NewUserRepositoryProviderHandler(userSvc)
+	repositoryProviderHandler.RegisterRoutes(rg)
+
+	// User Git Credentials (for Git operations)
+	gitCredentialHandler := NewUserGitCredentialHandler(userSvc)
+	gitCredentialHandler.RegisterRoutes(rg)
+
+	// User Git Connections (legacy, for backward compatibility)
+	gitConnectionHandler := NewUserGitConnectionHandler(userSvc)
+	gitConnectionHandler.RegisterRoutes(rg)
 
 	// User search
 	rg.GET("/search", userHandler.SearchUsers)

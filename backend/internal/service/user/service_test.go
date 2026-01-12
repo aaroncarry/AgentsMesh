@@ -16,6 +16,28 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to connect database: %v", err)
 	}
 
+	// Create user_git_credentials table first (referenced by users)
+	err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS user_git_credentials (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			credential_type TEXT NOT NULL,
+			repository_provider_id INTEGER,
+			pat_encrypted TEXT,
+			public_key TEXT,
+			private_key_encrypted TEXT,
+			fingerprint TEXT,
+			host_pattern TEXT,
+			is_default INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`).Error
+	if err != nil {
+		t.Fatalf("failed to create user_git_credentials table: %v", err)
+	}
+
 	// Create tables manually for SQLite compatibility
 	err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
@@ -32,6 +54,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			email_verification_expires_at DATETIME,
 			password_reset_token TEXT,
 			password_reset_expires_at DATETIME,
+			default_git_credential_id INTEGER REFERENCES user_git_credentials(id),
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)

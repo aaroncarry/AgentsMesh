@@ -740,6 +740,17 @@
     "gitProviders": "Git 服务",
     "agents": "智能体",
     "billing": "账单",
+    "personal": {
+      "title": "个人设置",
+      "description": "管理您的个人偏好",
+      "userSettings": "您的个人设置",
+      "tabs": {
+        "git": "Git 设置",
+        "gitDesc": "仓库连接与凭据",
+        "notifications": "通知",
+        "notificationsDesc": "推送通知偏好"
+      }
+    },
     "language": {
       "title": "语言",
       "description": "选择界面显示语言。",
@@ -792,7 +803,16 @@
       "description": "为组织启用和配置 AI 智能体",
       "loading": "加载中...",
       "configureDefault": "配置 {name} 设置",
-      "configure": "配置"
+      "configure": "配置",
+      "configured": "已配置",
+      "configureTitle": "配置 {name}",
+      "configureHint": "设置此智能体的默认配置值。这些值将在创建新 Pod 时使用。",
+      "cancel": "取消",
+      "saving": "保存中...",
+      "saveConfig": "保存配置",
+      "configSaved": "配置保存成功",
+      "configSaveFailed": "配置保存失败",
+      "invalidJson": "无效的 JSON 格式"
     },
     "credentials": {
       "title": "你的凭据",
@@ -1036,6 +1056,68 @@
         "done": "完成"
       }
     },
+    "gitSettings": {
+      "title": "Git 设置",
+      "description": "管理你的 Git 凭据和仓库提供商，用于导入和访问仓库。",
+      "failedToLoad": "加载 Git 设置失败",
+      "defaultSet": "默认凭据已更新",
+      "failedToSetDefault": "设置默认凭据失败",
+      "confirmDeleteProvider": "确定要删除此仓库提供商吗？",
+      "failedToDeleteProvider": "删除提供商失败",
+      "confirmDeleteCredential": "确定要删除此凭据吗？",
+      "failedToDeleteCredential": "删除凭据失败",
+      "connectionSuccess": "连接成功",
+      "connectionFailed": "连接失败",
+      "defaultCredential": {
+        "title": "默认 Git 凭据",
+        "description": "选择 Git 操作使用的默认凭据。创建新 Pod 时将使用此凭据。",
+        "runnerLocalHint": "使用 Runner 机器上的 Git 配置"
+      },
+      "providers": {
+        "title": "仓库提供商",
+        "description": "连接 GitHub、GitLab 或 Gitee 以导入仓库。",
+        "add": "添加提供商",
+        "empty": "暂无仓库提供商配置。添加一个以导入仓库。",
+        "default": "默认",
+        "disabled": "已禁用",
+        "test": "测试连接",
+        "dialog": {
+          "title": "添加仓库提供商",
+          "editTitle": "编辑提供商",
+          "selectType": "选择要连接的 Git 服务：",
+          "name": "名称",
+          "baseUrl": "基础 URL",
+          "baseUrlHint": "对于自托管实例，请输入完整 URL",
+          "token": "Personal Access Token",
+          "tokenHint": "令牌需要仓库访问权限",
+          "tokenUpdateHint": "留空以保留当前令牌",
+          "active": "启用",
+          "fillAll": "请填写所有必填字段",
+          "failed": "保存提供商失败"
+        }
+      },
+      "credentials": {
+        "title": "Git 凭据",
+        "description": "添加 Personal Access Token 或 SSH 密钥用于 Git 认证。",
+        "add": "添加凭据",
+        "empty": "暂无凭据配置。添加 PAT 或 SSH 密钥用于 Git 认证。",
+        "hostPattern": "主机模式",
+        "dialog": {
+          "title": "添加 Git 凭据",
+          "type": "凭据类型",
+          "name": "名称",
+          "namePlaceholder": "例如：工作 GitHub 令牌",
+          "nameRequired": "名称为必填项",
+          "patRequired": "Personal Access Token 为必填项",
+          "sshRequired": "SSH 私钥为必填项",
+          "privateKey": "SSH 私钥",
+          "patHint": "令牌需要仓库访问权限",
+          "hostPattern": "主机模式（可选）",
+          "hostPatternHint": "将此凭据限制为特定主机（例如：github.com）",
+          "failed": "创建凭据失败"
+        }
+      }
+    },
     "gitConnections": {
       "title": "Git 连接",
       "description": "管理你的 Git 服务连接。OAuth 连接会在你使用 GitHub、GitLab 或 Gitee 登录时自动创建。",
@@ -1128,6 +1210,8 @@
         "title": "设置",
         "description": "管理您的组织",
         "currentOrg": "当前组织",
+        "scopeOrg": "组织",
+        "scopePersonal": "个人",
         "tabs": {
           "general": "常规",
           "generalDesc": "组织详情",

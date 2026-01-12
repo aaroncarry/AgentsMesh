@@ -9,10 +9,8 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
 	"github.com/anthropics/agentmesh/backend/internal/service/billing"
-	"github.com/anthropics/agentmesh/backend/internal/service/gitprovider"
 	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/sshkey"
 	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
 	"github.com/anthropics/agentmesh/backend/internal/service/user"
 	"github.com/gin-gonic/gin"
@@ -20,18 +18,17 @@ import (
 
 // PodHandler handles pod-related requests
 type PodHandler struct {
-	podService         *agentpod.PodService
-	runnerService      *runner.Service
-	agentService       *agent.Service
-	billingService     *billing.Service
-	repositoryService  *repository.Service
-	ticketService      *ticket.Service
-	gitProviderService *gitprovider.Service
-	sshKeyService      *sshkey.Service
-	userService        *user.Service // For user credential retrieval (权限跟人走)
-	runnerConnMgr      *runner.ConnectionManager
-	podCoordinator     *runner.PodCoordinator
-	terminalRouter     interface{} // *runner.TerminalRouter, optional
+	podService        *agentpod.PodService
+	runnerService     *runner.Service
+	agentService      *agent.Service
+	billingService    *billing.Service
+	repositoryService *repository.Service
+	ticketService     *ticket.Service
+	userService       *user.Service // For user credential retrieval (权限跟人走)
+	runnerConnMgr     *runner.ConnectionManager
+	podCoordinator    *runner.PodCoordinator
+	terminalRouter    interface{} // *runner.TerminalRouter, optional
+	// NOTE: gitProviderService and sshKeyService removed - now handled via userService
 }
 
 // PodHandlerOption is a functional option for configuring PodHandler
@@ -69,20 +66,6 @@ func WithRepositoryService(rs *repository.Service) PodHandlerOption {
 func WithTicketService(ts *ticket.Service) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.ticketService = ts
-	}
-}
-
-// WithGitProviderService sets the git provider service
-func WithGitProviderService(gps *gitprovider.Service) PodHandlerOption {
-	return func(h *PodHandler) {
-		h.gitProviderService = gps
-	}
-}
-
-// WithSSHKeyService sets the SSH key service
-func WithSSHKeyService(sks *sshkey.Service) PodHandlerOption {
-	return func(h *PodHandler) {
-		h.sshKeyService = sks
 	}
 }
 
@@ -631,20 +614,35 @@ func (h *PodHandler) ResizeTerminal(c *gin.Context) {
 // buildPluginConfig builds the PluginConfig map for Runner's Sandbox plugins
 // It resolves repository_id -> repository_url, ticket_id -> ticket_identifier
 //
+// Configuration Priority (later overrides earlier):
+// 1. System defaults (hardcoded)
+// 2. Organization default config (from organization_agent_configs)
+// 3. User request plugin_config
+//
 // Credential Strategy (权限跟人走):
 // - Repository is self-contained with provider_type and provider_base_url
-// - Credentials are obtained from the current user's OAuth identity or Git connections
-// - If no user credentials available, Runner uses its local Git configuration
+// - Credentials are obtained from the current user's default Git Credential
+// - If no user credentials available or using runner_local, Runner uses its local Git configuration
 func (h *PodHandler) buildPluginConfig(c *gin.Context, req *CreatePodRequest) map[string]interface{} {
 	config := make(map[string]interface{})
+	ctx := c.Request.Context()
+	tenant := middleware.GetTenant(c)
 	userID := middleware.GetUserID(c)
 
-	// 1. Resolve Repository URL
+	// 1. Get organization default config for the agent type
+	if req.AgentTypeID != nil && h.agentService != nil {
+		orgConfig := h.agentService.GetEffectiveConfig(ctx, tenant.OrganizationID, *req.AgentTypeID, nil)
+		for k, v := range orgConfig {
+			config[k] = v
+		}
+	}
+
+	// 2. Resolve Repository URL
 	// Priority: repository_url > repository_id
 	if req.RepositoryURL != nil && *req.RepositoryURL != "" {
 		config["repository_url"] = *req.RepositoryURL
 	} else if req.RepositoryID != nil && h.repositoryService != nil {
-		repo, err := h.repositoryService.GetByID(c.Request.Context(), *req.RepositoryID)
+		repo, err := h.repositoryService.GetByID(ctx, *req.RepositoryID)
 		if err == nil && repo != nil {
 			// Use repository's self-contained clone URL
 			config["repository_url"] = repo.CloneURL
@@ -652,42 +650,51 @@ func (h *PodHandler) buildPluginConfig(c *gin.Context, req *CreatePodRequest) ma
 			// Store provider info for potential use by Runner
 			config["provider_type"] = repo.ProviderType
 			config["provider_base_url"] = repo.ProviderBaseURL
+		}
+	}
 
-			// Get credentials from current user (权限跟人走)
-			// Try OAuth identity first, then PAT connections
-			if h.userService != nil {
-				token := h.getUserGitToken(c, userID, repo.ProviderType, repo.ProviderBaseURL)
-				if token != "" {
-					config["git_token"] = token
+	// 3. Get Git credentials from current user (权限跟人走)
+	// Use the new Git Credential system
+	if h.userService != nil {
+		gitCred := h.getUserGitCredential(c, userID)
+		if gitCred != nil {
+			switch gitCred.Type {
+			case "oauth", "pat":
+				if gitCred.Token != "" {
+					config["git_token"] = gitCred.Token
 				}
-				// If no token found, Runner will use its local Git configuration
+			case "ssh_key":
+				if gitCred.SSHPrivateKey != "" {
+					config["ssh_private_key"] = gitCred.SSHPrivateKey
+				}
+			// case "runner_local": no credentials needed, Runner uses local config
 			}
 		}
 	}
 
-	// 2. Resolve Branch Name
+	// 4. Resolve Branch Name
 	if req.BranchName != nil && *req.BranchName != "" {
 		config["branch"] = *req.BranchName
 	} else if req.RepositoryID != nil && h.repositoryService != nil {
 		// Use repository's default branch if not specified
-		repo, err := h.repositoryService.GetByID(c.Request.Context(), *req.RepositoryID)
+		repo, err := h.repositoryService.GetByID(ctx, *req.RepositoryID)
 		if err == nil && repo != nil && repo.DefaultBranch != "" {
 			config["branch"] = repo.DefaultBranch
 		}
 	}
 
-	// 3. Resolve Ticket Identifier
+	// 5. Resolve Ticket Identifier
 	// Priority: ticket_identifier > ticket_id
 	if req.TicketIdentifier != nil && *req.TicketIdentifier != "" {
 		config["ticket_identifier"] = *req.TicketIdentifier
 	} else if req.TicketID != nil && h.ticketService != nil {
-		t, err := h.ticketService.GetTicket(c.Request.Context(), *req.TicketID)
+		t, err := h.ticketService.GetTicket(ctx, *req.TicketID)
 		if err == nil && t != nil {
 			config["ticket_identifier"] = t.Identifier
 		}
 	}
 
-	// 4. Merge user-provided PluginConfig (can override above values)
+	// 6. Merge user-provided PluginConfig (can override above values)
 	if req.PluginConfig != nil {
 		for k, v := range req.PluginConfig {
 			config[k] = v
@@ -695,6 +702,37 @@ func (h *PodHandler) buildPluginConfig(c *gin.Context, req *CreatePodRequest) ma
 	}
 
 	return config
+}
+
+// getUserGitCredential retrieves the default Git credential for the current user
+// Implements "权限跟人走" - credentials follow the person, not the organization
+//
+// Returns:
+// - DecryptedCredential with token/ssh key if found
+// - nil if using runner_local (Runner will use local Git config)
+func (h *PodHandler) getUserGitCredential(c *gin.Context, userID int64) *user.DecryptedCredential {
+	ctx := c.Request.Context()
+
+	// Get user's default Git credential
+	defaultCred, err := h.userService.GetDefaultGitCredential(ctx, userID)
+	if err != nil || defaultCred == nil {
+		// No default set, use runner_local (return nil)
+		return nil
+	}
+
+	// If type is runner_local, return nil to let Runner use local config
+	if defaultCred.CredentialType == "runner_local" {
+		return nil
+	}
+
+	// Decrypt and return the credential
+	decrypted, err := h.userService.GetDecryptedCredentialToken(ctx, userID, defaultCred.ID)
+	if err != nil {
+		log.Printf("[pods] Failed to decrypt Git credential: %v", err)
+		return nil
+	}
+
+	return decrypted
 }
 
 // getUserGitToken retrieves the Git access token for the current user

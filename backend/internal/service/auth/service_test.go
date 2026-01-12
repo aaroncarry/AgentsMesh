@@ -48,6 +48,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			email_verification_expires_at DATETIME,
 			password_reset_token TEXT,
 			password_reset_expires_at DATETIME,
+			default_git_credential_id INTEGER,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)

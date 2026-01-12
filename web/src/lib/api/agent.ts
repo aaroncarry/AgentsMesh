@@ -11,6 +11,18 @@ export interface AgentTypeData {
   is_active: boolean;
 }
 
+// Organization agent default config interface
+export interface OrganizationAgentConfigData {
+  id: number;
+  organization_id: number;
+  agent_type_id: number;
+  agent_type_name?: string;
+  agent_type_slug?: string;
+  config_values: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 // Agents API
 export const agentApi = {
   listTypes: async () => {
@@ -40,5 +52,23 @@ export const agentApi = {
     request<{ message: string }>(`${orgPath("/agents/credentials")}/${agentType}`, {
       method: "PUT",
       body: { credentials },
+    }),
+
+  // Organization default config API
+  listDefaultConfigs: () =>
+    request<{ configs: OrganizationAgentConfigData[] }>(orgPath("/agents/default-configs")),
+
+  getDefaultConfig: (agentTypeId: number) =>
+    request<{ config: OrganizationAgentConfigData }>(`${orgPath("/agents")}/${agentTypeId}/default-config`),
+
+  setDefaultConfig: (agentTypeId: number, configValues: Record<string, unknown>) =>
+    request<{ config: OrganizationAgentConfigData }>(`${orgPath("/agents")}/${agentTypeId}/default-config`, {
+      method: "PUT",
+      body: { config_values: configValues },
+    }),
+
+  deleteDefaultConfig: (agentTypeId: number) =>
+    request<{ message: string }>(`${orgPath("/agents")}/${agentTypeId}/default-config`, {
+      method: "DELETE",
     }),
 };

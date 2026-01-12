@@ -85,6 +85,10 @@ type Pod struct {
 	PermissionMode *string `gorm:"size:50" json:"permission_mode,omitempty"` // plan/default/bypassPermissions
 	ThinkLevel     *string `gorm:"size:50" json:"think_level,omitempty"`     // ultrathink/megathink
 
+	// ConfigOverrides stores pod-level configuration overrides
+	// Merged with organization defaults during Pod creation
+	ConfigOverrides agent.ConfigValues `gorm:"type:jsonb;default:'{}'" json:"config_overrides,omitempty"`
+
 	CreatedAt time.Time `gorm:"not null;default:now()" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 

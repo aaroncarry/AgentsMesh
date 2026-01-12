@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act } from "@testing-library/react";
 import {
   useDevMeshStore,
@@ -75,7 +75,6 @@ const mockTopology: DevMeshTopology = {
 describe("DevMesh Store", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
     // Reset store to initial state
     useDevMeshStore.setState({
       topology: null,
@@ -83,17 +82,7 @@ describe("DevMesh Store", () => {
       selectedChannel: null,
       loading: false,
       error: null,
-      pollInterval: null,
     });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    // Clean up any polling intervals
-    const state = useDevMeshStore.getState();
-    if (state.pollInterval !== null) {
-      clearInterval(state.pollInterval);
-    }
   });
 
   describe("initial state", () => {
@@ -105,7 +94,6 @@ describe("DevMesh Store", () => {
       expect(state.selectedChannel).toBeNull();
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
-      expect(state.pollInterval).toBeNull();
     });
   });
 

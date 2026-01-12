@@ -370,3 +370,113 @@ func (h *AgentHandler) DeleteCustomAgent(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Custom agent deleted"})
 }
+
+// Organization Default Config API
+
+// ListDefaultConfigs returns all default configs for the organization
+// GET /api/v1/organizations/:slug/agents/default-configs
+func (h *AgentHandler) ListDefaultConfigs(c *gin.Context) {
+	tenant := middleware.GetTenant(c)
+
+	configs, err := h.agentService.ListOrganizationDefaultConfigs(c.Request.Context(), tenant.OrganizationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list default configs"})
+		return
+	}
+
+	// Convert to response format
+	responses := make([]*agentDomain.OrganizationAgentConfigResponse, len(configs))
+	for i, cfg := range configs {
+		responses[i] = cfg.ToResponse()
+	}
+
+	c.JSON(http.StatusOK, gin.H{"configs": responses})
+}
+
+// GetDefaultConfig returns the organization's default config for an agent type
+// GET /api/v1/organizations/:slug/agents/:agent_type_id/default-config
+func (h *AgentHandler) GetDefaultConfig(c *gin.Context) {
+	agentTypeID, err := strconv.ParseInt(c.Param("agent_type_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent type ID"})
+		return
+	}
+
+	tenant := middleware.GetTenant(c)
+
+	config, err := h.agentService.GetOrganizationDefaultConfig(c.Request.Context(), tenant.OrganizationID, agentTypeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get default config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"config": config.ToResponse()})
+}
+
+// SetDefaultConfigRequest represents a request to set default config
+type SetDefaultConfigRequest struct {
+	ConfigValues map[string]interface{} `json:"config_values" binding:"required"`
+}
+
+// SetDefaultConfig sets the organization's default config for an agent type
+// PUT /api/v1/organizations/:slug/agents/:agent_type_id/default-config
+func (h *AgentHandler) SetDefaultConfig(c *gin.Context) {
+	agentTypeID, err := strconv.ParseInt(c.Param("agent_type_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent type ID"})
+		return
+	}
+
+	var req SetDefaultConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tenant := middleware.GetTenant(c)
+
+	// Check admin permission
+	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin permission required"})
+		return
+	}
+
+	// Convert to ConfigValues
+	configValues := make(agentDomain.ConfigValues)
+	for k, v := range req.ConfigValues {
+		configValues[k] = v
+	}
+
+	config, err := h.agentService.SetOrganizationDefaultConfig(c.Request.Context(), tenant.OrganizationID, agentTypeID, configValues)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set default config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"config": config.ToResponse()})
+}
+
+// DeleteDefaultConfig deletes the organization's default config for an agent type
+// DELETE /api/v1/organizations/:slug/agents/:agent_type_id/default-config
+func (h *AgentHandler) DeleteDefaultConfig(c *gin.Context) {
+	agentTypeID, err := strconv.ParseInt(c.Param("agent_type_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid agent type ID"})
+		return
+	}
+
+	tenant := middleware.GetTenant(c)
+
+	// Check admin permission
+	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin permission required"})
+		return
+	}
+
+	if err := h.agentService.DeleteOrganizationDefaultConfig(c.Request.Context(), tenant.OrganizationID, agentTypeID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete default config"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Default config deleted"})
+}

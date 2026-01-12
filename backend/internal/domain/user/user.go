@@ -25,11 +25,16 @@ type User struct {
 	PasswordResetToken     *string    `gorm:"size:255" json:"-"`
 	PasswordResetExpiresAt *time.Time `json:"-"`
 
+	// Default Git credential preference
+	// NULL means use Runner local credential (default behavior)
+	DefaultGitCredentialID *int64 `gorm:"index" json:"default_git_credential_id,omitempty"`
+
 	CreatedAt time.Time `gorm:"not null;default:now()" json:"created_at"`
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 
 	// Associations
-	Identities []Identity `gorm:"foreignKey:UserID" json:"identities,omitempty"`
+	Identities           []Identity       `gorm:"foreignKey:UserID" json:"identities,omitempty"`
+	DefaultGitCredential *GitCredential   `gorm:"foreignKey:DefaultGitCredentialID" json:"default_git_credential,omitempty"`
 }
 
 func (User) TableName() string {
