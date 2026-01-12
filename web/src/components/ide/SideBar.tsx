@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronDown,
   ChevronRight,
-  Plus,
-  Search,
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
@@ -182,20 +180,12 @@ export function SideBar({ className, children }: SideBarProps) {
         </Button>
       </div>
 
-      {/* Activity title and actions - hide for settings */}
+      {/* Activity title - hide for settings */}
       {activeActivity !== "settings" && (
-        <div className="h-10 flex items-center justify-between px-3 border-b border-border">
+        <div className="h-10 flex items-center px-3 border-b border-border">
           <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             {getActivityTitle(activeActivity)}
           </span>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-              <Search className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-              <Plus className="w-3.5 h-3.5" />
-            </Button>
-          </div>
         </div>
       )}
 

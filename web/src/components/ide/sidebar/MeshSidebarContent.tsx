@@ -10,16 +10,13 @@ import { useWorkspaceStore } from "@/stores/workspace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Network,
   Radio,
   Loader2,
-  Plus,
   Search,
   RefreshCw,
   ChevronDown,
   ChevronRight,
   Terminal,
-  ExternalLink,
   Activity,
   Users,
   Link2,
@@ -55,7 +52,6 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [channelsExpanded, setChannelsExpanded] = useState(true);
   const [nodesExpanded, setNodesExpanded] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
 
   // Load topology on mount - realtime events handle subsequent updates
   useEffect(() => {
@@ -92,10 +88,6 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
       const matchesPodKey = node.pod_key.toLowerCase().includes(query);
       const matchesModel = node.model?.toLowerCase().includes(query);
       if (!matchesPodKey && !matchesModel) return false;
-    }
-    // Show archived filter
-    if (!showArchived && (node.status === "terminated" || node.status === "failed")) {
-      return false;
     }
     return true;
   });
@@ -148,17 +140,8 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-1 px-2 pb-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="flex-1 h-8 text-xs"
-          onClick={() => router.push(`/${currentOrg?.slug}/mesh`)}
-        >
-          <Network className="w-3 h-3 mr-1" />
-          {t("ide.sidebar.mesh.viewTopology")}
-        </Button>
+      {/* Refresh button */}
+      <div className="flex items-center justify-end px-2 pb-2">
         <Button
           size="sm"
           variant="ghost"
@@ -168,19 +151,6 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
         >
           <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
         </Button>
-      </div>
-
-      {/* Show archived toggle */}
-      <div className="px-3 pb-2">
-        <label className="flex items-center gap-2 text-xs cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-            className="rounded border-border"
-          />
-          <span className="text-muted-foreground">{t("ide.sidebar.mesh.showTerminatedPods")}</span>
-        </label>
       </div>
 
       {/* Network stats */}
