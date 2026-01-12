@@ -75,6 +75,16 @@ export type {
   SetDefaultRequest,
 } from "./user-git-credential";
 
+// User Agent Credential (Personal Settings - Agent API credentials)
+export { userAgentCredentialApi, isRunnerHostProfile, getProfileStatusLabel } from "./user-agent-credential";
+export type {
+  CredentialProfileData,
+  CredentialProfilesByAgentType,
+  CreateCredentialProfileRequest,
+  UpdateCredentialProfileRequest,
+  RunnerHostInfo,
+} from "./user-agent-credential";
+
 // Binding
 export { bindingApi } from "./binding";
 export type { PodBinding } from "./binding";

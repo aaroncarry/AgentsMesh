@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { podApi, PodData, AgentTypeData, RepositoryData } from "@/lib/api/client";
+import { userAgentCredentialApi, CredentialProfileData } from "@/lib/api";
 
 /**
  * Validation errors for the form
@@ -12,19 +13,28 @@ export interface FormValidationErrors {
   prompt?: string;
 }
 
+// Special value for RunnerHost (use Runner's local environment)
+export const RUNNER_HOST_PROFILE_ID = 0;
+
 export interface CreatePodFormState {
   // Selection state
   selectedAgent: number | null;
   selectedRunner: number | null;
   selectedRepository: number | null;
   selectedBranch: string;
+  selectedCredentialProfile: number; // 0 = RunnerHost, >0 = custom profile ID
   prompt: string;
+
+  // Credential profiles for selected agent
+  credentialProfiles: CredentialProfileData[];
+  loadingCredentials: boolean;
 
   // Actions
   setSelectedAgent: (id: number | null) => void;
   setSelectedRunner: (id: number | null) => void;
   setSelectedRepository: (id: number | null) => void;
   setSelectedBranch: (branch: string) => void;
+  setSelectedCredentialProfile: (id: number) => void;
   setPrompt: (prompt: string) => void;
 
   // Computed
@@ -54,10 +64,15 @@ export function useCreatePodForm(
   const [selectedRunner, setSelectedRunner] = useState<number | null>(null);
   const [selectedRepository, setSelectedRepository] = useState<number | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
+  const [selectedCredentialProfile, setSelectedCredentialProfile] = useState<number>(RUNNER_HOST_PROFILE_ID);
   const [prompt, setPrompt] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
+
+  // Credential profiles state
+  const [credentialProfiles, setCredentialProfiles] = useState<CredentialProfileData[]>([]);
+  const [loadingCredentials, setLoadingCredentials] = useState(false);
 
   // Compute agent slug from selected agent
   const selectedAgentSlug = useMemo(() => {
@@ -83,6 +98,40 @@ export function useCreatePodForm(
       setSelectedBranch(repo.default_branch);
     }
   }, [selectedRepository, repositories]);
+
+  // Load credential profiles when agent is selected
+  useEffect(() => {
+    if (!selectedAgent) {
+      setCredentialProfiles([]);
+      setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+      return;
+    }
+
+    const loadCredentials = async () => {
+      setLoadingCredentials(true);
+      try {
+        const res = await userAgentCredentialApi.listForAgentType(selectedAgent);
+        const profiles = res.profiles || [];
+        setCredentialProfiles(profiles);
+
+        // Auto-select: if there's a default profile, use it; otherwise use RunnerHost
+        const defaultProfile = profiles.find((p) => p.is_default);
+        if (defaultProfile) {
+          setSelectedCredentialProfile(defaultProfile.id);
+        } else {
+          setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+        }
+      } catch (err) {
+        console.error("Failed to load credential profiles:", err);
+        setCredentialProfiles([]);
+        setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+      } finally {
+        setLoadingCredentials(false);
+      }
+    };
+
+    loadCredentials();
+  }, [selectedAgent]);
 
   // Clear validation error when field changes
   useEffect(() => {
@@ -132,6 +181,8 @@ export function useCreatePodForm(
     setSelectedRunner(null);
     setSelectedRepository(null);
     setSelectedBranch("");
+    setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+    setCredentialProfiles([]);
     setPrompt("");
     setError(null);
     setValidationErrors({});
@@ -170,6 +221,8 @@ export function useCreatePodForm(
           branch_name: selectedBranch || undefined,
           initial_prompt: prompt,
           plugin_config: config,
+          // Pass credential profile: 0 = RunnerHost, >0 = custom profile ID
+          credential_profile_id: selectedCredentialProfile > 0 ? selectedCredentialProfile : undefined,
         });
 
         if (response.pod) {
@@ -186,7 +239,7 @@ export function useCreatePodForm(
         setLoading(false);
       }
     },
-    [selectedAgent, selectedRunner, selectedRepository, selectedBranch, prompt, selectedAgentSlug, onSuccess, validate]
+    [selectedAgent, selectedRunner, selectedRepository, selectedBranch, selectedCredentialProfile, prompt, selectedAgentSlug, onSuccess, validate]
   );
 
   return {
@@ -194,11 +247,15 @@ export function useCreatePodForm(
     selectedRunner,
     selectedRepository,
     selectedBranch,
+    selectedCredentialProfile,
     prompt,
+    credentialProfiles,
+    loadingCredentials,
     setSelectedAgent,
     setSelectedRunner,
     setSelectedRepository,
     setSelectedBranch,
+    setSelectedCredentialProfile,
     setPrompt,
     selectedAgentSlug,
     loading,

@@ -8,27 +8,23 @@ import (
 	"github.com/anthropics/agentmesh/backend/internal/middleware"
 	"github.com/anthropics/agentmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentmesh/backend/internal/service/agentpod"
-	"github.com/anthropics/agentmesh/backend/internal/service/billing"
-	"github.com/anthropics/agentmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentmesh/backend/internal/service/runner"
-	"github.com/anthropics/agentmesh/backend/internal/service/ticket"
-	"github.com/anthropics/agentmesh/backend/internal/service/user"
 	"github.com/gin-gonic/gin"
 )
 
 // PodHandler handles pod-related requests
+// Uses interfaces for service dependencies to enable dependency inversion and easier testing
 type PodHandler struct {
-	podService        *agentpod.PodService
-	runnerService     *runner.Service
-	agentService      *agent.Service
-	billingService    *billing.Service
-	repositoryService *repository.Service
-	ticketService     *ticket.Service
-	userService       *user.Service // For user credential retrieval (权限跟人走)
-	runnerConnMgr     *runner.ConnectionManager
-	podCoordinator    *runner.PodCoordinator
-	terminalRouter    interface{} // *runner.TerminalRouter, optional
-	// NOTE: gitProviderService and sshKeyService removed - now handled via userService
+	podService        PodServiceForHandler        // Pod CRUD operations
+	runnerService     *runner.Service             // Runner management (not abstracted - rarely mocked)
+	agentService      AgentServiceForHandler      // Agent type and credentials
+	billingService    BillingServiceForHandler    // Quota checking
+	repositoryService RepositoryServiceForHandler // Repository lookup
+	ticketService     TicketServiceForHandler     // Ticket lookup
+	userService       UserServiceForPod           // User credential retrieval (权限跟人走)
+	runnerConnMgr     *runner.ConnectionManager   // Runner connections (not abstracted)
+	podCoordinator    *runner.PodCoordinator      // Pod coordination (not abstracted)
+	terminalRouter    interface{}                 // *runner.TerminalRouter, optional
 }
 
 // PodHandlerOption is a functional option for configuring PodHandler
@@ -56,28 +52,28 @@ func WithTerminalRouter(tr interface{}) PodHandlerOption {
 }
 
 // WithRepositoryService sets the repository service
-func WithRepositoryService(rs *repository.Service) PodHandlerOption {
+func WithRepositoryService(rs RepositoryServiceForHandler) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.repositoryService = rs
 	}
 }
 
 // WithTicketService sets the ticket service
-func WithTicketService(ts *ticket.Service) PodHandlerOption {
+func WithTicketService(ts TicketServiceForHandler) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.ticketService = ts
 	}
 }
 
 // WithUserService sets the user service for credential retrieval (权限跟人走)
-func WithUserService(us *user.Service) PodHandlerOption {
+func WithUserService(us UserServiceForPod) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.userService = us
 	}
 }
 
 // WithBillingService sets the billing service for quota checking
-func WithBillingService(bs *billing.Service) PodHandlerOption {
+func WithBillingService(bs BillingServiceForHandler) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.billingService = bs
 	}
@@ -94,6 +90,20 @@ func NewPodHandler(podService *agentpod.PodService, runnerService *runner.Servic
 		opt(h)
 	}
 	return h
+}
+
+// WithPodService sets the pod service (for testing with mock implementations)
+func WithPodService(ps PodServiceForHandler) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.podService = ps
+	}
+}
+
+// WithAgentService sets the agent service (for testing with mock implementations)
+func WithAgentService(as AgentServiceForHandler) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.agentService = as
+	}
 }
 
 
@@ -154,6 +164,11 @@ type CreatePodRequest struct {
 	BranchName        *string `json:"branch_name"`
 	PermissionMode    *string `json:"permission_mode"`     // "plan", "default", or "bypassPermissions"
 
+	// CredentialProfileID specifies which credential profile to use
+	// - nil or 0: RunnerHost mode (use Runner's local environment, no credentials injected)
+	// - >0: Use specified credential profile ID
+	CredentialProfileID *int64 `json:"credential_profile_id"`
+
 	// PluginConfig allows advanced users to pass additional configuration to sandbox plugins
 	// Fields: init_script, init_timeout, env_vars
 	PluginConfig map[string]interface{} `json:"plugin_config"`
@@ -173,7 +188,7 @@ func (h *PodHandler) CreatePod(c *gin.Context) {
 	// Check concurrent pod quota before creation
 	if h.billingService != nil {
 		if err := h.billingService.CheckQuota(c.Request.Context(), tenant.OrganizationID, "concurrent_pods", 1); err != nil {
-			if err == billing.ErrQuotaExceeded {
+			if err == ErrQuotaExceeded {
 				c.JSON(http.StatusPaymentRequired, gin.H{
 					"error": "Concurrent pod quota exceeded. Please upgrade your plan or terminate existing pods.",
 					"code":  "CONCURRENT_POD_QUOTA_EXCEEDED",
@@ -289,7 +304,7 @@ func (h *PodHandler) TerminatePod(c *gin.Context) {
 	}
 
 	if err := h.podService.TerminatePod(c.Request.Context(), podKey); err != nil {
-		if err == agentpod.ErrPodTerminated {
+		if err == ErrPodTerminated {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Pod already terminated"})
 			return
 		}
@@ -393,391 +408,11 @@ func (h *PodHandler) SendPrompt(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Prompt sending via REST not implemented. Use WebSocket terminal."})
 }
 
-// TerminalRouterInterface defines the interface for terminal router operations
-type TerminalRouterInterface interface {
-	GetRecentOutput(podKey string, lines int, raw bool) []byte
-	GetScreenSnapshot(podKey string) string
-	GetCursorPosition(podKey string) (row, col int)
-	GetAllScrollbackData(podKey string) []byte
-	RouteInput(podKey string, data []byte) error
-	RouteResize(podKey string, cols, rows int) error
-}
+// NOTE: Terminal-related handlers (ObserveTerminal, SendTerminalInput, ResizeTerminal)
+// have been moved to pod_terminal.go for better code organization
 
-// TerminalOutputResponse matches Runner's tools.TerminalOutput structure
-type TerminalOutputResponse struct {
-	PodKey     string `json:"pod_key"`
-	Output     string `json:"output"`
-	Screen     string `json:"screen,omitempty"`
-	CursorX    int    `json:"cursor_x"`
-	CursorY    int    `json:"cursor_y"`
-	TotalLines int    `json:"total_lines"`
-	HasMore    bool   `json:"has_more"`
-}
+// NOTE: buildPluginConfig and related config resolution functions
+// have been moved to pod_config.go for better code organization
 
-// ObserveTerminalRequest represents terminal observation request
-type ObserveTerminalRequest struct {
-	Lines         int  `form:"lines"`
-	Raw           bool `form:"raw"`            // If true, return raw output; otherwise return processed output
-	IncludeScreen bool `form:"include_screen"` // If true, include current screen snapshot
-}
-
-// ObserveTerminal returns recent terminal output for observation
-// GET /api/v1/organizations/:slug/pods/:key/terminal/observe
-func (h *PodHandler) ObserveTerminal(c *gin.Context) {
-	podKey := c.Param("key")
-
-	var req ObserveTerminalRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	pod, err := h.podService.GetPod(c.Request.Context(), podKey)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Pod not found"})
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
-	}
-
-	// All organization members can access pods (Team-based access control removed)
-
-	// Get terminal output from router if available
-	if h.terminalRouter == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router not available"})
-		return
-	}
-
-	tr, ok := h.terminalRouter.(TerminalRouterInterface)
-	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router interface not implemented"})
-		return
-	}
-
-	lines := req.Lines
-	if lines <= 0 {
-		lines = 100 // Default to last 100 lines
-	}
-
-	var output []byte
-	if lines == -1 {
-		// Get all raw scrollback data
-		output = tr.GetAllScrollbackData(podKey)
-	} else {
-		// Get recent output (processed by default, raw if requested)
-		output = tr.GetRecentOutput(podKey, lines, req.Raw)
-	}
-
-	// Get cursor position from virtual terminal
-	cursorRow, cursorCol := tr.GetCursorPosition(podKey)
-
-	// Calculate total lines (rough estimate from output)
-	totalLines := 0
-	for _, b := range output {
-		if b == '\n' {
-			totalLines++
-		}
-	}
-	if len(output) > 0 && output[len(output)-1] != '\n' {
-		totalLines++ // Count last line if not ending with newline
-	}
-
-	// Build response matching Runner's TerminalOutput structure
-	response := TerminalOutputResponse{
-		PodKey:     podKey,
-		Output:     string(output),
-		CursorX:    cursorCol,
-		CursorY:    cursorRow,
-		TotalLines: totalLines,
-		HasMore:    lines != -1 && totalLines >= lines,
-	}
-
-	// Include screen snapshot if requested
-	if req.IncludeScreen {
-		response.Screen = tr.GetScreenSnapshot(podKey)
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-// TerminalInputRequest represents terminal input request
-type TerminalInputRequest struct {
-	Input string `json:"input" binding:"required"`
-}
-
-// SendTerminalInput sends input to the terminal
-// POST /api/v1/organizations/:slug/pods/:key/terminal/input
-func (h *PodHandler) SendTerminalInput(c *gin.Context) {
-	podKey := c.Param("key")
-
-	var req TerminalInputRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	pod, err := h.podService.GetPod(c.Request.Context(), podKey)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Pod not found"})
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
-	}
-
-	if !pod.IsActive() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Pod is not active"})
-		return
-	}
-
-	// All organization members can access pods (Team-based access control removed)
-
-	if h.terminalRouter == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router not available"})
-		return
-	}
-
-	tr, ok := h.terminalRouter.(TerminalRouterInterface)
-	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router interface not implemented"})
-		return
-	}
-
-	if err := tr.RouteInput(podKey, []byte(req.Input)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send input: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Input sent"})
-}
-
-// TerminalResizeRequest represents terminal resize request
-type TerminalResizeRequest struct {
-	Cols int `json:"cols" binding:"required,min=1"`
-	Rows int `json:"rows" binding:"required,min=1"`
-}
-
-// ResizeTerminal resizes the terminal
-// POST /api/v1/organizations/:slug/pods/:key/terminal/resize
-func (h *PodHandler) ResizeTerminal(c *gin.Context) {
-	podKey := c.Param("key")
-
-	var req TerminalResizeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	pod, err := h.podService.GetPod(c.Request.Context(), podKey)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Pod not found"})
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
-	}
-
-	if !pod.IsActive() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Pod is not active"})
-		return
-	}
-
-	if h.terminalRouter == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router not available"})
-		return
-	}
-
-	tr, ok := h.terminalRouter.(TerminalRouterInterface)
-	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Terminal router interface not implemented"})
-		return
-	}
-
-	if err := tr.RouteResize(podKey, req.Cols, req.Rows); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to resize terminal: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Terminal resized"})
-}
-
-// buildPluginConfig builds the PluginConfig map for Runner's Sandbox plugins
-// It resolves repository_id -> repository_url, ticket_id -> ticket_identifier
-//
-// Configuration Priority (later overrides earlier):
-// 1. System defaults (hardcoded)
-// 2. Organization default config (from organization_agent_configs)
-// 3. User request plugin_config
-//
-// Credential Strategy (权限跟人走):
-// - Repository is self-contained with provider_type and provider_base_url
-// - Credentials are obtained from the current user's default Git Credential
-// - If no user credentials available or using runner_local, Runner uses its local Git configuration
-func (h *PodHandler) buildPluginConfig(c *gin.Context, req *CreatePodRequest) map[string]interface{} {
-	config := make(map[string]interface{})
-	ctx := c.Request.Context()
-	tenant := middleware.GetTenant(c)
-	userID := middleware.GetUserID(c)
-
-	// 1. Get organization default config for the agent type
-	if req.AgentTypeID != nil && h.agentService != nil {
-		orgConfig := h.agentService.GetEffectiveConfig(ctx, tenant.OrganizationID, *req.AgentTypeID, nil)
-		for k, v := range orgConfig {
-			config[k] = v
-		}
-	}
-
-	// 2. Resolve Repository URL
-	// Priority: repository_url > repository_id
-	if req.RepositoryURL != nil && *req.RepositoryURL != "" {
-		config["repository_url"] = *req.RepositoryURL
-	} else if req.RepositoryID != nil && h.repositoryService != nil {
-		repo, err := h.repositoryService.GetByID(ctx, *req.RepositoryID)
-		if err == nil && repo != nil {
-			// Use repository's self-contained clone URL
-			config["repository_url"] = repo.CloneURL
-
-			// Store provider info for potential use by Runner
-			config["provider_type"] = repo.ProviderType
-			config["provider_base_url"] = repo.ProviderBaseURL
-		}
-	}
-
-	// 3. Get Git credentials from current user (权限跟人走)
-	// Use the new Git Credential system
-	if h.userService != nil {
-		gitCred := h.getUserGitCredential(c, userID)
-		if gitCred != nil {
-			switch gitCred.Type {
-			case "oauth", "pat":
-				if gitCred.Token != "" {
-					config["git_token"] = gitCred.Token
-				}
-			case "ssh_key":
-				if gitCred.SSHPrivateKey != "" {
-					config["ssh_private_key"] = gitCred.SSHPrivateKey
-				}
-			// case "runner_local": no credentials needed, Runner uses local config
-			}
-		}
-	}
-
-	// 4. Resolve Branch Name
-	if req.BranchName != nil && *req.BranchName != "" {
-		config["branch"] = *req.BranchName
-	} else if req.RepositoryID != nil && h.repositoryService != nil {
-		// Use repository's default branch if not specified
-		repo, err := h.repositoryService.GetByID(ctx, *req.RepositoryID)
-		if err == nil && repo != nil && repo.DefaultBranch != "" {
-			config["branch"] = repo.DefaultBranch
-		}
-	}
-
-	// 5. Resolve Ticket Identifier
-	// Priority: ticket_identifier > ticket_id
-	if req.TicketIdentifier != nil && *req.TicketIdentifier != "" {
-		config["ticket_identifier"] = *req.TicketIdentifier
-	} else if req.TicketID != nil && h.ticketService != nil {
-		t, err := h.ticketService.GetTicket(ctx, *req.TicketID)
-		if err == nil && t != nil {
-			config["ticket_identifier"] = t.Identifier
-		}
-	}
-
-	// 6. Merge user-provided PluginConfig (can override above values)
-	if req.PluginConfig != nil {
-		for k, v := range req.PluginConfig {
-			config[k] = v
-		}
-	}
-
-	return config
-}
-
-// getUserGitCredential retrieves the default Git credential for the current user
-// Implements "权限跟人走" - credentials follow the person, not the organization
-//
-// Returns:
-// - DecryptedCredential with token/ssh key if found
-// - nil if using runner_local (Runner will use local Git config)
-func (h *PodHandler) getUserGitCredential(c *gin.Context, userID int64) *user.DecryptedCredential {
-	ctx := c.Request.Context()
-
-	// Get user's default Git credential
-	defaultCred, err := h.userService.GetDefaultGitCredential(ctx, userID)
-	if err != nil || defaultCred == nil {
-		// No default set, use runner_local (return nil)
-		return nil
-	}
-
-	// If type is runner_local, return nil to let Runner use local config
-	if defaultCred.CredentialType == "runner_local" {
-		return nil
-	}
-
-	// Decrypt and return the credential
-	decrypted, err := h.userService.GetDecryptedCredentialToken(ctx, userID, defaultCred.ID)
-	if err != nil {
-		log.Printf("[pods] Failed to decrypt Git credential: %v", err)
-		return nil
-	}
-
-	return decrypted
-}
-
-// getUserGitToken retrieves the Git access token for the current user
-// Implements "权限跟人走" - credentials follow the person, not the organization
-//
-// Priority:
-// 1. OAuth identity matching provider type (for public providers like github.com, gitlab.com)
-// 2. PAT connection matching provider type + base URL (for private GitLab instances)
-//
-// Returns empty string if no credentials found (Runner will use local Git config)
-func (h *PodHandler) getUserGitToken(c *gin.Context, userID int64, providerType, providerBaseURL string) string {
-	ctx := c.Request.Context()
-
-	// 1. Try OAuth identity first (for github.com, gitlab.com, gitee.com)
-	// OAuth identities only exist for public providers
-	if isPublicProvider(providerType, providerBaseURL) {
-		tokens, err := h.userService.GetDecryptedTokens(ctx, userID, providerType)
-		if err == nil && tokens.AccessToken != "" {
-			return tokens.AccessToken
-		}
-	}
-
-	// 2. Try PAT connections (for private GitLab or additional accounts)
-	conn, err := h.userService.GetGitConnectionByProviderAndURL(ctx, userID, providerType, providerBaseURL)
-	if err == nil && conn != nil {
-		decryptedTokens, err := h.userService.GetDecryptedConnectionToken(ctx, userID, conn.ID)
-		if err == nil && decryptedTokens.AccessToken != "" {
-			return decryptedTokens.AccessToken
-		}
-	}
-
-	// No credentials found - Runner will use its local Git configuration
-	return ""
-}
-
-// isPublicProvider checks if the provider is a public provider (github.com, gitlab.com, gitee.com)
-func isPublicProvider(providerType, providerBaseURL string) bool {
-	switch providerType {
-	case "github":
-		return providerBaseURL == "https://github.com" || providerBaseURL == "https://api.github.com"
-	case "gitlab":
-		return providerBaseURL == "https://gitlab.com"
-	case "gitee":
-		return providerBaseURL == "https://gitee.com"
-	default:
-		return false
-	}
-}
+// NOTE: mapCredentialsToEnvVars, getUserGitCredential, getUserGitToken, isPublicProvider
+// have been moved to pod_credential.go for better code organization

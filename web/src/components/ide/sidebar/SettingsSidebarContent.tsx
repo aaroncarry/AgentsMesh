@@ -9,7 +9,6 @@ import {
   Settings,
   Users,
   Bot,
-  Server,
   CreditCard,
   User,
   GitBranch,
@@ -17,6 +16,7 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  Key,
 } from "lucide-react";
 
 interface SettingsSidebarContentProps {
@@ -42,11 +42,11 @@ export function SettingsSidebarContent({ className }: SettingsSidebarContentProp
   });
 
   // Organization settings tabs
+  // Note: Runners tab removed - managed via dedicated Runners menu in sidebar
   const orgSettingsTabs = [
     { id: "general", labelKey: "ide.sidebar.settings.tabs.general", icon: Settings },
     { id: "members", labelKey: "ide.sidebar.settings.tabs.members", icon: Users },
     { id: "agents", labelKey: "ide.sidebar.settings.tabs.agents", icon: Bot },
-    { id: "runners", labelKey: "ide.sidebar.settings.tabs.runners", icon: Server },
     { id: "billing", labelKey: "ide.sidebar.settings.tabs.billing", icon: CreditCard },
   ];
 
@@ -54,6 +54,7 @@ export function SettingsSidebarContent({ className }: SettingsSidebarContentProp
   const personalSettingsTabs = [
     { id: "general", labelKey: "ide.sidebar.settings.tabs.general", icon: Settings },
     { id: "git", labelKey: "settings.personal.tabs.git", icon: GitBranch },
+    { id: "agent-credentials", labelKey: "settings.personal.tabs.agentCredentials", icon: Key },
     { id: "notifications", labelKey: "settings.personal.tabs.notifications", icon: Bell },
   ];
 

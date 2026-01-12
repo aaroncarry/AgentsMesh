@@ -338,6 +338,10 @@ func RegisterUserRoutes(rg *gin.RouterGroup, userSvc *user.Service, orgSvc *orga
 	gitCredentialHandler := NewUserGitCredentialHandler(userSvc)
 	gitCredentialHandler.RegisterRoutes(rg)
 
+	// User Agent Credential Profiles (for agent API credentials)
+	agentCredentialHandler := NewUserAgentCredentialHandler(agentSvc)
+	agentCredentialHandler.RegisterRoutes(rg)
+
 	// User Git Connections (legacy, for backward compatibility)
 	gitConnectionHandler := NewUserGitConnectionHandler(userSvc)
 	gitConnectionHandler.RegisterRoutes(rg)

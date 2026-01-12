@@ -10,6 +10,7 @@ import {
   usePluginOptions,
   useFocusTrap,
   useCreatePodForm,
+  RUNNER_HOST_PROFILE_ID,
 } from "./hooks";
 
 interface CreatePodModalProps {
@@ -33,15 +34,14 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
   const form = useCreatePodForm(agentTypes, repositories, onCreated);
 
   // Plugin options management
-  console.log("[CreatePodModal] form.selectedRunner:", form.selectedRunner, "form.selectedAgentSlug:", form.selectedAgentSlug);
-
+  // Pass agentTypeId to load organization default config
   const {
     plugins: pluginOptions,
     loading: loadingPlugins,
     config: pluginConfig,
     updateConfig: handlePluginConfigChange,
     resetConfig: resetPluginConfig,
-  } = usePluginOptions(form.selectedRunner, form.selectedAgentSlug);
+  } = usePluginOptions(form.selectedRunner, form.selectedAgentSlug, form.selectedAgent);
 
   // Focus trap for modal accessibility
   const modalRef = useFocusTrap<HTMLDivElement>(open, onClose);
@@ -100,10 +100,7 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
                   form.validationErrors.agent ? "border-destructive" : "border-border"
                 }`}
                 value={form.selectedAgent || ""}
-                onChange={(e) => {
-                  console.log("[CreatePodModal] Agent selected:", e.target.value, "agentTypes:", agentTypes);
-                  form.setSelectedAgent(e.target.value ? Number(e.target.value) : null);
-                }}
+                onChange={(e) => form.setSelectedAgent(e.target.value ? Number(e.target.value) : null)}
                 aria-required="true"
                 aria-invalid={!!form.validationErrors.agent}
                 aria-describedby={form.validationErrors.agent ? "agent-error" : undefined}
@@ -122,6 +119,45 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
               )}
             </div>
 
+            {/* Credential Profile Select */}
+            {form.selectedAgent && (
+              <div>
+                <label htmlFor="credential-select" className="block text-sm font-medium mb-2">
+                  {t("ide.createPod.selectCredential")}
+                </label>
+                {form.loadingCredentials ? (
+                  <div className="flex items-center text-sm text-muted-foreground py-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                    {t("common.loading")}
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      id="credential-select"
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                      value={form.selectedCredentialProfile}
+                      onChange={(e) => form.setSelectedCredentialProfile(Number(e.target.value))}
+                    >
+                      <option value={RUNNER_HOST_PROFILE_ID}>
+                        RunnerHost ({t("ide.createPod.runnerHostDescription")})
+                      </option>
+                      {form.credentialProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                          {profile.is_default ? ` (${t("settings.agentCredentials.default")})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {form.selectedCredentialProfile === RUNNER_HOST_PROFILE_ID
+                        ? t("ide.createPod.runnerHostHint")
+                        : t("ide.createPod.customCredentialHint")}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Runner Select */}
             <div>
               <label htmlFor="runner-select" className="block text-sm font-medium mb-2">
@@ -133,10 +169,7 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
                   form.validationErrors.runner ? "border-destructive" : "border-border"
                 }`}
                 value={form.selectedRunner || ""}
-                onChange={(e) => {
-                  console.log("[CreatePodModal] Runner selected:", e.target.value, "runners:", runners);
-                  form.setSelectedRunner(e.target.value ? Number(e.target.value) : null);
-                }}
+                onChange={(e) => form.setSelectedRunner(e.target.value ? Number(e.target.value) : null)}
                 aria-required="true"
                 aria-invalid={!!form.validationErrors.runner}
                 aria-describedby={
@@ -231,12 +264,12 @@ export function CreatePodModal({ open, onClose, onCreated }: CreatePodModalProps
             {loadingPlugins ? (
               <div className="flex items-center justify-center py-4">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-                <span className="text-sm text-muted-foreground">Loading plugin options...</span>
+                <span className="text-sm text-muted-foreground">{t("ide.createPod.loadingPlugins")}</span>
               </div>
             ) : (
               pluginOptions.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Plugin Configuration</label>
+                  <label className="block text-sm font-medium mb-2">{t("ide.createPod.pluginConfig")}</label>
                   <PluginConfigForm
                     plugins={pluginOptions}
                     values={pluginConfig}

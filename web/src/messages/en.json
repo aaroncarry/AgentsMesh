@@ -12,10 +12,13 @@
     "success": "Success",
     "confirm": "Confirm",
     "close": "Close",
+    "dismiss": "Dismiss",
     "back": "Back",
     "next": "Next",
     "submit": "Submit",
-    "reset": "Reset"
+    "reset": "Reset",
+    "optional": "optional",
+    "saving": "Saving..."
   },
   "auth": {
     "login": "Login",
@@ -747,6 +750,8 @@
       "tabs": {
         "git": "Git Settings",
         "gitDesc": "Repository providers and credentials",
+        "agentCredentials": "Agent Credentials",
+        "agentCredentialsDesc": "API keys for AI agents",
         "notifications": "Notifications",
         "notificationsDesc": "Push notification preferences"
       }
@@ -800,19 +805,75 @@
     },
     "agentConfig": {
       "title": "Agent Configuration",
-      "description": "Enable and configure AI agents for your organization",
+      "description": "Configure default runtime settings for AI agents. Credentials are managed in personal settings.",
       "loading": "Loading...",
       "configureDefault": "Configure {name} settings",
       "configure": "Configure",
       "configured": "Configured",
       "configureTitle": "Configure {name}",
       "configureHint": "Set default configuration values for this agent. These values will be used when creating new pods.",
+      "configureHintGraphical": "Set default runtime parameters for this agent. These values will be used when creating new pods.",
+      "credentialsMovedNotice": "API credentials have been moved to Personal Settings > Agent Credentials. Each user manages their own credentials.",
       "cancel": "Cancel",
       "saving": "Saving...",
       "saveConfig": "Save Configuration",
       "configSaved": "Configuration saved successfully",
       "configSaveFailed": "Failed to save configuration",
-      "invalidJson": "Invalid JSON format"
+      "invalidJson": "Invalid JSON format",
+      "fields": {
+        "model": {
+          "label": "Model",
+          "description": "Default model to use"
+        },
+        "permissionMode": {
+          "label": "Permission Mode",
+          "description": "Default permission mode for new pods"
+        },
+        "mcpEnabled": {
+          "label": "Enable MCP",
+          "description": "Enable Model Context Protocol for enhanced collaboration"
+        },
+        "skillsEnabled": {
+          "label": "Enable Skills",
+          "description": "Enable collaboration skills injection"
+        },
+        "skipPermissions": {
+          "label": "Skip Permissions",
+          "description": "Skip permission confirmation prompts (dangerous)"
+        },
+        "thinkLevel": {
+          "label": "Think Level",
+          "description": "Thinking depth level for responses"
+        },
+        "customConfig": {
+          "label": "Custom Configuration",
+          "description": "Enter custom configuration (advanced)"
+        }
+      },
+      "modelOptions": {
+        "claude": {
+          "opus": "Claude Opus",
+          "sonnet": "Claude Sonnet"
+        },
+        "openai": {
+          "gpt4": "GPT-4",
+          "gpt4Turbo": "GPT-4 Turbo",
+          "gpt35Turbo": "GPT-3.5 Turbo"
+        },
+        "gemini": {
+          "pro": "Gemini Pro",
+          "ultra": "Gemini Ultra"
+        }
+      },
+      "permissionOptions": {
+        "plan": "Plan Mode",
+        "default": "Default Mode"
+      },
+      "thinkLevelOptions": {
+        "ultrathink": "Ultrathink",
+        "megathink": "Megathink",
+        "default": "Default"
+      }
     },
     "credentials": {
       "title": "Your Credentials",
@@ -832,6 +893,37 @@
       "googleHint": "Get your key from",
       "saving": "Saving...",
       "saveCredentials": "Save Credentials"
+    },
+    "agentCredentials": {
+      "title": "Agent Credentials",
+      "description": "Manage API credentials for each agent type. By default, RunnerHost mode is used (credentials from Runner's local environment). Add custom profiles to use your own API keys.",
+      "failedToLoad": "Failed to load agent credentials",
+      "profiles": "profiles",
+      "runnerHostHint": "Use Runner machine's local environment configuration (no credentials injected)",
+      "noAgentTypes": "No agent types available",
+      "default": "Default",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "setAsDefault": "Set as default",
+      "addProfile": "Add Custom Credentials",
+      "editProfile": "Edit Credentials",
+      "customProfileDescription": "Add your own API credentials for this agent type. These will override the Runner's local environment configuration.",
+      "name": "Profile Name",
+      "namePlaceholder": "e.g., Work Config, Personal",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Optional description for this profile",
+      "baseUrl": "Base URL",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Leave empty to keep existing",
+      "apiKeyEditHint": "Leave empty to keep the existing API key",
+      "profileCreated": "Profile created successfully",
+      "profileUpdated": "Profile updated successfully",
+      "profileDeleted": "Profile deleted successfully",
+      "defaultSet": "Default profile set successfully",
+      "failedToSave": "Failed to save profile",
+      "failedToDelete": "Failed to delete profile",
+      "failedToSetDefault": "Failed to set default profile",
+      "confirmDelete": "Are you sure you want to delete this profile?"
     },
     "gitProviders": {
       "title": "Git Providers",
@@ -1192,6 +1284,10 @@
       "selectRunnerPlaceholder": "Choose a runner...",
       "selectAgent": "Select Agent",
       "selectAgentPlaceholder": "Choose an agent...",
+      "selectCredential": "API Credentials",
+      "runnerHostDescription": "use Runner's local config",
+      "runnerHostHint": "Using Runner's local environment configuration. No credentials will be injected.",
+      "customCredentialHint": "Using your custom API credentials for this agent.",
       "selectRepository": "Select Repository",
       "selectRepositoryPlaceholder": "Choose a repository...",
       "branch": "Branch",
@@ -1201,6 +1297,8 @@
       "advanced": "Advanced Options",
       "timeout": "Timeout (minutes)",
       "autoCleanup": "Auto cleanup on completion",
+      "loadingPlugins": "Loading plugin options...",
+      "pluginConfig": "Plugin Configuration",
       "create": "Create Pod",
       "creating": "Creating...",
       "cancel": "Cancel"
