@@ -785,26 +785,41 @@ type OAuthLoginRequest struct {
 	ExpiresAt      *time.Time
 }
 
-// oauthStates stores OAuth states temporarily (should use Redis in production)
-var oauthStates = make(map[string]string)
+// oauthStateKeyPrefix is the Redis key prefix for OAuth states
+const oauthStateKeyPrefix = "oauth:state:"
 
-// GenerateOAuthState generates and stores OAuth state
+// oauthStateTTL is the expiration time for OAuth states (10 minutes)
+const oauthStateTTL = 10 * time.Minute
+
+// GenerateOAuthState generates and stores OAuth state in Redis
 func (s *Service) GenerateOAuthState(ctx context.Context, provider, redirectURL string) (string, error) {
 	state, err := GenerateState()
 	if err != nil {
 		return "", err
 	}
-	oauthStates[state] = redirectURL
+
+	// Store state in Redis with TTL
+	key := oauthStateKeyPrefix + state
+	if err := s.redis.Set(ctx, key, redirectURL, oauthStateTTL).Err(); err != nil {
+		return "", fmt.Errorf("failed to store OAuth state: %w", err)
+	}
+
 	return state, nil
 }
 
 // ValidateOAuthState validates OAuth state and returns redirect URL
 func (s *Service) ValidateOAuthState(ctx context.Context, state string) (string, error) {
-	redirectURL, ok := oauthStates[state]
-	if !ok {
-		return "", ErrInvalidState
+	key := oauthStateKeyPrefix + state
+
+	// Get and delete state atomically
+	redirectURL, err := s.redis.GetDel(ctx, key).Result()
+	if err != nil {
+		if err.Error() == "redis: nil" {
+			return "", ErrInvalidState
+		}
+		return "", fmt.Errorf("failed to validate OAuth state: %w", err)
 	}
-	delete(oauthStates, state)
+
 	return redirectURL, nil
 }
 
