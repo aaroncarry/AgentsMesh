@@ -25,6 +25,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Build-time environment variables for Next.js
+ARG NEXT_PUBLIC_API_URL=https://api.agentsmesh.cn
+ARG NEXT_PUBLIC_WS_URL=wss://api.agentsmesh.cn
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
