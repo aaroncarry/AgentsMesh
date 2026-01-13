@@ -1,5 +1,6 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+ARG REGISTRY=registry.corp.agentsmesh.ai
+FROM ${REGISTRY}/library/golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +18,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -tags nocgo -ldflags="-w -s" -o /app/runner ./cmd/runner
 
 # Final stage
-FROM alpine:3.19
+ARG REGISTRY=registry.corp.agentsmesh.ai
+FROM ${REGISTRY}/library/alpine:3.19
 
 WORKDIR /app
 

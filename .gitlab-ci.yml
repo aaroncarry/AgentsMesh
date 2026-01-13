@@ -6,7 +6,6 @@ variables:
 
 stages:
   - build
-  - push
 
 # Build backend image
 build-backend:
@@ -19,14 +18,14 @@ build-backend:
     - docker:dind
   script:
     - cd backend
-    - docker build -f ../deploy/prod/backend.Dockerfile -t ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${BACKEND_IMAGE}:latest .
+    - docker build --build-arg REGISTRY=${REGISTRY} -f ../ci/backend.Dockerfile -t ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${BACKEND_IMAGE}:latest .
     - docker push ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}
     - docker push ${BACKEND_IMAGE}:latest
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - backend/**/*
-        - deploy/prod/backend.Dockerfile
+        - ci/backend.Dockerfile
     - if: $CI_PIPELINE_SOURCE == "web"
 
 # Build web image
@@ -40,14 +39,14 @@ build-web:
     - docker:dind
   script:
     - cd web
-    - docker build -f ../deploy/prod/web.Dockerfile -t ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${WEB_IMAGE}:latest .
+    - docker build --build-arg REGISTRY=${REGISTRY} -f ../ci/web.Dockerfile -t ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${WEB_IMAGE}:latest .
     - docker push ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA}
     - docker push ${WEB_IMAGE}:latest
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - web/**/*
-        - deploy/prod/web.Dockerfile
+        - ci/web.Dockerfile
     - if: $CI_PIPELINE_SOURCE == "web"
 
 # Build runner image
@@ -61,12 +60,12 @@ build-runner:
     - docker:dind
   script:
     - cd runner
-    - docker build -f ../deploy/prod/runner.Dockerfile -t ${RUNNER_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${RUNNER_IMAGE}:latest .
+    - docker build --build-arg REGISTRY=${REGISTRY} -f ../ci/runner.Dockerfile -t ${RUNNER_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${RUNNER_IMAGE}:latest .
     - docker push ${RUNNER_IMAGE}:${CI_COMMIT_SHORT_SHA}
     - docker push ${RUNNER_IMAGE}:latest
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - runner/**/*
-        - deploy/prod/runner.Dockerfile
+        - ci/runner.Dockerfile
     - if: $CI_PIPELINE_SOURCE == "web"
