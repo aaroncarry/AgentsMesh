@@ -72,10 +72,10 @@ func main() {
 	}
 
 	// Initialize services
-	services := initializeServices(cfg, db)
-
-	// Initialize infrastructure
+	// Initialize infrastructure (Redis needed for auth service)
 	hub, eventBus, redisClient := initializeInfrastructure(cfg, appLogger)
+
+	services := initializeServices(cfg, db, redisClient)
 
 	// Setup EventBus → Hub integration (decoupled via subscriptions)
 	setupEventBusHub(eventBus, hub)
@@ -167,7 +167,7 @@ type serviceContainer struct {
 }
 
 // initializeServices creates all business services
-func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
+func initializeServices(cfg *config.Config, db *gorm.DB, redisClient *redis.Client) *serviceContainer {
 	// Use JWT secret as encryption key for token encryption (OAuth tokens, etc.)
 	userSvc := user.NewServiceWithEncryption(db, cfg.JWT.Secret)
 	authCfg := &auth.Config{
@@ -176,7 +176,7 @@ func initializeServices(cfg *config.Config, db *gorm.DB) *serviceContainer {
 		RefreshExpiration: time.Duration(cfg.JWT.ExpirationHours*7) * time.Hour, // 7x access token
 		Issuer:            "agentmesh",
 	}
-	authSvc := auth.NewService(authCfg, userSvc)
+	authSvc := auth.NewServiceWithRedis(authCfg, userSvc, redisClient)
 	orgSvc := organization.NewService(db)
 	agentSvc := agent.NewService(db)
 	repoSvc := repository.NewService(db)
