@@ -122,11 +122,11 @@ func (h *RunnerHandler) readLoop(runnerID int64, conn *gorillaws.Conn) {
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseGoingAway, gorillaws.CloseNormalClosure) {
-				h.logger.Warn("runner ws read error",
-					"runner_id", runnerID,
-					"error", err)
-			}
+			// Log all close errors for debugging
+			h.logger.Warn("runner ws read error",
+				"runner_id", runnerID,
+				"error", err,
+				"is_unexpected_close", gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseGoingAway, gorillaws.CloseNormalClosure))
 			return
 		}
 

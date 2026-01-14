@@ -315,6 +315,9 @@ func (c *ServerConnection) readLoop() {
 			continue
 		}
 
+		// Log all incoming messages for debugging
+		log.Printf("[connection] Received message: type=%s, pod_key=%s", msg.Type, msg.PodKey)
+
 		// Delegate to message router (SRP)
 		if c.router != nil {
 			c.router.Route(msg)

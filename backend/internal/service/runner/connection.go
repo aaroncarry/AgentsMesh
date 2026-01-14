@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -69,11 +70,25 @@ func (rc *RunnerConnection) WritePump() {
 
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
+				slog.Debug("send channel closed, sending close message", "runner_id", rc.RunnerID)
 				conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
+			// Parse message to log type and pod_key
+			var msg RunnerMessage
+			if err := json.Unmarshal(message, &msg); err == nil {
+				slog.Debug("writing message to runner websocket",
+					"runner_id", rc.RunnerID,
+					"type", msg.Type,
+					"pod_key", msg.PodKey,
+					"size", len(message))
+			}
+
 			if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				slog.Warn("failed to write message to runner websocket",
+					"runner_id", rc.RunnerID,
+					"error", err)
 				return
 			}
 
@@ -88,6 +103,9 @@ func (rc *RunnerConnection) WritePump() {
 
 			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				slog.Warn("failed to send ping to runner",
+					"runner_id", rc.RunnerID,
+					"error", err)
 				return
 			}
 		}
