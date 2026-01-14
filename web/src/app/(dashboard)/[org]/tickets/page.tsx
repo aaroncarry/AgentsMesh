@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTicketStore, Ticket, TicketStatus } from "@/stores/ticket";
+import { useAuthStore } from "@/stores/auth";
 import { KanbanBoard, TicketCreateDialog } from "@/components/tickets";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n/client";
@@ -29,6 +30,7 @@ const priorityColors: Record<string, string> = {
 export default function TicketsPage() {
   const t = useTranslations();
   const router = useRouter();
+  const { currentOrg } = useAuthStore();
   const {
     tickets,
     loading,
@@ -51,8 +53,8 @@ export default function TicketsPage() {
   }, [updateTicketStatus]);
 
   const handleTicketClick = useCallback((ticket: Ticket) => {
-    router.push(`tickets/${ticket.identifier}`);
-  }, [router]);
+    router.push(`/${currentOrg?.slug}/tickets/${ticket.identifier}`);
+  }, [router, currentOrg]);
 
   if (loading && tickets.length === 0) {
     return (
@@ -67,7 +69,7 @@ export default function TicketsPage() {
       {/* Content - filtered by sidebar */}
       {viewMode === "list" ? (
         <div className="flex-1 overflow-auto p-4">
-          <ListView tickets={tickets} t={t} />
+          <ListView tickets={tickets} t={t} orgSlug={currentOrg?.slug} />
         </div>
       ) : (
         <div className="flex-1 min-h-0 p-4">
@@ -82,7 +84,7 @@ export default function TicketsPage() {
   );
 }
 
-function ListView({ tickets, t }: { tickets: Ticket[]; t: (key: string) => string }) {
+function ListView({ tickets, t, orgSlug }: { tickets: Ticket[]; t: (key: string) => string; orgSlug?: string }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full">
@@ -104,7 +106,7 @@ function ListView({ tickets, t }: { tickets: Ticket[]; t: (key: string) => strin
               </td>
               <td className="px-4 py-3">
                 <Link
-                  href={`tickets/${ticket.identifier}`}
+                  href={`/${orgSlug}/tickets/${ticket.identifier}`}
                   className="text-foreground hover:text-primary"
                 >
                   {ticket.title}

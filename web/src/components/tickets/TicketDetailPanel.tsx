@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import Link from "next/link";
 import { useTranslations } from "@/lib/i18n/client";
+import { useAuthStore } from "@/stores/auth";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -91,6 +92,7 @@ export function TicketDetailPanel({
   onTicketUpdated,
 }: TicketDetailPanelProps) {
   const t = useTranslations();
+  const { currentOrg } = useAuthStore();
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +193,7 @@ export function TicketDetailPanel({
                 </span>
                 <code className="text-primary">{ticket.identifier}</code>
                 <Link
-                  href={`tickets/${ticket.identifier}`}
+                  href={`/${currentOrg?.slug}/tickets/${ticket.identifier}`}
                   className="ml-auto hover:text-primary"
                   title="Open full page"
                 >
@@ -367,7 +369,7 @@ export function TicketDetailPanel({
 
               {/* Actions */}
               <div className="pt-4 border-t">
-                <Link href={`tickets/${ticket.identifier}`}>
+                <Link href={`/${currentOrg?.slug}/tickets/${ticket.identifier}`}>
                   <Button variant="outline" className="w-full">
                     <ExternalLink className="h-4 w-4 mr-2" />
                     {t("tickets.detail.viewFullDetails")}
