@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -161,9 +162,13 @@ func (c *Client) Connect(ctx context.Context) error {
 	headers.Set("X-Runner-ID", c.nodeID)
 
 	// Connect with context
+	// Configure TLS to only negotiate HTTP/1.1 (WebSocket requires HTTP/1.1, not HTTP/2)
 	dialer := websocket.Dialer{
 		HandshakeTimeout:  10 * time.Second,
 		EnableCompression: true,
+		TLSClientConfig: &tls.Config{
+			NextProtos: []string{"http/1.1"}, // Force HTTP/1.1 for WebSocket
+		},
 	}
 
 	conn, _, err := dialer.DialContext(ctx, wsURL, headers)

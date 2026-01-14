@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"net/http"
 	"time"
 
@@ -32,10 +33,22 @@ type GorillaWebSocketDialer struct {
 	*websocket.Dialer
 }
 
-// NewGorillaDialer creates a new GorillaWebSocketDialer with default settings.
+// NewGorillaDialer creates a new GorillaWebSocketDialer with settings optimized for
+// networks that filter small TLS Client Hello packets.
+// Go 1.24+ includes X25519MLKEM768 in default curve preferences, which creates a
+// larger Client Hello (~1500 bytes) that passes through network filters.
+// We explicitly set NextProtos to ["http/1.1"] to avoid HTTP/2 negotiation,
+// as WebSocket requires HTTP/1.1.
 func NewGorillaDialer() *GorillaWebSocketDialer {
 	return &GorillaWebSocketDialer{
-		Dialer: websocket.DefaultDialer,
+		Dialer: &websocket.Dialer{
+			HandshakeTimeout: 10 * time.Second,
+			TLSClientConfig: &tls.Config{
+				// Force HTTP/1.1 - WebSocket requires HTTP/1.1, not HTTP/2
+				// Without this, ALPN may negotiate h2, causing WebSocket handshake failure
+				NextProtos: []string{"http/1.1"},
+			},
+		},
 	}
 }
 
