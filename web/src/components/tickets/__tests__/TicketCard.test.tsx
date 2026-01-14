@@ -11,6 +11,13 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// Mock useAuthStore to provide currentOrg
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    currentOrg: { slug: 'test-org' },
+  }),
+}))
+
 describe('TicketCard Component', () => {
   const baseTicket = {
     id: 1,
@@ -38,7 +45,7 @@ describe('TicketCard Component', () => {
     it('should render ticket identifier as link', () => {
       render(<TicketCard ticket={baseTicket} />)
       const link = screen.getByRole('link', { name: 'PROJ-42' })
-      expect(link).toHaveAttribute('href', '/tickets/PROJ-42')
+      expect(link).toHaveAttribute('href', '/test-org/tickets/PROJ-42')
     })
   })
 

@@ -327,6 +327,8 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
         <TicketPodPanel
           ticketIdentifier={identifier}
           ticketTitle={currentTicket.title}
+          ticketDescription={currentTicket.description}
+          ticketId={currentTicket.id}
         />
       </div>
 
