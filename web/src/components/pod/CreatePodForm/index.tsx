@@ -94,13 +94,11 @@ export function CreatePodForm({
     if (!selectedRunner || !form.selectedAgent) return;
 
     try {
-      const pod = await form.submit(selectedRunner.id, pluginConfig, {
+      // onSuccess 回调已在 useCreatePodForm.submit 中处理
+      await form.submit(selectedRunner.id, pluginConfig, {
         ticketId: context?.ticket?.id,
         initialPrompt: form.prompt,
       });
-      if (pod) {
-        // onSuccess 已在 useCreatePodForm 中调用
-      }
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Unknown error");
       onError?.(error);
