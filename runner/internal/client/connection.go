@@ -275,8 +275,21 @@ func (c *ServerConnection) readLoop() {
 	}()
 
 	// Set read deadline to detect stale connections
-	// The heartbeat from server or pong will reset this
-	readTimeout := 90 * time.Second // Should be > heartbeat interval
+	// The ping from server will reset this via PingHandler
+	readTimeout := 90 * time.Second // Should be > server's ping interval (30s)
+
+	// Set up ping handler to reset read deadline when server sends ping
+	// Server sends ping every 30s, so we should receive it well before 90s timeout
+	c.mu.Lock()
+	if c.conn != nil {
+		c.conn.SetPingHandler(func(appData string) error {
+			log.Printf("[connection] Received ping from server, resetting read deadline")
+			c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+			// Write pong response (gorilla/websocket default behavior)
+			return c.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
+		})
+	}
+	c.mu.Unlock()
 
 	for {
 		c.mu.Lock()

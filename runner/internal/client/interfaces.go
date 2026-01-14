@@ -15,10 +15,14 @@ type WebSocketConn interface {
 	ReadMessage() (messageType int, p []byte, err error)
 	// WriteMessage writes a message to the connection.
 	WriteMessage(messageType int, data []byte) error
+	// WriteControl writes a control message (ping, pong, close) to the connection.
+	WriteControl(messageType int, data []byte, deadline time.Time) error
 	// Close closes the connection.
 	Close() error
 	// SetReadDeadline sets the read deadline on the connection.
 	SetReadDeadline(t time.Time) error
+	// SetPingHandler sets the handler for ping messages received from the peer.
+	SetPingHandler(h func(appData string) error)
 }
 
 // WebSocketDialer defines the interface for dialing WebSocket connections.
