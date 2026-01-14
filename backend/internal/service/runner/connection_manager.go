@@ -20,6 +20,14 @@ type connectionShard struct {
 	mu          sync.RWMutex
 }
 
+// AgentTypesProvider provides agent types for initialization handshake
+type AgentTypesProvider interface {
+	GetAgentTypesForRunner() []AgentTypeInfo
+}
+
+// Default initialization timeout
+const DefaultInitTimeout = 30 * time.Second
+
 // ConnectionManager manages runner WebSocket connections using sharded locks
 type ConnectionManager struct {
 	shards       [numShards]*connectionShard
@@ -27,6 +35,19 @@ type ConnectionManager struct {
 	pingInterval time.Duration
 	pingTimeout  time.Duration
 	connCount    atomic.Int64 // Total connection count for metrics
+
+	// Agent types provider for initialization
+	agentTypesProvider AgentTypesProvider
+
+	// Server version for initialization response
+	serverVersion string
+
+	// Initialization timeout
+	initTimeout time.Duration
+
+	// Initialization timeout checker
+	initTimeoutStop chan struct{}
+	initTimeoutOnce sync.Once
 
 	// Event callbacks
 	onHeartbeat      func(runnerID int64, data *HeartbeatData)
@@ -36,14 +57,18 @@ type ConnectionManager struct {
 	onAgentStatus    func(runnerID int64, data *AgentStatusData)
 	onPtyResized     func(runnerID int64, data *PtyResizedData)
 	onDisconnect     func(runnerID int64)
+	onInitialized    func(runnerID int64, availableAgents []string)
+	onInitFailed     func(runnerID int64, reason string)
 }
 
 // NewConnectionManager creates a new connection manager with sharded locks
 func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 	cm := &ConnectionManager{
-		logger:       logger,
-		pingInterval: 30 * time.Second,
-		pingTimeout:  60 * time.Second,
+		logger:          logger,
+		pingInterval:    30 * time.Second,
+		pingTimeout:     60 * time.Second,
+		initTimeout:     DefaultInitTimeout,
+		initTimeoutStop: make(chan struct{}),
 	}
 
 	// Initialize all shards
@@ -54,6 +79,69 @@ func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 	}
 
 	return cm
+}
+
+// SetInitTimeout sets the initialization timeout duration.
+func (cm *ConnectionManager) SetInitTimeout(timeout time.Duration) {
+	cm.initTimeout = timeout
+}
+
+// SetPingInterval sets the ping interval for new connections.
+func (cm *ConnectionManager) SetPingInterval(interval time.Duration) {
+	cm.pingInterval = interval
+}
+
+// StartInitTimeoutChecker starts a background goroutine that periodically
+// checks for connections that haven't completed initialization within the timeout.
+func (cm *ConnectionManager) StartInitTimeoutChecker() {
+	go cm.initTimeoutLoop()
+}
+
+// initTimeoutLoop periodically checks for uninitialized connections that have timed out.
+func (cm *ConnectionManager) initTimeoutLoop() {
+	ticker := time.NewTicker(10 * time.Second) // Check every 10 seconds
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-cm.initTimeoutStop:
+			return
+		case <-ticker.C:
+			cm.checkInitTimeouts()
+		}
+	}
+}
+
+// checkInitTimeouts checks all connections for initialization timeout.
+func (cm *ConnectionManager) checkInitTimeouts() {
+	now := time.Now()
+	var timedOutRunners []int64
+
+	for i := 0; i < numShards; i++ {
+		shard := cm.shards[i]
+		shard.mu.RLock()
+		for runnerID, conn := range shard.connections {
+			if !conn.IsInitialized() && now.Sub(conn.ConnectedAt) > cm.initTimeout {
+				timedOutRunners = append(timedOutRunners, runnerID)
+			}
+		}
+		shard.mu.RUnlock()
+	}
+
+	// Remove timed out connections outside of lock
+	for _, runnerID := range timedOutRunners {
+		reason := "initialization timeout"
+		cm.logger.Warn("removing connection due to initialization timeout",
+			"runner_id", runnerID,
+			"timeout", cm.initTimeout)
+
+		// Notify callback before removing
+		if cm.onInitFailed != nil {
+			cm.onInitFailed(runnerID, reason)
+		}
+
+		cm.RemoveConnection(runnerID)
+	}
 }
 
 // getShard returns the shard for a given runner ID using modulo hashing
@@ -100,6 +188,26 @@ func (cm *ConnectionManager) SetDisconnectCallback(fn func(runnerID int64)) {
 	cm.onDisconnect = fn
 }
 
+// SetInitializedCallback sets the initialized callback
+func (cm *ConnectionManager) SetInitializedCallback(fn func(runnerID int64, availableAgents []string)) {
+	cm.onInitialized = fn
+}
+
+// SetInitFailedCallback sets the initialization failure callback
+func (cm *ConnectionManager) SetInitFailedCallback(fn func(runnerID int64, reason string)) {
+	cm.onInitFailed = fn
+}
+
+// SetAgentTypesProvider sets the agent types provider for initialization
+func (cm *ConnectionManager) SetAgentTypesProvider(provider AgentTypesProvider) {
+	cm.agentTypesProvider = provider
+}
+
+// SetServerVersion sets the server version for initialization response
+func (cm *ConnectionManager) SetServerVersion(version string) {
+	cm.serverVersion = version
+}
+
 // GetHeartbeatCallback returns the current heartbeat callback
 func (cm *ConnectionManager) GetHeartbeatCallback() func(runnerID int64, data *HeartbeatData) {
 	return cm.onHeartbeat
@@ -126,10 +234,12 @@ func (cm *ConnectionManager) AddConnection(runnerID int64, conn *websocket.Conn)
 	}
 
 	rc := &RunnerConnection{
-		RunnerID: runnerID,
-		Conn:     conn,
-		Send:     make(chan []byte, 256),
-		LastPing: time.Now(),
+		RunnerID:     runnerID,
+		Conn:         conn,
+		Send:         make(chan []byte, 256),
+		LastPing:     time.Now(),
+		ConnectedAt:  time.Now(),
+		PingInterval: cm.pingInterval,
 	}
 
 	shard.connections[runnerID] = rc
@@ -219,6 +329,11 @@ func (cm *ConnectionManager) ConnectionCount() int64 {
 
 // Close closes the connection manager and all connections
 func (cm *ConnectionManager) Close() {
+	// Stop initialization timeout checker
+	cm.initTimeoutOnce.Do(func() {
+		close(cm.initTimeoutStop)
+	})
+
 	for i := 0; i < numShards; i++ {
 		shard := cm.shards[i]
 		shard.mu.Lock()
