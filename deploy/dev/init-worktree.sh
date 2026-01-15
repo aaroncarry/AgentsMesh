@@ -40,7 +40,8 @@ get_worktree_name() {
     git_dir=$(git rev-parse --git-dir 2>/dev/null)
 
     if [[ "$git_dir" == *".git/worktrees/"* ]]; then
-        basename "$(dirname "$git_dir")"
+        # worktree 的 git-dir 格式: /path/to/repo/.git/worktrees/<worktree-name>
+        basename "$git_dir"
     else
         git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
     fi | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]'
