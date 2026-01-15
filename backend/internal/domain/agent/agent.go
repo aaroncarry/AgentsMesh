@@ -23,11 +23,16 @@ func (cs *CredentialSchema) Scan(value interface{}) error {
 		*cs = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return errors.New("type assertion to []byte or string failed")
 	}
-	return json.Unmarshal(bytes, cs)
+	return json.Unmarshal(data, cs)
 }
 
 // Value implements driver.Valuer for CredentialSchema
@@ -47,11 +52,16 @@ func (sd *StatusDetection) Scan(value interface{}) error {
 		*sd = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return errors.New("type assertion to []byte or string failed")
 	}
-	return json.Unmarshal(bytes, sd)
+	return json.Unmarshal(data, sd)
 }
 
 // Value implements driver.Valuer for StatusDetection
@@ -71,7 +81,13 @@ type AgentType struct {
 	Description *string `gorm:"type:text" json:"description,omitempty"`
 
 	LaunchCommand string  `gorm:"size:500;not null" json:"launch_command"`
+	Executable    string  `gorm:"size:100" json:"executable,omitempty"` // Executable name for availability check
 	DefaultArgs   *string `gorm:"type:text" json:"default_args,omitempty"`
+
+	// New fields for config-driven agent setup
+	ConfigSchema    ConfigSchema    `gorm:"type:jsonb;not null;default:'{}'" json:"config_schema"`
+	CommandTemplate CommandTemplate `gorm:"type:jsonb;not null;default:'{}'" json:"command_template"`
+	FilesTemplate   FilesTemplate   `gorm:"type:jsonb" json:"files_template,omitempty"`
 
 	CredentialSchema CredentialSchema `gorm:"type:jsonb;not null;default:'[]'" json:"credential_schema"`
 	StatusDetection  StatusDetection  `gorm:"type:jsonb" json:"status_detection,omitempty"`
@@ -96,11 +112,16 @@ func (ec *EncryptedCredentials) Scan(value interface{}) error {
 		*ec = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return errors.New("type assertion to []byte or string failed")
 	}
-	return json.Unmarshal(bytes, ec)
+	return json.Unmarshal(data, ec)
 }
 
 // Value implements driver.Valuer for EncryptedCredentials
@@ -111,28 +132,6 @@ func (ec EncryptedCredentials) Value() (driver.Value, error) {
 	return json.Marshal(ec)
 }
 
-// OrganizationAgent represents organization-level agent configuration
-type OrganizationAgent struct {
-	ID             int64 `gorm:"primaryKey" json:"id"`
-	OrganizationID int64 `gorm:"not null;index" json:"organization_id"`
-	AgentTypeID    int64 `gorm:"not null" json:"agent_type_id"`
-
-	IsEnabled bool `gorm:"not null;default:true" json:"is_enabled"`
-	IsDefault bool `gorm:"not null;default:false" json:"is_default"`
-
-	CredentialsEncrypted EncryptedCredentials `gorm:"type:jsonb" json:"-"`
-	CustomLaunchArgs     *string              `gorm:"type:text" json:"custom_launch_args,omitempty"`
-
-	CreatedAt time.Time `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
-
-	// Associations
-	AgentType *AgentType `gorm:"foreignKey:AgentTypeID" json:"agent_type,omitempty"`
-}
-
-func (OrganizationAgent) TableName() string {
-	return "organization_agents"
-}
 
 // UserAgentCredential represents user-level agent credentials (overrides org config)
 type UserAgentCredential struct {

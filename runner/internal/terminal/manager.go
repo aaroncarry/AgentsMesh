@@ -136,10 +136,8 @@ func (m *Manager) CloseSession(id string) error {
 		m.onSessionClose(session)
 	}
 
-	// Clean up the tracking entry after callback
-	m.mu.Lock()
-	delete(m.closedSessions, id)
-	m.mu.Unlock()
+	// Note: Don't clean up closedSessions here.
+	// The monitorSession goroutine will handle cleanup after WaitProcess returns.
 
 	return session.Close()
 }
@@ -148,10 +146,8 @@ func (m *Manager) CloseSession(id string) error {
 func (m *Manager) CloseAllSessions() {
 	m.mu.Lock()
 	sessions := make([]*Session, 0, len(m.sessions))
-	sessionIDs := make([]string, 0, len(m.sessions))
 	for id, session := range m.sessions {
 		sessions = append(sessions, session)
-		sessionIDs = append(sessionIDs, id)
 		m.closedSessions[id] = true
 	}
 	m.sessions = make(map[string]*Session)
@@ -164,12 +160,10 @@ func (m *Manager) CloseAllSessions() {
 		session.Close()
 	}
 
-	// Clean up tracking entries
-	m.mu.Lock()
-	for _, id := range sessionIDs {
-		delete(m.closedSessions, id)
-	}
-	m.mu.Unlock()
+	// Note: Don't clean up closedSessions here.
+	// The monitorSession goroutine will handle cleanup after WaitProcess returns.
+	// This prevents race condition where monitorSession sees the entry deleted
+	// before it can check it, causing double callback invocation.
 }
 
 // Count returns the number of active sessions.
@@ -181,10 +175,9 @@ func (m *Manager) Count() int {
 
 // monitorSession monitors a session for process exit.
 func (m *Manager) monitorSession(session *Session) {
-	// Wait for process to exit
-	if session.Cmd != nil && session.Cmd.Process != nil {
-		session.Cmd.Wait()
-	}
+	// Wait for process to exit using the thread-safe WaitProcess method
+	// This prevents race condition when Close() is called concurrently
+	session.WaitProcess()
 
 	log.Printf("[terminal] Session process exited: pod_id=%s", session.ID)
 

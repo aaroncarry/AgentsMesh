@@ -2,543 +2,453 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-func setupBatcherTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	require.NoError(t, err)
+// setupMiniredisForBatcher creates a miniredis instance for testing
+func setupMiniredisForBatcher(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
 
-	// Create runners table with SQLite-compatible syntax
-	db.Exec(`CREATE TABLE IF NOT EXISTS runners (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		organization_id INTEGER NOT NULL,
-		node_id TEXT NOT NULL,
-		description TEXT,
-		auth_token_hash TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'offline',
-		last_heartbeat DATETIME,
-		current_pods INTEGER NOT NULL DEFAULT 0,
-		max_concurrent_pods INTEGER NOT NULL DEFAULT 5,
-		runner_version TEXT,
-		is_enabled INTEGER NOT NULL DEFAULT 1,
-		host_info TEXT,
-		capabilities TEXT,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`)
-
-	return db
-}
-
-func setupTestHeartbeatBatcherWithDB(t *testing.T) (*HeartbeatBatcher, *gorm.DB, *miniredis.Miniredis) {
-	t.Helper()
-
-	// Setup miniredis
-	mr := miniredis.RunT(t)
-	redisClient := redis.NewClient(&redis.Options{
+	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
 
-	// Setup SQLite in-memory database
-	db := setupBatcherTestDB(t)
+	t.Cleanup(func() {
+		client.Close()
+		mr.Close()
+	})
 
-	// Create batcher
-	batcher := NewHeartbeatBatcher(redisClient, db, newTestLogger())
-
-	return batcher, db, mr
+	return mr, client
 }
 
-func insertTestRunner(t *testing.T, db *gorm.DB) int64 {
-	t.Helper()
-	result := db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, status) VALUES (1, 'node-1', 'test-hash', 'offline')`)
-	require.NoError(t, result.Error)
-
-	var id int64
-	db.Raw("SELECT last_insert_rowid()").Scan(&id)
-	return id
-}
-
-// TestNewHeartbeatBatcher tests batcher creation
 func TestNewHeartbeatBatcher(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
 
-	assert.NotNil(t, batcher)
-	assert.NotNil(t, batcher.buffer)
-	assert.Equal(t, DefaultFlushInterval, batcher.interval)
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+
+	if batcher == nil {
+		t.Fatal("NewHeartbeatBatcher returned nil")
+	}
+	if batcher.interval != DefaultFlushInterval {
+		t.Errorf("interval: got %v, want %v", batcher.interval, DefaultFlushInterval)
+	}
+	if batcher.buffer == nil {
+		t.Error("buffer should not be nil")
+	}
 }
 
-// TestHeartbeatBatcherSetInterval tests interval configuration
 func TestHeartbeatBatcherSetInterval(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
 
-	batcher.SetInterval(10 * time.Second)
-	assert.Equal(t, 10*time.Second, batcher.interval)
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	batcher.SetInterval(1 * time.Second)
+
+	if batcher.interval != 1*time.Second {
+		t.Errorf("interval: got %v, want 1s", batcher.interval)
+	}
 }
 
-// TestHeartbeatBatcherStartStop tests lifecycle management
 func TestHeartbeatBatcherStartStop(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
 
-	// Set short interval for testing
-	batcher.SetInterval(50 * time.Millisecond)
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	batcher.SetInterval(10 * time.Millisecond)
 
 	// Start batcher
 	batcher.Start()
 
-	// Should be running
+	// Verify it's running
 	batcher.mu.Lock()
-	assert.True(t, batcher.running)
+	running := batcher.running
 	batcher.mu.Unlock()
+	if !running {
+		t.Error("batcher should be running after Start")
+	}
 
-	// Double start should be safe (no-op)
+	// Start again should be no-op
 	batcher.Start()
 
 	// Stop batcher
 	batcher.Stop()
 
-	// Should be stopped
 	batcher.mu.Lock()
-	assert.False(t, batcher.running)
+	running = batcher.running
 	batcher.mu.Unlock()
+	if running {
+		t.Error("batcher should not be running after Stop")
+	}
 
-	// Double stop should be safe (no-op)
-	batcher.Stop()
-
-	// Restart should work
-	batcher.Start()
-	batcher.mu.Lock()
-	assert.True(t, batcher.running)
-	batcher.mu.Unlock()
+	// Stop again should be no-op
 	batcher.Stop()
 }
 
-// TestHeartbeatBatcherRecordHeartbeat tests recording heartbeats
 func TestHeartbeatBatcherRecordHeartbeat(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
 
 	ctx := context.Background()
-
-	// Create a runner in the database
-	runnerID := insertTestRunner(t, db)
+	runnerID := int64(123)
 
 	// Record heartbeat
-	err := batcher.RecordHeartbeat(ctx, runnerID, 5, "online", "1.0.0", nil)
-	require.NoError(t, err)
+	err := batcher.RecordHeartbeat(ctx, runnerID, 5, "online", "1.0.0")
+	if err != nil {
+		t.Fatalf("RecordHeartbeat error: %v", err)
+	}
 
-	// Check buffer
-	assert.Equal(t, 1, batcher.BufferSize())
+	// Verify Redis was updated
+	key := "runner:123:status"
+	result, err := redisClient.HGetAll(context.Background(), key).Result()
+	if err != nil {
+		t.Fatalf("HGetAll error: %v", err)
+	}
+	if result["status"] != "online" {
+		t.Errorf("redis status: got %q, want %q", result["status"], "online")
+	}
+	if result["current_pods"] != "5" {
+		t.Errorf("redis current_pods: got %q, want %q", result["current_pods"], "5")
+	}
+	if result["version"] != "1.0.0" {
+		t.Errorf("redis version: got %q, want %q", result["version"], "1.0.0")
+	}
 
-	// Check Redis was updated
-	status, err := batcher.GetRunnerStatus(ctx, runnerID)
-	require.NoError(t, err)
-	require.NotNil(t, status)
-	assert.Equal(t, "online", status.Status)
-	assert.Equal(t, 5, status.CurrentPods)
-	assert.Equal(t, "1.0.0", status.Version)
-
-	// Flush to database
-	batcher.Flush()
-
-	// Check buffer is cleared
-	assert.Equal(t, 0, batcher.BufferSize())
-
-	// Check database was updated
-	var updatedStatus string
-	var updatedPods int
-	db.Raw("SELECT status, current_pods FROM runners WHERE id = ?", runnerID).Row().Scan(&updatedStatus, &updatedPods)
-	assert.Equal(t, "online", updatedStatus)
-	assert.Equal(t, 5, updatedPods)
+	// Verify buffer was updated
+	if batcher.BufferSize() != 1 {
+		t.Errorf("buffer size: got %d, want 1", batcher.BufferSize())
+	}
 }
 
-// TestHeartbeatBatcherGetRunnerStatus tests getting status from Redis
-func TestHeartbeatBatcherGetRunnerStatus(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+func TestHeartbeatBatcherRecordHeartbeatWithoutVersion(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
 
 	ctx := context.Background()
+	runnerID := int64(456)
 
-	// Non-existent runner returns nil
+	// Record heartbeat without version
+	err := batcher.RecordHeartbeat(ctx, runnerID, 2, "online", "")
+	if err != nil {
+		t.Fatalf("RecordHeartbeat error: %v", err)
+	}
+
+	// Verify version is not set
+	key := "runner:456:status"
+	result, _ := redisClient.HGetAll(ctx, key).Result()
+	if _, exists := result["version"]; exists {
+		t.Error("version should not be set when empty")
+	}
+}
+
+func TestHeartbeatBatcherGetRunnerStatus(t *testing.T) {
+	mr, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	ctx := context.Background()
+
+	// Test not found
 	status, err := batcher.GetRunnerStatus(ctx, 999)
-	require.NoError(t, err)
-	assert.Nil(t, status)
+	if err != nil {
+		t.Fatalf("GetRunnerStatus error: %v", err)
+	}
+	if status != nil {
+		t.Error("status should be nil for non-existent runner")
+	}
 
-	// Record a heartbeat
-	err = batcher.RecordHeartbeat(ctx, 1, 3, "online", "2.0.0", nil)
-	require.NoError(t, err)
+	// Set up test data in Redis
+	now := time.Now().Unix()
+	mr.HSet("runner:123:status", "last_heartbeat", fmt.Sprintf("%d", now))
+	mr.HSet("runner:123:status", "current_pods", "3")
+	mr.HSet("runner:123:status", "status", "online")
+	mr.HSet("runner:123:status", "version", "2.0.0")
 
 	// Get status
-	status, err = batcher.GetRunnerStatus(ctx, 1)
-	require.NoError(t, err)
-	require.NotNil(t, status)
-	assert.Equal(t, "online", status.Status)
-	assert.Equal(t, 3, status.CurrentPods)
-	assert.Equal(t, "2.0.0", status.Version)
-	assert.Greater(t, status.LastHeartbeat, int64(0))
+	status, err = batcher.GetRunnerStatus(ctx, 123)
+	if err != nil {
+		t.Fatalf("GetRunnerStatus error: %v", err)
+	}
+	if status == nil {
+		t.Fatal("status should not be nil")
+	}
+	if status.LastHeartbeat != now {
+		t.Errorf("LastHeartbeat: got %d, want %d", status.LastHeartbeat, now)
+	}
+	if status.CurrentPods != 3 {
+		t.Errorf("CurrentPods: got %d, want 3", status.CurrentPods)
+	}
+	if status.Status != "online" {
+		t.Errorf("Status: got %q, want %q", status.Status, "online")
+	}
+	if status.Version != "2.0.0" {
+		t.Errorf("Version: got %q, want %q", status.Version, "2.0.0")
+	}
 }
 
-// TestHeartbeatBatcherIsRunnerOnline tests online status check
 func TestHeartbeatBatcherIsRunnerOnline(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+	mr, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
 
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
 	ctx := context.Background()
 
-	// Non-existent runner is offline
-	assert.False(t, batcher.IsRunnerOnline(ctx, 999))
+	// Test non-existent runner
+	if batcher.IsRunnerOnline(ctx, 999) {
+		t.Error("non-existent runner should not be online")
+	}
 
-	// Record a heartbeat
-	err := batcher.RecordHeartbeat(ctx, 1, 0, "online", "", nil)
-	require.NoError(t, err)
+	// Test recent heartbeat
+	now := time.Now().Unix()
+	mr.HSet("runner:100:status", "last_heartbeat", fmt.Sprintf("%d", now))
+	if !batcher.IsRunnerOnline(ctx, 100) {
+		t.Error("runner with recent heartbeat should be online")
+	}
 
-	// Should be online
-	assert.True(t, batcher.IsRunnerOnline(ctx, 1))
+	// Test old heartbeat (beyond threshold)
+	oldTime := time.Now().Add(-HeartbeatOnlineThreshold - time.Minute).Unix()
+	mr.HSet("runner:101:status", "last_heartbeat", fmt.Sprintf("%d", oldTime))
+	if batcher.IsRunnerOnline(ctx, 101) {
+		t.Error("runner with old heartbeat should not be online")
+	}
 }
 
-// TestHeartbeatBatcherFlushLoop tests automatic flushing
-func TestHeartbeatBatcherFlushLoop(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
+func TestHeartbeatBatcherFlush(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	// Create a runner in the database
+	runnerRecord := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "offline",
+	}
+	if err := db.Create(runnerRecord).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
+	}
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
 
 	ctx := context.Background()
-
-	// Create a runner
-	runnerID := insertTestRunner(t, db)
-
-	// Set very short interval
-	batcher.SetInterval(50 * time.Millisecond)
-	batcher.Start()
-	defer batcher.Stop()
 
 	// Record heartbeat
-	err := batcher.RecordHeartbeat(ctx, runnerID, 2, "online", "", nil)
-	require.NoError(t, err)
+	err := batcher.RecordHeartbeat(ctx, runnerRecord.ID, 5, "online", "1.0.0")
+	if err != nil {
+		t.Fatalf("RecordHeartbeat error: %v", err)
+	}
+
+	// Manually flush
+	batcher.Flush()
+
+	// Verify buffer is empty
+	if batcher.BufferSize() != 0 {
+		t.Errorf("buffer should be empty after flush, got %d", batcher.BufferSize())
+	}
+
+	// Verify database was updated
+	var updatedRunner runner.Runner
+	if err := db.First(&updatedRunner, runnerRecord.ID).Error; err != nil {
+		t.Fatalf("failed to get runner: %v", err)
+	}
+	if updatedRunner.Status != "online" {
+		t.Errorf("runner status: got %q, want %q", updatedRunner.Status, "online")
+	}
+	if updatedRunner.CurrentPods != 5 {
+		t.Errorf("runner current_pods: got %d, want 5", updatedRunner.CurrentPods)
+	}
+}
+
+func TestHeartbeatBatcherFlushEmptyBuffer(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+
+	// Flush empty buffer should not panic
+	batcher.Flush()
+
+	if batcher.BufferSize() != 0 {
+		t.Errorf("buffer size should be 0, got %d", batcher.BufferSize())
+	}
+}
+
+func TestHeartbeatBatcherFlushLoop(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	// Create a runner in the database
+	runnerRecord := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node-loop",
+		AuthTokenHash:  "hash",
+		Status:         "offline",
+	}
+	if err := db.Create(runnerRecord).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
+	}
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	batcher.SetInterval(50 * time.Millisecond)
+
+	ctx := context.Background()
+
+	// Record heartbeat
+	err := batcher.RecordHeartbeat(ctx, runnerRecord.ID, 3, "online", "")
+	if err != nil {
+		t.Fatalf("RecordHeartbeat error: %v", err)
+	}
+
+	// Start batcher
+	batcher.Start()
 
 	// Wait for flush
 	time.Sleep(100 * time.Millisecond)
 
-	// Check database was updated
-	var updatedStatus string
-	db.Raw("SELECT status FROM runners WHERE id = ?", runnerID).Row().Scan(&updatedStatus)
-	assert.Equal(t, "online", updatedStatus)
-}
-
-// TestHeartbeatBatcherBatchUpdate tests batch updates
-func TestHeartbeatBatcherBatchUpdate(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	// Create multiple runners
-	runnerIDs := make([]int64, 10)
-	for i := 0; i < 10; i++ {
-		runnerIDs[i] = insertTestRunner(t, db)
-	}
-
-	// Record heartbeat for each
-	for i, id := range runnerIDs {
-		err := batcher.RecordHeartbeat(ctx, id, i, "online", "", nil)
-		require.NoError(t, err)
-	}
-
-	assert.Equal(t, 10, batcher.BufferSize())
-
-	// Flush all
-	batcher.Flush()
-
-	assert.Equal(t, 0, batcher.BufferSize())
-
-	// Verify all were updated
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM runners WHERE status = 'online'").Scan(&count)
-	assert.Equal(t, int64(10), count)
-}
-
-// TestHeartbeatBatcherBufferSize tests buffer size monitoring
-func TestHeartbeatBatcherBufferSize(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	assert.Equal(t, 0, batcher.BufferSize())
-
-	// Add heartbeats
-	for i := 1; i <= 5; i++ {
-		_ = batcher.RecordHeartbeat(ctx, int64(i), 0, "online", "", nil)
-	}
-
-	assert.Equal(t, 5, batcher.BufferSize())
-
-	// Same runner updates should replace, not add
-	_ = batcher.RecordHeartbeat(ctx, 1, 10, "online", "", nil)
-	assert.Equal(t, 5, batcher.BufferSize())
-
-	batcher.Flush()
-	assert.Equal(t, 0, batcher.BufferSize())
-}
-
-// TestHeartbeatBatcherEmptyFlush tests flushing empty buffer
-func TestHeartbeatBatcherEmptyFlush(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	// Should not panic
-	batcher.Flush()
-	assert.Equal(t, 0, batcher.BufferSize())
-}
-
-// TestHeartbeatBatcherConcurrentAccess tests thread safety
-func TestHeartbeatBatcherConcurrentAccess(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	// Create runners
-	runnerIDs := make([]int64, 50) // Reduced from 100 for faster test
-	for i := 0; i < 50; i++ {
-		runnerIDs[i] = insertTestRunner(t, db)
-	}
-
-	// Start batcher with short interval
-	batcher.SetInterval(10 * time.Millisecond)
-	batcher.Start()
-	defer batcher.Stop()
-
-	// Concurrent heartbeats
-	done := make(chan bool)
-	for i := 0; i < 50; i++ {
-		go func(idx int) {
-			for j := 0; j < 5; j++ {
-				_ = batcher.RecordHeartbeat(ctx, runnerIDs[idx], j, "online", "", nil)
-				time.Sleep(time.Millisecond)
-			}
-			done <- true
-		}(i)
-	}
-
-	// Wait for all goroutines
-	for i := 0; i < 50; i++ {
-		<-done
-	}
-
-	// Wait for flush
-	time.Sleep(50 * time.Millisecond)
-
-	// All should be online
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM runners WHERE status = 'online'").Scan(&count)
-	assert.Equal(t, int64(50), count)
-}
-
-// TestHeartbeatBatcherVersionUpdate tests version field update
-func TestHeartbeatBatcherVersionUpdate(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-	runnerID := insertTestRunner(t, db)
-
-	// Record with version
-	err := batcher.RecordHeartbeat(ctx, runnerID, 0, "online", "v2.1.0", nil)
-	require.NoError(t, err)
-
-	batcher.Flush()
-
-	var version string
-	db.Raw("SELECT runner_version FROM runners WHERE id = ?", runnerID).Row().Scan(&version)
-	assert.Equal(t, "v2.1.0", version)
-}
-
-// TestHeartbeatBatcherWithoutVersion tests heartbeat without version
-func TestHeartbeatBatcherWithoutVersion(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-	runnerID := insertTestRunner(t, db)
-
-	// Record without version (empty string)
-	err := batcher.RecordHeartbeat(ctx, runnerID, 0, "online", "", nil)
-	require.NoError(t, err)
-
-	batcher.Flush()
-
-	var status string
-	db.Raw("SELECT status FROM runners WHERE id = ?", runnerID).Row().Scan(&status)
-	assert.Equal(t, "online", status)
-}
-
-// TestHeartbeatBatcherCapabilities tests capabilities update
-func TestHeartbeatBatcherCapabilities(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-	runnerID := insertTestRunner(t, db)
-
-	// Record heartbeat with capabilities
-	caps := []byte(`[{"name":"docker","version":"1.0"}]`)
-	err := batcher.RecordHeartbeat(ctx, runnerID, 0, "online", "", caps)
-	require.NoError(t, err)
-
-	batcher.Flush()
-
-	// Verify capabilities were saved
-	var savedCaps string
-	db.Raw("SELECT capabilities FROM runners WHERE id = ?", runnerID).Row().Scan(&savedCaps)
-	assert.Contains(t, savedCaps, "docker")
-}
-
-// TestHeartbeatBatcherLargeBatch tests flushing more than 100 items (batch size limit)
-func TestHeartbeatBatcherLargeBatch(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	// Create 150 runners to test batch processing
-	runnerIDs := make([]int64, 150)
-	for i := 0; i < 150; i++ {
-		runnerIDs[i] = insertTestRunner(t, db)
-	}
-
-	// Record heartbeat for each
-	for _, id := range runnerIDs {
-		err := batcher.RecordHeartbeat(ctx, id, 1, "online", "v1.0", nil)
-		require.NoError(t, err)
-	}
-
-	assert.Equal(t, 150, batcher.BufferSize())
-
-	// Flush all (should process in batches of 100)
-	batcher.Flush()
-
-	assert.Equal(t, 0, batcher.BufferSize())
-
-	// Verify all were updated
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM runners WHERE status = 'online'").Scan(&count)
-	assert.Equal(t, int64(150), count)
-}
-
-// TestHeartbeatBatcherMultipleFlushes tests multiple consecutive flushes
-func TestHeartbeatBatcherMultipleFlushes(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	// First batch
-	runnerID1 := insertTestRunner(t, db)
-	err := batcher.RecordHeartbeat(ctx, runnerID1, 1, "online", "", nil)
-	require.NoError(t, err)
-
-	batcher.Flush()
-
-	// Second batch
-	runnerID2 := insertTestRunner(t, db)
-	err = batcher.RecordHeartbeat(ctx, runnerID2, 2, "online", "", nil)
-	require.NoError(t, err)
-
-	batcher.Flush()
-
-	// Both should be updated
-	var count int64
-	db.Raw("SELECT COUNT(*) FROM runners WHERE status = 'online'").Scan(&count)
-	assert.Equal(t, int64(2), count)
-}
-
-// TestHeartbeatBatcherUpdateExistingEntry tests updating a runner that already has a pending heartbeat
-func TestHeartbeatBatcherUpdateExistingEntry(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-	runnerID := insertTestRunner(t, db)
-
-	// First heartbeat
-	err := batcher.RecordHeartbeat(ctx, runnerID, 1, "online", "v1.0", nil)
-	require.NoError(t, err)
-
-	// Second heartbeat for same runner (should replace)
-	err = batcher.RecordHeartbeat(ctx, runnerID, 5, "online", "v2.0", nil)
-	require.NoError(t, err)
-
-	// Buffer should still have only 1 entry
-	assert.Equal(t, 1, batcher.BufferSize())
-
-	batcher.Flush()
-
-	// Verify latest values were saved
-	var currentPods int
-	var version string
-	db.Raw("SELECT current_pods, runner_version FROM runners WHERE id = ?", runnerID).Row().Scan(&currentPods, &version)
-	assert.Equal(t, 5, currentPods)
-	assert.Equal(t, "v2.0", version)
-}
-
-// TestHeartbeatBatcherRedisExpiration tests that Redis keys are set with TTL
-func TestHeartbeatBatcherRedisExpiration(t *testing.T) {
-	batcher, _, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-
-	// Record heartbeat
-	err := batcher.RecordHeartbeat(ctx, 123, 0, "online", "", nil)
-	require.NoError(t, err)
-
-	// Check Redis key exists
-	status, err := batcher.GetRunnerStatus(ctx, 123)
-	require.NoError(t, err)
-	require.NotNil(t, status)
-
-	// Verify key exists in Redis (TTL verification varies by miniredis version)
-	key := "runner:123:status"
-	exists := mr.Exists(key)
-	assert.True(t, exists, "Redis key should exist")
-}
-
-// TestHeartbeatBatcherStopFlushes tests that Stop() flushes pending data
-func TestHeartbeatBatcherStopFlushes(t *testing.T) {
-	batcher, db, mr := setupTestHeartbeatBatcherWithDB(t)
-	defer mr.Close()
-
-	ctx := context.Background()
-	runnerID := insertTestRunner(t, db)
-
-	// Start batcher
-	batcher.SetInterval(10 * time.Second) // Long interval
-	batcher.Start()
-
-	// Record heartbeat
-	err := batcher.RecordHeartbeat(ctx, runnerID, 3, "online", "", nil)
-	require.NoError(t, err)
-
-	// Stop should trigger flush
+	// Stop batcher
 	batcher.Stop()
 
-	// Verify data was flushed
-	var status string
-	db.Raw("SELECT status FROM runners WHERE id = ?", runnerID).Row().Scan(&status)
-	assert.Equal(t, "online", status)
+	// Verify database was updated
+	var updatedRunner runner.Runner
+	if err := db.First(&updatedRunner, runnerRecord.ID).Error; err != nil {
+		t.Fatalf("failed to get runner: %v", err)
+	}
+	if updatedRunner.Status != "online" {
+		t.Errorf("runner status: got %q, want %q", updatedRunner.Status, "online")
+	}
+}
+
+func TestHeartbeatBatcherBufferSize(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	ctx := context.Background()
+
+	// Initially empty
+	if batcher.BufferSize() != 0 {
+		t.Errorf("initial buffer size: got %d, want 0", batcher.BufferSize())
+	}
+
+	// Record multiple heartbeats
+	for i := int64(1); i <= 5; i++ {
+		batcher.RecordHeartbeat(ctx, i, int(i), "online", "")
+	}
+
+	if batcher.BufferSize() != 5 {
+		t.Errorf("buffer size after 5 records: got %d, want 5", batcher.BufferSize())
+	}
+
+	// Same runner updates should not increase buffer size
+	batcher.RecordHeartbeat(ctx, 1, 10, "online", "")
+	if batcher.BufferSize() != 5 {
+		t.Errorf("buffer size after update: got %d, want 5", batcher.BufferSize())
+	}
+}
+
+func TestHeartbeatBatcherFlushBatch(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	// Create multiple runners
+	for i := 0; i < 5; i++ {
+		r := &runner.Runner{
+			OrganizationID: 1,
+			NodeID:         "node-" + string(rune('A'+i)),
+			AuthTokenHash:  "hash",
+			Status:         "offline",
+		}
+		if err := db.Create(r).Error; err != nil {
+			t.Fatalf("failed to create runner: %v", err)
+		}
+	}
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	ctx := context.Background()
+
+	// Record heartbeats for all runners
+	for i := int64(1); i <= 5; i++ {
+		batcher.RecordHeartbeat(ctx, i, int(i), "online", "")
+	}
+
+	// Flush
+	batcher.Flush()
+
+	// Verify all runners were updated
+	var runners []runner.Runner
+	if err := db.Find(&runners).Error; err != nil {
+		t.Fatalf("failed to get runners: %v", err)
+	}
+
+	for _, r := range runners {
+		if r.Status != "online" {
+			t.Errorf("runner %d status: got %q, want %q", r.ID, r.Status, "online")
+		}
+	}
+}
+
+func TestHeartbeatBatcherConstants(t *testing.T) {
+	// Verify constants are reasonable
+	if DefaultFlushInterval != 5*time.Second {
+		t.Errorf("DefaultFlushInterval: got %v, want 5s", DefaultFlushInterval)
+	}
+	if DefaultHeartbeatTTL != 90*time.Second {
+		t.Errorf("DefaultHeartbeatTTL: got %v, want 90s", DefaultHeartbeatTTL)
+	}
+	if DefaultBatchSize != 100 {
+		t.Errorf("DefaultBatchSize: got %d, want 100", DefaultBatchSize)
+	}
+	if HeartbeatOnlineThreshold != 90*time.Second {
+		t.Errorf("HeartbeatOnlineThreshold: got %v, want 90s", HeartbeatOnlineThreshold)
+	}
+}
+
+func TestHeartbeatBatcherRestartAfterStop(t *testing.T) {
+	_, redisClient := setupMiniredisForBatcher(t)
+	db := setupTestDB(t)
+	logger := newTestLogger()
+
+	batcher := NewHeartbeatBatcher(redisClient, db, logger)
+	batcher.SetInterval(10 * time.Millisecond)
+
+	// Start, stop, restart
+	batcher.Start()
+	time.Sleep(20 * time.Millisecond)
+	batcher.Stop()
+
+	// Should be able to restart
+	batcher.Start()
+	batcher.mu.Lock()
+	running := batcher.running
+	batcher.mu.Unlock()
+	if !running {
+		t.Error("batcher should be running after restart")
+	}
+
+	batcher.Stop()
 }

@@ -120,6 +120,13 @@ func (t *Terminal) PID() int {
 	return 0
 }
 
+// IsClosed returns whether the terminal is closed.
+func (t *Terminal) IsClosed() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.closed
+}
+
 // Stop stops the terminal
 func (t *Terminal) Stop() {
 	t.mu.Lock()
@@ -175,11 +182,19 @@ func (t *Terminal) readOutput() {
 			break
 		}
 
-		if n > 0 && t.onOutput != nil {
+		if n > 0 {
 			// Make a copy of the data
 			data := make([]byte, n)
 			copy(data, buf[:n])
-			t.onOutput(data)
+
+			// Get handler with lock to prevent race condition
+			t.mu.Lock()
+			handler := t.onOutput
+			t.mu.Unlock()
+
+			if handler != nil {
+				handler(data)
+			}
 		}
 	}
 }
@@ -203,8 +218,13 @@ func (t *Terminal) waitExit() {
 		t.pty.Close()
 	}
 
-	if t.onExit != nil {
-		t.onExit(exitCode)
+	// Get handler with lock to prevent race condition
+	t.mu.Lock()
+	handler := t.onExit
+	t.mu.Unlock()
+
+	if handler != nil {
+		handler(exitCode)
 	}
 }
 

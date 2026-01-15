@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
 )
@@ -165,5 +166,149 @@ func TestSelectAvailableRunnerNoneAvailable(t *testing.T) {
 	_, err := service.SelectAvailableRunner(ctx, 1)
 	if err != ErrRunnerOffline {
 		t.Errorf("expected ErrRunnerOffline, got %v", err)
+	}
+}
+
+func TestSelectAvailableRunnerFromCache(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
+	r1, _, _ := service.RegisterRunner(ctx, plain, "runner-1", "Runner 1", 5)
+	r2, _, _ := service.RegisterRunner(ctx, plain, "runner-2", "Runner 2", 5)
+
+	// Update runners status to online
+	service.SetRunnerStatus(ctx, r1.ID, "online")
+	service.SetRunnerStatus(ctx, r2.ID, "online")
+
+	// Add to cache with different pod counts
+	// r1 has 3 pods, r2 has 1 pod
+	r1Updated, _ := service.GetRunner(ctx, r1.ID)
+	r2Updated, _ := service.GetRunner(ctx, r2.ID)
+
+	service.activeRunners.Store(r1.ID, &ActiveRunner{
+		Runner:   r1Updated,
+		LastPing: time.Now(),
+		PodCount: 3,
+	})
+	service.activeRunners.Store(r2.ID, &ActiveRunner{
+		Runner:   r2Updated,
+		LastPing: time.Now(),
+		PodCount: 1,
+	})
+
+	// Should select r2 from cache (least pods)
+	selected, err := service.SelectAvailableRunner(ctx, 1)
+	if err != nil {
+		t.Fatalf("failed to select available runner: %v", err)
+	}
+	if selected.ID != r2.ID {
+		t.Errorf("expected runner with least pods (r2=%d), got ID %d", r2.ID, selected.ID)
+	}
+}
+
+func TestSelectAvailableRunnerSkipsInactiveInCache(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
+	r1, _, _ := service.RegisterRunner(ctx, plain, "runner-1", "Runner 1", 5)
+
+	// Update runner status to online
+	service.SetRunnerStatus(ctx, r1.ID, "online")
+	r1Updated, _ := service.GetRunner(ctx, r1.ID)
+
+	// Add to cache with old last ping (inactive)
+	service.activeRunners.Store(r1.ID, &ActiveRunner{
+		Runner:   r1Updated,
+		LastPing: time.Now().Add(-2 * time.Minute), // 2 minutes ago - inactive
+		PodCount: 1,
+	})
+
+	// Should fall back to DB query
+	selected, err := service.SelectAvailableRunner(ctx, 1)
+	if err != nil {
+		t.Fatalf("failed to select available runner: %v", err)
+	}
+	if selected.ID != r1.ID {
+		t.Errorf("expected runner r1=%d, got ID %d", r1.ID, selected.ID)
+	}
+}
+
+func TestSelectAvailableRunnerSkipsDisabledInCache(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
+	r1, _, _ := service.RegisterRunner(ctx, plain, "runner-1", "Runner 1", 5)
+
+	// Update runner to online but disabled
+	service.SetRunnerStatus(ctx, r1.ID, "online")
+	isEnabled := false
+	service.UpdateRunner(ctx, r1.ID, RunnerUpdateInput{IsEnabled: &isEnabled})
+
+	r1Updated, _ := service.GetRunner(ctx, r1.ID)
+
+	// Add to cache
+	service.activeRunners.Store(r1.ID, &ActiveRunner{
+		Runner:   r1Updated,
+		LastPing: time.Now(),
+		PodCount: 1,
+	})
+
+	// Should return ErrRunnerOffline because disabled runner is filtered
+	_, err := service.SelectAvailableRunner(ctx, 1)
+	if err != ErrRunnerOffline {
+		t.Errorf("expected ErrRunnerOffline for disabled runner, got %v", err)
+	}
+}
+
+func TestSelectAvailableRunnerSkipsFullInCache(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
+	r1, _, _ := service.RegisterRunner(ctx, plain, "runner-1", "Runner 1", 2) // max 2 pods
+
+	// Update runner status to online and update current_pods to max (so DB query also skips)
+	service.SetRunnerStatus(ctx, r1.ID, "online")
+	db.Model(&runner.Runner{}).Where("id = ?", r1.ID).Update("current_pods", 2)
+	r1Updated, _ := service.GetRunner(ctx, r1.ID)
+
+	// Add to cache with max pods
+	service.activeRunners.Store(r1.ID, &ActiveRunner{
+		Runner:   r1Updated,
+		LastPing: time.Now(),
+		PodCount: 2, // already at max
+	})
+
+	// Should return ErrRunnerOffline because runner is at capacity in both cache and DB
+	_, err := service.SelectAvailableRunner(ctx, 1)
+	if err != ErrRunnerOffline {
+		t.Errorf("expected ErrRunnerOffline for full runner, got %v", err)
+	}
+}
+
+func TestRegisterRunnerDuplicate(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	plain, _ := service.CreateRegistrationToken(ctx, 1, 1, "Test Token", nil, nil)
+
+	// Register first runner
+	_, _, err := service.RegisterRunner(ctx, plain, "test-runner", "Test", 5)
+	if err != nil {
+		t.Fatalf("failed to register first runner: %v", err)
+	}
+
+	// Try to register with same node_id
+	_, _, err = service.RegisterRunner(ctx, plain, "test-runner", "Test Duplicate", 5)
+	if err != ErrRunnerAlreadyExists {
+		t.Errorf("expected ErrRunnerAlreadyExists, got %v", err)
 	}
 }

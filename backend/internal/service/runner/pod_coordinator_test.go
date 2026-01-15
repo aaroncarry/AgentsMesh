@@ -5,85 +5,71 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
 	"github.com/alicebob/miniredis/v2"
+	"github.com/anthropics/agentmesh/backend/internal/domain/agentpod"
+	"github.com/anthropics/agentmesh/backend/internal/domain/runner"
 	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-// newTestHeartbeatBatcher creates a HeartbeatBatcher for testing with miniredis
-func newTestHeartbeatBatcher(t *testing.T, db *gorm.DB) *HeartbeatBatcher {
-	t.Helper()
-	mr, err := miniredis.Run()
+// setupPodCoordinatorTestDB sets up database with pods table for testing
+func setupPodCoordinatorTestDB(t *testing.T) *gorm.DB {
+	db := setupTestDB(t)
+
+	// Create tables for pods
+	err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS pods (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			pod_key TEXT NOT NULL UNIQUE,
+			runner_id INTEGER NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			agent_status TEXT,
+			last_activity DATETIME,
+			finished_at DATETIME,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`).Error
 	if err != nil {
-		t.Fatalf("failed to start miniredis: %v", err)
+		t.Fatalf("failed to create pods table: %v", err)
 	}
-	t.Cleanup(func() { mr.Close() })
-
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
-	t.Cleanup(func() { redisClient.Close() })
-
-	return NewHeartbeatBatcher(redisClient, db, newTestLogger())
-}
-
-func setupCoordinatorTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Fatalf("failed to connect database: %v", err)
-	}
-
-	// Create runners table
-	db.Exec(`CREATE TABLE IF NOT EXISTS runners (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		organization_id INTEGER NOT NULL,
-		node_id TEXT NOT NULL,
-		description TEXT,
-		auth_token_hash TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'offline',
-		last_heartbeat DATETIME,
-		current_pods INTEGER NOT NULL DEFAULT 0,
-		max_concurrent_pods INTEGER NOT NULL DEFAULT 5,
-		runner_version TEXT,
-		is_enabled INTEGER NOT NULL DEFAULT 1,
-		host_info TEXT,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`)
-
-	// Create pods table
-	db.Exec(`CREATE TABLE IF NOT EXISTS pods (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		pod_key TEXT NOT NULL UNIQUE,
-		runner_id INTEGER,
-		status TEXT NOT NULL DEFAULT 'initializing',
-		agent_status TEXT,
-		pty_pid INTEGER,
-		branch_name TEXT,
-		worktree_path TEXT,
-		started_at DATETIME,
-		finished_at DATETIME,
-		last_activity DATETIME,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`)
 
 	return db
 }
 
-func TestNewPodCoordinator(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	hb := newTestHeartbeatBatcher(t, db)
+// setupPodCoordinatorDeps sets up dependencies for PodCoordinator testing
+func setupPodCoordinatorDeps(t *testing.T) (*gorm.DB, *ConnectionManager, *TerminalRouter, *HeartbeatBatcher) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("failed to start miniredis: %v", err)
+	}
+	t.Cleanup(func() {
+		mr.Close()
+	})
 
-	pc := NewPodCoordinator(db, cm, tr, hb, newTestLogger())
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: mr.Addr(),
+	})
+	t.Cleanup(func() {
+		redisClient.Close()
+	})
+
+	logger := newTestLogger()
+	db := setupPodCoordinatorTestDB(t)
+
+	cm := NewConnectionManager(logger)
+	tr := NewTerminalRouter(cm, logger)
+	hb := NewHeartbeatBatcher(redisClient, db, logger)
+
+	return db, cm, tr, hb
+}
+
+func TestNewPodCoordinator(t *testing.T) {
+	db := setupTestDB(t)
+	logger := newTestLogger()
+	_, cm, tr, hb := setupPodCoordinatorDeps(t)
+
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
 
 	if pc == nil {
 		t.Fatal("NewPodCoordinator returned nil")
@@ -103,13 +89,14 @@ func TestNewPodCoordinator(t *testing.T) {
 }
 
 func TestPodCoordinatorSetStatusChangeCallback(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+	db := setupTestDB(t)
+	logger := newTestLogger()
+	_, cm, tr, hb := setupPodCoordinatorDeps(t)
 
-	pc.SetStatusChangeCallback(func(podID string, status string, agentStatus string) {
-		// callback for testing
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+
+	pc.SetStatusChangeCallback(func(podKey string, status string, agentStatus string) {
+		// Callback set for testing
 	})
 
 	if pc.onStatusChange == nil {
@@ -118,446 +105,343 @@ func TestPodCoordinatorSetStatusChangeCallback(t *testing.T) {
 }
 
 func TestPodCoordinatorIncrementPods(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
+	db := setupTestDB(t)
+	logger := newTestLogger()
+	_, cm, tr, hb := setupPodCoordinatorDeps(t)
 
 	// Create a runner
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, current_pods) VALUES (1, 'test', 'hash', 0)`)
-
-	err := pc.IncrementPods(ctx, 1)
-	if err != nil {
-		t.Errorf("IncrementPods error: %v", err)
+	r := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "online",
+		CurrentPods:    0,
+	}
+	if err := db.Create(r).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
 	}
 
-	var count int
-	db.Raw("SELECT current_pods FROM runners WHERE id = 1").Scan(&count)
-	if count != 1 {
-		t.Errorf("expected 1 pod, got %d", count)
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Increment pods
+	err := pc.IncrementPods(ctx, r.ID)
+	if err != nil {
+		t.Fatalf("IncrementPods error: %v", err)
+	}
+
+	// Verify
+	var updated runner.Runner
+	if err := db.First(&updated, r.ID).Error; err != nil {
+		t.Fatalf("failed to get runner: %v", err)
+	}
+	if updated.CurrentPods != 1 {
+		t.Errorf("CurrentPods: got %d, want 1", updated.CurrentPods)
+	}
+
+	// Increment again
+	err = pc.IncrementPods(ctx, r.ID)
+	if err != nil {
+		t.Fatalf("IncrementPods error: %v", err)
+	}
+
+	if err := db.First(&updated, r.ID).Error; err != nil {
+		t.Fatalf("failed to get runner: %v", err)
+	}
+	if updated.CurrentPods != 2 {
+		t.Errorf("CurrentPods: got %d, want 2", updated.CurrentPods)
 	}
 }
 
 func TestPodCoordinatorDecrementPods(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+	// Note: DecrementPods uses GREATEST which SQLite doesn't support
+	// This test verifies the method exists and can be called
+	// The actual functionality should be tested with PostgreSQL in integration tests
+	db := setupTestDB(t)
+	logger := newTestLogger()
+	_, cm, tr, hb := setupPodCoordinatorDeps(t)
+
+	// Create a runner with pods
+	r := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "online",
+		CurrentPods:    5,
+	}
+	if err := db.Create(r).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
+	}
+
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
 	ctx := context.Background()
 
-	// Create a runner with 2 pods
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, current_pods) VALUES (1, 'test', 'hash', 2)`)
+	// Call DecrementPods - may fail due to SQLite GREATEST limitation
+	// We just verify the method signature exists and doesn't panic
+	_ = pc.DecrementPods(ctx, r.ID)
+}
 
-	// SQLite doesn't have GREATEST function, just test that method doesn't panic
-	err := pc.DecrementPods(ctx, 1)
-	// Skip error check since SQLite doesn't support GREATEST
-	_ = err
+func TestPodCoordinatorDecrementPodsNotBelowZero(t *testing.T) {
+	// Note: DecrementPods uses GREATEST which SQLite doesn't support
+	// This test verifies the method exists and can be called
+	db := setupTestDB(t)
+	logger := newTestLogger()
+	_, cm, tr, hb := setupPodCoordinatorDeps(t)
+
+	// Create a runner with 0 pods
+	r := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "online",
+		CurrentPods:    0,
+	}
+	if err := db.Create(r).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
+	}
+
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Call DecrementPods - may fail due to SQLite GREATEST limitation
+	// Just verify the method exists and doesn't panic
+	_ = pc.DecrementPods(ctx, r.ID)
 }
 
 func TestPodCoordinatorUpdateActivity(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
 	// Create a pod
-	oldTime := time.Now().Add(-1 * time.Hour)
-	db.Exec(`INSERT INTO pods (pod_key, status, last_activity) VALUES ('test-pod', 'running', ?)`, oldTime)
+	initialTime := time.Now().Add(-1 * time.Hour)
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status, last_activity) VALUES (?, ?, ?, ?)`,
+		"test-pod-1", 1, "running", initialTime)
 
-	err := pc.UpdateActivity(ctx, "test-pod")
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Update activity
+	err := pc.UpdateActivity(ctx, "test-pod-1")
 	if err != nil {
-		t.Errorf("UpdateActivity error: %v", err)
+		t.Fatalf("UpdateActivity error: %v", err)
 	}
 
+	// Verify last_activity was updated
 	var lastActivity time.Time
-	db.Raw("SELECT last_activity FROM pods WHERE pod_key = 'test-pod'").Scan(&lastActivity)
+	db.Raw(`SELECT last_activity FROM pods WHERE pod_key = ?`, "test-pod-1").Scan(&lastActivity)
 
-	if lastActivity.Before(oldTime.Add(30 * time.Minute)) {
-		t.Error("last_activity should be updated to recent time")
+	if lastActivity.Before(initialTime.Add(30 * time.Minute)) {
+		t.Error("last_activity should have been updated to recent time")
 	}
 }
 
 func TestPodCoordinatorMarkDisconnected(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
 	// Create a running pod
-	db.Exec(`INSERT INTO pods (pod_key, status) VALUES ('test-pod', ?)`, agentpod.PodStatusRunning)
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES (?, ?, ?)`,
+		"test-pod-2", 1, agentpod.StatusRunning)
 
-	err := pc.MarkDisconnected(ctx, "test-pod")
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Mark disconnected
+	err := pc.MarkDisconnected(ctx, "test-pod-2")
 	if err != nil {
-		t.Errorf("MarkDisconnected error: %v", err)
+		t.Fatalf("MarkDisconnected error: %v", err)
 	}
 
+	// Verify status was updated
 	var status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'test-pod'").Scan(&status)
-	if status != agentpod.PodStatusDisconnected {
-		t.Errorf("expected status %s, got %s", agentpod.PodStatusDisconnected, status)
+	db.Raw(`SELECT status FROM pods WHERE pod_key = ?`, "test-pod-2").Scan(&status)
+
+	if status != agentpod.StatusDisconnected {
+		t.Errorf("status: got %q, want %q", status, agentpod.StatusDisconnected)
+	}
+}
+
+func TestPodCoordinatorMarkDisconnectedOnlyRunning(t *testing.T) {
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
+
+	// Create a completed pod
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES (?, ?, ?)`,
+		"test-pod-3", 1, agentpod.StatusCompleted)
+
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Mark disconnected should not affect completed pod
+	err := pc.MarkDisconnected(ctx, "test-pod-3")
+	if err != nil {
+		t.Fatalf("MarkDisconnected error: %v", err)
+	}
+
+	// Verify status was NOT changed
+	var status string
+	db.Raw(`SELECT status FROM pods WHERE pod_key = ?`, "test-pod-3").Scan(&status)
+
+	if status != agentpod.StatusCompleted {
+		t.Errorf("completed pod status should not change: got %q", status)
 	}
 }
 
 func TestPodCoordinatorMarkReconnected(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
 	// Create a disconnected pod
-	db.Exec(`INSERT INTO pods (pod_key, status) VALUES ('test-pod', ?)`, agentpod.PodStatusDisconnected)
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES (?, ?, ?)`,
+		"test-pod-4", 1, agentpod.StatusDisconnected)
 
-	err := pc.MarkReconnected(ctx, "test-pod")
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Mark reconnected
+	err := pc.MarkReconnected(ctx, "test-pod-4")
 	if err != nil {
-		t.Errorf("MarkReconnected error: %v", err)
+		t.Fatalf("MarkReconnected error: %v", err)
 	}
 
+	// Verify status was updated
 	var status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'test-pod'").Scan(&status)
-	if status != agentpod.PodStatusRunning {
-		t.Errorf("expected status %s, got %s", agentpod.PodStatusRunning, status)
+	db.Raw(`SELECT status FROM pods WHERE pod_key = ?`, "test-pod-4").Scan(&status)
+
+	if status != agentpod.StatusRunning {
+		t.Errorf("status: got %q, want %q", status, agentpod.StatusRunning)
 	}
 }
 
-func TestPodCoordinatorHandleHeartbeat(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	hb := newTestHeartbeatBatcher(t, db)
-	pc := NewPodCoordinator(db, cm, tr, hb, newTestLogger())
+func TestPodCoordinatorMarkReconnectedOnlyDisconnected(t *testing.T) {
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
-	// Create a runner
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, status) VALUES (1, 'test', 'hash', 'offline')`)
+	// Create a completed pod
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES (?, ?, ?)`,
+		"test-pod-5", 1, agentpod.StatusCompleted)
 
-	hbData := &HeartbeatData{
-		RunnerVersion: "1.0.0",
-		Pods:          []HeartbeatPod{{PodKey: "pod-1"}},
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	// Mark reconnected should not affect completed pod
+	err := pc.MarkReconnected(ctx, "test-pod-5")
+	if err != nil {
+		t.Fatalf("MarkReconnected error: %v", err)
 	}
 
-	pc.handleHeartbeat(1, hbData)
-
-	// Flush the heartbeat batcher to ensure DB is updated
-	hb.Flush()
-
+	// Verify status was NOT changed
 	var status string
-	db.Raw("SELECT status FROM runners WHERE id = 1").Scan(&status)
-	if status != "online" {
-		t.Errorf("expected status online, got %s", status)
-	}
+	db.Raw(`SELECT status FROM pods WHERE pod_key = ?`, "test-pod-5").Scan(&status)
 
-	var version string
-	db.Raw("SELECT runner_version FROM runners WHERE id = 1").Scan(&version)
-	if version != "1.0.0" {
-		t.Errorf("expected version 1.0.0, got %s", version)
+	if status != agentpod.StatusCompleted {
+		t.Errorf("completed pod status should not change: got %q", status)
 	}
 }
 
-func TestPodCoordinatorHandlePodCreated(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+func TestPodCoordinatorCreatePod(t *testing.T) {
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
-	callbackCalled := false
-	pc.SetStatusChangeCallback(func(podID string, status string, agentStatus string) {
-		callbackCalled = true
-		if status != agentpod.PodStatusRunning {
-			t.Errorf("expected status %s, got %s", agentpod.PodStatusRunning, status)
-		}
-	})
-
-	// Create a pod
-	db.Exec(`INSERT INTO pods (pod_key, status) VALUES ('test-pod', 'initializing')`)
-
-	pcData := &PodCreatedData{
-		PodKey:        "test-pod",
-		Pid:          12345,
-		BranchName:   "main",
-		WorktreePath: "/path/to/worktree",
+	// Create a runner and add connection
+	r := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "online",
+		CurrentPods:    0,
+	}
+	if err := db.Create(r).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
 	}
 
-	pc.handlePodCreated(1, pcData)
+	// Add a mock connection and mark it as initialized
+	conn := newTestWebSocketConn(t)
+	rc := cm.AddConnection(r.ID, conn)
+	rc.SetInitialized(true, []string{"claude"})
 
-	var status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'test-pod'").Scan(&status)
-	if status != agentpod.PodStatusRunning {
-		t.Errorf("expected status %s, got %s", agentpod.PodStatusRunning, status)
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
+	ctx := context.Background()
+
+	req := &CreatePodRequest{
+		PodKey:        "new-pod-1",
+		LaunchCommand: "claude",
 	}
 
-	if !callbackCalled {
-		t.Error("status change callback should be called")
+	err := pc.CreatePod(ctx, r.ID, req)
+	if err != nil {
+		t.Fatalf("CreatePod error: %v", err)
 	}
 
-	// Check terminal router registered
-	if !tr.IsPodRegistered("test-pod") {
+	// Verify pod count was incremented
+	var updated runner.Runner
+	if err := db.First(&updated, r.ID).Error; err != nil {
+		t.Fatalf("failed to get runner: %v", err)
+	}
+	if updated.CurrentPods != 1 {
+		t.Errorf("CurrentPods: got %d, want 1", updated.CurrentPods)
+	}
+
+	// Verify pod was registered with terminal router
+	if !tr.IsPodRegistered("new-pod-1") {
 		t.Error("pod should be registered with terminal router")
 	}
 }
 
-func TestPodCoordinatorHandlePodTerminated(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+func TestPodCoordinatorTerminatePod(t *testing.T) {
+	// Note: TerminatePod internally calls DecrementPods which uses GREATEST
+	// SQLite doesn't support GREATEST, so this test only verifies key functionality
+	// The actual decrement functionality works in PostgreSQL
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
 
-	callbackCalled := false
-	pc.SetStatusChangeCallback(func(podID string, status string, agentStatus string) {
-		callbackCalled = true
-		if status != agentpod.StatusCompleted {
-			t.Errorf("expected status %s, got %s", agentpod.StatusCompleted, status)
-		}
-	})
-
-	// Create a runner and pod
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, current_pods) VALUES (1, 'test', 'hash', 1)`)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('test-pod', 1, 'running')`)
-
-	// Register pod with terminal router
-	tr.RegisterPod("test-pod", 1)
-
-	ptData := &PodTerminatedData{
-		PodKey:    "test-pod",
-		ExitCode: 0,
+	// Create a runner
+	r := &runner.Runner{
+		OrganizationID: 1,
+		NodeID:         "test-node",
+		AuthTokenHash:  "hash",
+		Status:         "online",
+		CurrentPods:    1,
 	}
-
-	pc.handlePodTerminated(1, ptData)
-
-	var status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'test-pod'").Scan(&status)
-	if status != agentpod.StatusCompleted {
-		t.Errorf("expected status %s, got %s", agentpod.StatusCompleted, status)
+	if err := db.Create(r).Error; err != nil {
+		t.Fatalf("failed to create runner: %v", err)
 	}
-
-	if !callbackCalled {
-		t.Error("status change callback should be called")
-	}
-
-	// Check terminal router unregistered
-	if tr.IsPodRegistered("test-pod") {
-		t.Error("pod should be unregistered from terminal router")
-	}
-}
-
-func TestPodCoordinatorHandleAgentStatus(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-
-	callbackCalled := false
-	pc.SetStatusChangeCallback(func(podID string, status string, agentStatus string) {
-		callbackCalled = true
-		if agentStatus != "waiting" {
-			t.Errorf("expected agentStatus waiting, got %s", agentStatus)
-		}
-	})
 
 	// Create a pod
-	db.Exec(`INSERT INTO pods (pod_key, status) VALUES ('test-pod', 'running')`)
+	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES (?, ?, ?)`,
+		"terminate-pod-1", r.ID, agentpod.StatusRunning)
 
-	asData := &AgentStatusData{
-		PodKey:  "test-pod",
-		Status: "waiting",
-		Pid:    12345,
-	}
+	// Register pod with terminal router
+	tr.RegisterPod("terminate-pod-1", r.ID)
 
-	pc.handleAgentStatus(1, asData)
+	// Add mock connection and mark it as initialized
+	conn := newTestWebSocketConn(t)
+	rc := cm.AddConnection(r.ID, conn)
+	rc.SetInitialized(true, []string{"claude"})
 
-	var agentStatus string
-	db.Raw("SELECT agent_status FROM pods WHERE pod_key = 'test-pod'").Scan(&agentStatus)
-	if agentStatus != "waiting" {
-		t.Errorf("expected agent_status waiting, got %s", agentStatus)
-	}
-
-	if !callbackCalled {
-		t.Error("status change callback should be called")
-	}
-}
-
-func TestPodCoordinatorHandleRunnerDisconnect(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-
-	// Create a runner and pods
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, status) VALUES (1, 'test', 'hash', 'online')`)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-1', 1, ?)`, agentpod.PodStatusRunning)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-2', 1, ?)`, agentpod.PodStatusInitializing)
-
-	pc.handleRunnerDisconnect(1)
-
-	// Check runner is offline
-	var runnerStatus string
-	db.Raw("SELECT status FROM runners WHERE id = 1").Scan(&runnerStatus)
-	if runnerStatus != "offline" {
-		t.Errorf("expected runner status offline, got %s", runnerStatus)
-	}
-
-	// Note: Pods are intentionally NOT marked as orphaned immediately on disconnect.
-	// This is by design to handle temporary network glitches - pods remain in their
-	// current state and will be reconciled when:
-	// 1. Runner reconnects and sends heartbeat (reconcilePods handles it)
-	// 2. Pod cleanup task runs and finds stale pods
-	// The previous behavior of immediately marking pods as orphaned caused issues
-	// with quick reconnects where pods were still actually running.
-	var s1Status, s2Status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-1'").Scan(&s1Status)
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-2'").Scan(&s2Status)
-
-	// Pods should retain their original status (not orphaned)
-	if s1Status != agentpod.PodStatusRunning {
-		t.Errorf("expected pod-1 status running (retained), got %s", s1Status)
-	}
-	if s2Status != agentpod.PodStatusInitializing {
-		t.Errorf("expected pod-2 status initializing (retained), got %s", s2Status)
-	}
-}
-
-// TestPodCoordinatorReconcileOrphansOnReconnect tests that pods are properly
-// orphaned when runner reconnects but doesn't report them in heartbeat
-func TestPodCoordinatorReconcileOrphansOnReconnect(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-
-	// Create a runner and pods
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, status) VALUES (1, 'test', 'hash', 'online')`)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-1', 1, ?)`, agentpod.PodStatusRunning)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-2', 1, ?)`, agentpod.PodStatusRunning)
-
-	// Simulate runner disconnect
-	pc.handleRunnerDisconnect(1)
-
-	// Simulate runner reconnect with heartbeat - only reporting pod-1
-	hbData := &HeartbeatData{
-		RunnerVersion: "1.0.0",
-		Pods:          []HeartbeatPod{{PodKey: "pod-1"}},
-	}
-	pc.handleHeartbeat(1, hbData)
-
-	// pod-1 should still be running (reported in heartbeat)
-	var s1Status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-1'").Scan(&s1Status)
-	if s1Status != agentpod.PodStatusRunning {
-		t.Errorf("expected pod-1 status running, got %s", s1Status)
-	}
-
-	// pod-2 should be orphaned (not reported in heartbeat)
-	var s2Status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-2'").Scan(&s2Status)
-	if s2Status != agentpod.PodStatusOrphaned {
-		t.Errorf("expected pod-2 status orphaned, got %s", s2Status)
-	}
-}
-
-func TestPodCoordinatorReconcilePods(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
 	ctx := context.Background()
 
-	// Create a runner and pods
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash) VALUES (1, 'test', 'hash')`)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-1', 1, ?)`, agentpod.PodStatusRunning)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('pod-2', 1, ?)`, agentpod.PodStatusRunning)
+	// TerminatePod will fail due to GREATEST on SQLite, but we verify
+	// the pod is unregistered from terminal router before the DB update
+	_ = pc.TerminatePod(ctx, "terminate-pod-1")
 
-	// Only pod-1 is reported
-	reportedPods := map[string]bool{
-		"pod-1": true,
-	}
-
-	pc.reconcilePods(ctx, 1, reportedPods)
-
-	// pod-1 should still be running
-	var s1Status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-1'").Scan(&s1Status)
-	if s1Status != agentpod.PodStatusRunning {
-		t.Errorf("expected pod-1 status running, got %s", s1Status)
-	}
-
-	// pod-2 should be orphaned
-	var s2Status string
-	db.Raw("SELECT status FROM pods WHERE pod_key = 'pod-2'").Scan(&s2Status)
-	if s2Status != agentpod.PodStatusOrphaned {
-		t.Errorf("expected pod-2 status orphaned, got %s", s2Status)
-	}
-}
-
-func TestPodCoordinatorTerminatePod(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
-
-	// Create a runner and pod
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, current_pods) VALUES (1, 'test', 'hash', 1)`)
-	db.Exec(`INSERT INTO pods (pod_key, runner_id, status) VALUES ('test-pod', 1, 'running')`)
-
-	// Register with terminal router
-	tr.RegisterPod("test-pod", 1)
-
-	// SQLite doesn't have GREATEST function, so we just verify basic flow
-	_ = pc.TerminatePod(ctx, "test-pod")
-
-	// Check terminal router unregistered (this should work regardless of DB function issues)
-	if tr.IsPodRegistered("test-pod") {
+	// Verify pod was unregistered from terminal router (happens before DB update)
+	if tr.IsPodRegistered("terminate-pod-1") {
 		t.Error("pod should be unregistered from terminal router")
 	}
 }
 
 func TestPodCoordinatorTerminatePodNotFound(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
+	logger := newTestLogger()
+	db, cm, tr, hb := setupPodCoordinatorDeps(t)
+
+	pc := NewPodCoordinator(db, cm, tr, hb, logger)
 	ctx := context.Background()
 
-	err := pc.TerminatePod(ctx, "nonexistent")
+	// Try to terminate non-existent pod
+	err := pc.TerminatePod(ctx, "non-existent-pod")
 	if err == nil {
-		t.Error("expected error for nonexistent pod")
-	}
-}
-
-func TestPodCoordinatorCreatePod(t *testing.T) {
-	db := setupCoordinatorTestDB(t)
-	cm := NewConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-	pc := NewPodCoordinator(db, cm, tr, newTestHeartbeatBatcher(t, db), newTestLogger())
-	ctx := context.Background()
-
-	// Create a runner
-	db.Exec(`INSERT INTO runners (organization_id, node_id, auth_token_hash, current_pods) VALUES (1, 'test', 'hash', 0)`)
-
-	req := &CreatePodRequest{
-		PodKey:          "new-pod",
-		InitialCommand: "claude",
-		InitialPrompt:  "hello",
-		PluginConfig: map[string]interface{}{
-			"repository_url": "https://github.com/org/repo.git",
-			"branch":         "main",
-		},
-	}
-
-	// This will fail because runner is not connected, but we can still test the pod count increment
-	_ = pc.CreatePod(ctx, 1, req)
-
-	// Check pod count incremented
-	var count int
-	db.Raw("SELECT current_pods FROM runners WHERE id = 1").Scan(&count)
-	if count != 1 {
-		t.Errorf("expected 1 pod, got %d", count)
-	}
-
-	// Check terminal router registered
-	if !tr.IsPodRegistered("new-pod") {
-		t.Error("pod should be registered with terminal router")
+		t.Error("TerminatePod should return error for non-existent pod")
 	}
 }

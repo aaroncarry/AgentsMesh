@@ -161,8 +161,8 @@ func TestInMemoryPodStoreUpdate(t *testing.T) {
 		t.Error("pod should exist")
 	}
 
-	if retrieved.Status != PodStatusRunning {
-		t.Errorf("Status: got %v, want running", retrieved.Status)
+	if retrieved.GetStatus() != PodStatusRunning {
+		t.Errorf("Status: got %v, want running", retrieved.GetStatus())
 	}
 }
 
