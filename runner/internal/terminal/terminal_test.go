@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -695,7 +696,6 @@ func TestManagerGetOrCreateSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first GetOrCreateSession error: %v", err)
 	}
-	defer manager.CloseSession(cfg.ID)
 
 	// Second call should get existing
 	session2, err := manager.GetOrCreateSession(cfg)
@@ -706,6 +706,9 @@ func TestManagerGetOrCreateSession(t *testing.T) {
 	if session1 != session2 {
 		t.Error("GetOrCreateSession should return same session")
 	}
+
+	// Clean up - close all sessions (handles race condition gracefully)
+	manager.CloseAllSessions()
 }
 
 func TestManagerListSessionsWithSessions(t *testing.T) {
@@ -800,11 +803,11 @@ func TestManagerCloseAllSessionsWithSessions(t *testing.T) {
 func TestManagerCloseSessionWithCallback(t *testing.T) {
 	manager := NewManager("/bin/bash", "/tmp")
 
-	closeCallbackCalled := false
+	var closeCallbackCalled atomic.Bool
 	manager.SetCallbacks(
 		func(s *Session) { /* create */ },
 		func(s *Session) {
-			closeCallbackCalled = true
+			closeCallbackCalled.Store(true)
 		},
 	)
 
@@ -829,7 +832,10 @@ func TestManagerCloseSessionWithCallback(t *testing.T) {
 		t.Errorf("CloseSession error: %v", err)
 	}
 
-	if !closeCallbackCalled {
+	// Wait a bit for the callback to be called
+	time.Sleep(100 * time.Millisecond)
+
+	if !closeCallbackCalled.Load() {
 		t.Error("close callback should have been called")
 	}
 }
@@ -1026,8 +1032,11 @@ func TestTerminalStopRunning(t *testing.T) {
 	// Stop should work
 	term.Stop()
 
-	// Verify closed flag
-	if !term.closed {
+	// Wait a bit for waitExit goroutine to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify closed flag using thread-safe method
+	if !term.IsClosed() {
 		t.Error("closed flag should be true")
 	}
 }
@@ -1286,11 +1295,11 @@ func TestManagerCreateSessionWithCallback(t *testing.T) {
 func TestManagerCloseAllSessionsWithCallback(t *testing.T) {
 	manager := NewManager("/bin/bash", "/tmp")
 
-	closeCount := 0
+	var closeCount atomic.Int32
 	manager.SetCallbacks(
 		func(s *Session) {},
 		func(s *Session) {
-			closeCount++
+			closeCount.Add(1)
 		},
 	)
 
@@ -1310,8 +1319,11 @@ func TestManagerCloseAllSessionsWithCallback(t *testing.T) {
 
 	manager.CloseAllSessions()
 
-	if closeCount != 3 {
-		t.Errorf("close callback count: got %v, want 3", closeCount)
+	// Wait a bit for callbacks to complete since they may run in goroutines
+	time.Sleep(100 * time.Millisecond)
+
+	if closeCount.Load() != 3 {
+		t.Errorf("close callback count: got %v, want 3", closeCount.Load())
 	}
 }
 

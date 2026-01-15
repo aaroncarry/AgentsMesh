@@ -683,6 +683,11 @@ func TestRemoveWorktreeWithGitFile(t *testing.T) {
 }
 
 func TestListWorktreesReadError(t *testing.T) {
+	// Skip if running as root (common in CI containers)
+	if os.Getuid() == 0 {
+		t.Skip("skipping test when running as root")
+	}
+
 	tmpDir := t.TempDir()
 	manager, _ := NewManager(tmpDir, "")
 
@@ -951,6 +956,11 @@ func TestApplyGitConfigValidFile(t *testing.T) {
 
 // TestCleanupOldWorktreesReadDirError tests CleanupOldWorktrees with unreadable directory
 func TestCleanupOldWorktreesReadDirError(t *testing.T) {
+	// Skip if running as root (common in CI containers)
+	if os.Getuid() == 0 {
+		t.Skip("skipping test when running as root")
+	}
+
 	tmpDir := t.TempDir()
 	manager, _ := NewManager(tmpDir, "")
 

@@ -35,6 +35,11 @@ type Session struct {
 
 	// Connected clients count
 	clientCount int
+
+	// Ensure Wait() is called only once to prevent race condition
+	waitOnce sync.Once
+	waitErr  error
+	waitDone chan struct{}
 }
 
 // SessionConfig holds configuration for creating a new session.
@@ -119,6 +124,7 @@ func NewSession(cfg *SessionConfig) (*Session, error) {
 		LastActivity: time.Now(),
 		outputBuffer: buffer.NewRing(cfg.BufferSize),
 		done:         make(chan struct{}),
+		waitDone:     make(chan struct{}),
 	}
 
 	log.Printf("[terminal] Created new PTY session: pty_session_id=%s, command=%s, pid=%d",
@@ -230,6 +236,25 @@ func (s *Session) Done() <-chan struct{} {
 	return s.done
 }
 
+// WaitProcess waits for the process to exit.
+// This method is safe to call multiple times from different goroutines.
+// It ensures Wait() is only called once on the underlying exec.Cmd.
+func (s *Session) WaitProcess() error {
+	s.waitOnce.Do(func() {
+		if s.Cmd != nil && s.Cmd.Process != nil {
+			s.waitErr = s.Cmd.Wait()
+		}
+		close(s.waitDone)
+	})
+	<-s.waitDone
+	return s.waitErr
+}
+
+// WaitDone returns a channel that's closed when the process has exited.
+func (s *Session) WaitDone() <-chan struct{} {
+	return s.waitDone
+}
+
 // Close terminates the session.
 func (s *Session) Close() error {
 	s.mu.Lock()
@@ -260,20 +285,16 @@ func (s *Session) Close() error {
 			log.Printf("[terminal] SIGTERM failed for session %s, process may have exited", s.ID)
 		}
 
-		// Wait for process to exit with timeout
-		waitDone := make(chan error, 1)
-		go func() {
-			waitDone <- s.Cmd.Wait()
-		}()
-
+		// Wait for process to exit with timeout using the thread-safe WaitProcess method
 		select {
-		case <-waitDone:
-			// Process exited normally
+		case <-s.waitDone:
+			// Process already exited (WaitProcess was called by monitorSession)
 		case <-time.After(2 * time.Second):
 			// Timeout, force kill
 			log.Printf("[terminal] Process did not exit gracefully for session %s, force killing", s.ID)
 			s.Cmd.Process.Kill()
-			<-waitDone // Wait for goroutine to complete
+			// Wait for WaitProcess to complete (will be called by monitorSession or this triggers it)
+			s.WaitProcess()
 		}
 	}
 
