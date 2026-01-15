@@ -19,6 +19,10 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 					"type":        "integer",
 					"description": "ID of the runner to create the pod on (optional, uses available runner)",
 				},
+				"agent_type_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "ID of the agent type to use for the pod (required). Use list_runners to see available agent types.",
+				},
 				"ticket_id": map[string]interface{}{
 					"type":        "integer",
 					"description": "ID of the ticket to associate with the pod",
@@ -32,6 +36,7 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 					"description": "AI model to use for the pod",
 				},
 			},
+			"required": []string{"agent_type_id"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
 			req := &tools.PodCreateRequest{
@@ -41,6 +46,9 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 
 			if v := getIntArg(args, "runner_id"); v != 0 {
 				req.RunnerID = v
+			}
+			if v := getInt64PtrArg(args, "agent_type_id"); v != nil {
+				req.AgentTypeID = v
 			}
 			if v := getIntPtrArg(args, "ticket_id"); v != nil {
 				req.TicketID = v

@@ -466,6 +466,21 @@ func getIntPtrArg(args map[string]interface{}, key string) *int {
 	return nil
 }
 
+// Helper to extract int64 pointer from args
+func getInt64PtrArg(args map[string]interface{}, key string) *int64 {
+	switch v := args[key].(type) {
+	case float64:
+		i := int64(v)
+		return &i
+	case int:
+		i := int64(v)
+		return &i
+	case int64:
+		return &v
+	}
+	return nil
+}
+
 // Helper to extract string slice from args
 func getStringSliceArg(args map[string]interface{}, key string) []string {
 	if v, ok := args[key].([]interface{}); ok {
