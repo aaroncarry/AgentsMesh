@@ -50,8 +50,8 @@ func TestPodStruct(t *testing.T) {
 	if pod.AgentType != "claude-code" {
 		t.Errorf("AgentType: got %v, want claude-code", pod.AgentType)
 	}
-	if pod.Status != PodStatusRunning {
-		t.Errorf("Status: got %v, want running", pod.Status)
+	if pod.GetStatus() != PodStatusRunning {
+		t.Errorf("Status: got %v, want running", pod.GetStatus())
 	}
 	if pod.TicketIdentifier != "TICKET-123" {
 		t.Errorf("TicketIdentifier: got %v, want TICKET-123", pod.TicketIdentifier)

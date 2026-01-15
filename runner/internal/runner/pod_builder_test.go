@@ -330,8 +330,8 @@ func TestPodBuilderBuildSuccessWithOptions(t *testing.T) {
 	if pod.PodKey != "build-pod" {
 		t.Errorf("PodKey = %s, want build-pod", pod.PodKey)
 	}
-	if pod.Status != PodStatusInitializing {
-		t.Errorf("Status = %s, want initializing", pod.Status)
+	if pod.GetStatus() != PodStatusInitializing {
+		t.Errorf("Status = %s, want initializing", pod.GetStatus())
 	}
 
 	// Clean up

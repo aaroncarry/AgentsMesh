@@ -45,8 +45,8 @@ func TestPodBuilderBuildSuccess(t *testing.T) {
 	if pod.InitialPrompt != "Test prompt" {
 		t.Errorf("InitialPrompt = %v, want Test prompt", pod.InitialPrompt)
 	}
-	if pod.Status != PodStatusInitializing {
-		t.Errorf("Status = %v, want initializing", pod.Status)
+	if pod.GetStatus() != PodStatusInitializing {
+		t.Errorf("Status = %v, want initializing", pod.GetStatus())
 	}
 
 	// Clean up terminal if created

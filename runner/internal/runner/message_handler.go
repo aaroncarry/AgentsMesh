@@ -76,7 +76,7 @@ func (h *RunnerMessageHandler) OnCreatePod(req client.CreatePodRequest) error {
 
 	// Store pod
 	h.podStore.Put(req.PodKey, pod)
-	pod.Status = PodStatusRunning
+	pod.SetStatus(PodStatusRunning)
 
 	// Register pod with MCP HTTP Server for tool access
 	if h.runner.mcpServer != nil {
@@ -138,7 +138,7 @@ func (h *RunnerMessageHandler) OnListPods() []client.PodInfo {
 	for _, s := range pods {
 		info := client.PodInfo{
 			PodKey:       s.PodKey,
-			Status:       s.Status,
+			Status:       s.GetStatus(),
 			ClaudeStatus: "",
 		}
 		if s.Terminal != nil {
@@ -198,7 +198,7 @@ func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 
 		pod := h.podStore.Delete(podKey)
 		if pod != nil {
-			pod.Status = PodStatusStopped
+			pod.SetStatus(PodStatusStopped)
 		}
 
 		h.sendPodTerminated(podKey)

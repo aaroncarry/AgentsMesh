@@ -49,8 +49,8 @@ func TestOnCreatePodSuccess(t *testing.T) {
 	if !ok {
 		t.Error("pod should be stored")
 	} else {
-		if pod.Status != PodStatusRunning {
-			t.Errorf("pod status = %s, want running", pod.Status)
+		if pod.GetStatus() != PodStatusRunning {
+			t.Errorf("pod status = %s, want running", pod.GetStatus())
 		}
 		// Clean up terminal
 		if pod.Terminal != nil {

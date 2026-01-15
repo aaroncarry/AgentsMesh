@@ -48,11 +48,26 @@ type Pod struct {
 	InitialPrompt    string
 	Terminal         *terminal.Terminal
 	StartedAt        time.Time
-	Status           string
+	Status           string              // Pod status - use statusMu for thread-safe access
+	statusMu         sync.RWMutex        // Protects Status field
 	TicketIdentifier string              // Ticket ID for worktree-based pods
 	OnOutput         func([]byte)        // Output callback
 	OnExit           func(int)           // Exit callback
 	Forwarder        *PTYForwarder       // Output forwarder with backpressure
+}
+
+// SetStatus sets the pod status in a thread-safe manner
+func (p *Pod) SetStatus(status string) {
+	p.statusMu.Lock()
+	defer p.statusMu.Unlock()
+	p.Status = status
+}
+
+// GetStatus returns the pod status in a thread-safe manner
+func (p *Pod) GetStatus() string {
+	p.statusMu.RLock()
+	defer p.statusMu.RUnlock()
+	return p.Status
 }
 
 // PodStatus constants
