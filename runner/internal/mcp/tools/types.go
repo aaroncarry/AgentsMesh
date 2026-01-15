@@ -221,20 +221,36 @@ type Ticket struct {
 	UpdatedAt      string         `json:"updated_at"`
 }
 
-// Runner represents a self-hosted runner.
-type Runner struct {
-	ID                int64                  `json:"id"`
-	NodeID            string                 `json:"node_id"`
-	Description       string                 `json:"description,omitempty"`
-	Status            string                 `json:"status"`
-	LastHeartbeat     string                 `json:"last_heartbeat,omitempty"`
-	CurrentPods       int                    `json:"current_pods"`
-	MaxConcurrentPods int                    `json:"max_concurrent_pods"`
-	RunnerVersion     string                 `json:"runner_version,omitempty"`
-	IsEnabled         bool                   `json:"is_enabled"`
-	HostInfo          map[string]interface{} `json:"host_info,omitempty"`
-	CreatedAt         string                 `json:"created_at"`
-	UpdatedAt         string                 `json:"updated_at"`
+// ConfigFieldSummary is a simplified config field for LLM consumption.
+// Removes validation and show_when fields that are only used by frontend.
+type ConfigFieldSummary struct {
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`
+	Default  interface{} `json:"default,omitempty"`
+	Options  []string    `json:"options,omitempty"`
+	Required bool        `json:"required,omitempty"`
+}
+
+// AgentTypeSummary is a simplified AgentType for LLM consumption.
+type AgentTypeSummary struct {
+	ID          int64                  `json:"id"`
+	Slug        string                 `json:"slug"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	Config      []ConfigFieldSummary   `json:"config,omitempty"`
+	UserConfig  map[string]interface{} `json:"user_config,omitempty"`
+}
+
+// RunnerSummary is a simplified Runner with nested Agent details.
+// Optimized for LLM token efficiency - removes host_info, timestamps, etc.
+type RunnerSummary struct {
+	ID                int64              `json:"id"`
+	NodeID            string             `json:"node_id"`
+	Description       string             `json:"description,omitempty"`
+	Status            string             `json:"status"`
+	CurrentPods       int                `json:"current_pods"`
+	MaxConcurrentPods int                `json:"max_concurrent_pods"`
+	AvailableAgents   []AgentTypeSummary `json:"available_agents"`
 }
 
 // Repository represents a Git repository configuration.
@@ -257,6 +273,7 @@ type Repository struct {
 // PodCreateRequest represents a request to create a new pod.
 type PodCreateRequest struct {
 	RunnerID      int    `json:"runner_id,omitempty"`
+	AgentTypeID   *int64 `json:"agent_type_id,omitempty"` // Required by backend API
 	TicketID      *int   `json:"ticket_id,omitempty"`
 	InitialPrompt string `json:"initial_prompt,omitempty"`
 	Model         string `json:"model,omitempty"`
@@ -279,7 +296,7 @@ type TerminalClient interface {
 // DiscoveryClient defines the interface for pod discovery.
 type DiscoveryClient interface {
 	ListAvailablePods(ctx context.Context) ([]AvailablePod, error)
-	ListRunners(ctx context.Context) ([]Runner, error)
+	ListRunners(ctx context.Context) ([]RunnerSummary, error)
 	ListRepositories(ctx context.Context) ([]Repository, error)
 }
 

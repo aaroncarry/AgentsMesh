@@ -219,10 +219,10 @@ func (c *BackendClient) ListAvailablePods(ctx context.Context) ([]tools.Availabl
 	return result.Pods, nil
 }
 
-// ListRunners lists available runners in the organization.
-func (c *BackendClient) ListRunners(ctx context.Context) ([]tools.Runner, error) {
+// ListRunners returns simplified Runner list with nested Agent info.
+func (c *BackendClient) ListRunners(ctx context.Context) ([]tools.RunnerSummary, error) {
 	var result struct {
-		Runners []tools.Runner `json:"runners"`
+		Runners []tools.RunnerSummary `json:"runners"`
 	}
 	err := c.request(ctx, http.MethodGet, c.podAPIPath()+"/runners", nil, &result)
 	if err != nil {

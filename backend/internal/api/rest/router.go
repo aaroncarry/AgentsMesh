@@ -183,9 +183,9 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			podOrgScoped.POST("/bindings/unbind", bindingHandler.Unbind)
 			podOrgScoped.GET("/bindings/pods", bindingHandler.GetBoundPods)
 
-			// Runner routes for MCP tools (discovery)
-			runnerHandler := v1.NewRunnerHandler(svc.Runner)
-			podOrgScoped.GET("/runners", runnerHandler.ListRunners)
+			// MCP Discovery routes (runners with nested agent info)
+			mcpDiscoveryHandler := v1.NewMCPDiscoveryHandler(svc.Runner, svc.AgentType, svc.UserConfig)
+			podOrgScoped.GET("/runners", mcpDiscoveryHandler.ListRunnersForMCP)
 
 			// Repository routes for MCP tools (discovery)
 			repositoryHandler := v1.NewRepositoryHandler(svc.Repository, svc.Billing)
