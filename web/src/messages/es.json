@@ -454,7 +454,8 @@
       "low": "Baja",
       "medium": "Media",
       "high": "Alta",
-      "urgent": "Urgente"
+      "urgent": "Urgente",
+      "unknown": "Desconocido"
     },
     "type": {
       "task": "Tarea",
@@ -496,7 +497,8 @@
       "in_progress": "En Progreso",
       "in_review": "En Revisión",
       "done": "Hecho",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "unknown": "Desconocido"
     }
   },
   "settings": {

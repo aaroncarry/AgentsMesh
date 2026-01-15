@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AgentMesh is a multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of three main components:
 
-- **Backend**: Go API server (Gin + GORM + gqlgen)
+- **Backend**: Go API server (Gin + GORM)
 - **Web**: Next.js frontend (App Router + TypeScript + Tailwind CSS)
 - **Runner**: Go daemon that executes AI agent tasks in isolated PTY environments
 
@@ -128,7 +128,7 @@ migrate create -ext sql -dir backend/migrations -seq add_new_feature
 │                 localhost:3000                              │
 └─────────────────────────────────────────────────────────────┘
                               │
-                    REST / GraphQL / WebSocket
+                        REST / WebSocket
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -160,9 +160,7 @@ migrate create -ext sql -dir backend/migrations -seq add_new_feature
 backend/
 ├── cmd/server/           # Entry point
 ├── internal/
-│   ├── api/              # REST & GraphQL handlers
-│   │   ├── rest/         # REST endpoints
-│   │   └── graphql/      # GraphQL resolvers
+│   ├── api/rest/         # REST API handlers
 │   ├── domain/           # Domain models (DDD style)
 │   │   ├── user/         # User entity
 │   │   ├── organization/ # Organization entity
@@ -173,8 +171,7 @@ backend/
 │   ├── service/          # Business logic layer
 │   ├── infra/            # Infrastructure (DB, cache)
 │   └── middleware/       # Auth, tenant isolation
-├── migrations/           # SQL migrations
-└── generated/            # gqlgen generated code
+└── migrations/           # SQL migrations
 ```
 
 ## Web Structure

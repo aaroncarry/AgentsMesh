@@ -137,9 +137,11 @@ describe('TicketDetail Component', () => {
       })
     })
 
-    it('should call fetchTicket on mount', () => {
+    it('should call fetchTicket on mount', async () => {
       render(<TicketDetail identifier="PROJ-42" />)
-      expect(mockFetchTicket).toHaveBeenCalledWith('PROJ-42')
+      await waitFor(() => {
+        expect(mockFetchTicket).toHaveBeenCalledWith('PROJ-42')
+      })
     })
   })
 

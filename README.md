@@ -14,11 +14,11 @@ Multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex 
 
 ## Tech Stack
 
-- **Backend**: Go (Gin + GORM + gqlgen)
+- **Backend**: Go (Gin + GORM)
 - **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
 - **Mobile**: Flutter (planned)
 - **Database**: PostgreSQL + Redis
-- **API**: REST + GraphQL
+- **API**: REST
 - **Real-time**: WebSocket
 
 ## Project Structure
@@ -28,7 +28,7 @@ AgentMesh/
 ├── backend/               # Go backend
 │   ├── cmd/server/        # Application entry point
 │   ├── internal/
-│   │   ├── api/           # REST & GraphQL handlers
+│   │   ├── api/           # REST handlers
 │   │   ├── config/        # Configuration
 │   │   ├── domain/        # Domain models
 │   │   ├── infra/         # Infrastructure (database, cache)

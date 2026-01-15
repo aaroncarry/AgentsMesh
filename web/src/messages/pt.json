@@ -457,7 +457,8 @@
       "low": "Baixa",
       "medium": "Média",
       "high": "Alta",
-      "urgent": "Urgente"
+      "urgent": "Urgente",
+      "unknown": "Desconhecido"
     },
     "type": {
       "task": "Tarefa",
@@ -499,7 +500,8 @@
       "in_progress": "Em Progresso",
       "in_review": "Em Revisão",
       "done": "Concluído",
-      "cancelled": "Cancelado"
+      "cancelled": "Cancelado",
+      "unknown": "Desconhecido"
     }
   },
   "settings": {

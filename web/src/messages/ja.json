@@ -454,13 +454,15 @@
       "low": "低",
       "medium": "中",
       "high": "高",
-      "urgent": "緊急"
+      "urgent": "緊急",
+      "unknown": "不明"
     },
     "type": {
       "task": "タスク",
       "bug": "バグ",
       "feature": "機能",
-      "epic": "エピック"
+      "epic": "エピック",
+      "unknown": "不明"
     },
     "searchPlaceholder": "チケットを検索...",
     "ticketCount": "件のチケット",
@@ -496,7 +498,8 @@
       "in_progress": "進行中",
       "in_review": "レビュー中",
       "done": "完了",
-      "cancelled": "キャンセル"
+      "cancelled": "キャンセル",
+      "unknown": "不明"
     }
   },
   "settings": {

@@ -499,7 +499,8 @@
       "in_progress": "En Cours",
       "in_review": "En Révision",
       "done": "Terminé",
-      "cancelled": "Annulé"
+      "cancelled": "Annulé",
+      "unknown": "Inconnu"
     }
   },
   "settings": {

@@ -649,14 +649,16 @@
       "low": "低",
       "medium": "中",
       "high": "高",
-      "urgent": "紧急"
+      "urgent": "紧急",
+      "unknown": "未知"
     },
     "type": {
       "task": "任务",
       "bug": "缺陷",
       "feature": "功能",
       "improvement": "改进",
-      "epic": "史诗"
+      "epic": "史诗",
+      "unknown": "未知"
     },
     "status": {
       "backlog": "待办池",
@@ -664,7 +666,8 @@
       "in_progress": "进行中",
       "in_review": "待审核",
       "done": "已完成",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "unknown": "未知"
     },
     "createDialog": {
       "title": "创建 Ticket",

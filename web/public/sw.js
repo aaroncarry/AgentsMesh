@@ -45,7 +45,7 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
 
   // Skip API requests (don't cache)
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/graphql')) {
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

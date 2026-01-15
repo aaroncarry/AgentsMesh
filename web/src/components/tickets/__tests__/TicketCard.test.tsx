@@ -299,10 +299,8 @@ describe('TicketCard Component', () => {
         status: 'unknown',
       }
       render(<TicketCard ticket={ticketWithUnknownStatus} />)
-      // Should fall back to backlog styling (but translation key may show for unknown status)
-      // The component uses statusConfig.backlog for styling, but displays t(`tickets.status.${status}`)
-      // For unknown status, this would display the translation key since it doesn't exist
-      expect(screen.getByText('tickets.status.unknown')).toBeInTheDocument()
+      // Should fall back to backlog styling and display the 'unknown' translation
+      expect(screen.getByText('Unknown')).toBeInTheDocument()
     })
 
     it('should handle unknown priority gracefully', () => {

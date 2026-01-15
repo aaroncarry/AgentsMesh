@@ -649,14 +649,16 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High",
-      "urgent": "Urgent"
+      "urgent": "Urgent",
+      "unknown": "Unknown"
     },
     "type": {
       "task": "Task",
       "bug": "Bug",
       "feature": "Feature",
       "improvement": "Improvement",
-      "epic": "Epic"
+      "epic": "Epic",
+      "unknown": "Unknown"
     },
     "status": {
       "backlog": "Backlog",
@@ -664,7 +666,8 @@
       "in_progress": "In Progress",
       "in_review": "In Review",
       "done": "Done",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
     },
     "createDialog": {
       "title": "Create Ticket",
