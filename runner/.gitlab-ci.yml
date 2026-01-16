@@ -105,7 +105,8 @@ build:desktop:linux:
       - runner/runner-desktop-linux-amd64
     expire_in: 1 day
   rules:
-    - if: $CI_COMMIT_TAG
+    # Only run when DESKTOP_BUILDS is enabled (network issues may cause failures)
+    - if: $CI_COMMIT_TAG && $DESKTOP_BUILDS == "true"
 
 build:desktop:windows:
   stage: build
@@ -158,6 +159,7 @@ package:macos-dmg:
       sed "s/1.0.0/${VERSION#v}/g" build/darwin/Info.plist > "$APP_NAME/Contents/Info.plist"
 
       # Create DMG
+      DMG_NAME="AgentsMesh-Runner-${VERSION}-darwin-universal.dmg"
       create-dmg \
         --volname "AgentsMesh Runner" \
         --window-pos 200 120 \
@@ -166,8 +168,18 @@ package:macos-dmg:
         --icon "AgentsMesh Runner.app" 150 185 \
         --hide-extension "AgentsMesh Runner.app" \
         --app-drop-link 450 185 \
-        "AgentsMesh-Runner-${VERSION}-darwin-universal.dmg" \
+        "$DMG_NAME" \
         "AgentsMesh Runner.app" || true
+
+      # Handle create-dmg leaving temp file on AppleScript timeout
+      # Temp files have rw.XXXXX. prefix
+      if [ ! -f "$DMG_NAME" ]; then
+        TEMP_DMG=$(ls rw.*.dmg 2>/dev/null | head -1)
+        if [ -n "$TEMP_DMG" ]; then
+          echo "Renaming temp DMG: $TEMP_DMG -> $DMG_NAME"
+          mv "$TEMP_DMG" "$DMG_NAME"
+        fi
+      fi
     - ls -la *.dmg
   artifacts:
     paths:
@@ -193,7 +205,8 @@ package:linux-archive:
       - runner/*.tar.gz
     expire_in: 1 day
   rules:
-    - if: $CI_COMMIT_TAG
+    # Only run when DESKTOP_BUILDS is enabled (depends on build:desktop:linux)
+    - if: $CI_COMMIT_TAG && $DESKTOP_BUILDS == "true"
 
 package:windows-archive:
   stage: package
@@ -230,9 +243,11 @@ release:github:
       artifacts: true
     - job: package:macos-dmg
       artifacts: true
+    # Linux desktop build is optional (requires DESKTOP_BUILDS=true)
     - job: package:linux-archive
       artifacts: true
-    # Windows desktop build is optional (requires Windows runner)
+      optional: true
+    # Windows desktop build is optional (requires DESKTOP_BUILDS=true and Windows runner)
     - job: package:windows-archive
       artifacts: true
       optional: true
