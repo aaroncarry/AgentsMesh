@@ -32,7 +32,8 @@ build:cli:
     entrypoint: [""]
   script:
     - cd runner
-    - goreleaser release --snapshot --clean
+    # Use --skip=publish to build only, release is handled by release:github job
+    - goreleaser release --clean --skip=publish
   artifacts:
     paths:
       - runner/dist/
