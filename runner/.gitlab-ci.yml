@@ -27,7 +27,9 @@ variables:
 build:cli:
   stage: build
   tags: [amd64, docker]
-  image: goreleaser/goreleaser:latest
+  image:
+    name: goreleaser/goreleaser:latest
+    entrypoint: [""]
   script:
     - cd runner
     - goreleaser release --snapshot --clean
