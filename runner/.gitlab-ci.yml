@@ -26,6 +26,7 @@ variables:
 
 build:cli:
   stage: build
+  tags: [amd64, docker]
   image: goreleaser/goreleaser:v2
   script:
     - goreleaser release --snapshot --clean
@@ -72,6 +73,7 @@ build:desktop:macos-arm64:
 
 build:desktop:linux:
   stage: build
+  tags: [amd64, docker]
   # Use Docker executor with GTK dependencies pre-installed
   # If using shell executor, ensure libgtk-3-dev and libappindicator3-dev are installed
   image: golang:${GO_VERSION}
@@ -157,7 +159,7 @@ package:macos-dmg:
 
 package:linux-archive:
   stage: package
-  tags: [linux]
+  tags: [amd64, docker]
   image: alpine:latest
   needs:
     - job: build:desktop:linux
@@ -175,7 +177,7 @@ package:linux-archive:
 
 package:windows-archive:
   stage: package
-  tags: [linux]
+  tags: [amd64, docker]
   image: alpine:latest
   needs:
     - job: build:desktop:windows
@@ -199,6 +201,7 @@ package:windows-archive:
 
 release:github:
   stage: release
+  tags: [amd64, docker]
   image: alpine:latest
   needs:
     - job: build:cli
