@@ -32,8 +32,10 @@ build:cli:
     entrypoint: [""]
   script:
     - cd runner
-    # Use --skip=publish to build only, release is handled by release:github job
-    - goreleaser release --clean --skip=publish
+    # GoReleaser builds CLI artifacts and updates Homebrew formula
+    # GitHub release upload is skipped (skip_upload: true in .goreleaser.yml)
+    # Actual GitHub release is handled by release:github job
+    - goreleaser release --clean
   artifacts:
     paths:
       - runner/dist/

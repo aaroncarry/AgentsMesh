@@ -160,10 +160,16 @@ changelog:
       order: 999
 
 # Release to AgentsMesh/AgentsMeshRunner repository
+# Note: GitHub release is handled by GitLab CI release:github job
+# GoReleaser only handles Homebrew formula update
 release:
   github:
     owner: AgentsMesh
     name: AgentsMeshRunner
+
+  # Skip GitHub release - handled by release:github job in GitLab CI
+  # This allows GoReleaser to still update Homebrew formula
+  skip_upload: true
 
   # Draft release for review before publishing
   draft: false
@@ -269,27 +275,39 @@ release:
   extra_files:
     - glob: ./build/darwin/Info.plist
 
-# Homebrew tap (optional - requires separate tap repo)
-# Uncomment when AgentsMesh/homebrew-tap is created
-# brews:
-#   - name: agentsmesh-runner
-#     repository:
-#       owner: AgentsMesh
-#       name: homebrew-tap
-#       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-#     commit_author:
-#       name: AgentsMesh Bot
-#       email: bot@agentsmesh.ai
-#     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-#     directory: Formula
-#     homepage: https://agentsmesh.ai
-#     description: "AgentsMesh Runner - AI Agent Task Executor"
-#     license: MIT
-#     install: |
-#       bin.install "runner"
-#     test: |
-#       system "#{bin}/runner", "version"
-#     skip_upload: auto
+# Homebrew tap - auto-update formula on release
+brews:
+  - name: agentsmesh-runner
+    ids:
+      - cli-archive
+      - cli-archive-darwin-universal
+    repository:
+      owner: AgentsMesh
+      name: BrewCask
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: AgentsMesh Bot
+      email: bot@agentsmesh.ai
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    homepage: https://agentsmesh.ai
+    description: "AgentsMesh Runner - AI Agent Task Executor"
+    license: MIT
+    install: |
+      bin.install "runner"
+    caveats: |
+      To get started with AgentsMesh Runner:
+
+      1. Register the runner with your AgentsMesh server:
+         runner register --server https://api.agentsmesh.ai --token YOUR_TOKEN
+
+      2. Start the runner:
+         runner run
+
+      For more information, visit: https://agentsmesh.ai/docs/runner
+    test: |
+      system "#{bin}/runner", "version"
+    # skip_upload: auto  # Uncomment to skip upload for pre-releases
 
 # Scoop bucket for Windows (optional)
 # Uncomment when AgentsMesh/scoop-bucket is created
