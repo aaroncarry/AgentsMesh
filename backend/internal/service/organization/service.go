@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/organization"
-	"github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"gorm.io/gorm"
 )
@@ -161,14 +160,14 @@ func (s *Service) GetMember(ctx context.Context, orgID, userID int64) (*organiza
 	return &member, nil
 }
 
-// ListMembers returns members of an organization
-func (s *Service) ListMembers(ctx context.Context, orgID int64) ([]*user.User, error) {
-	var users []*user.User
+// ListMembers returns members of an organization with user details
+func (s *Service) ListMembers(ctx context.Context, orgID int64) ([]*organization.Member, error) {
+	var members []*organization.Member
 	err := s.db.WithContext(ctx).
-		Joins("JOIN organization_members ON organization_members.user_id = users.id").
-		Where("organization_members.organization_id = ?", orgID).
-		Find(&users).Error
-	return users, err
+		Preload("User").
+		Where("organization_id = ?", orgID).
+		Find(&members).Error
+	return members, err
 }
 
 // IsAdmin checks if a user is an admin of the organization

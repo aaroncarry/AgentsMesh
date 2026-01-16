@@ -2,6 +2,8 @@ package organization
 
 import (
 	"time"
+
+	"github.com/anthropics/agentsmesh/backend/internal/domain/user"
 )
 
 // Organization role constants
@@ -60,6 +62,7 @@ type Member struct {
 
 	// Associations
 	Organization *Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
+	User         *user.User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 func (Member) TableName() string {

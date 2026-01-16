@@ -286,7 +286,7 @@ func (m *MockService) GetMember(ctx context.Context, orgID, userID int64) (*orga
 }
 
 // ListMembers implements Interface.
-func (m *MockService) ListMembers(ctx context.Context, orgID int64) ([]*user.User, error) {
+func (m *MockService) ListMembers(ctx context.Context, orgID int64) ([]*organization.Member, error) {
 	if m.ListMembersErr != nil {
 		return nil, m.ListMembersErr
 	}
@@ -294,10 +294,12 @@ func (m *MockService) ListMembers(ctx context.Context, orgID int64) ([]*user.Use
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var result []*user.User
+	var result []*organization.Member
 	if members, ok := m.members[orgID]; ok {
-		for userID := range members {
-			result = append(result, &user.User{ID: userID})
+		for userID, member := range members {
+			memberCopy := *member
+			memberCopy.User = &user.User{ID: userID}
+			result = append(result, &memberCopy)
 		}
 	}
 	return result, nil

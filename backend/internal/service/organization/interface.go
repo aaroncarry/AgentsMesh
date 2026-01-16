@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/organization"
-	"github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 )
 
@@ -27,7 +26,7 @@ type Interface interface {
 	RemoveMember(ctx context.Context, orgID, userID int64) error
 	UpdateMemberRole(ctx context.Context, orgID, userID int64, role string) error
 	GetMember(ctx context.Context, orgID, userID int64) (*organization.Member, error)
-	ListMembers(ctx context.Context, orgID int64) ([]*user.User, error)
+	ListMembers(ctx context.Context, orgID int64) ([]*organization.Member, error)
 
 	// Role checks
 	IsAdmin(ctx context.Context, orgID, userID int64) (bool, error)
