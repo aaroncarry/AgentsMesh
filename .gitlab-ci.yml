@@ -9,6 +9,8 @@ variables:
   BACKEND_IMAGE: ${REGISTRY}/agentsmesh/backend
   WEB_IMAGE: ${REGISTRY}/agentsmesh/web
   RUNNER_IMAGE: ${REGISTRY}/agentsmesh/runner
+  VERSION: ${CI_COMMIT_TAG:-dev}
+  GO_VERSION: "1.24"
 
 stages:
   - test
