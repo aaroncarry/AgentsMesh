@@ -13,8 +13,9 @@ type User struct {
 	AvatarURL    *string `gorm:"type:text" json:"avatar_url,omitempty"`
 	PasswordHash *string `gorm:"size:255" json:"-"` // Never expose in JSON
 
-	IsActive    bool       `gorm:"not null;default:true" json:"is_active"`
-	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+	IsActive      bool       `gorm:"not null;default:true" json:"is_active"`
+	IsSystemAdmin bool       `gorm:"not null;default:false" json:"is_system_admin"`
+	LastLoginAt   *time.Time `json:"last_login_at,omitempty"`
 
 	// Email verification fields
 	IsEmailVerified            bool       `gorm:"not null;default:false" json:"is_email_verified"`
