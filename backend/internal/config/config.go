@@ -30,6 +30,7 @@ type Config struct {
 	Payment  PaymentConfig
 	PKI      PKIConfig
 	GRPC     GRPCConfig
+	Admin    AdminConfig
 
 	// Public URLs for client-facing links
 	ServerURL   string // Public server URL (e.g., https://api.example.com)
@@ -160,6 +161,17 @@ type PKIConfig struct {
 // gRPC server starts automatically when PKI CA files are configured
 type GRPCConfig struct {
 	Address string // gRPC server listen address (default: :9090)
+}
+
+// AdminConfig holds admin console configuration
+type AdminConfig struct {
+	Enabled     bool   // Enable admin console
+	FrontendURL string // Admin console frontend URL
+}
+
+// IsEnabled returns true if admin console is enabled
+func (c AdminConfig) IsEnabled() bool {
+	return c.Enabled
 }
 
 // StorageConfig holds object storage configuration (S3-compatible)
@@ -399,6 +411,10 @@ func Load() (*Config, error) {
 		},
 		GRPC: GRPCConfig{
 			Address: getEnv("GRPC_ADDRESS", ":9090"),
+		},
+		Admin: AdminConfig{
+			Enabled:     getEnvBool("ADMIN_ENABLED", true),
+			FrontendURL: getEnv("ADMIN_FRONTEND_URL", "http://localhost/admin"),
 		},
 
 		// Public URLs

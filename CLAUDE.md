@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentsMesh is a multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of three main components:
+AgentsMesh is a multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of four main components:
 
 - **Backend**: Go API server (Gin + GORM)
 - **Web**: Next.js frontend (App Router + TypeScript + Tailwind CSS)
+- **Web-Admin**: Admin Console frontend (Next.js + Tailwind CSS) - internal management interface
 - **Runner**: Go daemon that executes AI agent tasks in isolated PTY environments
 
 ## Development Environment (Docker)
@@ -43,6 +44,7 @@ docker compose down -v           # Stop and remove volumes
 | Service | URL | Description |
 |---------|-----|-------------|
 | **App (Nginx)** | http://localhost | Unified entry point (proxies to web/backend) |
+| **Admin Console** | http://localhost/admin | Internal administration interface |
 | **Adminer** | http://localhost:8081 | Database management UI |
 | **MinIO Console** | http://localhost:9001 | S3-compatible storage UI |
 | PostgreSQL | localhost:5432 | Database (user: agentsmesh, pass: agentsmesh_dev) |
@@ -56,6 +58,7 @@ docker compose down -v           # Stop and remove volumes
 All services support hot reload - source code is mounted into containers:
 - **Backend**: Go code changes auto-rebuild via Air
 - **Web**: Next.js fast refresh
+- **Web-Admin**: Next.js fast refresh
 - **Runner**: Go code changes auto-rebuild
 
 ## Build Commands (for CI/testing outside Docker)
@@ -79,6 +82,16 @@ pnpm lint                        # ESLint
 pnpm test                        # Run tests (Vitest)
 pnpm test:run                    # Run tests once
 pnpm test:coverage               # Test coverage
+```
+
+### Web-Admin (Next.js)
+
+```bash
+cd web-admin
+pnpm install                     # Install dependencies
+pnpm build                       # Production build
+pnpm lint                        # ESLint
+pnpm dev                         # Start development server
 ```
 
 ### Runner (Go)
@@ -165,8 +178,9 @@ backend/
 ├── cmd/server/           # Entry point
 ├── internal/
 │   ├── api/rest/         # REST API handlers
+│   │   └── v1/admin/     # Admin API handlers
 │   ├── domain/           # Domain models (DDD style)
-│   │   ├── user/         # User entity
+│   │   ├── user/         # User entity (includes is_system_admin)
 │   │   ├── organization/ # Organization entity
 │   │   ├── agentpod/     # AgentPod entity
 │   │   ├── agent/        # Agent configuration entity
@@ -179,11 +193,13 @@ backend/
 │   │   ├── gitprovider/  # Git provider (OAuth) entity
 │   │   ├── repository/   # Repository entity
 │   │   ├── mesh/         # Mesh topology entity
-│   │   └── file/         # File storage entity
+│   │   ├── file/         # File storage entity
+│   │   └── admin/        # Admin audit log entity
 │   ├── service/          # Business logic layer
+│   │   └── admin/        # Admin service (dashboard, user/org management)
 │   ├── infra/            # Infrastructure (DB, cache)
-│   ├── config/           # Configuration loading
-│   └── middleware/       # Auth, tenant isolation
+│   ├── config/           # Configuration loading (includes AdminConfig)
+│   └── middleware/       # Auth, tenant isolation, AdminMiddleware
 ├── pkg/                  # Shared packages
 │   ├── auth/             # JWT and OAuth utilities
 │   ├── crypto/           # Encryption utilities
@@ -206,6 +222,28 @@ web/src/
 ├── hooks/                # Custom React hooks
 ├── messages/             # i18n translations (next-intl)
 └── providers/            # Context providers
+```
+
+## Web-Admin Structure (Admin Console)
+
+```
+web-admin/src/
+├── app/                  # Next.js App Router (basePath: /admin)
+│   ├── login/            # GitLab SSO login page
+│   ├── auth/callback/    # OAuth callback handler
+│   └── (dashboard)/      # Dashboard pages (protected)
+│       ├── users/        # User management
+│       ├── organizations/ # Organization management
+│       ├── runners/      # Runner management
+│       └── audit-logs/   # Audit log viewer
+├── components/
+│   ├── ui/               # Shadcn-style UI components
+│   └── layout/           # Sidebar, Header
+├── lib/
+│   ├── api/              # Admin API client
+│   └── utils.ts          # Utility functions
+└── stores/
+    └── auth.ts           # Zustand auth store (persist to localStorage)
 ```
 
 ## Runner Structure
@@ -267,3 +305,44 @@ runner/
 - Backend: Standard Go testing with `testify`
 - Web: Vitest + Testing Library
 - Runner: Go testing, files ending with `_integration_test.go` for integration tests
+
+## Admin Console
+
+The Admin Console (`web-admin`) is an internal management interface for system administrators.
+
+### Access Control
+
+- **Authentication**: Email + Password login (same as main app)
+- **Authorization**: `is_system_admin` flag on user record must be `true`
+- **Audit Logging**: All admin actions are logged to `system_admin_audit_logs` table
+
+### Features
+
+- **Dashboard**: System statistics (users, organizations, runners, pods)
+- **User Management**: View, disable/enable users, grant/revoke admin privileges
+- **Organization Management**: View, update, delete organizations
+- **Runner Management**: View, disable/enable, delete runners
+- **Audit Logs**: View all admin actions with filtering
+
+### Configuration
+
+Admin Console is enabled by default. Optional environment variables:
+
+```bash
+# Backend (.env)
+ADMIN_ENABLED=true                              # Enable admin console (default: true)
+ADMIN_FRONTEND_URL=http://localhost/admin       # Admin console frontend URL
+
+# Web-Admin (.env)
+NEXT_PUBLIC_API_URL=http://localhost            # Backend API URL
+```
+
+### Creating Admin Users
+
+To grant admin privileges to a user, set `is_system_admin = true` in the database:
+
+```sql
+UPDATE users SET is_system_admin = true WHERE email = 'admin@example.com';
+```
+
+Or use an existing admin to grant privileges via the Admin Console UI.

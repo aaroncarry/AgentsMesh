@@ -4,11 +4,13 @@
 --
 -- 此脚本创建开发环境所需的初始数据：
 -- 1. 测试用户（已激活，可直接登录）
--- 2. 组织和成员关系
--- 3. Runner 注册令牌和预注册的 Runner
--- 4. 示例 Ticket
+-- 2. 管理员用户（系统管理员，可访问 Admin Console）
+-- 3. 组织和成员关系
+-- 4. Runner 注册令牌和预注册的 Runner
+-- 5. 示例 Ticket
 --
--- 密码: devpass123 (bcrypt hash)
+-- 普通用户密码: devpass123 (bcrypt hash)
+-- 管理员密码: adminpass123 (bcrypt hash)
 -- Runner Token: dev-runner-token (用于 docker-compose 中的 runner 服务)
 -- =============================================================================
 
@@ -16,6 +18,7 @@
 DO $$
 DECLARE
     v_user_id BIGINT;
+    v_admin_id BIGINT;
     v_org_id BIGINT;
     v_token_id BIGINT;
     v_runner_id BIGINT;
@@ -39,6 +42,27 @@ BEGIN
     END IF;
 
     RAISE NOTICE 'User ID: %', v_user_id;
+
+    -- =========================================================================
+    -- 1.1 创建管理员用户
+    -- =========================================================================
+    -- 密码: adminpass123
+    -- bcrypt hash (cost=10)
+    -- 使用 is_system_admin = TRUE 标记为系统管理员
+
+    INSERT INTO users (email, username, name, password_hash, is_active, is_email_verified, is_system_admin)
+    SELECT 'admin@agentsmesh.local', 'admin', 'System Admin',
+           '$2a$10$Juf5W26ZmMZUuGNPs2D8beEO9SKY9T1PbeX5ASTNb7E/5wY6oabX6',
+           TRUE, TRUE, TRUE
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@agentsmesh.local')
+    RETURNING id INTO v_admin_id;
+
+    -- 如果管理员用户已存在，获取其 ID
+    IF v_admin_id IS NULL THEN
+        SELECT id INTO v_admin_id FROM users WHERE email = 'admin@agentsmesh.local';
+    END IF;
+
+    RAISE NOTICE 'Admin User ID: %', v_admin_id;
 
     -- =========================================================================
     -- 2. 创建组织
@@ -179,6 +203,7 @@ BEGIN
 
     RAISE NOTICE 'Seed data created successfully!';
     RAISE NOTICE '  - User: dev@agentsmesh.local / devpass123';
+    RAISE NOTICE '  - Admin: admin@agentsmesh.local / adminpass123';
     RAISE NOTICE '  - Organization: dev-org';
     RAISE NOTICE '  - Runner: dev-runner (node_id)';
 

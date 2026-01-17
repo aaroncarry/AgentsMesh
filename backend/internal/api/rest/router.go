@@ -4,11 +4,14 @@ import (
 	"log/slog"
 
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1"
+	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1/admin"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1/webhooks"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/ws"
 	"github.com/anthropics/agentsmesh/backend/internal/config"
+	"github.com/anthropics/agentsmesh/backend/internal/infra/database"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/email"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
+	adminservice "github.com/anthropics/agentsmesh/backend/internal/service/admin"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -184,6 +187,16 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			repositoryHandler := v1.NewRepositoryHandler(svc.Repository, svc.Billing)
 			podOrgScoped.GET("/repositories", repositoryHandler.ListRepositories)
 		}
+	}
+
+	// Admin Console routes
+	if cfg.Admin.IsEnabled() {
+		dbWrapper := database.NewGormWrapper(db)
+		adminSvc := adminservice.NewService(dbWrapper)
+		admin.RegisterRoutes(r, cfg, dbWrapper, &admin.Services{
+			Auth:  svc.Auth,
+			Admin: adminSvc,
+		})
 	}
 
 	return r
