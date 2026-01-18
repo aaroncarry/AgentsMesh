@@ -134,9 +134,10 @@ build-backend:
   tags:
     - amd64
     - docker
-  image: docker:latest
+  image: ${REGISTRY}/library/docker:latest
   services:
-    - docker:dind
+    - name: ${REGISTRY}/library/docker:dind
+      alias: docker
   script:
     # Build from project root to include proto/ directory
     - docker build --build-arg REGISTRY=${REGISTRY} -f ci/backend.Dockerfile -t ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${BACKEND_IMAGE}:latest .
@@ -156,9 +157,10 @@ build-web:
   tags:
     - amd64
     - docker
-  image: docker:latest
+  image: ${REGISTRY}/library/docker:latest
   services:
-    - docker:dind
+    - name: ${REGISTRY}/library/docker:dind
+      alias: docker
   script:
     - cd web
     - docker build --build-arg REGISTRY=${REGISTRY} -f ../ci/web.Dockerfile -t ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${WEB_IMAGE}:latest .
@@ -177,9 +179,10 @@ build-runner:
   tags:
     - amd64
     - docker
-  image: docker:latest
+  image: ${REGISTRY}/library/docker:latest
   services:
-    - docker:dind
+    - name: ${REGISTRY}/library/docker:dind
+      alias: docker
   script:
     # Build from project root to include proto/ directory
     - docker build --build-arg REGISTRY=${REGISTRY} -f ci/runner.Dockerfile -t ${RUNNER_IMAGE}:${CI_COMMIT_SHORT_SHA} -t ${RUNNER_IMAGE}:latest .
