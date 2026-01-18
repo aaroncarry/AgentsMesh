@@ -38,13 +38,23 @@ func NewFileHandler(fileService FileServiceInterface) *FileHandler {
 // POST /api/v1/orgs/:slug/files/upload
 func (h *FileHandler) UploadFile(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
+	slog.Info("File upload request received",
+		"org_id", tenant.OrganizationID,
+		"user_id", tenant.UserID,
+	)
 
 	// Get file from multipart form
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
+		slog.Warn("File upload failed: no file provided", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
 		return
 	}
+	slog.Info("File received",
+		"filename", fileHeader.Filename,
+		"size", fileHeader.Size,
+		"content_type", fileHeader.Header.Get("Content-Type"),
+	)
 
 	// Open the file
 	file, err := fileHeader.Open()
