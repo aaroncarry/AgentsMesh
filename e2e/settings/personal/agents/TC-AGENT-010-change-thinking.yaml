@@ -1,0 +1,56 @@
+id: TC-AGENT-010
+name: 设置思考级别
+description: 验证设置思考级别（默认/思考/深度思考）
+priority: medium
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 验证思考级别下拉框存在
+    verification:
+      type: ui
+      check:
+        - exists: 'combobox "思考级别"'
+        - exists: 'text "用于复杂推理的扩展思考能力"'
+
+  - action: 点击思考级别下拉框
+    selector: 'combobox "思考级别"'
+    expected: 显示思考级别选项
+    verification:
+      type: ui
+      check:
+        - exists: 'option "默认"'
+        - exists: 'option "思考"'
+        - exists: 'option "深度思考"'
+
+  - action: 选择思考
+    selector: 'option "思考"'
+    expected: 思考级别切换为思考
+    verification:
+      type: ui
+      check:
+        - 'combobox "思考级别"' value is "思考"
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 配置保存成功
+
+  - action: 选择深度思考
+    selector: 'option "深度思考"'
+    expected: 思考级别切换为深度思考
+    verification:
+      type: ui
+      check:
+        - 'combobox "思考级别"' value is "深度思考"
+
+cleanup:
+  - action: 恢复为默认
+    steps:
+      - 选择 "默认"
+      - 点击保存更改

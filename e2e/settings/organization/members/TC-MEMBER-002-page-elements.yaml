@@ -1,0 +1,33 @@
+id: TC-MEMBER-002
+name: 成员管理页面元素验证
+description: 验证成员管理页面显示正确的元素
+priority: high
+module: settings/organization/members
+
+preconditions:
+  - 用户已登录
+  - 用户有组织管理权限
+
+steps:
+  - action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "成员"'
+        - exists: 'text "管理组织的访问权限"'
+
+  - action: 验证邀请成员按钮
+    verification:
+      type: ui
+      check:
+        - exists: 'button "邀请成员"'
+
+  - action: 验证成员列表
+    verification:
+      type: ui
+      check:
+        - exists: member row with role selector
+        - exists: 'combobox' with options "成员" "管理员"
+        - exists: 'button "移除"'

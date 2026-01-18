@@ -1,0 +1,94 @@
+id: TC-MEMBER-007
+name: 接受邀请加入组织
+description: 验证受邀用户通过邀请链接加入组织
+priority: high
+module: settings/organization/members
+type: scenario
+
+preconditions:
+  - 开发环境已启动
+  - 存在待处理的邀请
+
+setup:
+  - action: 创建测试用户和邀请
+    sql: |
+      -- 创建被邀请的用户
+      INSERT INTO users (email, username, password_hash, name, is_email_verified)
+      VALUES ('invitee@test.local', 'inviteeuser', '$2a$10$jsdntE/5H3DCPYVPZq10o.CJr1WKL4Nxei/jQcLwIfobSjwFuoo/S', 'Invitee User', true)
+      ON CONFLICT (email) DO UPDATE SET is_email_verified = true;
+
+      -- 创建邀请记录
+      INSERT INTO organization_invitations (organization_id, email, role, token, status, expires_at)
+      SELECT o.id, 'invitee@test.local', 'member', 'test-invite-token-12345', 'pending', NOW() + INTERVAL '7 days'
+      FROM organizations o
+      WHERE o.slug = 'dev-org'
+      ON CONFLICT DO NOTHING;
+
+steps:
+  - id: step-1
+    action: 被邀请用户登录
+    verification:
+      type: api
+      request:
+        method: POST
+        url: /api/v1/auth/login
+        headers:
+          Content-Type: application/json
+        body:
+          email: invitee@test.local
+          password: password123
+      expected:
+        status: 200
+        body:
+          token: not_empty
+      save:
+        invitee_token: body.token
+
+  - id: step-2
+    action: 访问邀请接受链接
+    url: /invite/accept?token=test-invite-token-12345
+    expected: 显示邀请接受页面
+    verification:
+      type: ui
+      check:
+        - exists: 'text contains "邀请"' or 'text contains "加入"'
+        - exists: 'text "dev-org"' or organization name
+        - exists: 'button "接受"' or 'button "加入"'
+
+  - id: step-3
+    action: 点击接受邀请
+    selector: 'button "接受"' or 'button "加入"'
+    expected: 加入组织成功
+    verification:
+      type: ui
+      check:
+        - exists: 'text contains "成功"' or redirected to workspace
+
+  - id: step-4
+    action: 验证用户已加入组织
+    verification:
+      type: database
+      query: |
+        SELECT COUNT(*) as count FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE u.email = 'invitee@test.local'
+        AND om.organization_id = (SELECT id FROM organizations WHERE slug = 'dev-org')
+      expected:
+        count: 1
+
+  - id: step-5
+    action: 验证邀请状态已更新
+    verification:
+      type: database
+      query: |
+        SELECT status FROM organization_invitations
+        WHERE token = 'test-invite-token-12345'
+      expected:
+        status: accepted
+
+cleanup:
+  - sql: |
+      DELETE FROM organization_members
+      WHERE user_id = (SELECT id FROM users WHERE email = 'invitee@test.local');
+      DELETE FROM organization_invitations WHERE token = 'test-invite-token-12345';
+      DELETE FROM users WHERE email = 'invitee@test.local';

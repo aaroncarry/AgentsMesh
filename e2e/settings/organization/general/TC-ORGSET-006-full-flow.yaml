@@ -1,0 +1,95 @@
+id: TC-ORGSET-006
+name: 组织设置完整流程
+description: |
+  组织常规设置完整场景测试：
+  1. 导航到组织设置
+  2. 验证页面元素
+  3. 修改组织名称
+  4. 保存并验证
+  5. 验证侧边栏组织名称更新
+  6. 恢复原始名称
+priority: high
+module: settings/organization/general
+type: scenario
+
+preconditions:
+  - 用户已登录
+  - 用户有组织管理权限
+
+steps:
+  - id: step-1
+    action: 导航到组织常规设置
+    url: /dev-org/settings?scope=organization&tab=general
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "组织详情"'
+        - exists: 'button "组织"' # 侧边栏组织 tab 已选中
+
+  - id: step-2
+    action: 验证当前组织名称
+    verification:
+      type: ui
+      save:
+        original_name: 'textbox "组织名称"' value
+      check:
+        - 'textbox "组织名称"' value is not_empty
+
+  - id: step-3
+    action: 验证组织标识为禁用
+    verification:
+      type: ui
+      check:
+        - exists: 'textbox disabled value="dev-org"'
+        - exists: 'text "创建后不可更改"'
+
+  - id: step-4
+    action: 修改组织名称
+    steps:
+      - 清空组织名称输入框
+      - 输入 "E2E Scenario Test Org"
+    expected: 输入框值已更新
+
+  - id: step-5
+    action: 保存更改
+    steps:
+      - 点击 "保存更改" 按钮
+    expected: 显示保存成功
+    verification:
+      type: ui
+      check:
+        - exists: 'text contains "成功"' or toast
+
+  - id: step-6
+    action: 验证侧边栏组织名称更新
+    verification:
+      type: ui
+      check:
+        - exists: 'text "E2E Scenario Test Org"' in sidebar
+        - exists: 'StaticText "当前组织"'
+
+  - id: step-7
+    action: 刷新页面验证持久化
+    refresh: true
+    verification:
+      type: ui
+      check:
+        - 'textbox "组织名称"' value is "E2E Scenario Test Org"
+
+  - id: step-8
+    action: 恢复原始组织名称
+    steps:
+      - 清空组织名称输入框
+      - 输入 "{original_name}"
+      - 点击 "保存更改"
+    expected: 组织名称已恢复
+    verification:
+      type: ui
+      check:
+        - 'textbox "组织名称"' value is "{original_name}"
+
+cleanup:
+  - sql: |
+      UPDATE organizations SET name = 'Dev Organization'
+      WHERE slug = 'dev-org';

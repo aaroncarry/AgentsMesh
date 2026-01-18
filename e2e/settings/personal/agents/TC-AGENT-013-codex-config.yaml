@@ -1,0 +1,47 @@
+id: TC-AGENT-013
+name: OpenAI Codex 配置验证
+description: 验证 OpenAI Codex 配置页面元素和功能
+priority: medium
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 OpenAI Codex 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/openai-codex
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "OpenAI Codex"'
+        - exists: 'heading "API 凭据"'
+
+  - action: 验证 RunnerHost 默认模式
+    verification:
+      type: ui
+      check:
+        - exists: 'text "RunnerHost"'
+        - exists: 'text "默认"'
+        - exists: 'button "添加自定义凭据"'
+
+  - action: 验证运行时配置选项
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "运行时配置"'
+        - exists: 'combobox "模型"'
+        - exists: 'button "保存更改"'
+
+  - action: 点击添加自定义凭据
+    selector: 'button "添加自定义凭据"'
+    expected: 显示凭据表单
+    verification:
+      type: ui
+      check:
+        - exists: 'textbox "配置名称"'
+        - exists: 'textbox "API 密钥"'
+
+  - action: 取消添加
+    selector: 'button "取消"'
+    expected: 关闭对话框

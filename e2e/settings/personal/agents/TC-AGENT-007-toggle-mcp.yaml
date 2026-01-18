@@ -1,0 +1,46 @@
+id: TC-AGENT-007
+name: 切换 MCP 集成开关
+description: 验证启用/禁用 MCP 集成功能
+priority: medium
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 验证 MCP 集成复选框存在
+    verification:
+      type: ui
+      check:
+        - exists: 'checkbox "启用 MCP 集成"'
+        - exists: 'text "允许 Agent 通过 MCP 协议与 AgentsMesh 平台通信"'
+
+  - action: 获取当前 MCP 状态
+    verification:
+      type: ui
+      save:
+        mcp_checked: 'checkbox "启用 MCP 集成" checked'
+
+  - action: 切换 MCP 集成状态
+    selector: 'checkbox "启用 MCP 集成"'
+    expected: 复选框状态改变
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 配置保存成功
+
+  - action: 刷新页面验证持久化
+    refresh: true
+    verification:
+      type: ui
+      check:
+        - 'checkbox "启用 MCP 集成"' 状态与切换后一致
+
+cleanup:
+  - action: 恢复原始 MCP 状态
+    steps:
+      - 如果状态改变，再次切换并保存

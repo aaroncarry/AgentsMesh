@@ -1,0 +1,146 @@
+id: TC-MEMBER-008
+name: 成员管理完整流程
+description: |
+  成员管理完整场景测试：
+  1. 导航到成员管理页面
+  2. 邀请新成员
+  3. 模拟受邀用户接受邀请
+  4. 验证新成员出现在列表
+  5. 更改成员角色
+  6. 移除成员
+  7. 验证成员已从列表消失
+priority: high
+module: settings/organization/members
+type: scenario
+
+preconditions:
+  - 用户已登录
+  - 用户是组织管理员或 Owner
+
+setup:
+  - action: 创建被邀请的测试用户
+    sql: |
+      INSERT INTO users (email, username, password_hash, name, is_email_verified)
+      VALUES ('fullflow-member@test.local', 'fullflowmember', '$2a$10$jsdntE/5H3DCPYVPZq10o.CJr1WKL4Nxei/jQcLwIfobSjwFuoo/S', 'Full Flow Member', true)
+      ON CONFLICT (email) DO UPDATE SET is_email_verified = true;
+
+steps:
+  - id: step-1
+    action: 管理员登录
+    verification:
+      type: api
+      request:
+        method: POST
+        url: /api/v1/auth/login
+        headers:
+          Content-Type: application/json
+        body:
+          email: dev@agentsmesh.local
+          password: devpass123
+      expected:
+        status: 200
+      save:
+        admin_token: body.token
+
+  - id: step-2
+    action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "成员"'
+        - exists: 'button "邀请成员"'
+
+  - id: step-3
+    action: 发送邀请
+    steps:
+      - 点击 "邀请成员" 按钮
+      - 输入邮箱: fullflow-member@test.local
+      - 选择角色: 成员
+      - 点击 "发送邀请"
+    expected: 邀请发送成功
+    verification:
+      type: ui
+      check:
+        - exists: 'text contains "成功"' or toast
+
+  - id: step-4
+    action: 获取邀请 token
+    verification:
+      type: database
+      query: |
+        SELECT token FROM organization_invitations
+        WHERE email = 'fullflow-member@test.local'
+        AND organization_id = (SELECT id FROM organizations WHERE slug = 'dev-org')
+        ORDER BY created_at DESC LIMIT 1
+      save:
+        invite_token: token
+
+  - id: step-5
+    action: 模拟用户接受邀请（API 方式）
+    verification:
+      type: api
+      request:
+        method: POST
+        url: /api/v1/invitations/{invite_token}/accept
+        headers:
+          Content-Type: application/json
+        body:
+          email: fullflow-member@test.local
+          password: password123
+      expected:
+        status: 200
+
+  - id: step-6
+    action: 刷新成员列表
+    refresh: true
+    expected: 新成员出现在列表
+    verification:
+      type: ui
+      check:
+        - exists: 'text "Full Flow Member"' or 'text "fullflow-member@test.local"'
+
+  - id: step-7
+    action: 更改成员角色为管理员
+    steps:
+      - 找到 "Full Flow Member" 的角色选择器
+      - 选择 "管理员"
+    expected: 角色更改成功
+    verification:
+      type: database
+      query: |
+        SELECT role FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE u.email = 'fullflow-member@test.local'
+      expected:
+        role: admin
+
+  - id: step-8
+    action: 移除成员
+    steps:
+      - 点击 "Full Flow Member" 行的 "移除" 按钮
+      - 确认移除
+    expected: 成员被移除
+    verification:
+      type: ui
+      check:
+        - not_exists: 'text "Full Flow Member"'
+
+  - id: step-9
+    action: 验证数据库已清理
+    verification:
+      type: database
+      query: |
+        SELECT COUNT(*) as count FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE u.email = 'fullflow-member@test.local'
+      expected:
+        count: 0
+
+cleanup:
+  - sql: |
+      DELETE FROM organization_members
+      WHERE user_id = (SELECT id FROM users WHERE email = 'fullflow-member@test.local');
+      DELETE FROM organization_invitations WHERE email = 'fullflow-member@test.local';
+      DELETE FROM users WHERE email = 'fullflow-member@test.local';

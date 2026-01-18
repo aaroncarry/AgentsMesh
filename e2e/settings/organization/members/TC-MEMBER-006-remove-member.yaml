@@ -1,0 +1,71 @@
+id: TC-MEMBER-006
+name: 移除成员
+description: 验证从组织中移除成员
+priority: medium
+module: settings/organization/members
+
+preconditions:
+  - 用户已登录
+  - 用户是组织管理员或 Owner
+  - 组织中存在可移除的成员
+
+setup:
+  - action: 创建测试成员
+    sql: |
+      -- 创建测试用户
+      INSERT INTO users (email, username, password_hash, name, is_email_verified)
+      VALUES ('remove-test@test.local', 'removetest', '$2a$10$jsdntE/5H3DCPYVPZq10o.CJr1WKL4Nxei/jQcLwIfobSjwFuoo/S', 'Remove Test User', true)
+      ON CONFLICT (email) DO NOTHING;
+
+      -- 添加为组织成员
+      INSERT INTO organization_members (organization_id, user_id, role)
+      SELECT o.id, u.id, 'member'
+      FROM organizations o, users u
+      WHERE o.slug = 'dev-org' AND u.email = 'remove-test@test.local'
+      ON CONFLICT DO NOTHING;
+
+steps:
+  - action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+
+  - action: 找到测试成员
+    verification:
+      type: ui
+      check:
+        - exists: member row for "Remove Test User"
+        - exists: 'button "移除"' for this member
+
+  - action: 点击移除按钮
+    selector: 'button "移除"' for "Remove Test User"
+    expected: 显示确认对话框
+    verification:
+      type: ui
+      check:
+        - exists: 'dialog' or confirm popup
+        - exists: 'text contains "确定"' or 'text contains "移除"'
+
+  - action: 确认移除
+    selector: confirm button
+    expected: 成员被移除
+    verification:
+      type: ui
+      check:
+        - not_exists: member row for "Remove Test User"
+
+  - action: 验证数据库已更新
+    verification:
+      type: database
+      query: |
+        SELECT COUNT(*) as count FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE u.email = 'remove-test@test.local'
+        AND om.organization_id = (SELECT id FROM organizations WHERE slug = 'dev-org')
+      expected:
+        count: 0
+
+cleanup:
+  - sql: |
+      DELETE FROM organization_members
+      WHERE user_id = (SELECT id FROM users WHERE email = 'remove-test@test.local');
+      DELETE FROM users WHERE email = 'remove-test@test.local';

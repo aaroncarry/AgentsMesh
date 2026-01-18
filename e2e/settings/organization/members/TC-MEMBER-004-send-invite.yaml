@@ -1,0 +1,52 @@
+id: TC-MEMBER-004
+name: 发送成员邀请
+description: 验证填写邮箱后成功发送邀请
+priority: high
+module: settings/organization/members
+
+preconditions:
+  - 用户已登录
+  - 用户有邀请成员权限
+
+steps:
+  - action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+
+  - action: 点击邀请成员按钮
+    selector: 'button "邀请成员"'
+    expected: 显示邀请对话框
+
+  - action: 填写邀请邮箱
+    selector: 'textbox' for email
+    value: invite-test@example.com
+    expected: 邮箱已输入
+
+  - action: 选择角色为成员
+    selector: 'combobox "角色"'
+    value: 成员
+    expected: 角色已选择
+
+  - action: 点击发送邀请
+    selector: 'button "发送邀请"' or 'button "邀请"'
+    expected: 邀请发送成功
+    verification:
+      type: ui
+      check:
+        - exists: 'toast "邀请已发送"' or 'text contains "成功"'
+
+  - action: 验证邀请记录
+    verification:
+      type: database
+      query: |
+        SELECT email, status FROM organization_invitations
+        WHERE email = 'invite-test@example.com'
+        AND organization_id = (SELECT id FROM organizations WHERE slug = 'dev-org')
+      expected:
+        email: invite-test@example.com
+        status: pending
+
+cleanup:
+  - sql: |
+      DELETE FROM organization_invitations
+      WHERE email = 'invite-test@example.com';

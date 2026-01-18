@@ -1,0 +1,45 @@
+id: TC-ORGSET-001
+name: 获取组织详情 API
+description: 验证获取组织详情 API 返回正确数据
+priority: high
+module: settings/organization/general
+
+preconditions:
+  - 开发环境已启动
+  - 已获取有效的 access_token
+
+steps:
+  - action: 登录获取 token
+    expected: 返回 200，获取 token
+    verification:
+      type: api
+      request:
+        method: POST
+        url: /api/v1/auth/login
+        headers:
+          Content-Type: application/json
+        body:
+          email: dev@agentsmesh.local
+          password: devpass123
+      expected:
+        status: 200
+        body:
+          token: not_empty
+      save:
+        access_token: body.token
+
+  - action: 获取组织详情
+    expected: 返回 200，包含组织信息
+    verification:
+      type: api
+      request:
+        method: GET
+        url: /api/v1/orgs/dev-org
+        headers:
+          Authorization: Bearer {access_token}
+      expected:
+        status: 200
+        body:
+          organization:
+            slug: dev-org
+            name: not_empty

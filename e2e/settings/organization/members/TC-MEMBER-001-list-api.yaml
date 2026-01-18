@@ -1,0 +1,46 @@
+id: TC-MEMBER-001
+name: 列出组织成员 API
+description: 验证获取组织成员列表 API 返回正确数据
+priority: high
+module: settings/organization/members
+
+preconditions:
+  - 开发环境已启动
+  - 已获取有效的 access_token
+
+steps:
+  - action: 登录获取 token
+    expected: 返回 200，获取 token
+    verification:
+      type: api
+      request:
+        method: POST
+        url: /api/v1/auth/login
+        headers:
+          Content-Type: application/json
+        body:
+          email: dev@agentsmesh.local
+          password: devpass123
+      expected:
+        status: 200
+        body:
+          token: not_empty
+      save:
+        access_token: body.token
+
+  - action: 获取组织成员列表
+    expected: 返回 200，包含成员数组
+    verification:
+      type: api
+      request:
+        method: GET
+        url: /api/v1/orgs/dev-org/members
+        headers:
+          Authorization: Bearer {access_token}
+      expected:
+        status: 200
+        body:
+          members: is_array
+          members[0]:
+            user_id: not_empty
+            role: one_of [owner, admin, member]

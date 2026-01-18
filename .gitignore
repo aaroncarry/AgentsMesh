@@ -58,6 +58,8 @@ backend/server
 runner/bin/
 runner/tmp/
 runner/*.out
+runner/runner
+runner/coverage.html
 
 # =========================
 # Docker

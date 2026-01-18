@@ -1,0 +1,52 @@
+id: TC-AGENT-004
+name: 设置凭据为默认
+description: 验证将自定义凭据设置为默认凭据
+priority: high
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+  - 已存在自定义凭据
+
+setup:
+  - action: 创建测试凭据
+    api:
+      method: POST
+      url: /api/v1/users/agent-credentials/types/claude-code
+      body:
+        name: Default Test Credential
+        api_key: sk-ant-test-default-key
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 验证 RunnerHost 当前为默认
+    verification:
+      type: ui
+      check:
+        - exists: 'text "RunnerHost"'
+        - exists: 'text "默认"'
+
+  - action: 点击设为默认按钮
+    selector: 'button "设为默认"'
+    expected: 显示成功提示
+    verification:
+      type: ui
+      check:
+        - exists: 'text "默认配置设置成功"'
+
+  - action: 验证凭据变为默认
+    verification:
+      type: ui
+      check:
+        - exists: 'text "Default Test Credential"'
+        - near:
+            element: 'text "Default Test Credential"'
+            check: 'text "默认"'
+
+cleanup:
+  - sql: |
+      DELETE FROM user_agent_credential_profiles
+      WHERE name = 'Default Test Credential';

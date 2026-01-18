@@ -1,0 +1,48 @@
+id: TC-ORGSET-003
+name: 更新组织名称
+description: 验证修改组织名称后保存成功
+priority: high
+module: settings/organization/general
+
+preconditions:
+  - 用户已登录
+  - 用户有组织管理权限
+
+steps:
+  - action: 导航到组织常规设置页面
+    url: /dev-org/settings?scope=organization&tab=general
+    expected: 页面加载成功
+
+  - action: 记录当前组织名称
+    verification:
+      type: ui
+      save:
+        original_name: 'textbox "组织名称"' value
+
+  - action: 修改组织名称
+    selector: 'textbox "组织名称"'
+    clear: true
+    value: E2E Test Organization Name
+    expected: 输入框值已更新
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 显示保存成功提示
+    verification:
+      type: ui
+      check:
+        - exists: 'toast "保存成功"' or 'text contains "成功"'
+
+  - action: 刷新页面验证持久化
+    refresh: true
+    verification:
+      type: ui
+      check:
+        - 'textbox "组织名称"' value is "E2E Test Organization Name"
+
+cleanup:
+  - action: 恢复原始组织名称
+    steps:
+      - 清空组织名称输入框
+      - 输入原始名称 "{original_name}"
+      - 点击保存更改

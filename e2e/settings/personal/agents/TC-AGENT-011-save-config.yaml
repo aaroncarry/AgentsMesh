@@ -1,0 +1,57 @@
+id: TC-AGENT-011
+name: 保存运行时配置
+description: 验证保存运行时配置并持久化
+priority: high
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 记录当前配置状态
+    verification:
+      type: ui
+      save:
+        original_model: 'combobox "模型"' value
+        original_perm: 'combobox "权限模式"' value
+        original_thinking: 'combobox "思考级别"' value
+
+  - action: 修改模型为 Opus
+    selector: 'combobox "模型"'
+    value: Claude Opus (最强大)
+
+  - action: 修改权限模式为计划模式
+    selector: 'combobox "权限模式"'
+    value: 计划模式 (推荐)
+
+  - action: 修改思考级别为深度思考
+    selector: 'combobox "思考级别"'
+    value: 深度思考
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 显示保存成功提示
+
+  - action: 刷新页面
+    refresh: true
+    expected: 页面重新加载
+
+  - action: 验证配置已持久化
+    verification:
+      type: ui
+      check:
+        - 'combobox "模型"' value contains "Opus"
+        - 'combobox "权限模式"' value contains "计划模式"
+        - 'combobox "思考级别"' value is "深度思考"
+
+cleanup:
+  - action: 恢复原始配置
+    steps:
+      - 恢复模型为 Sonnet
+      - 恢复权限模式为默认
+      - 恢复思考级别为默认
+      - 点击保存更改

@@ -1,0 +1,33 @@
+id: TC-LANG-001
+name: 语言设置页面元素验证
+description: 验证语言设置页面显示正确的元素和8种语言选项
+priority: medium
+module: settings/personal/general
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到个人常规设置页面
+    url: /dev-org/settings?scope=personal&tab=general
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "语言"'
+        - exists: 'text "选择界面显示语言"'
+        - exists: 'combobox'
+
+  - action: 验证语言下拉框选项
+    expected: 显示8种语言选项
+    verification:
+      type: ui
+      check:
+        - exists: 'option "English"'
+        - exists: 'option "简体中文"'
+        - exists: 'option "日本語"'
+        - exists: 'option "한국어"'
+        - exists: 'option "Español"'
+        - exists: 'option "Français"'
+        - exists: 'option "Deutsch"'
+        - exists: 'option "Português"'

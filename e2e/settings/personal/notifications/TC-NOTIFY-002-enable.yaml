@@ -1,0 +1,37 @@
+id: TC-NOTIFY-002
+name: 启用推送通知
+description: 验证点击启用按钮后推送通知被启用
+priority: medium
+module: settings/personal/notifications
+
+preconditions:
+  - 用户已登录
+  - 推送通知当前为禁用状态
+
+steps:
+  - action: 导航到通知设置页面
+    url: /dev-org/settings?scope=personal&tab=notifications
+    expected: 页面加载成功
+
+  - action: 验证当前状态为禁用
+    verification:
+      type: ui
+      check:
+        - exists: 'button "启用"'
+
+  - action: 点击启用按钮
+    selector: 'button "启用"'
+    expected: 推送通知被启用
+    verification:
+      type: ui
+      check:
+        - exists: 'button "禁用"' or notification_enabled
+
+  - action: 处理浏览器通知权限请求
+    expected: 如果浏览器请求权限，允许通知
+    notes: |
+      浏览器可能会弹出通知权限请求对话框，
+      测试时需要处理此情况
+
+cleanup:
+  - action: 恢复为禁用状态（如果需要）

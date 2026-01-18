@@ -1,0 +1,43 @@
+id: TC-AGENT-001
+name: 智能体配置页面导航
+description: 验证智能体配置菜单显示5个 Agent 类型子菜单
+priority: high
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到设置页面
+    url: /dev-org/settings?scope=personal&tab=git
+    expected: 页面加载成功
+
+  - action: 点击智能体配置菜单
+    selector: 'button "智能体配置"'
+    expected: 展开子菜单
+    verification:
+      type: ui
+      check:
+        - exists: 'button "Gemini CLI"'
+        - exists: 'button "OpenAI Codex"'
+        - exists: 'button "Aider"'
+        - exists: 'button "OpenCode"'
+        - exists: 'button "Claude Code"'
+
+  - action: 点击 Claude Code
+    selector: 'button "Claude Code"'
+    expected: 导航到 Claude Code 配置页面
+    verification:
+      type: ui
+      url_contains: tab=agents/claude-code
+      check:
+        - exists: 'heading "Claude Code"'
+
+  - action: 点击 Gemini CLI
+    selector: 'button "Gemini CLI"'
+    expected: 导航到 Gemini CLI 配置页面
+    verification:
+      type: ui
+      url_contains: tab=agents/gemini-cli
+      check:
+        - exists: 'heading "Gemini CLI"'

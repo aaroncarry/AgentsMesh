@@ -1,0 +1,43 @@
+id: TC-MEMBER-003
+name: 邀请成员对话框
+description: 验证点击邀请成员按钮后显示邀请表单
+priority: high
+module: settings/organization/members
+
+preconditions:
+  - 用户已登录
+  - 用户有邀请成员权限
+
+steps:
+  - action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+
+  - action: 点击邀请成员按钮
+    selector: 'button "邀请成员"'
+    expected: 显示邀请对话框
+    verification:
+      type: ui
+      check:
+        - exists: 'dialog' or 'heading "邀请成员"'
+        - exists: 'textbox' for email input
+        - exists: 'combobox "角色"' or role selector
+        - exists: 'button "发送邀请"' or 'button "邀请"'
+        - exists: 'button "取消"'
+
+  - action: 验证角色选项
+    selector: 'combobox "角色"'
+    expected: 显示角色选项
+    verification:
+      type: ui
+      check:
+        - exists: 'option "成员"'
+        - exists: 'option "管理员"'
+
+  - action: 取消邀请
+    selector: 'button "取消"'
+    expected: 对话框关闭
+    verification:
+      type: ui
+      check:
+        - not_exists: 'dialog "邀请成员"'

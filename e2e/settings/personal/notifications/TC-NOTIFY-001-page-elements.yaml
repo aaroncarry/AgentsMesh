@@ -1,0 +1,29 @@
+id: TC-NOTIFY-001
+name: 通知设置页面元素验证
+description: 验证通知设置页面显示正确的元素
+priority: medium
+module: settings/personal/notifications
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到通知设置页面
+    url: /dev-org/settings?scope=personal&tab=notifications
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "推送通知"'
+        - exists: 'text "配置重要事件的推送通知"'
+        - exists: 'text "Pod 状态变化"'
+        - exists: 'text "Ticket 分配"'
+        - exists: 'text "Runner 警报"'
+
+  - action: 验证推送通知开关存在
+    verification:
+      type: ui
+      check:
+        - exists: 'text "推送通知"'
+        - exists: 'text "启用以接收 Pod、Ticket 等的通知"'
+        - exists: 'button "启用"' or 'button "禁用"'

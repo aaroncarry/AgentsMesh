@@ -1,0 +1,67 @@
+id: TC-MEMBER-005
+name: 更改成员角色
+description: 验证更改成员角色（成员↔管理员）
+priority: high
+module: settings/organization/members
+
+preconditions:
+  - 用户已登录
+  - 用户是组织管理员或 Owner
+  - 组织中存在其他成员
+
+setup:
+  - action: 创建测试成员
+    sql: |
+      -- 创建测试用户（如不存在）
+      INSERT INTO users (email, username, password_hash, name, is_email_verified)
+      VALUES ('role-test@test.local', 'roletest', '$2a$10$jsdntE/5H3DCPYVPZq10o.CJr1WKL4Nxei/jQcLwIfobSjwFuoo/S', 'Role Test User', true)
+      ON CONFLICT (email) DO NOTHING;
+
+      -- 添加为组织成员
+      INSERT INTO organization_members (organization_id, user_id, role)
+      SELECT o.id, u.id, 'member'
+      FROM organizations o, users u
+      WHERE o.slug = 'dev-org' AND u.email = 'role-test@test.local'
+      ON CONFLICT DO NOTHING;
+
+steps:
+  - action: 导航到成员管理页面
+    url: /dev-org/settings?scope=organization&tab=members
+    expected: 页面加载成功
+
+  - action: 找到测试成员的角色选择器
+    verification:
+      type: ui
+      check:
+        - exists: member row for "Role Test User"
+        - exists: 'combobox' with value "成员"
+
+  - action: 将成员角色改为管理员
+    selector: 'combobox' for "Role Test User"
+    value: 管理员
+    expected: 角色更改成功
+    verification:
+      type: ui
+      check:
+        - 'combobox' value is "管理员"
+
+  - action: 验证数据库已更新
+    verification:
+      type: database
+      query: |
+        SELECT role FROM organization_members om
+        JOIN users u ON om.user_id = u.id
+        WHERE u.email = 'role-test@test.local'
+      expected:
+        role: admin
+
+  - action: 将角色改回成员
+    selector: 'combobox' for "Role Test User"
+    value: 成员
+    expected: 角色已恢复
+
+cleanup:
+  - sql: |
+      DELETE FROM organization_members
+      WHERE user_id = (SELECT id FROM users WHERE email = 'role-test@test.local');
+      DELETE FROM users WHERE email = 'role-test@test.local';

@@ -1,0 +1,47 @@
+id: TC-ORGSET-002
+name: 组织设置页面元素验证
+description: 验证组织常规设置页面显示正确的元素
+priority: high
+module: settings/organization/general
+
+preconditions:
+  - 用户已登录
+  - 用户有组织管理权限
+
+steps:
+  - action: 导航到组织常规设置页面
+    url: /dev-org/settings?scope=organization&tab=general
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "组织详情"'
+
+  - action: 验证组织名称输入框
+    verification:
+      type: ui
+      check:
+        - exists: 'text "组织名称"'
+        - exists: 'textbox' with value not_empty
+
+  - action: 验证组织标识输入框（禁用状态）
+    verification:
+      type: ui
+      check:
+        - exists: 'text "组织标识"'
+        - exists: 'textbox disabled' with value "dev-org"
+        - exists: 'text "创建后不可更改"'
+
+  - action: 验证保存按钮
+    verification:
+      type: ui
+      check:
+        - exists: 'button "保存更改"'
+
+  - action: 验证危险区域
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "危险区域"'
+        - exists: 'text "删除组织后将无法恢复"'
+        - exists: 'button "删除组织"'

@@ -1,0 +1,121 @@
+id: TC-AGENT-015
+name: 智能体配置完整流程
+description: |
+  完整的智能体配置场景测试：
+  1. 导航到智能体配置
+  2. 创建自定义凭据
+  3. 设置为默认
+  4. 配置运行时参数
+  5. 保存并验证持久化
+  6. 清理（删除凭据）
+priority: high
+module: settings/personal/agents
+type: scenario
+
+preconditions:
+  - 用户已登录
+  - 无 Claude Code 自定义凭据
+
+steps:
+  - id: step-1
+    action: 导航到智能体配置菜单
+    url: /dev-org/settings?scope=personal&tab=git
+    expected: 页面加载成功
+
+  - id: step-2
+    action: 展开智能体配置并选择 Claude Code
+    steps:
+      - 点击 "智能体配置" 按钮
+      - 点击 "Claude Code" 按钮
+    expected: 进入 Claude Code 配置页面
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "Claude Code"'
+        - exists: 'text "RunnerHost"'
+        - exists: 'text "默认"'
+
+  - id: step-3
+    action: 创建自定义 API 凭据
+    steps:
+      - 点击 "添加自定义凭据"
+      - 填写配置名称: "E2E Full Flow Credential"
+      - 填写描述: "Created by E2E test"
+      - 填写 API 密钥: "sk-ant-e2e-full-flow-key"
+      - 点击 "创建"
+    expected: 凭据创建成功
+    verification:
+      type: ui
+      check:
+        - exists: 'text "配置创建成功"'
+        - exists: 'text "E2E Full Flow Credential"'
+
+  - id: step-4
+    action: 将新凭据设为默认
+    steps:
+      - 点击 "设为默认" 按钮
+    expected: 默认凭据已更新
+    verification:
+      type: ui
+      check:
+        - exists: 'text "默认配置设置成功"'
+        - near:
+            element: 'text "E2E Full Flow Credential"'
+            check: 'text "默认"'
+
+  - id: step-5
+    action: 配置运行时参数
+    steps:
+      - 取消勾选 "启用 MCP 集成"（如已勾选）
+      - 选择模型: "Claude Opus (最强大)"
+      - 选择权限模式: "计划模式 (推荐)"
+      - 选择思考级别: "深度思考"
+    expected: 所有选项已修改
+
+  - id: step-6
+    action: 保存运行时配置
+    steps:
+      - 点击 "保存更改"
+    expected: 配置保存成功
+
+  - id: step-7
+    action: 刷新页面验证持久化
+    refresh: true
+    expected: 配置已持久化
+    verification:
+      type: ui
+      check:
+        - exists: 'text "E2E Full Flow Credential"'
+        - near:
+            element: 'text "E2E Full Flow Credential"'
+            check: 'text "默认"'
+        - 'combobox "模型"' value contains "Opus"
+        - 'combobox "权限模式"' value contains "计划模式"
+        - 'combobox "思考级别"' value is "深度思考"
+
+  - id: step-8
+    action: 删除测试凭据
+    steps:
+      - 点击凭据的删除按钮
+      - 确认删除对话框
+    expected: 凭据已删除
+    verification:
+      type: ui
+      check:
+        - not_exists: 'text "E2E Full Flow Credential"'
+        - exists: 'text "RunnerHost"'
+        - near:
+            element: 'text "RunnerHost"'
+            check: 'text "默认"'
+
+cleanup:
+  - sql: |
+      DELETE FROM user_agent_credential_profiles
+      WHERE name = 'E2E Full Flow Credential';
+  - action: 恢复运行时配置为默认
+    steps:
+      - 选择模型: "Claude Sonnet (均衡)"
+      - 选择权限模式: "默认"
+      - 选择思考级别: "默认"
+      - 勾选 "启用 MCP 集成"
+      - 点击保存更改

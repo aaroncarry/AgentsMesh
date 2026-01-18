@@ -1,0 +1,56 @@
+id: TC-AGENT-009
+name: 切换权限模式
+description: 验证切换权限模式（默认/计划模式/绕过权限）
+priority: medium
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 验证权限模式下拉框存在
+    verification:
+      type: ui
+      check:
+        - exists: 'combobox "权限模式"'
+        - exists: 'text "控制 Agent 处理权限请求的方式"'
+
+  - action: 点击权限模式下拉框
+    selector: 'combobox "权限模式"'
+    expected: 显示权限模式选项
+    verification:
+      type: ui
+      check:
+        - exists: 'option "默认"'
+        - exists: 'option "计划模式 (推荐)"'
+        - exists: 'option "绕过权限"'
+
+  - action: 选择计划模式
+    selector: 'option "计划模式 (推荐)"'
+    expected: 权限模式切换为计划模式
+    verification:
+      type: ui
+      check:
+        - 'combobox "权限模式"' value contains "计划模式"
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 配置保存成功
+
+  - action: 选择绕过权限
+    selector: 'option "绕过权限"'
+    expected: 权限模式切换为绕过权限
+    verification:
+      type: ui
+      check:
+        - 'combobox "权限模式"' value contains "绕过权限"
+
+cleanup:
+  - action: 恢复为默认
+    steps:
+      - 选择 "默认"
+      - 点击保存更改

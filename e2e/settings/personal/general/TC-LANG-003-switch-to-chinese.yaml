@@ -1,0 +1,42 @@
+id: TC-LANG-003
+name: 切换语言为中文
+description: 验证切换语言为简体中文后页面文案正确变化
+priority: medium
+module: settings/personal/general
+
+preconditions:
+  - 用户已登录
+  - 当前语言为英文
+
+steps:
+  - action: 导航到个人常规设置页面（英文状态）
+    url: /dev-org/settings?scope=personal&tab=general
+    expected: 页面加载成功
+
+  - action: 先切换为英文（确保初始状态）
+    selector: combobox
+    value: English
+    expected: 页面显示英文
+
+  - action: 点击语言下拉框
+    selector: combobox
+    expected: 显示语言选项列表
+
+  - action: 选择简体中文
+    selector: 'option "简体中文"'
+    expected: 语言切换为中文
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "语言"'
+        - exists: 'text "选择界面显示语言"'
+        - exists: 'text "显示语言"'
+
+  - action: 验证导航栏也切换为中文
+    verification:
+      type: ui
+      check:
+        - exists: 'button "个人"'
+        - exists: 'button "组织"'
+        - exists: 'button "常规"'
+        - exists: 'button "Git 设置"'

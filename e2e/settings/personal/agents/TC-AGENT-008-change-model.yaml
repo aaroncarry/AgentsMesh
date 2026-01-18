@@ -1,0 +1,54 @@
+id: TC-AGENT-008
+name: 切换 Claude 模型
+description: 验证切换 Claude 模型（Opus/Sonnet）
+priority: medium
+module: settings/personal/agents
+
+preconditions:
+  - 用户已登录
+
+steps:
+  - action: 导航到 Claude Code 配置页面
+    url: /dev-org/settings?scope=personal&tab=agents/claude-code
+    expected: 页面加载成功
+
+  - action: 验证模型下拉框存在
+    verification:
+      type: ui
+      check:
+        - exists: 'combobox "模型"'
+        - exists: 'text "选择要使用的 Claude 模型"'
+
+  - action: 点击模型下拉框
+    selector: 'combobox "模型"'
+    expected: 显示模型选项
+    verification:
+      type: ui
+      check:
+        - exists: 'option "Claude Opus (最强大)"'
+        - exists: 'option "Claude Sonnet (均衡)"'
+
+  - action: 选择 Claude Opus
+    selector: 'option "Claude Opus (最强大)"'
+    expected: 模型切换为 Opus
+    verification:
+      type: ui
+      check:
+        - 'combobox "模型"' value contains "Opus"
+
+  - action: 点击保存更改
+    selector: 'button "保存更改"'
+    expected: 配置保存成功
+
+  - action: 刷新页面验证持久化
+    refresh: true
+    verification:
+      type: ui
+      check:
+        - 'combobox "模型"' value contains "Opus"
+
+cleanup:
+  - action: 恢复为 Sonnet
+    steps:
+      - 选择 Claude Sonnet (均衡)
+      - 点击保存更改

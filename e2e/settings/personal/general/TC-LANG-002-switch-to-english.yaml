@@ -1,0 +1,44 @@
+id: TC-LANG-002
+name: 切换语言为英文
+description: 验证切换语言为英文后页面文案正确变化
+priority: medium
+module: settings/personal/general
+
+preconditions:
+  - 用户已登录
+  - 当前语言为简体中文
+
+steps:
+  - action: 导航到个人常规设置页面
+    url: /dev-org/settings?scope=personal&tab=general
+    expected: 页面加载成功
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "语言"'
+
+  - action: 点击语言下拉框
+    selector: combobox
+    expected: 显示语言选项列表
+
+  - action: 选择 English
+    selector: 'option "English"'
+    expected: 语言切换为英文
+    verification:
+      type: ui
+      check:
+        - exists: 'heading "Language"'
+        - exists: 'text "Select your preferred display language"'
+
+  - action: 验证导航栏也切换为英文
+    verification:
+      type: ui
+      check:
+        - exists: 'button "Personal"'
+        - exists: 'button "Organization"'
+
+cleanup:
+  - action: 切换回简体中文
+    steps:
+      - 点击语言下拉框
+      - 选择 "简体中文"

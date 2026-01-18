@@ -1,0 +1,41 @@
+id: TC-ORGSET-005
+name: 删除组织确认对话框
+description: 验证点击删除组织按钮后显示确认对话框
+priority: medium
+module: settings/organization/general
+
+preconditions:
+  - 用户已登录
+  - 用户是组织 Owner
+
+notes: |
+  此测试只验证确认对话框的显示，不实际执行删除操作。
+  实际删除操作需要在专门的测试组织上进行。
+
+steps:
+  - action: 导航到组织常规设置页面
+    url: /dev-org/settings?scope=organization&tab=general
+    expected: 页面加载成功
+
+  - action: 滚动到危险区域
+    scroll_to: 'heading "危险区域"'
+    expected: 危险区域可见
+
+  - action: 点击删除组织按钮
+    selector: 'button "删除组织"'
+    expected: 显示确认对话框
+    verification:
+      type: ui
+      check:
+        - exists: 'dialog'
+        - exists: 'text contains "确定"' or 'text contains "删除"'
+        - exists: 'button "取消"' or 'button "Cancel"'
+        - exists: 'button "确认"' or 'button "删除"'
+
+  - action: 取消删除
+    selector: 'button "取消"'
+    expected: 对话框关闭
+    verification:
+      type: ui
+      check:
+        - not_exists: 'dialog'

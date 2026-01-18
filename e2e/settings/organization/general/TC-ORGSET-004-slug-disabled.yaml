@@ -1,0 +1,30 @@
+id: TC-ORGSET-004
+name: 组织标识不可修改
+description: 验证组织标识（slug）输入框为禁用状态，不可修改
+priority: medium
+module: settings/organization/general
+
+preconditions:
+  - 用户已登录
+  - 用户有组织管理权限
+
+steps:
+  - action: 导航到组织常规设置页面
+    url: /dev-org/settings?scope=organization&tab=general
+    expected: 页面加载成功
+
+  - action: 验证组织标识输入框为禁用状态
+    verification:
+      type: ui
+      check:
+        - exists: 'textbox disabled' with value "dev-org"
+
+  - action: 尝试点击组织标识输入框
+    selector: 'textbox value="dev-org"'
+    expected: 输入框无法获得焦点
+
+  - action: 验证提示文字
+    verification:
+      type: ui
+      check:
+        - exists: 'text "创建后不可更改"'
