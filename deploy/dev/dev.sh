@@ -150,6 +150,7 @@ MINIO_API_PORT=$((10004 + offset * 50))
 MINIO_CONSOLE_PORT=$((10005 + offset * 50))
 ADMINER_PORT=$((10006 + offset * 50))
 WEB_PORT=$((10007 + offset * 50))
+TRAEFIK_DASHBOARD_PORT=$((10008 + offset * 50))
 
 # Credentials
 POSTGRES_PASSWORD=agentsmesh_dev
@@ -302,6 +303,7 @@ show_result() {
     echo "  管理员:     admin@agentsmesh.local / adminpass123"
     echo ""
     echo "  其他服务:"
+    echo "    Traefik:  http://localhost:$TRAEFIK_DASHBOARD_PORT (Dashboard)"
     echo "    Adminer:  http://localhost:$ADMINER_PORT"
     echo "    MinIO:    http://localhost:$MINIO_CONSOLE_PORT"
     echo "    gRPC:     grpcs://localhost:${GRPC_PORT:-9443} (mTLS)"

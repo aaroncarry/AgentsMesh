@@ -1,0 +1,39 @@
+# Traefik Static Configuration for Development
+#
+# This replaces nginx as the reverse proxy in the dev environment.
+# Features:
+# - HTTP API routing (port 80)
+# - gRPC mTLS passthrough (port 9443)
+# - Dashboard for debugging (port 8080)
+
+# Enable API and Dashboard
+api:
+  dashboard: true
+  insecure: true  # Dev environment - allow HTTP access to dashboard
+
+# Entry Points
+entryPoints:
+  web:
+    address: ":80"
+  grpc:
+    address: ":9443"
+
+# Providers
+providers:
+  # Docker provider - auto-discover services via labels
+  docker:
+    exposedByDefault: false
+    network: default
+  # File provider - for gRPC mTLS passthrough config
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# Logging
+log:
+  level: DEBUG
+  format: common
+
+# Access logs
+accessLog:
+  format: common

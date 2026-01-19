@@ -2,21 +2,25 @@
 // This server handles Runner connections using gRPC bidirectional streaming.
 //
 // Architecture:
-// - Nginx terminates mTLS and passes client certificate info via metadata
-// - This server runs without TLS (internal network)
-// - Client identity (node_id, org_slug) extracted from gRPC metadata
+// - Server handles mTLS directly (TLS passthrough from reverse proxy)
+// - Client identity extracted from TLS peer certificate
+// - Supports both modes: direct mTLS or metadata-based (when behind TLS-terminating proxy)
 package grpc
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log/slog"
 	"net"
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
 
@@ -80,7 +84,7 @@ type OrganizationInfo struct {
 
 
 // NewServer creates a new gRPC server for Runner communication.
-// The server runs without TLS as Nginx handles mTLS termination.
+// The server handles mTLS directly for TLS passthrough mode.
 func NewServer(deps *ServerDependencies) (*Server, error) {
 	if deps == nil {
 		return nil, fmt.Errorf("dependencies are required")
@@ -93,7 +97,6 @@ func NewServer(deps *ServerDependencies) (*Server, error) {
 	}
 
 	// Create gRPC server options
-	// Note: No TLS - Nginx terminates mTLS and passes cert info via metadata
 	opts := []grpc.ServerOption{
 		// Keepalive configuration for long-running streams
 		grpc.KeepaliveParams(keepalive.ServerParameters{
@@ -117,6 +120,21 @@ func NewServer(deps *ServerDependencies) (*Server, error) {
 		grpc.ChainStreamInterceptor(
 			loggingStreamInterceptor(deps.Logger),
 		),
+	}
+
+	// Configure mTLS if PKI service is available
+	if deps.PKIService != nil {
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{deps.PKIService.ServerCert()},
+			ClientCAs:    deps.PKIService.CACertPool(),
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			MinVersion:   tls.VersionTLS13,
+		}
+		creds := credentials.NewTLS(tlsConfig)
+		opts = append(opts, grpc.Creds(creds))
+		deps.Logger.Info("gRPC server configured with mTLS")
+	} else {
+		deps.Logger.Warn("gRPC server running without TLS (PKI service not available)")
 	}
 
 	grpcServer := grpc.NewServer(opts...)
@@ -219,42 +237,110 @@ func loggingStreamInterceptor(logger *slog.Logger) grpc.StreamServerInterceptor 
 	}
 }
 
-// ==================== Metadata Helpers ====================
+// ==================== Identity Extraction ====================
 
-// MetadataKey constants for gRPC metadata passed by Nginx.
+// MetadataKey constants for gRPC metadata.
 const (
 	// MetadataKeyClientCertDN is the client certificate full Subject DN.
-	// Set by Nginx from $ssl_client_s_dn, e.g., "CN=dev-runner,O=AgentsMesh,OU=Runner"
+	// Used for backward compatibility when behind TLS-terminating proxy.
 	MetadataKeyClientCertDN = "x-client-cert-dn"
 
 	// MetadataKeyClientCertSerial is the client certificate serial number.
-	// Set by Nginx from $ssl_client_serial.
 	MetadataKeyClientCertSerial = "x-client-cert-serial"
 
 	// MetadataKeyClientCertFingerprint is the client certificate fingerprint.
-	// Set by Nginx from $ssl_client_fingerprint.
 	MetadataKeyClientCertFingerprint = "x-client-cert-fingerprint"
 
 	// MetadataKeyOrgSlug is the organization slug sent by Runner.
 	MetadataKeyOrgSlug = "x-org-slug"
 
 	// MetadataKeyRealIP is the real client IP.
-	// Set by Nginx from $remote_addr.
 	MetadataKeyRealIP = "x-real-ip"
 )
 
-// ClientIdentity holds information extracted from gRPC metadata.
+// ClientIdentity holds information extracted from TLS peer or gRPC metadata.
 type ClientIdentity struct {
 	NodeID           string // From certificate CN
-	OrgSlug          string // From Runner metadata
+	OrgSlug          string // From certificate O or Runner metadata
 	CertSerialNumber string // From certificate
 	CertFingerprint  string // From certificate
 	RealIP           string // Client IP
 }
 
-// ExtractClientIdentity extracts client identity from gRPC context metadata.
-// This information is set by Nginx based on the client certificate.
+// ExtractClientIdentity extracts client identity from gRPC context.
+// It first tries to extract from TLS peer certificate (direct mTLS mode),
+// then falls back to metadata (proxy mode for backward compatibility).
 func ExtractClientIdentity(ctx context.Context) (*ClientIdentity, error) {
+	// Try to extract from TLS peer certificate first (direct mTLS mode)
+	if identity, err := extractFromTLSPeer(ctx); err == nil {
+		return identity, nil
+	}
+
+	// Fall back to metadata extraction (proxy mode)
+	return extractFromMetadata(ctx)
+}
+
+// extractFromTLSPeer extracts client identity from TLS peer certificate.
+// This is used when the server handles mTLS directly (TLS passthrough mode).
+func extractFromTLSPeer(ctx context.Context) (*ClientIdentity, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("no peer in context")
+	}
+
+	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return nil, fmt.Errorf("no TLS info in peer")
+	}
+
+	if len(tlsInfo.State.VerifiedChains) == 0 || len(tlsInfo.State.VerifiedChains[0]) == 0 {
+		return nil, fmt.Errorf("no verified client certificate")
+	}
+
+	clientCert := tlsInfo.State.VerifiedChains[0][0]
+	return extractFromCertificate(ctx, clientCert)
+}
+
+// extractFromCertificate extracts client identity from an X.509 certificate.
+func extractFromCertificate(ctx context.Context, cert *x509.Certificate) (*ClientIdentity, error) {
+	identity := &ClientIdentity{
+		NodeID:           cert.Subject.CommonName,
+		CertSerialNumber: cert.SerialNumber.String(),
+	}
+
+	// Extract organization from certificate (first one)
+	if len(cert.Subject.Organization) > 0 {
+		identity.OrgSlug = cert.Subject.Organization[0]
+	}
+
+	// Get org slug from metadata if not in certificate
+	if identity.OrgSlug == "" {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if values := md.Get(MetadataKeyOrgSlug); len(values) > 0 {
+				identity.OrgSlug = values[0]
+			}
+		}
+	}
+
+	// Validate required fields
+	if identity.NodeID == "" {
+		return nil, fmt.Errorf("missing client certificate CN (node_id)")
+	}
+	if identity.OrgSlug == "" {
+		return nil, fmt.Errorf("missing org slug")
+	}
+
+	// Extract peer address if available
+	if p, ok := peer.FromContext(ctx); ok && p.Addr != nil {
+		identity.RealIP = p.Addr.String()
+	}
+
+	return identity, nil
+}
+
+// extractFromMetadata extracts client identity from gRPC metadata.
+// This is used for backward compatibility with TLS-terminating proxies.
+func extractFromMetadata(ctx context.Context) (*ClientIdentity, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no metadata in context")
@@ -263,7 +349,6 @@ func ExtractClientIdentity(ctx context.Context) (*ClientIdentity, error) {
 	identity := &ClientIdentity{}
 
 	// Extract certificate DN and parse CN (node_id) - required
-	// Nginx passes $ssl_client_s_dn, e.g., "CN=dev-runner,O=AgentsMesh,OU=Runner"
 	if values := md.Get(MetadataKeyClientCertDN); len(values) > 0 && values[0] != "" {
 		identity.NodeID = extractCNFromDN(values[0])
 	}

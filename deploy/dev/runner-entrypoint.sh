@@ -90,10 +90,10 @@ generate_runner_cert() {
     openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
         -out "$CERTS_DIR/runner.key" 2>/dev/null
 
-    # 生成 CSR (CN = node_id)
+    # 生成 CSR (CN = node_id, O = org_slug)
     openssl req -new -key "$CERTS_DIR/runner.key" \
         -out "$CERTS_DIR/runner.csr" \
-        -subj "/CN=${RUNNER_NODE_ID}/O=AgentsMesh/OU=Runner" 2>/dev/null
+        -subj "/CN=${RUNNER_NODE_ID}/O=${RUNNER_ORG_SLUG}/OU=Runner" 2>/dev/null
 
     # 创建证书扩展配置
     cat > "$CERTS_DIR/runner_ext.cnf" << EOF

@@ -170,7 +170,14 @@ services:
       - ../../backend/logs:/app/logs
       # SSL certificates for PKI (CA cert/key for signing Runner certificates)
       - ./ssl:/app/ssl:ro
-    # No external port - accessed via nginx
+    # No external port - accessed via traefik
+    # Traefik labels for automatic HTTP routing
+    labels:
+      - "traefik.enable=true"
+      # HTTP API routing
+      - "traefik.http.routers.backend-api.rule=PathPrefix(`/api`) || PathPrefix(`/health`)"
+      - "traefik.http.routers.backend-api.entrypoints=web"
+      - "traefik.http.services.backend-api.loadbalancer.server.port=8080"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -195,8 +202,8 @@ services:
     environment:
       # Backend connection (for REST API calls)
       - BACKEND_URL=http://backend:8080
-      # gRPC + mTLS endpoint (nginx terminates TLS)
-      - GRPC_ENDPOINT=nginx:9443
+      # gRPC + mTLS endpoint (traefik passthrough to backend)
+      - GRPC_ENDPOINT=traefik:9443
       # Runner identification (matches seed data in deploy/dev/seed/seed.sql)
       - RUNNER_NODE_ID=dev-runner
       - RUNNER_ORG_SLUG=dev-org
@@ -248,21 +255,22 @@ services:
       - runner_gemini_config:/home/runner/.gemini
     # Use entrypoint script for auto-configuration
     entrypoint: ["/usr/local/bin/runner-entrypoint.sh"]
-    # Runner communicates with backend via gRPC through nginx
+    # Runner communicates with backend via gRPC through traefik (TLS passthrough)
 
-  # Nginx reverse proxy (unified entry point)
-  nginx:
-    image: nginx:alpine
+  # Traefik reverse proxy (unified entry point)
+  traefik:
+    image: traefik:v3.2
     restart: unless-stopped
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # SSL certificates for gRPC mTLS (optional, mount if using mTLS)
-      - ./ssl:/etc/nginx/ssl:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "${HTTP_PORT:-80}:80"
-      # gRPC + mTLS port for Runner connections (optional, enable when using mTLS)
+      # gRPC + mTLS port for Runner connections (passthrough to backend)
       - "${GRPC_PORT:-9443}:9443"
+      # Traefik Dashboard (dev only)
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
     depends_on:
       - backend
     # Note: web/web-admin run locally, not in Docker

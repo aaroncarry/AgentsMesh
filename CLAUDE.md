@@ -13,7 +13,7 @@ AgentsMesh is a multi-tenant AI Code Agent collaboration platform supporting Cla
 
 ## Development Environment (Docker)
 
-**Always use `deploy/dev` Docker environment for development and debugging.** This setup includes Nginx reverse proxy and mirrors production architecture, helping catch issues early.
+**Always use `deploy/dev` Docker environment for development and debugging.** This setup includes Traefik reverse proxy and mirrors production architecture, helping catch issues early.
 
 ### Quick Start (Recommended)
 
@@ -25,7 +25,7 @@ cd deploy/dev
 
 This script automatically:
 1. Generates `.env` with worktree-isolated ports (supports multiple worktrees)
-2. Starts Docker backend services (PostgreSQL, Redis, MinIO, Backend, Nginx, Runner)
+2. Starts Docker backend services (PostgreSQL, Redis, MinIO, Backend, Traefik, Runner)
 3. Runs database migrations and seeds test data
 4. Starts local frontend (Next.js with Turbopack) for better performance
 
@@ -34,7 +34,8 @@ This script automatically:
 | Service | URL | Description |
 |---------|-----|-------------|
 | **Frontend** | http://localhost:3000 | Next.js (local, Turbopack) |
-| **API** | http://localhost:80/api | Backend API via Nginx |
+| **API** | http://localhost:80/api | Backend API via Traefik |
+| **Traefik Dashboard** | http://localhost:8080 | Traefik dashboard (dev only) |
 | **Adminer** | http://localhost:8081 | Database management UI |
 | **MinIO Console** | http://localhost:9001 | S3-compatible storage UI |
 | PostgreSQL | localhost:5432 | Database (user: agentsmesh, pass: agentsmesh_dev) |
