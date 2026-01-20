@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getPodDisplayName } from "@/lib/pod-utils";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { usePodStore, Pod } from "@/stores/pod";
@@ -266,15 +267,16 @@ export function WorkspaceSidebarContent({ className, onCreatePod }: WorkspaceSid
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm truncate font-mono">
-                        {pod.pod_key.substring(0, 12)}...
+                        {getPodDisplayName(pod)}
                       </span>
                       {isOpen && (
                         <Terminal className="w-3 h-3 text-primary flex-shrink-0" />
                       )}
                     </div>
-                    {pod.ticket?.identifier && (
+                    {/* Show ticket if title is not from ticket */}
+                    {!pod.title && pod.ticket?.identifier && (
                       <p className="text-xs text-muted-foreground truncate">
-                        {pod.ticket?.identifier}
+                        {pod.ticket.identifier}
                       </p>
                     )}
                   </div>

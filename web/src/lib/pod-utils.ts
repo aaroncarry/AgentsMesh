@@ -1,0 +1,81 @@
+/**
+ * Utility functions for Pod display
+ */
+
+interface PodDisplayInfo {
+  pod_key: string;
+  title?: string | null;
+  ticket?: {
+    identifier?: string;
+  };
+  agent_type?: {
+    name?: string;
+  };
+}
+
+/**
+ * Get the display name for a Pod.
+ *
+ * Priority:
+ * 1. OSC title (set by terminal applications like Claude Code)
+ * 2. Ticket identifier (if associated with a ticket)
+ * 3. Agent type name + truncated pod_key
+ *
+ * @param pod - Pod data with optional title and ticket
+ * @param maxLength - Maximum length before truncation (default: 20)
+ * @returns Display name string
+ */
+export function getPodDisplayName(
+  pod: PodDisplayInfo,
+  maxLength: number = 20
+): string {
+  // Priority 1: OSC title
+  if (pod.title) {
+    if (pod.title.length > maxLength) {
+      return pod.title.substring(0, maxLength - 3) + "...";
+    }
+    return pod.title;
+  }
+
+  // Priority 2: Ticket identifier
+  if (pod.ticket?.identifier) {
+    return pod.ticket.identifier;
+  }
+
+  // Priority 3: Agent type + truncated pod_key
+  const keyPrefix = pod.pod_key.substring(0, 8);
+  if (pod.agent_type?.name) {
+    return `${pod.agent_type.name} (${keyPrefix})`;
+  }
+
+  // Fallback: just the truncated pod_key
+  return `${keyPrefix}...`;
+}
+
+/**
+ * Get a short display name for a Pod (for compact UI elements).
+ *
+ * @param pod - Pod data
+ * @param maxLength - Maximum length (default: 12)
+ * @returns Short display name
+ */
+export function getPodShortName(
+  pod: PodDisplayInfo,
+  maxLength: number = 12
+): string {
+  if (pod.title) {
+    if (pod.title.length > maxLength) {
+      return pod.title.substring(0, maxLength - 1) + "…";
+    }
+    return pod.title;
+  }
+
+  if (pod.ticket?.identifier) {
+    if (pod.ticket.identifier.length > maxLength) {
+      return pod.ticket.identifier.substring(0, maxLength - 1) + "…";
+    }
+    return pod.ticket.identifier;
+  }
+
+  return pod.pod_key.substring(0, Math.min(8, maxLength));
+}

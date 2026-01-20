@@ -40,15 +40,16 @@ type RunnerConnectionManager struct {
 	serverVersion      string
 
 	// Event callbacks - use Proto types directly for zero-copy efficiency
-	onHeartbeat      func(runnerID int64, data *runnerv1.HeartbeatData)
-	onPodCreated     func(runnerID int64, data *runnerv1.PodCreatedEvent)
-	onPodTerminated  func(runnerID int64, data *runnerv1.PodTerminatedEvent)
-	onTerminalOutput func(runnerID int64, data *runnerv1.TerminalOutputEvent)
-	onAgentStatus    func(runnerID int64, data *runnerv1.AgentStatusEvent)
-	onPtyResized     func(runnerID int64, data *runnerv1.PtyResizedEvent)
-	onDisconnect     func(runnerID int64)
-	onInitialized    func(runnerID int64, availableAgents []string)
-	onInitFailed     func(runnerID int64, reason string)
+	onHeartbeat       func(runnerID int64, data *runnerv1.HeartbeatData)
+	onPodCreated      func(runnerID int64, data *runnerv1.PodCreatedEvent)
+	onPodTerminated   func(runnerID int64, data *runnerv1.PodTerminatedEvent)
+	onTerminalOutput  func(runnerID int64, data *runnerv1.TerminalOutputEvent)
+	onAgentStatus     func(runnerID int64, data *runnerv1.AgentStatusEvent)
+	onPtyResized      func(runnerID int64, data *runnerv1.PtyResizedEvent)
+	onPodInitProgress func(runnerID int64, data *runnerv1.PodInitProgressEvent)
+	onDisconnect      func(runnerID int64)
+	onInitialized     func(runnerID int64, availableAgents []string)
+	onInitFailed      func(runnerID int64, reason string)
 }
 
 // grpcConnectionShard holds a subset of gRPC connections with its own lock.
@@ -112,6 +113,11 @@ func (cm *RunnerConnectionManager) SetAgentStatusCallback(fn func(runnerID int64
 // SetPtyResizedCallback sets the PTY resized callback (Proto type)
 func (cm *RunnerConnectionManager) SetPtyResizedCallback(fn func(runnerID int64, data *runnerv1.PtyResizedEvent)) {
 	cm.onPtyResized = fn
+}
+
+// SetPodInitProgressCallback sets the pod init progress callback (Proto type)
+func (cm *RunnerConnectionManager) SetPodInitProgressCallback(fn func(runnerID int64, data *runnerv1.PodInitProgressEvent)) {
+	cm.onPodInitProgress = fn
 }
 
 // SetDisconnectCallback sets the disconnect callback
@@ -370,6 +376,14 @@ func (cm *RunnerConnectionManager) HandlePtyResized(runnerID int64, data *runner
 	cm.UpdateHeartbeat(runnerID)
 	if cm.onPtyResized != nil {
 		cm.onPtyResized(runnerID, data)
+	}
+}
+
+// HandlePodInitProgress handles pod init progress event (Proto type)
+func (cm *RunnerConnectionManager) HandlePodInitProgress(runnerID int64, data *runnerv1.PodInitProgressEvent) {
+	cm.UpdateHeartbeat(runnerID)
+	if cm.onPodInitProgress != nil {
+		cm.onPodInitProgress(runnerID, data)
 	}
 }
 

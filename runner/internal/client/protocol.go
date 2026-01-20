@@ -72,6 +72,12 @@ type TerminalResizeRequest struct {
 	Rows   uint16 `json:"rows"`
 }
 
+// TerminalRedrawRequest is sent to trigger terminal redraw without changing size.
+// Used for restoring terminal state after server restart.
+type TerminalRedrawRequest struct {
+	PodKey string `json:"pod_key"`
+}
+
 // ==================== Message Handler Interface ====================
 
 // MessageHandler handles incoming messages from server.
@@ -81,4 +87,5 @@ type MessageHandler interface {
 	OnListPods() []PodInfo
 	OnTerminalInput(req TerminalInputRequest) error
 	OnTerminalResize(req TerminalResizeRequest) error
+	OnTerminalRedraw(req TerminalRedrawRequest) error
 }

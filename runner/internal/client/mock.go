@@ -142,6 +142,17 @@ func (m *MockConnection) SendError(podKey, code, message string) error {
 	return nil
 }
 
+// SendPodInitProgress implements Connection.
+func (m *MockConnection) SendPodInitProgress(podKey, phase string, progress int32, message string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.SendErr != nil {
+		return m.SendErr
+	}
+	m.Events = append(m.Events, EventCall{Type: MessageType("pod_init_progress"), Data: map[string]interface{}{"pod_key": podKey, "phase": phase, "progress": progress, "message": message}})
+	return nil
+}
+
 // --- Test helper methods ---
 
 // SimulateCreatePod simulates server sending a create_pod message.
@@ -184,6 +195,17 @@ func (m *MockConnection) SimulateTerminalResize(req TerminalResizeRequest) error
 	m.mu.Unlock()
 	if handler != nil {
 		return handler.OnTerminalResize(req)
+	}
+	return nil
+}
+
+// SimulateTerminalRedraw simulates server sending a terminal_redraw message.
+func (m *MockConnection) SimulateTerminalRedraw(req TerminalRedrawRequest) error {
+	m.mu.Lock()
+	handler := m.handler
+	m.mu.Unlock()
+	if handler != nil {
+		return handler.OnTerminalRedraw(req)
 	}
 	return nil
 }

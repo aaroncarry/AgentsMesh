@@ -76,9 +76,9 @@ func (pc *PodCoordinator) reconcilePods(ctx context.Context, runnerID int64, rep
 			continue
 		}
 
-		// Always register pod with terminal router (idempotent operation)
-		// This ensures routing works even after backend restart
-		pc.terminalRouter.RegisterPod(podKey, runnerID)
+		// Ensure pod is registered with terminal router (preserves existing VT state)
+		// This ensures routing works even after backend restart, without clearing terminal data
+		pc.terminalRouter.EnsurePodRegistered(podKey, runnerID)
 
 		// Try to restore if pod is orphaned
 		if pod.Status == agentpod.StatusOrphaned {
@@ -265,6 +265,20 @@ func (pc *PodCoordinator) handleAgentStatus(runnerID int64, data *runnerv1.Agent
 	// Notify status change
 	if pc.onStatusChange != nil {
 		pc.onStatusChange(data.PodKey, "", data.Status)
+	}
+}
+
+// handlePodInitProgress handles pod init progress event from runner (Proto type)
+func (pc *PodCoordinator) handlePodInitProgress(runnerID int64, data *runnerv1.PodInitProgressEvent) {
+	pc.logger.Debug("pod init progress",
+		"pod_key", data.PodKey,
+		"phase", data.Phase,
+		"progress", data.Progress,
+		"message", data.Message)
+
+	// Notify via callback (to publish realtime event)
+	if pc.onInitProgress != nil {
+		pc.onInitProgress(data.PodKey, data.Phase, int(data.Progress), data.Message)
 	}
 }
 

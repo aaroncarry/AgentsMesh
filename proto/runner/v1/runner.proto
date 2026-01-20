@@ -26,6 +26,7 @@ message RunnerMessage {
     AgentStatusEvent agent_status = 7;
     PtyResizedEvent pty_resized = 8;
     ErrorEvent error = 9;
+    PodInitProgressEvent pod_init_progress = 10;
   }
   int64 timestamp = 15;
 }
@@ -104,6 +105,14 @@ message ErrorEvent {
   map<string, string> details = 4;
 }
 
+// PodInitProgressEvent Pod 初始化进度事件
+message PodInitProgressEvent {
+  string pod_key = 1;
+  string phase = 2;      // pending, cloning, preparing, starting_pty, ready
+  int32 progress = 3;    // 0-100
+  string message = 4;    // Human-readable progress message
+}
+
 // ==================== Backend -> Runner 消息 ====================
 
 // ServerMessage 是 Backend 发送给 Runner 的消息封装
@@ -115,6 +124,7 @@ message ServerMessage {
     TerminalInputCommand terminal_input = 4;
     TerminalResizeCommand terminal_resize = 5;
     SendPromptCommand send_prompt = 6;
+    TerminalRedrawCommand terminal_redraw = 7;
   }
   int64 timestamp = 15;
 }
@@ -191,4 +201,12 @@ message TerminalResizeCommand {
 message SendPromptCommand {
   string pod_key = 1;
   string prompt = 2;
+}
+
+// TerminalRedrawCommand 请求终端重绘命令
+// 用于服务器重启后恢复终端状态：使用 resize +1/-1 技巧触发终端程序重绘
+// （直接发送 SIGWINCH 对处于空闲状态的程序如 Claude Code 无效）
+// Runner 收到后执行 resize 技巧，不响应 pty_resized 事件（避免循环）
+message TerminalRedrawCommand {
+  string pod_key = 1;
 }

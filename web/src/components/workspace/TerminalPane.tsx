@@ -4,7 +4,9 @@ import React, { useCallback, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { usePodStore } from "@/stores/pod";
 import { usePodStatus, useTerminal, useTouchScroll } from "@/hooks";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {
   X,
@@ -42,6 +44,7 @@ export function TerminalPane({
 }: TerminalPaneProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const { terminalFontSize, setActivePane } = useWorkspaceStore();
+  const initProgress = usePodStore((state) => state.initProgress[podKey]);
 
   // Pod status tracking
   const { podStatus, isPodReady, podError } = usePodStatus(podKey);
@@ -180,13 +183,24 @@ export function TerminalPane({
               </p>
             </div>
           ) : (
-            // Waiting state
-            <div className="text-center p-4">
+            // Waiting state with progress
+            <div className="text-center p-4 max-w-sm">
               <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-3" />
-              <p className="text-terminal-text font-medium mb-1">Waiting for Pod to be ready...</p>
-              <p className="text-sm text-terminal-text-muted">
-                Status: <span className="text-yellow-500 dark:text-yellow-400">{podStatus}</span>
+              <p className="text-terminal-text font-medium mb-1">
+                {initProgress?.message || "Waiting for Pod to be ready..."}
               </p>
+              {initProgress ? (
+                <div className="mt-3 space-y-2">
+                  <Progress value={initProgress.progress} className="h-2" />
+                  <p className="text-xs text-terminal-text-muted">
+                    {initProgress.phase} - {initProgress.progress}%
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-terminal-text-muted">
+                  Status: <span className="text-yellow-500 dark:text-yellow-400">{podStatus}</span>
+                </p>
+              )}
             </div>
           )}
         </div>

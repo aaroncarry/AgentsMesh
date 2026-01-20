@@ -489,6 +489,22 @@ func (c *GRPCConnection) SendError(podKey, code, message string) error {
 	return c.send(msg)
 }
 
+// SendPodInitProgress sends a pod initialization progress event to the server.
+func (c *GRPCConnection) SendPodInitProgress(podKey, phase string, progress int32, message string) error {
+	msg := &runnerv1.RunnerMessage{
+		Payload: &runnerv1.RunnerMessage_PodInitProgress{
+			PodInitProgress: &runnerv1.PodInitProgressEvent{
+				PodKey:   podKey,
+				Phase:    phase,
+				Progress: progress,
+				Message:  message,
+			},
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	return c.send(msg)
+}
+
 // QueueLength returns the current send queue length.
 func (c *GRPCConnection) QueueLength() int {
 	return len(c.sendCh)
@@ -760,6 +776,9 @@ func (c *GRPCConnection) handleServerMessage(msg *runnerv1.ServerMessage) {
 	case *runnerv1.ServerMessage_TerminalResize:
 		c.handleTerminalResize(payload.TerminalResize)
 
+	case *runnerv1.ServerMessage_TerminalRedraw:
+		c.handleTerminalRedraw(payload.TerminalRedraw)
+
 	case *runnerv1.ServerMessage_SendPrompt:
 		c.handleSendPrompt(payload.SendPrompt)
 
@@ -866,6 +885,21 @@ func (c *GRPCConnection) handleTerminalResize(cmd *runnerv1.TerminalResizeComman
 	}
 	if err := c.handler.OnTerminalResize(req); err != nil {
 		logger.GRPC().Error("Failed to resize terminal for pod", "pod_key", cmd.PodKey, "error", err)
+	}
+}
+
+// handleTerminalRedraw handles terminal_redraw command from server.
+// Uses resize +1/-1 trick to trigger terminal redraw for state recovery.
+func (c *GRPCConnection) handleTerminalRedraw(cmd *runnerv1.TerminalRedrawCommand) {
+	if c.handler == nil {
+		return
+	}
+
+	req := TerminalRedrawRequest{
+		PodKey: cmd.PodKey,
+	}
+	if err := c.handler.OnTerminalRedraw(req); err != nil {
+		logger.GRPC().Error("Failed to redraw terminal for pod", "pod_key", cmd.PodKey, "error", err)
 	}
 }
 

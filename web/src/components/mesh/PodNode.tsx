@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { getPodStatusInfo, getAgentStatusInfo, type MeshNode } from "@/stores/mesh";
+import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface PodNodeProps {
   data: {
@@ -39,7 +40,7 @@ function PodNode({ data }: PodNodeProps) {
       {/* Pod Header */}
       <div className="flex items-center justify-between mb-2">
         <code className="text-xs font-mono text-muted-foreground">
-          {node.pod_key.substring(0, 8)}...
+          {getPodDisplayName(node, 16)}
         </code>
         <span
           className={`px-2 py-0.5 text-xs rounded-full ${statusInfo.bgColor} ${statusInfo.color}`}

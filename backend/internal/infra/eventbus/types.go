@@ -27,6 +27,7 @@ const (
 	EventPodAgentChanged  EventType = "pod:agent_status_changed"
 	EventPodTerminated    EventType = "pod:terminated"
 	EventPodTitleChanged  EventType = "pod:title_changed"
+	EventPodInitProgress  EventType = "pod:init_progress"
 
 	// Channel events
 	EventChannelMessage EventType = "channel:message"
@@ -144,12 +145,20 @@ type PodTitleChangedData struct {
 
 // ChannelMessageData represents the payload for channel message events
 type ChannelMessageData struct {
-	ID           int64             `json:"id"`
-	ChannelID    int64             `json:"channel_id"`
-	SenderPod    *string           `json:"sender_pod,omitempty"`
-	SenderUserID *int64            `json:"sender_user_id,omitempty"`
-	MessageType  string            `json:"message_type"`
-	Content      string            `json:"content"`
-	Metadata     map[string]any    `json:"metadata,omitempty"`
-	CreatedAt    string            `json:"created_at"`
+	ID           int64          `json:"id"`
+	ChannelID    int64          `json:"channel_id"`
+	SenderPod    *string        `json:"sender_pod,omitempty"`
+	SenderUserID *int64         `json:"sender_user_id,omitempty"`
+	MessageType  string         `json:"message_type"`
+	Content      string         `json:"content"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    string         `json:"created_at"`
+}
+
+// PodInitProgressData represents the payload for pod initialization progress events
+type PodInitProgressData struct {
+	PodKey   string `json:"pod_key"`
+	Phase    string `json:"phase"`    // pending, cloning, preparing, starting_pty, ready
+	Progress int    `json:"progress"` // 0-100
+	Message  string `json:"message"`  // Human-readable progress message
 }

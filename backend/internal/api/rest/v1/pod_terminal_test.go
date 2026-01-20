@@ -16,16 +16,15 @@ import (
 
 // Mock terminal router for testing
 type mockTerminalRouter struct {
-	output          []byte
-	screen          string
-	cursorRow       int
-	cursorCol       int
-	scrollbackData  []byte
-	routeInputErr   error
-	routeResizeErr  error
+	output         []byte
+	screen         string
+	cursorRow      int
+	cursorCol      int
+	routeInputErr  error
+	routeResizeErr error
 }
 
-func (m *mockTerminalRouter) GetRecentOutput(podKey string, lines int, raw bool) []byte {
+func (m *mockTerminalRouter) GetRecentOutput(podKey string, lines int) []byte {
 	return m.output
 }
 
@@ -35,10 +34,6 @@ func (m *mockTerminalRouter) GetScreenSnapshot(podKey string) string {
 
 func (m *mockTerminalRouter) GetCursorPosition(podKey string) (row, col int) {
 	return m.cursorRow, m.cursorCol
-}
-
-func (m *mockTerminalRouter) GetAllScrollbackData(podKey string) []byte {
-	return m.scrollbackData
 }
 
 func (m *mockTerminalRouter) RouteInput(podKey string, data []byte) error {
@@ -126,7 +121,7 @@ func TestObserveTerminal_Success(t *testing.T) {
 		t.Fatal("Terminal router not implemented")
 	}
 
-	output := tr.GetRecentOutput(pod.PodKey, 100, false)
+	output := tr.GetRecentOutput(pod.PodKey, 100)
 	cursorRow, cursorCol := tr.GetCursorPosition(pod.PodKey)
 
 	if string(output) != "line1\nline2\nline3\n" {
@@ -217,16 +212,16 @@ func TestObserveTerminal_TerminalRouterNotImplemented(t *testing.T) {
 	}
 }
 
-func TestObserveTerminal_GetAllScrollbackData(t *testing.T) {
+func TestObserveTerminal_GetAllOutput(t *testing.T) {
 	mockRouter := &mockTerminalRouter{
-		scrollbackData: []byte("full scrollback history\nline1\nline2\n"),
+		output: []byte("full output history\nline1\nline2\n"),
 	}
 
 	tr := mockRouter
-	output := tr.GetAllScrollbackData("test-pod")
+	output := tr.GetRecentOutput("test-pod", 10000) // large number to get all
 
-	if string(output) != "full scrollback history\nline1\nline2\n" {
-		t.Errorf("Expected scrollback data, got %s", string(output))
+	if string(output) != "full output history\nline1\nline2\n" {
+		t.Errorf("Expected output data, got %s", string(output))
 	}
 }
 
@@ -244,16 +239,16 @@ func TestObserveTerminal_WithScreen(t *testing.T) {
 	}
 }
 
-func TestObserveTerminal_RawOutput(t *testing.T) {
+func TestObserveTerminal_ProcessedOutput(t *testing.T) {
 	mockRouter := &mockTerminalRouter{
-		output: []byte("\x1b[32mcolored\x1b[0m output"), // ANSI escape codes
+		output: []byte("colored output"), // ANSI escape codes stripped by VT
 	}
 
 	tr := mockRouter
-	output := tr.GetRecentOutput("test-pod", 100, true) // raw=true
+	output := tr.GetRecentOutput("test-pod", 100)
 
-	if string(output) != "\x1b[32mcolored\x1b[0m output" {
-		t.Errorf("Expected raw output with ANSI codes, got %s", string(output))
+	if string(output) != "colored output" {
+		t.Errorf("Expected processed output, got %s", string(output))
 	}
 }
 
@@ -607,9 +602,6 @@ func TestObserveTerminalRequest_Defaults(t *testing.T) {
 	if req.Lines != 0 {
 		t.Errorf("Expected Lines default 0, got %d", req.Lines)
 	}
-	if req.Raw != false {
-		t.Error("Expected Raw default false")
-	}
 	if req.IncludeScreen != false {
 		t.Error("Expected IncludeScreen default false")
 	}
@@ -699,16 +691,15 @@ func TestPodIsActive_ForTerminal(t *testing.T) {
 
 func TestTerminalRouterInterface_Implementation(t *testing.T) {
 	mock := &mockTerminalRouter{
-		output:         []byte("test output"),
-		screen:         "test screen",
-		cursorRow:      10,
-		cursorCol:      20,
-		scrollbackData: []byte("scrollback"),
+		output:    []byte("test output"),
+		screen:    "test screen",
+		cursorRow: 10,
+		cursorCol: 20,
 	}
 
 	var tr TerminalRouterInterface = mock
 
-	if string(tr.GetRecentOutput("pod", 100, false)) != "test output" {
+	if string(tr.GetRecentOutput("pod", 100)) != "test output" {
 		t.Error("GetRecentOutput failed")
 	}
 	if tr.GetScreenSnapshot("pod") != "test screen" {
@@ -717,9 +708,6 @@ func TestTerminalRouterInterface_Implementation(t *testing.T) {
 	row, col := tr.GetCursorPosition("pod")
 	if row != 10 || col != 20 {
 		t.Error("GetCursorPosition failed")
-	}
-	if string(tr.GetAllScrollbackData("pod")) != "scrollback" {
-		t.Error("GetAllScrollbackData failed")
 	}
 	if err := tr.RouteInput("pod", []byte("input")); err != nil {
 		t.Error("RouteInput failed")

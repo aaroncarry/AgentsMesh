@@ -25,6 +25,10 @@ type RunnerCommandSender interface {
 	// SendTerminalResize sends terminal resize to a runner.
 	SendTerminalResize(ctx context.Context, runnerID int64, podKey string, cols, rows int) error
 
+	// SendTerminalRedraw triggers a terminal redraw without changing size.
+	// Used to restore terminal state after server restart.
+	SendTerminalRedraw(ctx context.Context, runnerID int64, podKey string) error
+
 	// SendPrompt sends a prompt to a pod.
 	SendPrompt(ctx context.Context, runnerID int64, podKey, prompt string) error
 }
@@ -60,6 +64,12 @@ func (n *NoOpCommandSender) SendTerminalInput(ctx context.Context, runnerID int6
 
 func (n *NoOpCommandSender) SendTerminalResize(ctx context.Context, runnerID int64, podKey string, cols, rows int) error {
 	n.logger.Warn("command sender not configured, cannot send terminal resize",
+		"runner_id", runnerID, "pod_key", podKey)
+	return ErrCommandSenderNotSet
+}
+
+func (n *NoOpCommandSender) SendTerminalRedraw(ctx context.Context, runnerID int64, podKey string) error {
+	n.logger.Warn("command sender not configured, cannot send terminal redraw",
 		"runner_id", runnerID, "pod_key", podKey)
 	return ErrCommandSenderNotSet
 }

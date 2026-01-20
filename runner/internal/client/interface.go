@@ -32,6 +32,9 @@ type Connection interface {
 	// SendError sends an error event to the server.
 	SendError(podKey, code, message string) error
 
+	// SendPodInitProgress sends a pod initialization progress event to the server.
+	SendPodInitProgress(podKey, phase string, progress int32, message string) error
+
 	// QueueLength returns the current send queue length.
 	QueueLength() int
 

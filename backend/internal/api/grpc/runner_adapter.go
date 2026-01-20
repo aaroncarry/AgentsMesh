@@ -287,6 +287,10 @@ func (a *GRPCRunnerAdapter) handleProtoMessage(ctx context.Context, runnerID int
 		// Direct Proto type passing - no conversion
 		a.connManager.HandlePtyResized(runnerID, payload.PtyResized)
 
+	case *runnerv1.RunnerMessage_PodInitProgress:
+		// Direct Proto type passing - no conversion
+		a.connManager.HandlePodInitProgress(runnerID, payload.PodInitProgress)
+
 	case *runnerv1.RunnerMessage_Error:
 		a.logger.Error("runner error",
 			"runner_id", runnerID,
@@ -531,6 +535,25 @@ func (a *GRPCRunnerAdapter) SendTerminalResize(runnerID int64, podKey string, co
 				PodKey: podKey,
 				Cols:   cols,
 				Rows:   rows,
+			},
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	return conn.SendMessage(msg)
+}
+
+// SendTerminalRedraw sends terminal redraw command to a pod.
+// This triggers SIGWINCH without changing terminal size, used for state recovery after server restart.
+func (a *GRPCRunnerAdapter) SendTerminalRedraw(runnerID int64, podKey string) error {
+	conn := a.connManager.GetConnection(runnerID)
+	if conn == nil {
+		return status.Errorf(codes.NotFound, "runner %d not connected", runnerID)
+	}
+
+	msg := &runnerv1.ServerMessage{
+		Payload: &runnerv1.ServerMessage_TerminalRedraw{
+			TerminalRedraw: &runnerv1.TerminalRedrawCommand{
+				PodKey: podKey,
 			},
 		},
 		Timestamp: time.Now().UnixMilli(),

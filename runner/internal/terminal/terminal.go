@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"golang.org/x/term"
@@ -121,6 +122,46 @@ func (t *Terminal) Resize(rows, cols int) error {
 		Rows: uint16(rows),
 		Cols: uint16(cols),
 	})
+}
+
+// Redraw triggers a terminal redraw by temporarily changing the terminal size.
+// This is used to restore terminal state after server restart.
+// We use resize +1/-1 instead of just SIGWINCH because some programs (like Claude Code)
+// don't respond to SIGWINCH when they're in an idle/waiting state.
+func (t *Terminal) Redraw() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.closed || t.pty == nil {
+		return fmt.Errorf("terminal is not running")
+	}
+
+	// Get current size
+	size, err := pty.GetsizeFull(t.pty)
+	if err != nil {
+		return fmt.Errorf("failed to get terminal size: %w", err)
+	}
+
+	// Resize to cols+1 to trigger redraw
+	if err := pty.Setsize(t.pty, &pty.Winsize{
+		Rows: size.Rows,
+		Cols: size.Cols + 1,
+	}); err != nil {
+		return fmt.Errorf("failed to expand terminal: %w", err)
+	}
+
+	// Small delay to ensure the resize is processed
+	time.Sleep(50 * time.Millisecond)
+
+	// Resize back to original size
+	if err := pty.Setsize(t.pty, &pty.Winsize{
+		Rows: size.Rows,
+		Cols: size.Cols,
+	}); err != nil {
+		return fmt.Errorf("failed to restore terminal size: %w", err)
+	}
+
+	return nil
 }
 
 // PID returns the process ID

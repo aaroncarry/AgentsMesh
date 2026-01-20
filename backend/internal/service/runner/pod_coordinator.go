@@ -23,7 +23,8 @@ type PodCoordinator struct {
 	commandSender RunnerCommandSender
 
 	// Callbacks
-	onStatusChange func(podKey string, status string, agentStatus string)
+	onStatusChange   func(podKey string, status string, agentStatus string)
+	onInitProgress   func(podKey string, phase string, progress int, message string)
 }
 
 // NewPodCoordinator creates a new pod coordinator.
@@ -51,6 +52,7 @@ func NewPodCoordinator(
 	cm.SetPodTerminatedCallback(pc.handlePodTerminated)
 	cm.SetAgentStatusCallback(pc.handleAgentStatus)
 	cm.SetDisconnectCallback(pc.handleRunnerDisconnect)
+	cm.SetPodInitProgressCallback(pc.handlePodInitProgress)
 
 	return pc
 }
@@ -65,6 +67,11 @@ func (pc *PodCoordinator) SetCommandSender(sender RunnerCommandSender) {
 // SetStatusChangeCallback sets the callback for status changes
 func (pc *PodCoordinator) SetStatusChangeCallback(fn func(podKey string, status string, agentStatus string)) {
 	pc.onStatusChange = fn
+}
+
+// SetInitProgressCallback sets the callback for init progress events
+func (pc *PodCoordinator) SetInitProgressCallback(fn func(podKey string, phase string, progress int, message string)) {
+	pc.onInitProgress = fn
 }
 
 // IncrementPods increments pod count for a runner
