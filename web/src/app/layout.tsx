@@ -1,3 +1,5 @@
+// AgentsMesh Web Frontend
+// Build version marker: 2025-01-20-ci-test
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider, ThemeColorMeta } from "@/components/theme";

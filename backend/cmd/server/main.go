@@ -1,3 +1,5 @@
+// AgentsMesh Backend Server
+// Build version marker: 2025-01-20-ci-test
 package main
 
 import (
