@@ -18,6 +18,7 @@ stages:
   - build
   - package
   - release
+  - deploy
 
 # =============================================================================
 # Test Stage - Run on MR pipelines
@@ -218,3 +219,91 @@ build-runner:
         - proto/**/*
         - ci/runner.Dockerfile
     - if: $CI_PIPELINE_SOURCE == "web"
+
+# =============================================================================
+# Deploy Stage - Per-service deployment to production
+# =============================================================================
+# Each service has its own deploy job, triggered by changes to that service.
+# Uses CI_COMMIT_SHORT_SHA as version tag for proper rollback support.
+
+# Deploy Backend to China Production
+deploy:cn-prod:backend:
+  stage: deploy
+  needs:
+    - job: build-backend
+      optional: true  # 允许手动触发时跳过
+  tags:
+    - deploy
+    - linux
+  environment:
+    name: cn-production
+    url: https://agentsmesh.cn
+  script:
+    - echo "Deploying Backend ${CI_COMMIT_SHORT_SHA} to China Production..."
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && git pull origin main"
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service backend --version ${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/**/*
+        - proto/**/*
+
+# Deploy Web to China Production
+deploy:cn-prod:web:
+  stage: deploy
+  needs:
+    - job: build-web
+      optional: true
+  tags:
+    - deploy
+    - linux
+  environment:
+    name: cn-production
+    url: https://agentsmesh.cn
+  script:
+    - echo "Deploying Web ${CI_COMMIT_SHORT_SHA} to China Production..."
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && git pull origin main"
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service web --version ${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - web/**/*
+
+# Deploy Web-Admin to China Production
+deploy:cn-prod:web-admin:
+  stage: deploy
+  needs:
+    - job: build-web-admin
+      optional: true
+  tags:
+    - deploy
+    - linux
+  environment:
+    name: cn-production
+    url: https://admin.agentsmesh.cn
+  script:
+    - echo "Deploying Web-Admin ${CI_COMMIT_SHORT_SHA} to China Production..."
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && git pull origin main"
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service web-admin --version ${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - web-admin/**/*
+
+# Manual full deployment (all services with current commit version)
+deploy:cn-prod:full:
+  stage: deploy
+  tags:
+    - deploy
+    - linux
+  environment:
+    name: cn-production
+    url: https://agentsmesh.cn
+  script:
+    - echo "Full deployment ${CI_COMMIT_SHORT_SHA} to China Production..."
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && git pull origin main"
+    - ssh root@aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --version ${CI_COMMIT_SHORT_SHA}"
+    - ssh root@aliyun-s001 "docker service ls --filter name=agentsmesh"
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
