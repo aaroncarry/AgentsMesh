@@ -170,6 +170,23 @@ func (h *RunnerMessageHandler) OnTerminalResize(req client.TerminalResizeRequest
 	return nil
 }
 
+// OnTerminalRedraw handles terminal redraw requests from server.
+// Uses resize +1/-1 trick to trigger terminal redraw (SIGWINCH alone doesn't work
+// for programs in idle state like Claude Code waiting for input).
+// Used for restoring terminal state after server restart.
+// Implements client.MessageHandler interface.
+func (h *RunnerMessageHandler) OnTerminalRedraw(req client.TerminalRedrawRequest) error {
+	pod, ok := h.podStore.Get(req.PodKey)
+	if !ok {
+		return fmt.Errorf("pod not found: %s", req.PodKey)
+	}
+
+	logger.Pod().Info("Triggering terminal redraw", "pod_key", req.PodKey)
+
+	// Use resize trick to trigger redraw - no pty_resized event sent back
+	return pod.Terminal.Redraw()
+}
+
 // Helper methods
 
 func (h *RunnerMessageHandler) createOutputHandler(podKey string) func([]byte) {

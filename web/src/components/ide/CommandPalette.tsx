@@ -21,6 +21,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n/client";
+import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -310,7 +311,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     value={`pod-${pod.pod_key}`}
                     className="flex items-center gap-3 px-3 py-2 rounded cursor-pointer aria-selected:bg-muted"
                     onSelect={() => {
-                      addPane(pod.pod_key, `Pod ${pod.pod_key.substring(0, 8)}`);
+                      addPane(pod.pod_key, getPodDisplayName(pod));
                       router.push(`/${orgSlug}/workspace`);
                       onOpenChange(false);
                     }}
@@ -318,7 +319,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     <Terminal className="w-4 h-4 text-muted-foreground" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm truncate">
-                        <code>{pod.pod_key.substring(0, 12)}...</code>
+                        <code>{getPodDisplayName(pod)}</code>
                       </div>
                       <div className="text-xs text-muted-foreground">{pod.status}</div>
                     </div>

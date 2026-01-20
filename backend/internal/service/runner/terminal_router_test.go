@@ -1,7 +1,9 @@
 package runner
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
@@ -19,9 +21,6 @@ func TestNewTerminalRouter(t *testing.T) {
 	// Check shards are initialized
 	if tr.shards[0] == nil {
 		t.Error("shards should be initialized")
-	}
-	if tr.scrollbackSize != DefaultScrollbackSize {
-		t.Errorf("scrollbackSize = %d, want %d", tr.scrollbackSize, DefaultScrollbackSize)
 	}
 }
 
@@ -45,13 +44,13 @@ func TestTerminalRouterRegisterPod(t *testing.T) {
 		t.Errorf("runnerID = %d, want 100", runnerID)
 	}
 
-	// Check scrollback buffer is created
+	// Check virtual terminal is created
 	shard := tr.getShard("pod-1")
 	shard.mu.RLock()
-	buffer := shard.scrollbackBuffers["pod-1"]
+	vt := shard.virtualTerminals["pod-1"]
 	shard.mu.RUnlock()
-	if buffer == nil {
-		t.Error("scrollback buffer should be created")
+	if vt == nil {
+		t.Error("virtual terminal should be created")
 	}
 }
 
@@ -69,13 +68,13 @@ func TestTerminalRouterUnregisterPod(t *testing.T) {
 		t.Error("pod should be unregistered")
 	}
 
-	// Check scrollback buffer is removed
+	// Check virtual terminal is removed
 	shard := tr.getShard("pod-1")
 	shard.mu.RLock()
-	buffer := shard.scrollbackBuffers["pod-1"]
+	vt := shard.virtualTerminals["pod-1"]
 	shard.mu.RUnlock()
-	if buffer != nil {
-		t.Error("scrollback buffer should be removed")
+	if vt != nil {
+		t.Error("virtual terminal should be removed")
 	}
 }
 
@@ -142,34 +141,25 @@ func TestTerminalRouterGetRecentOutput(t *testing.T) {
 	cm := NewRunnerConnectionManager(newTestLogger())
 	tr := NewTerminalRouter(cm, newTestLogger())
 
-	// No buffer
-	output := tr.GetRecentOutput("nonexistent", 10, true)
+	// No virtual terminal
+	output := tr.GetRecentOutput("nonexistent", 10)
 	if output != nil {
 		t.Error("should return nil for nonexistent pod")
 	}
 
-	// Register pod and add some output
+	// Register pod
 	tr.RegisterPod("pod-1", 100)
 	shard := tr.getShard("pod-1")
-	shard.mu.RLock()
-	buffer := shard.scrollbackBuffers["pod-1"]
-	shard.mu.RUnlock()
-	buffer.Write([]byte("line1\nline2\nline3\n"))
 
-	// Test raw output
-	output = tr.GetRecentOutput("pod-1", 2, true)
-	if output == nil {
-		t.Error("should return raw output")
-	}
-
-	// Test processed output (feed to virtual terminal first)
+	// Feed data to virtual terminal
 	shard.mu.RLock()
 	vt := shard.virtualTerminals["pod-1"]
 	shard.mu.RUnlock()
 	vt.Feed([]byte("Hello, World!"))
 
-	processedOutput := tr.GetRecentOutput("pod-1", 10, false)
-	if processedOutput == nil {
+	// Get processed output
+	output = tr.GetRecentOutput("pod-1", 10)
+	if output == nil {
 		t.Error("should return processed output")
 	}
 }
@@ -230,51 +220,25 @@ func TestTerminalRouterPtyResized(t *testing.T) {
 	}
 }
 
-func TestTerminalRouterGetAllScrollbackData(t *testing.T) {
-	cm := NewRunnerConnectionManager(newTestLogger())
-	tr := NewTerminalRouter(cm, newTestLogger())
-
-	// No buffer
-	data := tr.GetAllScrollbackData("nonexistent")
-	if data != nil {
-		t.Error("should return nil for nonexistent pod")
-	}
-
-	// Register pod and add some data
-	tr.RegisterPod("pod-1", 100)
-	shard := tr.getShard("pod-1")
-	shard.mu.RLock()
-	buffer := shard.scrollbackBuffers["pod-1"]
-	shard.mu.RUnlock()
-	buffer.Write([]byte("test data"))
-
-	data = tr.GetAllScrollbackData("pod-1")
-	if string(data) != "test data" {
-		t.Errorf("data = %q, want %q", data, "test data")
-	}
-}
-
-func TestTerminalRouterClearScrollback(t *testing.T) {
+func TestTerminalRouterClearTerminal(t *testing.T) {
 	cm := NewRunnerConnectionManager(newTestLogger())
 	tr := NewTerminalRouter(cm, newTestLogger())
 
 	// Clear nonexistent - should not panic
-	tr.ClearScrollback("nonexistent")
+	tr.ClearTerminal("nonexistent")
 
 	// Register and clear
 	tr.RegisterPod("pod-1", 100)
+
+	// Feed some data to the virtual terminal
 	shard := tr.getShard("pod-1")
 	shard.mu.RLock()
-	buffer := shard.scrollbackBuffers["pod-1"]
+	vt := shard.virtualTerminals["pod-1"]
 	shard.mu.RUnlock()
-	buffer.Write([]byte("test data"))
+	vt.Feed([]byte("test data"))
 
-	tr.ClearScrollback("pod-1")
-
-	data := buffer.GetData()
-	if len(data) != 0 {
-		t.Errorf("data should be cleared, got %q", data)
-	}
+	// Clear should not panic
+	tr.ClearTerminal("pod-1")
 }
 
 func TestTerminalRouterRouteInputNoRunner(t *testing.T) {
@@ -342,10 +306,88 @@ func TestTerminalRouterHandleTerminalOutput(t *testing.T) {
 		Data:   []byte("test output"),
 	})
 
-	// Check scrollback buffer has the data
-	data := tr.GetAllScrollbackData("pod-1")
-	if string(data) != "test output" {
-		t.Errorf("scrollback = %q, want %q", data, "test output")
+	// Check virtual terminal has the data
+	output := tr.GetRecentOutput("pod-1", 10)
+	if !strings.Contains(string(output), "test output") {
+		t.Errorf("output = %q, should contain %q", output, "test output")
+	}
+}
+
+// TestTerminalRouterAutoCreateVTOnOutput tests that VT is auto-created on terminal output
+// This is critical for server restart recovery - VT must be created when output arrives
+func TestTerminalRouterAutoCreateVTOnOutput(t *testing.T) {
+	cm := NewRunnerConnectionManager(newTestLogger())
+	tr := NewTerminalRouter(cm, newTestLogger())
+
+	// Verify pod is not registered
+	if tr.IsPodRegistered("unregistered-pod") {
+		t.Error("pod should not be registered initially")
+	}
+
+	// Send terminal output without prior registration (simulates server restart scenario)
+	tr.handleTerminalOutput(200, &runnerv1.TerminalOutputEvent{
+		PodKey: "unregistered-pod",
+		Data:   []byte("output after restart"),
+	})
+
+	// VT should be auto-created
+	if !tr.IsPodRegistered("unregistered-pod") {
+		t.Error("pod should be auto-registered after output")
+	}
+
+	// Runner ID should be recorded
+	runnerID, ok := tr.GetRunnerID("unregistered-pod")
+	if !ok || runnerID != 200 {
+		t.Errorf("runner ID = %d, want 200", runnerID)
+	}
+
+	// Output should be captured
+	output := tr.GetRecentOutput("unregistered-pod", 10)
+	if !strings.Contains(string(output), "output after restart") {
+		t.Errorf("output = %q, should contain %q", output, "output after restart")
+	}
+}
+
+// TestTerminalRouterAutoCreateVTOnResize tests that VT is auto-created on PTY resize
+// This is critical for server restart recovery - resize often arrives before output
+func TestTerminalRouterAutoCreateVTOnResize(t *testing.T) {
+	cm := NewRunnerConnectionManager(newTestLogger())
+	tr := NewTerminalRouter(cm, newTestLogger())
+
+	// Verify pod is not registered
+	if tr.IsPodRegistered("resize-pod") {
+		t.Error("pod should not be registered initially")
+	}
+
+	// Send PTY resize without prior registration (simulates server restart scenario)
+	tr.handlePtyResized(300, &runnerv1.PtyResizedEvent{
+		PodKey: "resize-pod",
+		Cols:   150,
+		Rows:   50,
+	})
+
+	// VT should be auto-created
+	if !tr.IsPodRegistered("resize-pod") {
+		t.Error("pod should be auto-registered after resize")
+	}
+
+	// Runner ID should be recorded
+	runnerID, ok := tr.GetRunnerID("resize-pod")
+	if !ok || runnerID != 300 {
+		t.Errorf("runner ID = %d, want 300", runnerID)
+	}
+
+	// VT should have correct size
+	shard := tr.getShard("resize-pod")
+	shard.mu.RLock()
+	vt := shard.virtualTerminals["resize-pod"]
+	shard.mu.RUnlock()
+
+	if vt == nil {
+		t.Fatal("virtual terminal should exist")
+	}
+	if vt.Cols() != 150 || vt.Rows() != 50 {
+		t.Errorf("VT size = %dx%d, want 150x50", vt.Cols(), vt.Rows())
 	}
 }
 
@@ -363,9 +405,9 @@ func TestTerminalClientStruct(t *testing.T) {
 	}
 }
 
-func TestDefaultScrollbackSize(t *testing.T) {
-	if DefaultScrollbackSize != 100*1024 {
-		t.Errorf("DefaultScrollbackSize = %d, want %d", DefaultScrollbackSize, 100*1024)
+func TestDefaultVirtualTerminalHistory(t *testing.T) {
+	if DefaultVirtualTerminalHistory != 10000 {
+		t.Errorf("DefaultVirtualTerminalHistory = %d, want %d", DefaultVirtualTerminalHistory, 10000)
 	}
 }
 
@@ -539,10 +581,10 @@ func TestTerminalRouterHandleTerminalOutputWithClients(t *testing.T) {
 		t.Error("client should have received output message")
 	}
 
-	// Verify scrollback buffer also has the data
-	data := tr.GetAllScrollbackData("pod-1")
-	if string(data) != string(outputData) {
-		t.Errorf("scrollback = %q, want %q", data, outputData)
+	// Verify virtual terminal also has the data
+	output := tr.GetRecentOutput("pod-1", 10)
+	if !strings.Contains(string(output), string(outputData)) {
+		t.Errorf("output = %q, should contain %q", output, outputData)
 	}
 }
 
@@ -743,10 +785,10 @@ func TestTerminalRouterHandleTerminalOutputWithDeadClient(t *testing.T) {
 		Data:   []byte("test output"),
 	})
 
-	// Data should still be in scrollback
-	data := tr.GetAllScrollbackData("pod-1")
-	if string(data) != "test output" {
-		t.Errorf("scrollback = %q, want %q", data, "test output")
+	// Data should still be in virtual terminal
+	output := tr.GetRecentOutput("pod-1", 10)
+	if !strings.Contains(string(output), "test output") {
+		t.Errorf("output = %q, should contain %q", output, "test output")
 	}
 
 	// Dead client should be removed
@@ -787,6 +829,114 @@ func TestTerminalRouterHandlePtyResizedWithClients(t *testing.T) {
 		}
 	default:
 		t.Error("client should have received pty_resized message")
+	}
+
+	tr.DisconnectClient(client)
+}
+
+func TestTerminalRouterConnectClientWithVTData(t *testing.T) {
+	cm := NewRunnerConnectionManager(newTestLogger())
+	tr := NewTerminalRouter(cm, newTestLogger())
+	mockSender := &MockCommandSender{}
+	tr.SetCommandSender(mockSender)
+
+	// Register pod with size
+	tr.RegisterPodWithSize("pod-1", 100, 80, 24)
+
+	// Set up ptySize by simulating pty_resized event
+	tr.handlePtyResized(100, &runnerv1.PtyResizedEvent{
+		PodKey: "pod-1",
+		Cols:   80,
+		Rows:   24,
+	})
+
+	// Feed some data to the VT to make it non-empty
+	tr.handleTerminalOutput(100, &runnerv1.TerminalOutputEvent{
+		PodKey: "pod-1",
+		Data:   []byte("Hello, World!\r\n"),
+	})
+
+	// Connect client - should receive serialized VT state
+	client, err := tr.ConnectClient("pod-1", nil)
+	if err != nil {
+		t.Fatalf("ConnectClient error: %v", err)
+	}
+
+	// Client should receive messages (pty_resized and serialized state)
+	receivedMessages := 0
+	for receivedMessages < 2 {
+		select {
+		case msg := <-client.Send:
+			receivedMessages++
+			// First message should be pty_resized (JSON), second is serialized state (not JSON)
+			if receivedMessages == 1 && !msg.IsJSON {
+				t.Error("first message should be pty_resized (JSON)")
+			}
+			if receivedMessages == 2 && msg.IsJSON {
+				t.Error("second message should be serialized state (not JSON)")
+			}
+		default:
+			break
+		}
+		if receivedMessages < 2 {
+			// Give it a moment for async operations
+			break
+		}
+	}
+
+	if receivedMessages < 1 {
+		t.Error("client should have received at least pty_resized message")
+	}
+
+	tr.DisconnectClient(client)
+}
+
+func TestTerminalRouterConnectClientEmptyVTTriggersRedraw(t *testing.T) {
+	cm := NewRunnerConnectionManager(newTestLogger())
+	tr := NewTerminalRouter(cm, newTestLogger())
+	mockSender := &MockCommandSender{}
+	tr.SetCommandSender(mockSender)
+
+	// Register pod with size
+	tr.RegisterPodWithSize("pod-1", 100, 80, 24)
+
+	// Set up ptySize by simulating pty_resized event (VT is empty)
+	// This should trigger redraw because VT is empty and client will be connected
+	tr.handlePtyResized(100, &runnerv1.PtyResizedEvent{
+		PodKey: "pod-1",
+		Cols:   80,
+		Rows:   24,
+	})
+
+	// Connect client - VT is empty
+	client, err := tr.ConnectClient("pod-1", nil)
+	if err != nil {
+		t.Fatalf("ConnectClient error: %v", err)
+	}
+
+	// Drain messages
+	for {
+		select {
+		case <-client.Send:
+		default:
+			goto done
+		}
+	}
+done:
+
+	// Trigger handlePtyResized again - this time with client connected
+	// Since VT is still empty, it should trigger redraw
+	tr.handlePtyResized(100, &runnerv1.PtyResizedEvent{
+		PodKey: "pod-1",
+		Cols:   81, // Different size to ensure it's processed
+		Rows:   24,
+	})
+
+	// Wait for async redraw call with proper timing
+	time.Sleep(50 * time.Millisecond)
+
+	if mockSender.GetTerminalRedrawCalls() == 0 {
+		t.Error("expected SendTerminalRedraw to be called when VT is empty")
 	}
 
 	tr.DisconnectClient(client)

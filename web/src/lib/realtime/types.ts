@@ -8,6 +8,7 @@ export type EventType =
   | "pod:agent_status_changed"
   | "pod:terminated"
   | "pod:title_changed"
+  | "pod:init_progress"
   | "channel:message"
   | "ticket:created"
   | "ticket:updated"
@@ -114,6 +115,16 @@ export interface TaskCompletedData {
 export interface PodTitleChangedData {
   pod_key: string;
   title: string;
+}
+
+/**
+ * Pod initialization progress event payload
+ */
+export interface PodInitProgressData {
+  pod_key: string;
+  phase: string; // pending, cloning, preparing, starting_pty, ready
+  progress: number; // 0-100
+  message: string; // Human-readable progress message
 }
 
 /**

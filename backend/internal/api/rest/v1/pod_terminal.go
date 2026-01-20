@@ -9,10 +9,9 @@ import (
 
 // TerminalRouterInterface defines the interface for terminal router operations
 type TerminalRouterInterface interface {
-	GetRecentOutput(podKey string, lines int, raw bool) []byte
+	GetRecentOutput(podKey string, lines int) []byte
 	GetScreenSnapshot(podKey string) string
 	GetCursorPosition(podKey string) (row, col int)
-	GetAllScrollbackData(podKey string) []byte
 	RouteInput(podKey string, data []byte) error
 	RouteResize(podKey string, cols, rows int) error
 }
@@ -31,7 +30,6 @@ type TerminalOutputResponse struct {
 // ObserveTerminalRequest represents terminal observation request
 type ObserveTerminalRequest struct {
 	Lines         int  `form:"lines"`
-	Raw           bool `form:"raw"`            // If true, return raw output; otherwise return processed output
 	IncludeScreen bool `form:"include_screen"` // If true, include current screen snapshot
 }
 
@@ -85,15 +83,12 @@ func (h *PodHandler) ObserveTerminal(c *gin.Context) {
 	if lines <= 0 {
 		lines = 100 // Default to last 100 lines
 	}
-
-	var output []byte
 	if lines == -1 {
-		// Get all raw scrollback data
-		output = tr.GetAllScrollbackData(podKey)
-	} else {
-		// Get recent output (processed by default, raw if requested)
-		output = tr.GetRecentOutput(podKey, lines, req.Raw)
+		lines = 10000 // Get all available output
 	}
+
+	// Get recent output (processed, without ANSI escape sequences)
+	output := tr.GetRecentOutput(podKey, lines)
 
 	// Get cursor position from virtual terminal
 	cursorRow, cursorCol := tr.GetCursorPosition(podKey)

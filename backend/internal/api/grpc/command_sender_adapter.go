@@ -65,6 +65,11 @@ func (s *GRPCCommandSender) SendTerminalResize(ctx context.Context, runnerID int
 	return s.adapter.SendTerminalResize(runnerID, podKey, int32(cols), int32(rows))
 }
 
+// SendTerminalRedraw triggers terminal redraw without changing size via gRPC.
+func (s *GRPCCommandSender) SendTerminalRedraw(ctx context.Context, runnerID int64, podKey string) error {
+	return s.adapter.SendTerminalRedraw(runnerID, podKey)
+}
+
 // SendPrompt sends a prompt to a pod via gRPC.
 func (s *GRPCCommandSender) SendPrompt(ctx context.Context, runnerID int64, podKey, prompt string) error {
 	return s.adapter.SendPrompt(runnerID, podKey, prompt)

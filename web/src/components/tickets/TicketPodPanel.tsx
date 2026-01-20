@@ -9,6 +9,7 @@ import { useWorkspaceStore } from "@/stores/workspace";
 import { useAuthStore } from "@/stores/auth";
 import { Terminal, ExternalLink, Plus } from "lucide-react";
 import { CreatePodModal } from "@/components/ide/CreatePodModal";
+import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface TicketPod {
   pod_key: string;
@@ -211,9 +212,9 @@ function PodItem({ pod, ticketIdentifier }: PodItemProps) {
         }`}
       />
 
-      {/* Pod Key */}
+      {/* Pod Name */}
       <code className="text-xs font-mono text-muted-foreground flex-1 truncate">
-        {pod.pod_key.substring(0, 12)}...
+        {getPodDisplayName(pod)}
       </code>
 
       {/* Actions - show on hover */}

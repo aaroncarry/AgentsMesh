@@ -204,4 +204,32 @@ func setupPodEventCallbacks(db *gorm.DB, podCoordinator *runner.PodCoordinator, 
 			}
 		}
 	})
+
+	// Set up init progress callback
+	podCoordinator.SetInitProgressCallback(func(podKey string, phase string, progress int, message string) {
+		// Query pod to get organization ID
+		var pod struct {
+			OrganizationID int64 `gorm:"column:organization_id"`
+		}
+		if err := db.Table("pods").Where("pod_key = ?", podKey).First(&pod).Error; err != nil {
+			slog.Error("failed to get pod for init progress event", "pod_key", podKey, "error", err)
+			return
+		}
+
+		// Create and publish init progress event
+		data := &eventbus.PodInitProgressData{
+			PodKey:   podKey,
+			Phase:    phase,
+			Progress: progress,
+			Message:  message,
+		}
+		event, err := eventbus.NewEntityEvent(eventbus.EventPodInitProgress, pod.OrganizationID, "pod", podKey, data)
+		if err != nil {
+			slog.Error("failed to create pod init progress event", "error", err)
+			return
+		}
+		if err := eventBus.Publish(context.Background(), event); err != nil {
+			slog.Error("failed to publish pod init progress event", "error", err)
+		}
+	})
 }

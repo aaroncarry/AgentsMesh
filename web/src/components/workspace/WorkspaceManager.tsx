@@ -11,6 +11,7 @@ import { TerminalSwiper } from "./TerminalSwiper";
 import { TerminalToolbar } from "./TerminalToolbar";
 import { Button } from "@/components/ui/button";
 import { Maximize2, Minimize2 } from "lucide-react";
+import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface WorkspaceManagerProps {
   className?: string;
@@ -183,11 +184,11 @@ function PodSelectorModal({ pods, onSelect, onClose }: PodSelectorModalProps) {
                 <button
                   key={pod.pod_key}
                   className="w-full p-4 text-left hover:bg-muted transition-colors"
-                  onClick={() => onSelect(pod.pod_key, `Pod ${pod.pod_key.substring(0, 8)}`)}
+                  onClick={() => onSelect(pod.pod_key, getPodDisplayName(pod))}
                 >
                   <div className="flex items-center justify-between">
                     <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
-                      {pod.pod_key.substring(0, 12)}...
+                      {getPodDisplayName(pod)}
                     </code>
                     <span className="text-xs text-green-500 dark:text-green-400">{pod.status}</span>
                   </div>

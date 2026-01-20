@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { getPodDisplayName } from "@/lib/pod-utils";
 import { useAuthStore } from "@/stores/auth";
 import { useTranslations } from "@/lib/i18n/client";
 import { useMeshStore, MeshNode, ChannelInfo, getPodStatusInfo } from "@/stores/mesh";
@@ -275,7 +276,7 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
                     >
                       <span className={cn("w-2 h-2 rounded-full flex-shrink-0", statusInfo.bgColor)} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{node.pod_key.substring(0, 12)}...</p>
+                        <p className="text-sm truncate">{getPodDisplayName(node)}</p>
                         {node.model && (
                           <p className="text-xs text-muted-foreground">{node.model}</p>
                         )}
@@ -309,7 +310,7 @@ export function MeshSidebarContent({ className }: MeshSidebarContentProps) {
 
           {selectedNodeData && (
             <div className="space-y-2">
-              <div className="text-sm font-medium truncate">{selectedNodeData.pod_key}</div>
+              <div className="text-sm font-medium truncate">{getPodDisplayName(selectedNodeData)}</div>
               <div className="flex items-center gap-2 text-xs">
                 <span className={cn("px-1.5 py-0.5 rounded", getPodStatusInfo(selectedNodeData.status).bgColor, getPodStatusInfo(selectedNodeData.status).color)}>
                   {getPodStatusInfo(selectedNodeData.status).label}

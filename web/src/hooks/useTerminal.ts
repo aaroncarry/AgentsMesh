@@ -5,7 +5,6 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
-import { SerializeAddon } from "@xterm/addon-serialize";
 import { terminalPool } from "@/stores/workspace";
 
 interface TerminalConnection {
@@ -57,7 +56,6 @@ export function useTerminal(
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const serializeAddonRef = useRef<SerializeAddon | null>(null);
   const connectionRef = useRef<TerminalConnection | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
 
@@ -79,29 +77,14 @@ export function useTerminal(
     const fitAddon = new FitAddon();
     const webLinksAddon = new WebLinksAddon();
     const searchAddon = new SearchAddon();
-    const serializeAddon = new SerializeAddon();
 
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
     term.loadAddon(searchAddon);
-    term.loadAddon(serializeAddon);
-
-    // Check for saved serialized state BEFORE opening terminal
-    // This is recommended by xterm.js docs for better performance
-    const savedState = terminalPool.getSerializedState(podKey);
 
     // Open terminal
+    // Note: Terminal state will be restored from backend via WebSocket on connect
     term.open(terminalRef.current);
-
-    // Restore saved state if available
-    if (savedState) {
-      // Resize to saved dimensions first for proper restoration
-      term.resize(savedState.cols, savedState.rows);
-      // Write serialized data to restore state
-      term.write(savedState.data);
-      // Clear the saved state after restoration
-      terminalPool.clearSerializedState(podKey);
-    }
 
     // Fit after a short delay to ensure container is sized
     setTimeout(() => {
@@ -141,29 +124,14 @@ export function useTerminal(
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
-    serializeAddonRef.current = serializeAddon;
 
-    // Cleanup - serialize state before disposing
+    // Cleanup
     return () => {
       clearInterval(statusInterval);
-
-      // Serialize terminal state before cleanup for later restoration
-      if (serializeAddonRef.current && xtermRef.current) {
-        try {
-          const serializedData = serializeAddonRef.current.serialize();
-          const cols = xtermRef.current.cols;
-          const rows = xtermRef.current.rows;
-          terminalPool.saveSerializedState(podKey, serializedData, cols, rows);
-        } catch (e) {
-          console.error("Failed to serialize terminal state:", e);
-        }
-      }
-
       connectionRef.current?.disconnect();
       term.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
-      serializeAddonRef.current = null;
     };
   }, [podKey, fontSize, isPodReady]);
 

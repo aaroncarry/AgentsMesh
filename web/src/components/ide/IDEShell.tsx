@@ -17,6 +17,7 @@ import { useIDEStore, type ActivityType } from "@/stores/ide";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { usePodStore } from "@/stores/pod";
 import { toast } from "sonner";
+import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface IDEShellProps {
   children: React.ReactNode;
@@ -75,13 +76,14 @@ export function IDEShell({
     setCreatePodModalOpen(true);
   }, []);
 
-  const handlePodCreated = useCallback((pod?: { pod_key: string }) => {
+  const handlePodCreated = useCallback((pod?: { pod_key: string; title?: string }) => {
     setCreatePodModalOpen(false);
     if (pod?.pod_key) {
+      const displayName = getPodDisplayName(pod);
       toast.info("Pod created! Waiting for it to start...", {
-        description: `Pod: ${pod.pod_key.substring(0, 8)}`,
+        description: `Pod: ${displayName}`,
       });
-      addPane(pod.pod_key, `Pod ${pod.pod_key.substring(0, 8)}`);
+      addPane(pod.pod_key, displayName);
       fetchPods();
     }
   }, [addPane, fetchPods]);

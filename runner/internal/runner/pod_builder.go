@@ -116,6 +116,9 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 
 	logger.Pod().Info("Building pod", "pod_key", b.podKey, "command", b.launchCommand)
 
+	// Report initial progress
+	b.sendProgress("pending", 0, "Initializing pod...")
+
 	// Setup sandbox and working directory
 	sandboxRoot, workingDir, worktreePath, branchName, err := b.setup(ctx)
 	if err != nil {
@@ -127,6 +130,9 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 
 	// Merge environment variables
 	envVars := b.mergeEnvVars()
+
+	// Report progress: starting PTY
+	b.sendProgress("starting_pty", 80, "Starting terminal...")
 
 	// Create terminal
 	term, err := terminal.New(terminal.Options{
@@ -164,6 +170,9 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 
 	logger.Pod().Info("Pod built", "pod_key", b.podKey, "working_dir", workingDir)
 
+	// Report progress: ready
+	b.sendProgress("ready", 100, "Pod is ready")
+
 	return pod, nil
 }
 
@@ -171,6 +180,7 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 // Returns (sandboxRoot, workingDir, worktreePath, branchName, error).
 func (b *PodBuilder) setup(ctx context.Context) (string, string, string, string, error) {
 	// 1. Create sandbox root directory
+	b.sendProgress("preparing", 10, "Creating sandbox directory...")
 	sandboxRoot := filepath.Join(b.runner.cfg.WorkspaceRoot, "sandboxes", b.podKey)
 	if err := os.MkdirAll(sandboxRoot, 0755); err != nil {
 		return "", "", "", "", &client.PodError{
@@ -180,6 +190,7 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, string,
 	}
 
 	// 2. Setup working directory based on WorkDirConfig
+	b.sendProgress("preparing", 20, "Setting up working directory...")
 	workingDir, worktreePath, branchName, err := b.setupWorkDir(ctx, sandboxRoot)
 	if err != nil {
 		os.RemoveAll(sandboxRoot)
@@ -187,6 +198,9 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, string,
 	}
 
 	// 3. Create files from FilesToCreate
+	if len(b.filesToCreate) > 0 {
+		b.sendProgress("preparing", 70, "Creating files...")
+	}
 	if err := b.createFiles(sandboxRoot, workingDir); err != nil {
 		os.RemoveAll(sandboxRoot)
 		return "", "", "", "", err
@@ -255,6 +269,9 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string) (
 
 	// Use workspace manager if available
 	if b.runner.workspace != nil {
+		// Report cloning progress
+		b.sendProgress("cloning", 30, "Cloning repository...")
+
 		// Set git credentials if provided
 		opts := []workspace.WorktreeOption{}
 		if cfg.GitToken != "" {
@@ -289,6 +306,9 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string) (
 				},
 			}
 		}
+
+		// Report progress after successful clone
+		b.sendProgress("cloning", 60, "Repository cloned successfully")
 
 		branchName := cfg.Branch
 		if branchName == "" {
@@ -386,4 +406,16 @@ func (b *PodBuilder) mergeEnvVars() map[string]string {
 	}
 
 	return result
+}
+
+// sendProgress sends a pod initialization progress event to the server.
+// This is a best-effort operation - errors are logged but not returned.
+func (b *PodBuilder) sendProgress(phase string, progress int, message string) {
+	if b.podKey == "" || b.runner == nil || b.runner.conn == nil {
+		return
+	}
+
+	if err := b.runner.conn.SendPodInitProgress(b.podKey, phase, int32(progress), message); err != nil {
+		logger.Pod().Debug("Failed to send init progress", "pod_key", b.podKey, "phase", phase, "error", err)
+	}
 }

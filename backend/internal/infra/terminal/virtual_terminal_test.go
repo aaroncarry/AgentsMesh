@@ -436,8 +436,9 @@ func TestUTF8SpecialSymbols(t *testing.T) {
 func TestUTF8WithCursorMovement(t *testing.T) {
 	vt := NewVirtualTerminal(80, 24, 1000)
 	vt.Feed([]byte("你好"))
-	vt.Feed([]byte("\x1b[2D")) // Cursor back 2
-	vt.Feed([]byte("世界"))
+	// Cursor is at column 4 (after two wide chars)
+	vt.Feed([]byte("\x1b[4D")) // Cursor back 4 columns to start
+	vt.Feed([]byte("世界"))    // Overwrites from column 0
 	display := vt.GetDisplay()
 	if display != "世界" {
 		t.Errorf("UTF-8 with cursor movement: expected '世界', got '%s'", display)

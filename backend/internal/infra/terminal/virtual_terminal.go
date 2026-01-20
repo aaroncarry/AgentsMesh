@@ -6,7 +6,16 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
+
+// runeWidthCond is configured for terminal use (East Asian Ambiguous = narrow)
+var runeWidthCond = func() *runewidth.Condition {
+	c := runewidth.NewCondition()
+	c.EastAsianWidth = false // Treat ambiguous as narrow (width 1)
+	return c
+}()
 
 // VirtualTerminal provides a virtual terminal emulator
 // that converts raw PTY output with ANSI escape sequences
@@ -17,31 +26,51 @@ import (
 // - Line/screen clearing (ED, EL)
 // - Scrolling regions
 // - Alternative screen buffer
+// - SGR (Select Graphic Rendition) for colors and text attributes
 type VirtualTerminal struct {
 	mu sync.RWMutex
 
 	cols int
 	rows int
 
-	// Screen buffer (current visible content)
+	// Screen buffer (current visible content) - runes only for backward compatibility
 	screen [][]rune
+
+	// Styled cell buffer - cells with color and attribute information
+	cells [][]Cell
 
 	// Cursor position
 	cursorX int
 	cursorY int
 
-	// History buffer (scrolled-off lines)
+	// Current text style (applied to new characters)
+	currentFg             Color
+	currentBg             Color
+	currentAttrs          CellAttrs
+	currentUnderlineStyle UnderlineStyle
+	currentUnderlineColor Color
+
+	// Line wrap tracking (true if line is wrapped from previous line)
+	isWrapped []bool
+
+	// History buffer (scrolled-off lines) - plain text for backward compatibility
 	history    []string
 	maxHistory int
+
+	// Styled history buffer (scrolled-off lines with full style information)
+	// Each entry is a row of cells, preserving colors and attributes
+	historyStyled   [][]Cell
+	historyIsWrapped []bool // Wrap flags for styled history lines
 
 	// Flag to track if we've received any data
 	hasData bool
 
 	// Escape sequence parsing state
-	escState   escapeState
-	escBuffer  []byte
-	escParams  []int
-	escPrivate byte
+	escState    escapeState
+	escBuffer   []byte
+	escParams   []int
+	escPrivate  byte
+	escRawSeq   []byte // Raw sequence for SGR parsing with colons
 
 	// Saved cursor position
 	savedCursorX int
@@ -49,10 +78,12 @@ type VirtualTerminal struct {
 
 	// Alternative screen buffer support
 	altScreen       [][]rune
+	altCells        [][]Cell
 	altCursorX      int
 	altCursorY      int
 	useAltScreen    bool
 	savedMainScreen [][]rune
+	savedMainCells  [][]Cell
 }
 
 // escapeState represents the current state of escape sequence parsing
@@ -67,10 +98,6 @@ const (
 )
 
 // ANSI escape sequence pattern (for simple stripping)
-// Matches:
-// - CSI sequences: ESC [ [?>=] params letter (includes DEC private mode ?xxx and Kitty >xxx)
-// - OSC sequences: ESC ] ... BEL
-// - DCS/PM/APC sequences: ESC P/X/^/_ ... ST
 var ansiPattern = regexp.MustCompile(`\x1b\[[?>=]?[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[PX^_][^\x1b]*\x1b\\`)
 
 // NewVirtualTerminal creates a new virtual terminal
@@ -86,10 +113,12 @@ func NewVirtualTerminal(cols, rows, maxHistory int) *VirtualTerminal {
 	}
 
 	vt := &VirtualTerminal{
-		cols:       cols,
-		rows:       rows,
-		maxHistory: maxHistory,
-		history:    make([]string, 0),
+		cols:             cols,
+		rows:             rows,
+		maxHistory:       maxHistory,
+		history:          make([]string, 0),
+		historyStyled:    make([][]Cell, 0),
+		historyIsWrapped: make([]bool, 0),
 	}
 	vt.initScreen()
 	return vt
@@ -98,14 +127,24 @@ func NewVirtualTerminal(cols, rows, maxHistory int) *VirtualTerminal {
 // initScreen initializes/resets the screen buffer
 func (vt *VirtualTerminal) initScreen() {
 	vt.screen = make([][]rune, vt.rows)
+	vt.cells = make([][]Cell, vt.rows)
+	vt.isWrapped = make([]bool, vt.rows)
 	for i := range vt.screen {
 		vt.screen[i] = make([]rune, vt.cols)
+		vt.cells[i] = make([]Cell, vt.cols)
+		vt.isWrapped[i] = false
 		for j := range vt.screen[i] {
 			vt.screen[i][j] = ' '
+			vt.cells[i][j] = NewCell(' ')
 		}
 	}
 	vt.cursorX = 0
 	vt.cursorY = 0
+	vt.currentFg = DefaultColor()
+	vt.currentBg = DefaultColor()
+	vt.currentAttrs = AttrNone
+	vt.currentUnderlineStyle = UnderlineNone
+	vt.currentUnderlineColor = DefaultColor()
 }
 
 // Feed processes raw PTY data with proper UTF-8 support
@@ -154,58 +193,13 @@ func (vt *VirtualTerminal) processByte(b byte) {
 			vt.escBuffer = nil
 			vt.escParams = nil
 			vt.escPrivate = 0
+			vt.escRawSeq = nil
 		} else {
 			vt.processChar(rune(b))
 		}
 
 	case stateEscape:
-		switch b {
-		case '[': // CSI
-			vt.escState = stateCSI
-			vt.escParams = []int{}
-		case ']': // OSC
-			vt.escState = stateOSC
-			vt.escBuffer = nil
-		case 'P': // DCS
-			vt.escState = stateDCS
-			vt.escBuffer = nil
-		case '7': // Save cursor (DECSC)
-			vt.savedCursorX = vt.cursorX
-			vt.savedCursorY = vt.cursorY
-			vt.escState = stateNormal
-		case '8': // Restore cursor (DECRC)
-			vt.cursorX = vt.savedCursorX
-			vt.cursorY = vt.savedCursorY
-			vt.escState = stateNormal
-		case 'c': // Reset (RIS)
-			vt.initScreen()
-			vt.escState = stateNormal
-		case 'D': // Index (IND) - move down
-			vt.cursorY++
-			if vt.cursorY >= vt.rows {
-				vt.scroll()
-				vt.cursorY = vt.rows - 1
-			}
-			vt.escState = stateNormal
-		case 'M': // Reverse Index (RI) - move up
-			vt.cursorY--
-			if vt.cursorY < 0 {
-				vt.scrollDown()
-				vt.cursorY = 0
-			}
-			vt.escState = stateNormal
-		case 'E': // Next Line (NEL)
-			vt.cursorX = 0
-			vt.cursorY++
-			if vt.cursorY >= vt.rows {
-				vt.scroll()
-				vt.cursorY = vt.rows - 1
-			}
-			vt.escState = stateNormal
-		default:
-			// Unknown escape sequence, return to normal
-			vt.escState = stateNormal
-		}
+		vt.processEscapeByte(b)
 
 	case stateCSI:
 		vt.processCSI(b)
@@ -221,7 +215,6 @@ func (vt *VirtualTerminal) processByte(b byte) {
 	case stateDCS:
 		// DCS sequences end with ST (ESC \)
 		if b == 0x1b {
-			// Might be start of ST
 			vt.escBuffer = append(vt.escBuffer, b)
 		} else if len(vt.escBuffer) > 0 && vt.escBuffer[len(vt.escBuffer)-1] == 0x1b && b == '\\' {
 			vt.escState = stateNormal
@@ -231,353 +224,54 @@ func (vt *VirtualTerminal) processByte(b byte) {
 	}
 }
 
-// processCSI processes a CSI (Control Sequence Introducer) byte
-func (vt *VirtualTerminal) processCSI(b byte) {
-	switch {
-	case b >= '0' && b <= '9':
-		// Digit - build parameter
-		if len(vt.escParams) == 0 {
-			vt.escParams = []int{0}
-		}
-		vt.escParams[len(vt.escParams)-1] = vt.escParams[len(vt.escParams)-1]*10 + int(b-'0')
-
-	case b == ';':
-		// Parameter separator
-		vt.escParams = append(vt.escParams, 0)
-
-	case b == '?':
-		// Private mode indicator
-		vt.escPrivate = b
-
-	case b >= 0x40 && b <= 0x7e:
-		// Final byte - execute command
-		vt.executeCSI(b)
-		vt.escState = stateNormal
-
-	default:
-		// Intermediate byte or unknown
-		vt.escBuffer = append(vt.escBuffer, b)
-	}
-}
-
-// executeCSI executes a CSI command
-func (vt *VirtualTerminal) executeCSI(cmd byte) {
-	// Default parameter value
-	param := func(idx, def int) int {
-		if idx < len(vt.escParams) && vt.escParams[idx] > 0 {
-			return vt.escParams[idx]
-		}
-		return def
-	}
-
-	switch cmd {
-	case 'A': // CUU - Cursor Up
-		n := param(0, 1)
-		vt.cursorY -= n
-		if vt.cursorY < 0 {
-			vt.cursorY = 0
-		}
-
-	case 'B': // CUD - Cursor Down
-		n := param(0, 1)
-		vt.cursorY += n
-		if vt.cursorY >= vt.rows {
-			vt.cursorY = vt.rows - 1
-		}
-
-	case 'C': // CUF - Cursor Forward (Right)
-		n := param(0, 1)
-		vt.cursorX += n
-		if vt.cursorX >= vt.cols {
-			vt.cursorX = vt.cols - 1
-		}
-
-	case 'D': // CUB - Cursor Back (Left)
-		n := param(0, 1)
-		vt.cursorX -= n
-		if vt.cursorX < 0 {
-			vt.cursorX = 0
-		}
-
-	case 'E': // CNL - Cursor Next Line
-		n := param(0, 1)
-		vt.cursorX = 0
-		vt.cursorY += n
-		if vt.cursorY >= vt.rows {
-			vt.cursorY = vt.rows - 1
-		}
-
-	case 'F': // CPL - Cursor Previous Line
-		n := param(0, 1)
-		vt.cursorX = 0
-		vt.cursorY -= n
-		if vt.cursorY < 0 {
-			vt.cursorY = 0
-		}
-
-	case 'G': // CHA - Cursor Horizontal Absolute
-		col := param(0, 1)
-		vt.cursorX = col - 1
-		if vt.cursorX < 0 {
-			vt.cursorX = 0
-		}
-		if vt.cursorX >= vt.cols {
-			vt.cursorX = vt.cols - 1
-		}
-
-	case 'H', 'f': // CUP/HVP - Cursor Position
-		row := param(0, 1)
-		col := 1
-		if len(vt.escParams) > 1 {
-			col = param(1, 1)
-		}
-		vt.cursorY = row - 1
-		vt.cursorX = col - 1
-		if vt.cursorY < 0 {
-			vt.cursorY = 0
-		}
-		if vt.cursorY >= vt.rows {
-			vt.cursorY = vt.rows - 1
-		}
-		if vt.cursorX < 0 {
-			vt.cursorX = 0
-		}
-		if vt.cursorX >= vt.cols {
-			vt.cursorX = vt.cols - 1
-		}
-
-	case 'J': // ED - Erase in Display
-		n := param(0, 0)
-		switch n {
-		case 0: // Erase from cursor to end of screen
-			vt.clearLine(vt.cursorY, vt.cursorX, vt.cols)
-			for i := vt.cursorY + 1; i < vt.rows; i++ {
-				vt.clearLine(i, 0, vt.cols)
-			}
-		case 1: // Erase from start to cursor
-			for i := 0; i < vt.cursorY; i++ {
-				vt.clearLine(i, 0, vt.cols)
-			}
-			vt.clearLine(vt.cursorY, 0, vt.cursorX+1)
-		case 2, 3: // Erase entire screen
-			for i := 0; i < vt.rows; i++ {
-				vt.clearLine(i, 0, vt.cols)
-			}
-		}
-
-	case 'K': // EL - Erase in Line
-		n := param(0, 0)
-		switch n {
-		case 0: // Erase from cursor to end of line
-			vt.clearLine(vt.cursorY, vt.cursorX, vt.cols)
-		case 1: // Erase from start of line to cursor
-			vt.clearLine(vt.cursorY, 0, vt.cursorX+1)
-		case 2: // Erase entire line
-			vt.clearLine(vt.cursorY, 0, vt.cols)
-		}
-
-	case 'L': // IL - Insert Lines
-		n := param(0, 1)
-		vt.insertLines(n)
-
-	case 'M': // DL - Delete Lines
-		n := param(0, 1)
-		vt.deleteLines(n)
-
-	case 'P': // DCH - Delete Characters
-		n := param(0, 1)
-		vt.deleteChars(n)
-
-	case '@': // ICH - Insert Characters
-		n := param(0, 1)
-		vt.insertChars(n)
-
-	case 'X': // ECH - Erase Characters
-		n := param(0, 1)
-		for i := 0; i < n && vt.cursorX+i < vt.cols; i++ {
-			vt.screen[vt.cursorY][vt.cursorX+i] = ' '
-		}
-
-	case 'S': // SU - Scroll Up
-		n := param(0, 1)
-		for i := 0; i < n; i++ {
-			vt.scroll()
-		}
-
-	case 'T': // SD - Scroll Down
-		n := param(0, 1)
-		for i := 0; i < n; i++ {
-			vt.scrollDown()
-		}
-
-	case 's': // SCP - Save Cursor Position
+// processEscapeByte handles byte after ESC
+func (vt *VirtualTerminal) processEscapeByte(b byte) {
+	switch b {
+	case '[': // CSI
+		vt.escState = stateCSI
+		vt.escParams = []int{}
+	case ']': // OSC
+		vt.escState = stateOSC
+		vt.escBuffer = nil
+	case 'P': // DCS
+		vt.escState = stateDCS
+		vt.escBuffer = nil
+	case '7': // Save cursor (DECSC)
 		vt.savedCursorX = vt.cursorX
 		vt.savedCursorY = vt.cursorY
-
-	case 'u': // RCP - Restore Cursor Position
+		vt.escState = stateNormal
+	case '8': // Restore cursor (DECRC)
 		vt.cursorX = vt.savedCursorX
 		vt.cursorY = vt.savedCursorY
-
-	case 'h': // SM - Set Mode
-		if vt.escPrivate == '?' {
-			vt.handlePrivateMode(true)
+		vt.escState = stateNormal
+	case 'c': // Reset (RIS)
+		vt.initScreen()
+		vt.escState = stateNormal
+	case 'D': // Index (IND) - move down
+		vt.cursorY++
+		if vt.cursorY >= vt.rows {
+			vt.scroll()
+			vt.cursorY = vt.rows - 1
 		}
-
-	case 'l': // RM - Reset Mode
-		if vt.escPrivate == '?' {
-			vt.handlePrivateMode(false)
+		vt.escState = stateNormal
+	case 'M': // Reverse Index (RI) - move up
+		vt.cursorY--
+		if vt.cursorY < 0 {
+			vt.scrollDown()
+			vt.cursorY = 0
 		}
-
-	case 'm': // SGR - Select Graphic Rendition
-		// We ignore styling for agent observation (color, bold, etc.)
-		// This just consumes the sequence without error
-
-	case 'r': // DECSTBM - Set Top and Bottom Margins
-		// Ignore scrolling region for simplified implementation
-
-	case 'c': // DA - Device Attributes
-		// Ignore device attribute request
-
-	case 'n': // DSR - Device Status Report
-		// Ignore status report request
-	}
-}
-
-// handlePrivateMode handles DEC private mode sequences
-func (vt *VirtualTerminal) handlePrivateMode(set bool) {
-	for _, p := range vt.escParams {
-		switch p {
-		case 1049, 47: // Alternative screen buffer
-			if set {
-				vt.enterAltScreen()
-			} else {
-				vt.exitAltScreen()
-			}
-		case 25: // DECTCEM - Show/hide cursor (ignore for text-only)
-		case 1: // DECCKM - Application cursor keys (ignore)
-		case 7: // DECAWM - Auto-wrap mode (we always wrap)
-		case 12: // Start blinking cursor (ignore)
-		case 2004: // Bracketed paste mode (ignore)
+		vt.escState = stateNormal
+	case 'E': // Next Line (NEL)
+		vt.cursorX = 0
+		vt.cursorY++
+		if vt.cursorY >= vt.rows {
+			vt.scroll()
+			vt.cursorY = vt.rows - 1
 		}
-	}
-}
-
-// enterAltScreen switches to alternative screen buffer
-func (vt *VirtualTerminal) enterAltScreen() {
-	if vt.useAltScreen {
-		return
-	}
-	// Save main screen
-	vt.savedMainScreen = make([][]rune, vt.rows)
-	for i := range vt.screen {
-		vt.savedMainScreen[i] = make([]rune, len(vt.screen[i]))
-		copy(vt.savedMainScreen[i], vt.screen[i])
-	}
-	// Initialize alt screen
-	vt.altScreen = make([][]rune, vt.rows)
-	for i := range vt.altScreen {
-		vt.altScreen[i] = make([]rune, vt.cols)
-		for j := range vt.altScreen[i] {
-			vt.altScreen[i][j] = ' '
-		}
-	}
-	vt.altCursorX = vt.cursorX
-	vt.altCursorY = vt.cursorY
-	vt.screen = vt.altScreen
-	vt.cursorX = 0
-	vt.cursorY = 0
-	vt.useAltScreen = true
-}
-
-// exitAltScreen switches back to main screen buffer
-func (vt *VirtualTerminal) exitAltScreen() {
-	if !vt.useAltScreen {
-		return
-	}
-	// Restore main screen
-	if vt.savedMainScreen != nil {
-		vt.screen = vt.savedMainScreen
-		vt.savedMainScreen = nil
-	}
-	vt.cursorX = vt.altCursorX
-	vt.cursorY = vt.altCursorY
-	vt.useAltScreen = false
-}
-
-// clearLine clears part of a line
-func (vt *VirtualTerminal) clearLine(row, startCol, endCol int) {
-	if row < 0 || row >= vt.rows {
-		return
-	}
-	for i := startCol; i < endCol && i < vt.cols; i++ {
-		if i >= 0 {
-			vt.screen[row][i] = ' '
-		}
-	}
-}
-
-// insertLines inserts n blank lines at cursor position
-func (vt *VirtualTerminal) insertLines(n int) {
-	for i := 0; i < n; i++ {
-		// Shift lines down
-		for j := vt.rows - 1; j > vt.cursorY; j-- {
-			copy(vt.screen[j], vt.screen[j-1])
-		}
-		// Clear current line
-		for j := range vt.screen[vt.cursorY] {
-			vt.screen[vt.cursorY][j] = ' '
-		}
-	}
-}
-
-// deleteLines deletes n lines at cursor position
-func (vt *VirtualTerminal) deleteLines(n int) {
-	for i := 0; i < n; i++ {
-		// Shift lines up
-		for j := vt.cursorY; j < vt.rows-1; j++ {
-			copy(vt.screen[j], vt.screen[j+1])
-		}
-		// Clear bottom line
-		for j := range vt.screen[vt.rows-1] {
-			vt.screen[vt.rows-1][j] = ' '
-		}
-	}
-}
-
-// deleteChars deletes n characters at cursor position
-func (vt *VirtualTerminal) deleteChars(n int) {
-	row := vt.screen[vt.cursorY]
-	for i := vt.cursorX; i < vt.cols-n; i++ {
-		row[i] = row[i+n]
-	}
-	for i := vt.cols - n; i < vt.cols; i++ {
-		if i >= 0 {
-			row[i] = ' '
-		}
-	}
-}
-
-// insertChars inserts n blank characters at cursor position
-func (vt *VirtualTerminal) insertChars(n int) {
-	row := vt.screen[vt.cursorY]
-	for i := vt.cols - 1; i >= vt.cursorX+n; i-- {
-		row[i] = row[i-n]
-	}
-	for i := 0; i < n && vt.cursorX+i < vt.cols; i++ {
-		row[vt.cursorX+i] = ' '
-	}
-}
-
-// scrollDown scrolls the screen down (reverse scroll)
-func (vt *VirtualTerminal) scrollDown() {
-	// Shift all lines down
-	for i := vt.rows - 1; i > 0; i-- {
-		vt.screen[i] = vt.screen[i-1]
-	}
-	// Clear top line
-	vt.screen[0] = make([]rune, vt.cols)
-	for j := range vt.screen[0] {
-		vt.screen[0][j] = ' '
+		vt.escState = stateNormal
+	default:
+		// Unknown escape sequence, return to normal
+		vt.escState = stateNormal
 	}
 }
 
@@ -609,13 +303,86 @@ func (vt *VirtualTerminal) processChar(ch rune) {
 
 // putChar puts a character at the current cursor position
 func (vt *VirtualTerminal) putChar(ch rune) {
-	if vt.cursorX >= vt.cols {
+	// Get character width (1 for normal, 2 for CJK wide chars)
+	width := runeWidthCond.RuneWidth(ch)
+	if width == 0 {
+		width = 1 // Control chars and combining chars treated as width 1
+	}
+
+	// Handle line wrap when cursor reaches end of line
+	// For wide chars, need to check if there's room for both cells
+	if vt.cursorX+width > vt.cols {
+		// Mark the next line as wrapped (soft wrap)
+		if vt.cursorY+1 < vt.rows {
+			vt.isWrapped[vt.cursorY+1] = true
+		}
 		vt.newLine()
 	}
+
 	if vt.cursorY >= 0 && vt.cursorY < vt.rows && vt.cursorX >= 0 && vt.cursorX < vt.cols {
+		// Handle overwriting wide characters:
+		currentCell := vt.cells[vt.cursorY][vt.cursorX]
+
+		// If we're writing on a placeholder (width 0), clear the previous wide char
+		if currentCell.Width == 0 && vt.cursorX > 0 {
+			vt.screen[vt.cursorY][vt.cursorX-1] = ' '
+			vt.cells[vt.cursorY][vt.cursorX-1] = NewCell(' ')
+		}
+
+		// If we're overwriting a wide char (width 2), clear its placeholder
+		if currentCell.Width == 2 && vt.cursorX+1 < vt.cols {
+			vt.screen[vt.cursorY][vt.cursorX+1] = ' '
+			vt.cells[vt.cursorY][vt.cursorX+1] = NewCell(' ')
+		}
+
+		// If we're writing a wide char and it will overlap with something
+		if width == 2 && vt.cursorX+1 < vt.cols {
+			nextCell := vt.cells[vt.cursorY][vt.cursorX+1]
+			// If next cell is placeholder of a wide char, clear the wide char before it
+			if nextCell.Width == 0 && vt.cursorX > 0 {
+				// The wide char is at cursorX (which we're overwriting anyway)
+			}
+			// If next cell is a wide char, clear it and its placeholder
+			if nextCell.Width == 2 {
+				vt.screen[vt.cursorY][vt.cursorX+1] = ' '
+				vt.cells[vt.cursorY][vt.cursorX+1] = NewCell(' ')
+				if vt.cursorX+2 < vt.cols && vt.cells[vt.cursorY][vt.cursorX+2].Width == 0 {
+					vt.screen[vt.cursorY][vt.cursorX+2] = ' '
+					vt.cells[vt.cursorY][vt.cursorX+2] = NewCell(' ')
+				}
+			}
+		}
+
 		vt.screen[vt.cursorY][vt.cursorX] = ch
+		// Update styled cell with full style information
+		vt.cells[vt.cursorY][vt.cursorX] = NewFullStyledCell(
+			ch,
+			vt.currentFg,
+			vt.currentBg,
+			vt.currentAttrs,
+			uint8(width),
+			vt.currentUnderlineStyle,
+			vt.currentUnderlineColor,
+		)
+		vt.cursorX++
+
+		// For wide characters (CJK), add placeholder cell
+		if width == 2 && vt.cursorX < vt.cols {
+			vt.screen[vt.cursorY][vt.cursorX] = 0 // Placeholder
+			vt.cells[vt.cursorY][vt.cursorX] = NewFullStyledCell(
+				0, // No character
+				vt.currentFg,
+				vt.currentBg,
+				vt.currentAttrs,
+				0, // Width 0 = placeholder
+				vt.currentUnderlineStyle,
+				vt.currentUnderlineColor,
+			)
+			vt.cursorX++
+		}
+	} else {
+		vt.cursorX++
 	}
-	vt.cursorX++
 }
 
 // newLine moves to the next line, scrolling if necessary
@@ -625,30 +392,6 @@ func (vt *VirtualTerminal) newLine() {
 	if vt.cursorY >= vt.rows {
 		vt.scroll()
 		vt.cursorY = vt.rows - 1
-	}
-}
-
-// scroll scrolls the screen up by one line
-func (vt *VirtualTerminal) scroll() {
-	// Save top line to history
-	line := strings.TrimRight(string(vt.screen[0]), " ")
-	if line != "" {
-		vt.history = append(vt.history, line)
-		// Trim history if too large
-		if len(vt.history) > vt.maxHistory {
-			vt.history = vt.history[1:]
-		}
-	}
-
-	// Scroll screen up
-	for i := 0; i < vt.rows-1; i++ {
-		vt.screen[i] = vt.screen[i+1]
-	}
-
-	// Clear bottom line
-	vt.screen[vt.rows-1] = make([]rune, vt.cols)
-	for j := range vt.screen[vt.rows-1] {
-		vt.screen[vt.rows-1][j] = ' '
 	}
 }
 
@@ -679,8 +422,16 @@ func (vt *VirtualTerminal) GetDisplay() string {
 	}
 
 	var lines []string
-	for _, row := range vt.screen {
-		line := strings.TrimRight(string(row), " ")
+	for rowIdx, row := range vt.screen {
+		var lineBuilder strings.Builder
+		for colIdx, ch := range row {
+			// Skip placeholder cells (width 0 after wide chars)
+			if vt.cells[rowIdx][colIdx].Width == 0 {
+				continue
+			}
+			lineBuilder.WriteRune(ch)
+		}
+		line := strings.TrimRight(lineBuilder.String(), " ")
 		lines = append(lines, line)
 	}
 
@@ -702,19 +453,23 @@ func (vt *VirtualTerminal) GetOutput(lines int) string {
 	}
 
 	var result []string
-
-	// Add from history
 	result = append(result, vt.history...)
 
-	// Add current screen content (non-empty lines only)
-	for _, row := range vt.screen {
-		line := strings.TrimRight(string(row), " ")
+	for rowIdx, row := range vt.screen {
+		var lineBuilder strings.Builder
+		for colIdx, ch := range row {
+			// Skip placeholder cells (width 0 after wide chars)
+			if vt.cells[rowIdx][colIdx].Width == 0 {
+				continue
+			}
+			lineBuilder.WriteRune(ch)
+		}
+		line := strings.TrimRight(lineBuilder.String(), " ")
 		if line != "" {
 			result = append(result, line)
 		}
 	}
 
-	// Return last N lines
 	if len(result) > lines {
 		result = result[len(result)-lines:]
 	}
@@ -734,6 +489,8 @@ func (vt *VirtualTerminal) Clear() {
 
 	vt.initScreen()
 	vt.history = make([]string, 0)
+	vt.historyStyled = make([][]Cell, 0)
+	vt.historyIsWrapped = make([]bool, 0)
 	vt.hasData = false
 }
 
@@ -758,6 +515,29 @@ func (vt *VirtualTerminal) Rows() int {
 	return vt.rows
 }
 
+// IsEmpty returns true if the terminal has no content (no history and screen is blank)
+func (vt *VirtualTerminal) IsEmpty() bool {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+
+	// Check if there's any history
+	if len(vt.history) > 0 {
+		return false
+	}
+
+	// Check if any cell on the screen has content
+	// vt.screen stores runes directly, not Cell structs
+	for y := 0; y < vt.rows; y++ {
+		for x := 0; x < vt.cols; x++ {
+			ch := vt.screen[y][x]
+			if ch != 0 && ch != ' ' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // StripANSI removes ANSI escape sequences from text
 func StripANSI(text string) string {
 	return ansiPattern.ReplaceAllString(text, "")
@@ -769,4 +549,73 @@ func StripANSIBytes(data []byte) []byte {
 		bytes.ReplaceAll(data, []byte("\x1b["), []byte("")),
 		[]byte("\x1b"), []byte(""),
 	)
+}
+
+// GetCellsRow returns a copy of the cells for a given row
+// Used by serializer to access styled cell data
+func (vt *VirtualTerminal) GetCellsRow(row int) []Cell {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+
+	if row < 0 || row >= len(vt.cells) {
+		return nil
+	}
+	result := make([]Cell, len(vt.cells[row]))
+	copy(result, vt.cells[row])
+	return result
+}
+
+// IsLineWrapped returns true if the given line is wrapped from the previous line
+func (vt *VirtualTerminal) IsLineWrapped(row int) bool {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+
+	if row < 0 || row >= len(vt.isWrapped) {
+		return false
+	}
+	return vt.isWrapped[row]
+}
+
+// GetCurrentStyle returns the current text style (used for cursor style serialization)
+func (vt *VirtualTerminal) GetCurrentStyle() (fg, bg Color, attrs CellAttrs, ulStyle UnderlineStyle, ulColor Color) {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+	return vt.currentFg, vt.currentBg, vt.currentAttrs, vt.currentUnderlineStyle, vt.currentUnderlineColor
+}
+
+// getCurrentStyleNoLock returns the current text style without locking (caller must hold lock)
+func (vt *VirtualTerminal) getCurrentStyleNoLock() (fg, bg Color, attrs CellAttrs, ulStyle UnderlineStyle, ulColor Color) {
+	return vt.currentFg, vt.currentBg, vt.currentAttrs, vt.currentUnderlineStyle, vt.currentUnderlineColor
+}
+
+// GetHistoryStyledRow returns a copy of styled history cells for a given history index
+// Index is relative to history start (0 = oldest history line)
+func (vt *VirtualTerminal) GetHistoryStyledRow(index int) []Cell {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+
+	if index < 0 || index >= len(vt.historyStyled) {
+		return nil
+	}
+	result := make([]Cell, len(vt.historyStyled[index]))
+	copy(result, vt.historyStyled[index])
+	return result
+}
+
+// GetHistoryStyledLength returns the number of styled history lines
+func (vt *VirtualTerminal) GetHistoryStyledLength() int {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+	return len(vt.historyStyled)
+}
+
+// IsHistoryLineWrapped returns true if the given history line was wrapped
+func (vt *VirtualTerminal) IsHistoryLineWrapped(index int) bool {
+	vt.mu.RLock()
+	defer vt.mu.RUnlock()
+
+	if index < 0 || index >= len(vt.historyIsWrapped) {
+		return false
+	}
+	return vt.historyIsWrapped[index]
 }

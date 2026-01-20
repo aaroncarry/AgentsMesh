@@ -89,37 +89,64 @@ func newTestLogger() *slog.Logger {
 
 // MockCommandSender implements RunnerCommandSender for testing.
 // Shared across all test files in the runner package.
+// Thread-safe for use with async goroutines.
 type MockCommandSender struct {
-	CreatePodCalls      int
-	TerminatePodCalls   int
-	TerminalInputCalls  int
-	TerminalResizeCalls int
-	SendPromptCalls     int
+	mu                   sync.Mutex
+	CreatePodCalls       int
+	TerminatePodCalls    int
+	TerminalInputCalls   int
+	TerminalResizeCalls  int
+	TerminalRedrawCalls  int
+	SendPromptCalls      int
 }
 
 func (m *MockCommandSender) SendCreatePod(ctx context.Context, runnerID int64, req *CreatePodRequest) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.CreatePodCalls++
 	return nil
 }
 
 func (m *MockCommandSender) SendTerminatePod(ctx context.Context, runnerID int64, podKey string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.TerminatePodCalls++
 	return nil
 }
 
 func (m *MockCommandSender) SendTerminalInput(ctx context.Context, runnerID int64, podKey string, data []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.TerminalInputCalls++
 	return nil
 }
 
 func (m *MockCommandSender) SendTerminalResize(ctx context.Context, runnerID int64, podKey string, cols, rows int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.TerminalResizeCalls++
 	return nil
 }
 
+func (m *MockCommandSender) SendTerminalRedraw(ctx context.Context, runnerID int64, podKey string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.TerminalRedrawCalls++
+	return nil
+}
+
 func (m *MockCommandSender) SendPrompt(ctx context.Context, runnerID int64, podKey, prompt string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.SendPromptCalls++
 	return nil
+}
+
+// GetTerminalRedrawCalls returns the number of SendTerminalRedraw calls (thread-safe).
+func (m *MockCommandSender) GetTerminalRedrawCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.TerminalRedrawCalls
 }
 
 // setupTestDB creates an in-memory SQLite database for testing

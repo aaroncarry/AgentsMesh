@@ -8,7 +8,7 @@ import { useTicketStore } from "@/stores/ticket";
 import { useMeshStore } from "@/stores/mesh";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { useChannelStore } from "@/stores/channel";
-import type { ConnectionState, RealtimeEvent, PodStatusChangedData, PodCreatedData, RunnerStatusData, TicketStatusChangedData, TerminalNotificationData, TaskCompletedData, PodTitleChangedData, ChannelMessageData } from "@/lib/realtime";
+import type { ConnectionState, RealtimeEvent, PodStatusChangedData, PodCreatedData, RunnerStatusData, TicketStatusChangedData, TerminalNotificationData, TaskCompletedData, PodTitleChangedData, PodInitProgressData, ChannelMessageData } from "@/lib/realtime";
 
 interface RealtimeContextValue {
   connectionState: ConnectionState;
@@ -125,7 +125,19 @@ export function RealtimeProvider({
           const data = event.data as PodTitleChangedData;
           // Update terminal pane title in workspace store
           workspaceStore.updatePaneTitle(data.pod_key, data.title);
+          // Also update pod title in podStore for sidebar display
+          podStore.updatePodTitle(data.pod_key, data.title);
+          // Also update node title in meshStore for mesh view display
+          meshStore.updateNodeTitle(data.pod_key, data.title);
           console.log("[Realtime] Pod title changed:", data.pod_key, data.title);
+          break;
+        }
+
+        case "pod:init_progress": {
+          const data = event.data as PodInitProgressData;
+          // Update pod init progress in podStore
+          podStore.updatePodInitProgress(data.pod_key, data.phase, data.progress, data.message);
+          console.log("[Realtime] Pod init progress:", data.pod_key, data.phase, data.progress);
           break;
         }
 

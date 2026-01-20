@@ -29,6 +29,7 @@ interface MeshState {
   fetchTopology: () => Promise<void>;
   selectNode: (podKey: string | null) => void;
   selectChannel: (channelId: number | null) => void;
+  updateNodeTitle: (podKey: string, title: string) => void;
   clearError: () => void;
 
   // Node helpers
@@ -64,6 +65,19 @@ export const useMeshStore = create<MeshState>((set, get) => ({
 
   selectChannel: (channelId) => {
     set({ selectedChannel: channelId, selectedNode: null });
+  },
+
+  updateNodeTitle: (podKey, title) => {
+    set((state) => ({
+      topology: state.topology
+        ? {
+            ...state.topology,
+            nodes: state.topology.nodes.map((n) =>
+              n.pod_key === podKey ? { ...n, title } : n
+            ),
+          }
+        : null,
+    }));
   },
 
   clearError: () => {

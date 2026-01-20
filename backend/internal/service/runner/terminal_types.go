@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	// DefaultScrollbackSize is the default scrollback buffer size (100KB)
-	DefaultScrollbackSize = 100 * 1024
-
 	// terminalShards is the number of shards for terminal data partitioning
 	// 64 shards reduce lock contention for 500K pods
 	terminalShards = 64
@@ -53,21 +50,19 @@ type PodInfoGetter interface {
 
 // terminalShard holds a subset of terminal data with its own lock
 type terminalShard struct {
-	podRunnerMap      map[string]int64
-	terminalClients   map[string]map[*TerminalClient]bool
-	scrollbackBuffers map[string]*ScrollbackBuffer
-	virtualTerminals  map[string]*terminal.VirtualTerminal
-	ptySize           map[string]*PtySize
-	mu                sync.RWMutex
+	podRunnerMap     map[string]int64
+	terminalClients  map[string]map[*TerminalClient]bool
+	virtualTerminals map[string]*terminal.VirtualTerminal
+	ptySize          map[string]*PtySize
+	mu               sync.RWMutex
 }
 
 // newTerminalShard creates a new terminal shard with initialized maps
 func newTerminalShard() *terminalShard {
 	return &terminalShard{
-		podRunnerMap:      make(map[string]int64),
-		terminalClients:   make(map[string]map[*TerminalClient]bool),
-		scrollbackBuffers: make(map[string]*ScrollbackBuffer),
-		virtualTerminals:  make(map[string]*terminal.VirtualTerminal),
-		ptySize:           make(map[string]*PtySize),
+		podRunnerMap:     make(map[string]int64),
+		terminalClients:  make(map[string]map[*TerminalClient]bool),
+		virtualTerminals: make(map[string]*terminal.VirtualTerminal),
+		ptySize:          make(map[string]*PtySize),
 	}
 }

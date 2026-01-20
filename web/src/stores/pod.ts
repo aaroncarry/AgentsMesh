@@ -5,12 +5,21 @@ import { getErrorMessage } from "@/lib/utils";
 // Re-export PodData as Pod for cleaner component API
 export type Pod = PodData;
 
+// Pod initialization progress state
+interface PodInitProgress {
+  phase: string;
+  progress: number;
+  message: string;
+}
+
 interface PodState {
   // State
   pods: Pod[];
   currentPod: Pod | null;
   loading: boolean;
   error: string | null;
+  // Pod initialization progress (keyed by pod_key)
+  initProgress: Record<string, PodInitProgress>;
 
   // Actions
   fetchPods: (filters?: {
@@ -30,6 +39,9 @@ interface PodState {
   setCurrentPod: (pod: Pod | null) => void;
   updatePodStatus: (podKey: string, status: Pod["status"], agentStatus?: string) => void;
   updateAgentStatus: (podKey: string, agentStatus: string) => void;
+  updatePodTitle: (podKey: string, title: string) => void;
+  updatePodInitProgress: (podKey: string, phase: string, progress: number, message: string) => void;
+  clearInitProgress: (podKey: string) => void;
   clearError: () => void;
 }
 
@@ -38,6 +50,7 @@ export const usePodStore = create<PodState>((set) => ({
   currentPod: null,
   loading: false,
   error: null,
+  initProgress: {},
 
   fetchPods: async (filters) => {
     set({ loading: true, error: null });
@@ -143,6 +156,34 @@ export const usePodStore = create<PodState>((set) => ({
           ? { ...state.currentPod, agent_status: agentStatus }
           : state.currentPod,
     }));
+  },
+
+  updatePodTitle: (podKey, title) => {
+    set((state) => ({
+      pods: state.pods.map((p) =>
+        p.pod_key === podKey ? { ...p, title } : p
+      ),
+      currentPod:
+        state.currentPod?.pod_key === podKey
+          ? { ...state.currentPod, title }
+          : state.currentPod,
+    }));
+  },
+
+  updatePodInitProgress: (podKey, phase, progress, message) => {
+    set((state) => ({
+      initProgress: {
+        ...state.initProgress,
+        [podKey]: { phase, progress, message },
+      },
+    }));
+  },
+
+  clearInitProgress: (podKey) => {
+    set((state) => {
+      const { [podKey]: _, ...rest } = state.initProgress;
+      return { initProgress: rest };
+    });
   },
 
   clearError: () => {

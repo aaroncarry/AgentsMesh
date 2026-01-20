@@ -13,6 +13,7 @@ export interface PodData {
   finished_at?: string;
   last_activity?: string;
   created_at: string;
+  title?: string; // OSC 0/2 terminal title
   runner?: {
     id: number;
     node_id: string;
