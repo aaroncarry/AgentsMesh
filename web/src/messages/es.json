@@ -602,6 +602,12 @@
       "online": "en línea",
       "noRunners": "No hay runners registrados"
     },
+    "terminateDialog": {
+      "title": "Terminar Pod",
+      "description": "¿Está seguro de que desea terminar este pod? Esta acción no se puede deshacer y todos los procesos en ejecución se detendrán.",
+      "cancel": "Cancelar",
+      "confirm": "Terminar"
+    },
     "pod": {
       "status": "Estado",
       "agent": "Agente",

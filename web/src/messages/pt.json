@@ -595,6 +595,12 @@
       "online": "online",
       "noRunners": "Nenhum runner registrado"
     },
+    "terminateDialog": {
+      "title": "Encerrar Pod",
+      "description": "Tem certeza de que deseja encerrar este pod? Esta ação não pode ser desfeita e todos os processos em execução serão interrompidos.",
+      "cancel": "Cancelar",
+      "confirm": "Encerrar"
+    },
     "pod": {
       "status": "Status",
       "agent": "Agente",

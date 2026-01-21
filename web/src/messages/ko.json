@@ -603,6 +603,12 @@
       "online": "온라인",
       "noRunners": "등록된 Runner가 없습니다"
     },
+    "terminateDialog": {
+      "title": "Pod 종료",
+      "description": "이 Pod를 종료하시겠습니까? 이 작업은 취소할 수 없으며 실행 중인 모든 프로세스가 중지됩니다.",
+      "cancel": "취소",
+      "confirm": "종료"
+    },
     "pod": {
       "status": "상태",
       "agent": "에이전트",

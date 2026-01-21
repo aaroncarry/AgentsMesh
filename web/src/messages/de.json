@@ -606,6 +606,12 @@
       "online": "online",
       "noRunners": "Keine Runner registriert"
     },
+    "terminateDialog": {
+      "title": "Pod beenden",
+      "description": "Möchten Sie diesen Pod wirklich beenden? Diese Aktion kann nicht rückgängig gemacht werden und alle laufenden Prozesse werden gestoppt.",
+      "cancel": "Abbrechen",
+      "confirm": "Beenden"
+    },
     "pod": {
       "status": "Status",
       "agent": "Agent",

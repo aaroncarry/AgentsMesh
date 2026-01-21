@@ -23,12 +23,21 @@ import {
   Server,
   ChevronDown,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useTranslations } from "@/lib/i18n/client";
 
 interface WorkspaceSidebarContentProps {
@@ -63,6 +72,8 @@ export function WorkspaceSidebarContent({ className, onCreatePod }: WorkspaceSid
   const [searchQuery, setSearchQuery] = useState("");
   const [runnersExpanded, setRunnersExpanded] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
+  const [podToTerminate, setPodToTerminate] = useState<string | null>(null);
 
   // Load pods and runners on mount
   useEffect(() => {
@@ -137,14 +148,24 @@ export function WorkspaceSidebarContent({ className, onCreatePod }: WorkspaceSid
     [addPane, isPodOpen]
   );
 
-  // Handle terminate
-  const handleTerminate = useCallback(
-    async (podKey: string, e: React.MouseEvent) => {
+  // Handle terminate click - opens confirmation dialog
+  const handleTerminateClick = useCallback(
+    (podKey: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      await terminatePod(podKey);
+      setPodToTerminate(podKey);
+      setTerminateDialogOpen(true);
     },
-    [terminatePod]
+    []
   );
+
+  // Handle confirm terminate
+  const handleConfirmTerminate = useCallback(async () => {
+    if (podToTerminate) {
+      await terminatePod(podToTerminate);
+      setTerminateDialogOpen(false);
+      setPodToTerminate(null);
+    }
+  }, [podToTerminate, terminatePod]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -292,7 +313,7 @@ export function WorkspaceSidebarContent({ className, onCreatePod }: WorkspaceSid
                         size="sm"
                         variant="ghost"
                         className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => handleTerminate(pod.pod_key, e)}
+                        onClick={(e) => handleTerminateClick(pod.pod_key, e)}
                       >
                         <Square className="w-3 h-3" />
                       </Button>
@@ -357,6 +378,29 @@ export function WorkspaceSidebarContent({ className, onCreatePod }: WorkspaceSid
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Terminate Pod Confirmation Dialog */}
+      <Dialog open={terminateDialogOpen} onOpenChange={setTerminateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <DialogTitle>{t("workspace.terminateDialog.title")}</DialogTitle>
+            <DialogDescription className="text-center">
+              {t("workspace.terminateDialog.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setTerminateDialogOpen(false)}>
+              {t("workspace.terminateDialog.cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmTerminate}>
+              {t("workspace.terminateDialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

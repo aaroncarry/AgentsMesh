@@ -1522,6 +1522,12 @@
       "online": "在线",
       "noRunners": "暂无注册的 Runner"
     },
+    "terminateDialog": {
+      "title": "终止 Pod",
+      "description": "确定要终止这个 Pod 吗？此操作无法撤销，所有正在运行的进程都将被停止。",
+      "cancel": "取消",
+      "confirm": "终止"
+    },
     "pod": {
       "status": "状态",
       "agent": "智能体",

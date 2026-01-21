@@ -604,6 +604,12 @@
       "online": "en ligne",
       "noRunners": "Aucun runner enregistré"
     },
+    "terminateDialog": {
+      "title": "Terminer le Pod",
+      "description": "Êtes-vous sûr de vouloir terminer ce pod ? Cette action est irréversible et tous les processus en cours seront arrêtés.",
+      "cancel": "Annuler",
+      "confirm": "Terminer"
+    },
     "pod": {
       "status": "Statut",
       "agent": "Agent",

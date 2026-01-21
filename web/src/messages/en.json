@@ -1522,6 +1522,12 @@
       "online": "online",
       "noRunners": "No runners registered"
     },
+    "terminateDialog": {
+      "title": "Terminate Pod",
+      "description": "Are you sure you want to terminate this pod? This action cannot be undone and all running processes will be stopped.",
+      "cancel": "Cancel",
+      "confirm": "Terminate"
+    },
     "pod": {
       "status": "Status",
       "agent": "Agent",
