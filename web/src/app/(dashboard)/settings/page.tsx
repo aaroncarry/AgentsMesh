@@ -3,12 +3,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-// Redirect to git settings by default
+// Redirect to general settings by default
 export default function PersonalSettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/settings/git");
+    router.replace("/settings/general");
   }, [router]);
 
   return (

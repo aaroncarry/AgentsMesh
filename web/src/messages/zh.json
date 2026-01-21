@@ -770,6 +770,8 @@
       "description": "管理您的个人偏好",
       "userSettings": "您的个人设置",
       "tabs": {
+        "general": "通用",
+        "generalDesc": "账户与会话管理",
         "git": "Git 设置",
         "gitDesc": "仓库连接与凭据",
         "agentConfig": "智能体配置",
@@ -778,6 +780,16 @@
         "agentCredentialsDesc": "AI 智能体的 API 密钥",
         "notifications": "通知",
         "notificationsDesc": "推送通知偏好"
+      },
+      "general": {
+        "title": "通用设置",
+        "description": "管理您的账户和会话",
+        "accountInfo": "账户信息",
+        "username": "用户名",
+        "email": "邮箱",
+        "session": "会话",
+        "sessionDescription": "从当前设备退出登录。",
+        "logout": "退出登录"
       }
     },
     "language": {

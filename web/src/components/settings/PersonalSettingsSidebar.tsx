@@ -4,7 +4,7 @@ import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "@/lib/i18n/client";
-import { GitBranch, Bell, User } from "lucide-react";
+import { GitBranch, Bell, User, Settings } from "lucide-react";
 
 interface PersonalSettingsSidebarProps {
   className?: string;
@@ -17,6 +17,13 @@ export function PersonalSettingsSidebar({ className }: PersonalSettingsSidebarPr
 
   // Personal settings tabs configuration
   const settingsTabs = [
+    {
+      id: "general",
+      path: "/settings/general",
+      labelKey: "settings.personal.tabs.general",
+      icon: Settings,
+      descKey: "settings.personal.tabs.generalDesc",
+    },
     {
       id: "git",
       path: "/settings/git",

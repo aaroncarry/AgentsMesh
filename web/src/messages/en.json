@@ -770,6 +770,8 @@
       "description": "Manage your personal preferences",
       "userSettings": "Your personal settings",
       "tabs": {
+        "general": "General",
+        "generalDesc": "Account and session management",
         "git": "Git Settings",
         "gitDesc": "Repository providers and credentials",
         "agentConfig": "Agent Config",
@@ -778,6 +780,16 @@
         "agentCredentialsDesc": "API keys for AI agents",
         "notifications": "Notifications",
         "notificationsDesc": "Push notification preferences"
+      },
+      "general": {
+        "title": "General Settings",
+        "description": "Manage your account and session",
+        "accountInfo": "Account Information",
+        "username": "Username",
+        "email": "Email",
+        "session": "Session",
+        "sessionDescription": "Sign out from your current session on this device.",
+        "logout": "Sign Out"
       }
     },
     "language": {
