@@ -31,18 +31,8 @@ WORKDIR /app
 # Install ca-certificates and tzdata
 RUN apk --no-cache add ca-certificates tzdata
 
-# Create non-root user
-RUN addgroup -g 1000 -S app && \
-    adduser -u 1000 -S app -G app
-
 # Copy binary from builder
 COPY --from=builder /app/relay /app/relay
-
-# Set ownership
-RUN chown -R app:app /app
-
-# Switch to non-root user
-USER app
 
 # Expose port
 EXPOSE 8090
