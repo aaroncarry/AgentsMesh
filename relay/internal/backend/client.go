@@ -224,9 +224,17 @@ func (c *Client) Register(ctx context.Context) error {
 			c.tlsCert = regResp.TLSCert
 			c.tlsKey = regResp.TLSKey
 			c.tlsExpiry = regResp.TLSExpiry
+			c.mu.Unlock()
+
+			// Save certificate to files for persistence across restarts
+			if err := c.saveCertificateFiles(regResp.TLSCert, regResp.TLSKey); err != nil {
+				c.logger.Warn("Failed to save certificate files", "error", err)
+			}
+
 			c.logger.Info("TLS certificate received from backend", "expiry", regResp.TLSExpiry)
+		} else {
+			c.mu.Unlock()
 		}
-		c.mu.Unlock()
 	}
 
 	c.mu.Lock()
