@@ -62,6 +62,15 @@ runner/runner
 runner/coverage.html
 
 # =========================
+# Relay (Go)
+# =========================
+relay/bin/
+relay/tmp/
+relay/*.out
+relay/relay
+relay/coverage.html
+
+# =========================
 # Docker
 # =========================
 .docker/

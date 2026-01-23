@@ -3,17 +3,17 @@
 -- Step 1: Migrate user configurations back
 -- Convert dangerously_skip_permissions=true back to permission_mode=bypassPermissions
 UPDATE user_agent_configs
-SET config = config
+SET config_values = config_values
     - 'dangerously_skip_permissions'
     || jsonb_build_object('permission_mode', 'bypassPermissions')
 WHERE agent_type_id = (SELECT id FROM agent_types WHERE slug = 'claude-code')
-  AND (config->>'dangerously_skip_permissions')::boolean = true;
+  AND (config_values->>'dangerously_skip_permissions')::boolean = true;
 
 -- Step 2: Remove dangerously_skip_permissions from configs that have it but it's false
 UPDATE user_agent_configs
-SET config = config - 'dangerously_skip_permissions'
+SET config_values = config_values - 'dangerously_skip_permissions'
 WHERE agent_type_id = (SELECT id FROM agent_types WHERE slug = 'claude-code')
-  AND config ? 'dangerously_skip_permissions';
+  AND config_values ? 'dangerously_skip_permissions';
 
 -- Step 3: Restore original config_schema with bypassPermissions option
 UPDATE agent_types SET

@@ -78,9 +78,9 @@ WHERE slug = 'claude-code';
 -- Step 3: Migrate existing user configurations
 -- Convert permission_mode=bypassPermissions to dangerously_skip_permissions=true
 UPDATE user_agent_configs
-SET config = config
+SET config_values = config_values
     - 'permission_mode'
     || jsonb_build_object('permission_mode', 'default')
     || jsonb_build_object('dangerously_skip_permissions', true)
 WHERE agent_type_id = (SELECT id FROM agent_types WHERE slug = 'claude-code')
-  AND config->>'permission_mode' = 'bypassPermissions';
+  AND config_values->>'permission_mode' = 'bypassPermissions';
