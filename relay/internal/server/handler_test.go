@@ -127,6 +127,8 @@ func TestHandler_HandleRunnerWS_Success(t *testing.T) {
 		t.Fatalf("dial failed: %v", err)
 	}
 	defer c.Close()
+	// Wait for connection to be registered in session manager
+	time.Sleep(50 * time.Millisecond)
 	if h.sessionManager.Stats().PendingRunners != 1 {
 		t.Error("should have pending runner")
 	}
