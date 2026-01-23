@@ -159,15 +159,17 @@ func TestSmartAggregator_ConcurrentHighVolume(t *testing.T) {
 
 	elapsed := time.Since(start)
 	expectedBytes := int64(numWriters * writesPerWriter * len("terminal output data from writer"))
+	finalFlushed := atomic.LoadInt64(&totalFlushed)
+	finalBytes := atomic.LoadInt64(&totalBytes)
 
 	t.Logf("✅ Concurrent high volume test:")
 	t.Logf("   Writers: %d × %d writes = %d total", numWriters, writesPerWriter, numWriters*writesPerWriter)
-	t.Logf("   Flushed: %d times, %d bytes (expected: %d)", totalFlushed, totalBytes, expectedBytes)
+	t.Logf("   Flushed: %d times, %d bytes (expected: %d)", finalFlushed, finalBytes, expectedBytes)
 	t.Logf("   Elapsed: %v, Throughput: %.0f writes/sec", elapsed, float64(numWriters*writesPerWriter)/elapsed.Seconds())
 
 	// Should capture all bytes
-	if totalBytes != expectedBytes {
-		t.Errorf("Expected %d bytes, got %d", expectedBytes, totalBytes)
+	if finalBytes != expectedBytes {
+		t.Errorf("Expected %d bytes, got %d", expectedBytes, finalBytes)
 	}
 }
 
