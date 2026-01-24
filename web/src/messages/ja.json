@@ -802,7 +802,8 @@
     "singleView": "シングルビュー",
     "twoColumns": "2列",
     "twoRows": "2行",
-    "grid2x2": "2x2グリッド"
+    "grid2x2": "2x2グリッド",
+    "fullscreen": "フルスクリーン"
   },
   "terminalToolbar": {
     "clearScreen": "画面クリア",

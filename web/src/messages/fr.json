@@ -803,7 +803,8 @@
     "singleView": "Vue unique",
     "twoColumns": "Deux colonnes",
     "twoRows": "Deux lignes",
-    "grid2x2": "Grille 2x2"
+    "grid2x2": "Grille 2x2",
+    "fullscreen": "Plein écran"
   },
   "terminalToolbar": {
     "clearScreen": "Effacer l'écran",

@@ -12,6 +12,8 @@ import {
   Columns,
   Square,
   Circle,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n/client";
 import { terminalPool } from "@/stores/workspace";
@@ -19,9 +21,11 @@ import { terminalPool } from "@/stores/workspace";
 interface TerminalTabsProps {
   onAddNew?: () => void;
   className?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
-export function TerminalTabs({ onAddNew, className }: TerminalTabsProps) {
+export function TerminalTabs({ onAddNew, className, isFullscreen, onToggleFullscreen }: TerminalTabsProps) {
   const t = useTranslations();
   const {
     panes,
@@ -151,6 +155,23 @@ export function TerminalTabs({ onAddNew, className }: TerminalTabsProps) {
         >
           <Grid2X2 className="w-3.5 h-3.5" />
         </Button>
+
+        {/* Fullscreen toggle */}
+        {onToggleFullscreen && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-terminal-text-muted hover:text-terminal-text-active ml-1"
+            onClick={onToggleFullscreen}
+            title={t("terminalTabs.fullscreen")}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

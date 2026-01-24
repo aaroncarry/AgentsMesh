@@ -801,7 +801,8 @@
     "singleView": "Vista única",
     "twoColumns": "Dos columnas",
     "twoRows": "Dos filas",
-    "grid2x2": "Cuadrícula 2x2"
+    "grid2x2": "Cuadrícula 2x2",
+    "fullscreen": "Pantalla completa"
   },
   "terminalToolbar": {
     "clearScreen": "Limpiar pantalla",

@@ -1798,7 +1798,8 @@
     "singleView": "单视图",
     "twoColumns": "两列",
     "twoRows": "两行",
-    "grid2x2": "2x2 网格"
+    "grid2x2": "2x2 网格",
+    "fullscreen": "全屏"
   },
   "terminalToolbar": {
     "clearScreen": "清屏",

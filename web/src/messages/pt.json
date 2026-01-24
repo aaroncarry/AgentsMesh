@@ -794,7 +794,8 @@
     "singleView": "Visualização única",
     "twoColumns": "Duas colunas",
     "twoRows": "Duas linhas",
-    "grid2x2": "Grade 2x2"
+    "grid2x2": "Grade 2x2",
+    "fullscreen": "Tela cheia"
   },
   "terminalToolbar": {
     "clearScreen": "Limpar tela",
