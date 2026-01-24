@@ -810,7 +810,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "Bildschirm löschen",
-    "font": "Schriftart"
+    "font": "Schriftart",
+    "scrollToBottom": "Nach unten scrollen"
   },
   "mobile": {
     "more": "Mehr",

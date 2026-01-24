@@ -807,7 +807,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "화면 지우기",
-    "font": "글꼴"
+    "font": "글꼴",
+    "scrollToBottom": "맨 아래로 스크롤"
   },
   "mobile": {
     "more": "더보기",

@@ -808,7 +808,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "Effacer l'écran",
-    "font": "Police"
+    "font": "Police",
+    "scrollToBottom": "Défiler vers le bas"
   },
   "mobile": {
     "more": "Plus",

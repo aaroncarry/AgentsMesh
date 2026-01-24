@@ -1,8 +1,38 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { Terminal as XTerm } from "@xterm/xterm";
 
 // Re-export terminalPool for component convenience
 export { terminalPool } from "./terminalConnection";
+
+/**
+ * Terminal instance registry for cross-component access
+ * Allows TerminalToolbar to access xterm instances from TerminalPane
+ */
+class TerminalRegistry {
+  private terminals: Map<string, XTerm> = new Map();
+
+  register(podKey: string, terminal: XTerm): void {
+    this.terminals.set(podKey, terminal);
+  }
+
+  unregister(podKey: string): void {
+    this.terminals.delete(podKey);
+  }
+
+  get(podKey: string): XTerm | undefined {
+    return this.terminals.get(podKey);
+  }
+
+  scrollToBottom(podKey: string): void {
+    const terminal = this.terminals.get(podKey);
+    if (terminal) {
+      terminal.scrollToBottom();
+    }
+  }
+}
+
+export const terminalRegistry = new TerminalRegistry();
 
 /**
  * Terminal pane configuration

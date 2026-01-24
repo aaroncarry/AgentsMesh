@@ -1867,7 +1867,8 @@
     "open": "打开键盘工具栏",
     "close": "关闭",
     "fontDecrease": "减小字体",
-    "fontIncrease": "增大字体"
+    "fontIncrease": "增大字体",
+    "scrollToBottom": "滚动到底部"
   },
   "mobile": {
     "more": "更多",
