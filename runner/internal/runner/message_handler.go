@@ -94,6 +94,18 @@ func (h *RunnerMessageHandler) OnCreatePod(cmd *runnerv1.CreatePodCommand) error
 	aggregator := terminal.NewSmartAggregator(grpcHandler, nil)
 	pod.Aggregator = aggregator
 
+	// Set up PTY logging if enabled
+	if h.runner.cfg.LogPTY {
+		ptyLogger, err := terminal.NewPTYLogger(h.runner.cfg.GetLogPTYDir(), cmd.PodKey)
+		if err != nil {
+			log.Warn("Failed to create PTY logger", "pod_key", cmd.PodKey, "error", err)
+		} else {
+			aggregator.SetPTYLogger(ptyLogger)
+			pod.PTYLogger = ptyLogger
+			log.Info("PTY logging enabled for pod", "pod_key", cmd.PodKey, "log_dir", ptyLogger.LogDir())
+		}
+	}
+
 	// Set output handler: PTY → VirtualTerminal → Aggregator
 	pod.Terminal.SetOutputHandler(func(data []byte) {
 		// Recover from any panic to prevent Runner crash
@@ -136,6 +148,17 @@ func (h *RunnerMessageHandler) OnCreatePod(cmd *runnerv1.CreatePodCommand) error
 	// Notify server that pod is created with actual terminal size
 	h.sendPodCreated(cmd.PodKey, pod.Terminal.PID(), pod.WorktreePath, pod.Branch, uint16(cols), uint16(rows))
 
+	// Send initial terminal setup sequence to ensure clean xterm.js state
+	// TUI apps like Claude Code (using Ink) assume the terminal is clean and use
+	// relative cursor positioning in their first frame. Without this init sequence,
+	// the first frame may overlay on xterm.js's initial cursor position.
+	//
+	// Sequence: ESC[2J (clear screen) + ESC[H (cursor home)
+	// This is sent OUTSIDE sync frames so StripRedundantSequencesInFrames won't filter it.
+	initSequence := []byte("\x1b[2J\x1b[H")
+	h.sendTerminalOutput(cmd.PodKey, initSequence)
+	log.Debug("Sent initial terminal setup sequence", "pod_key", cmd.PodKey)
+
 	log.Info("Pod created", "pod_key", cmd.PodKey, "pid", pod.Terminal.PID(), "worktree", pod.WorktreePath, "branch", pod.Branch, "cols", cols, "rows", rows)
 	return nil
 }
@@ -149,6 +172,11 @@ func (h *RunnerMessageHandler) OnTerminatePod(req client.TerminatePodRequest) er
 	pod := h.podStore.Delete(req.PodKey)
 	if pod == nil {
 		return fmt.Errorf("pod not found: %s", req.PodKey)
+	}
+
+	// Close PTY logger if enabled
+	if pod.PTYLogger != nil {
+		pod.PTYLogger.Close()
 	}
 
 	// Stop aggregator first to ensure no more output is sent
@@ -435,10 +463,15 @@ func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 		if pod != nil {
 			pod.SetStatus(PodStatusStopped)
 
-			// 1. Disconnect Relay connection
+			// 1. Close PTY logger if enabled
+			if pod.PTYLogger != nil {
+				pod.PTYLogger.Close()
+			}
+
+			// 2. Disconnect Relay connection
 			pod.DisconnectRelay()
 
-			// 2. Stop aggregator to flush any remaining output
+			// 3. Stop aggregator to flush any remaining output
 			if pod.Aggregator != nil {
 				pod.Aggregator.Stop()
 			}
