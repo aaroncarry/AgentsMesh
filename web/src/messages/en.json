@@ -1798,7 +1798,8 @@
     "singleView": "Single view",
     "twoColumns": "Two columns",
     "twoRows": "Two rows",
-    "grid2x2": "2x2 grid"
+    "grid2x2": "2x2 grid",
+    "fullscreen": "Fullscreen"
   },
   "terminalToolbar": {
     "clearScreen": "Clear screen",

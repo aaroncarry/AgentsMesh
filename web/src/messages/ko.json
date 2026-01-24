@@ -802,7 +802,8 @@
     "singleView": "단일 보기",
     "twoColumns": "2열",
     "twoRows": "2행",
-    "grid2x2": "2x2 그리드"
+    "grid2x2": "2x2 그리드",
+    "fullscreen": "전체 화면"
   },
   "terminalToolbar": {
     "clearScreen": "화면 지우기",

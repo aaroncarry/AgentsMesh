@@ -10,7 +10,6 @@ import { TerminalGrid } from "./TerminalGrid";
 import { TerminalSwiper } from "./TerminalSwiper";
 import { TerminalToolbar } from "./TerminalToolbar";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2 } from "lucide-react";
 import { getPodDisplayName } from "@/lib/pod-utils";
 
 interface WorkspaceManagerProps {
@@ -102,23 +101,11 @@ export function WorkspaceManager({ className }: WorkspaceManagerProps) {
       {!isMobile && (
         <>
           {/* Tab bar */}
-          <TerminalTabs onAddNew={handleAddNew} />
-
-          {/* Fullscreen toggle */}
-          <div className="absolute top-12 right-2 z-10">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-terminal-text-muted hover:text-terminal-text"
-              onClick={toggleFullscreen}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="w-4 h-4" />
-              ) : (
-                <Maximize2 className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
+          <TerminalTabs
+            onAddNew={handleAddNew}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+          />
 
           {/* Grid */}
           <TerminalGrid

@@ -805,7 +805,8 @@
     "singleView": "Einzelansicht",
     "twoColumns": "Zwei Spalten",
     "twoRows": "Zwei Zeilen",
-    "grid2x2": "2x2 Raster"
+    "grid2x2": "2x2 Raster",
+    "fullscreen": "Vollbild"
   },
   "terminalToolbar": {
     "clearScreen": "Bildschirm löschen",
