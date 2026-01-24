@@ -1867,7 +1867,8 @@
     "open": "Open keyboard toolbar",
     "close": "Close",
     "fontDecrease": "Decrease font size",
-    "fontIncrease": "Increase font size"
+    "fontIncrease": "Increase font size",
+    "scrollToBottom": "Scroll to bottom"
   },
   "mobile": {
     "more": "More",

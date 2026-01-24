@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useWorkspaceStore, terminalPool } from "@/stores/workspace";
+import { useWorkspaceStore, terminalPool, terminalRegistry } from "@/stores/workspace";
 import {
   ChevronUp,
   ChevronDown,
@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Keyboard,
   X,
+  ChevronsDown,
+  CornerDownLeft,
 } from "lucide-react";
 import { useTranslations } from "@/lib/i18n/client";
 
@@ -107,6 +109,12 @@ export function TerminalToolbar({ className }: TerminalToolbarProps) {
     setAltActive(false);
   }, [currentPane]);
 
+  // Scroll terminal to bottom
+  const scrollToBottom = useCallback(() => {
+    if (!currentPane) return;
+    terminalRegistry.scrollToBottom(currentPane.podKey);
+  }, [currentPane]);
+
   if (!currentPane) {
     return null;
   }
@@ -149,6 +157,12 @@ export function TerminalToolbar({ className }: TerminalToolbarProps) {
             />
             <KeyButton label="END" onClick={() => sendDirectKey(KEYS.END)} small />
             <KeyButton label="PGUP" onClick={() => sendDirectKey(KEYS.PAGE_UP)} small />
+            {/* Scroll to bottom button */}
+            <KeyButton
+              icon={<ChevronsDown className="w-4 h-4" />}
+              onClick={scrollToBottom}
+              title={t("terminalToolbar.scrollToBottom")}
+            />
             {/* Spacer */}
             <div className="flex-1" />
             {/* Close button */}
@@ -201,6 +215,12 @@ export function TerminalToolbar({ className }: TerminalToolbarProps) {
             <KeyButton label="/" onClick={() => sendKey("/")} />
             <KeyButton label="-" onClick={() => sendKey("-")} />
             <KeyButton label="~" onClick={() => sendKey("~")} />
+            {/* Enter key */}
+            <KeyButton
+              icon={<CornerDownLeft className="w-4 h-4" />}
+              onClick={() => sendDirectKey(KEYS.ENTER)}
+              title="Enter"
+            />
           </div>
         </div>
       )}

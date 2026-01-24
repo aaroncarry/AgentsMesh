@@ -806,7 +806,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "Limpiar pantalla",
-    "font": "Fuente"
+    "font": "Fuente",
+    "scrollToBottom": "Desplazar hacia abajo"
   },
   "mobile": {
     "more": "Más",

@@ -807,7 +807,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "画面クリア",
-    "font": "フォント"
+    "font": "フォント",
+    "scrollToBottom": "最下部にスクロール"
   },
   "mobile": {
     "more": "その他",

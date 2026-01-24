@@ -799,7 +799,8 @@
   },
   "terminalToolbar": {
     "clearScreen": "Limpar tela",
-    "font": "Fonte"
+    "font": "Fonte",
+    "scrollToBottom": "Rolar para o final"
   },
   "mobile": {
     "more": "Mais",

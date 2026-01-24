@@ -5,7 +5,7 @@ import { Terminal as XTerm, IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
-import { terminalPool } from "@/stores/workspace";
+import { terminalPool, terminalRegistry } from "@/stores/workspace";
 import { TerminalWriteScheduler } from "@/lib/terminalScheduler";
 
 interface TerminalConnection {
@@ -155,10 +155,15 @@ export function useTerminal(
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    // Register terminal instance for cross-component access (e.g., TerminalToolbar)
+    terminalRegistry.register(podKey, term);
+
     // Cleanup
     return () => {
       isMounted = false;  // Prevent late connection from being stored
       clearInterval(statusInterval);
+      // Unregister terminal from registry
+      terminalRegistry.unregister(podKey);
       // Explicitly dispose event listeners before disposing terminal
       disposablesRef.current.forEach(d => d.dispose());
       disposablesRef.current = [];
