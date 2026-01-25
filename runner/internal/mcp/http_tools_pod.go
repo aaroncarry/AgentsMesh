@@ -35,6 +35,31 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 					"type":        "string",
 					"description": "AI model to use for the pod",
 				},
+				"repository_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "ID of the repository to work with (mutually exclusive with repository_url). Use list_repositories to see available repositories.",
+				},
+				"repository_url": map[string]interface{}{
+					"type":        "string",
+					"description": "Direct repository URL to clone (takes precedence over repository_id). Use this for repositories not registered in the system.",
+				},
+				"branch_name": map[string]interface{}{
+					"type":        "string",
+					"description": "Git branch name to checkout. If not specified, uses repository's default branch.",
+				},
+				"credential_profile_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "ID of the credential profile to use. If not specified or 0, uses RunnerHost mode (runner's local environment).",
+				},
+				"config_overrides": map[string]interface{}{
+					"type":        "object",
+					"description": "Override agent type default configuration. Keys depend on the agent type's config schema.",
+				},
+				"permission_mode": map[string]interface{}{
+					"type":        "string",
+					"enum":        []string{"plan", "default", "bypassPermissions"},
+					"description": "Permission mode for the pod: 'plan' (default, requires approval), 'default' (normal permissions), or 'bypassPermissions' (auto-approve all).",
+				},
 			},
 			"required": []string{"agent_type_id"},
 		},
@@ -52,6 +77,24 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 			}
 			if v := getIntPtrArg(args, "ticket_id"); v != nil {
 				req.TicketID = v
+			}
+			if v := getInt64PtrArg(args, "repository_id"); v != nil {
+				req.RepositoryID = v
+			}
+			if v := getStringArg(args, "repository_url"); v != "" {
+				req.RepositoryURL = &v
+			}
+			if v := getStringArg(args, "branch_name"); v != "" {
+				req.BranchName = &v
+			}
+			if v := getInt64PtrArg(args, "credential_profile_id"); v != nil {
+				req.CredentialProfileID = v
+			}
+			if v := getMapArg(args, "config_overrides"); v != nil {
+				req.ConfigOverrides = v
+			}
+			if v := getStringArg(args, "permission_mode"); v != "" {
+				req.PermissionMode = &v
 			}
 
 			// Create the pod

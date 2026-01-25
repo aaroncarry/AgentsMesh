@@ -495,3 +495,11 @@ func getStringSliceArg(args map[string]interface{}, key string) []string {
 	}
 	return nil
 }
+
+// Helper to extract map from args
+func getMapArg(args map[string]interface{}, key string) map[string]interface{} {
+	if v, ok := args[key].(map[string]interface{}); ok {
+		return v
+	}
+	return nil
+}
