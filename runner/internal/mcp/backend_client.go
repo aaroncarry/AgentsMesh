@@ -336,13 +336,13 @@ func (c *BackendClient) GetBoundPods(ctx context.Context) ([]string, error) {
 // Channel Operations
 
 // SearchChannels searches for collaboration channels.
-func (c *BackendClient) SearchChannels(ctx context.Context, name string, projectID, ticketID *int, isArchived *bool, offset, limit int) ([]tools.Channel, error) {
+func (c *BackendClient) SearchChannels(ctx context.Context, name string, repositoryID, ticketID *int, isArchived *bool, offset, limit int) ([]tools.Channel, error) {
 	params := url.Values{}
 	if name != "" {
 		params.Set("name", name)
 	}
-	if projectID != nil {
-		params.Set("project_id", strconv.Itoa(*projectID))
+	if repositoryID != nil {
+		params.Set("repository_id", strconv.Itoa(*repositoryID))
 	}
 	if ticketID != nil {
 		params.Set("ticket_id", strconv.Itoa(*ticketID))
@@ -366,13 +366,13 @@ func (c *BackendClient) SearchChannels(ctx context.Context, name string, project
 }
 
 // CreateChannel creates a new collaboration channel.
-func (c *BackendClient) CreateChannel(ctx context.Context, name, description string, projectID, ticketID *int) (*tools.Channel, error) {
+func (c *BackendClient) CreateChannel(ctx context.Context, name, description string, repositoryID, ticketID *int) (*tools.Channel, error) {
 	body := map[string]interface{}{
 		"name":        name,
 		"description": description,
 	}
-	if projectID != nil {
-		body["project_id"] = *projectID
+	if repositoryID != nil {
+		body["repository_id"] = *repositoryID
 	}
 	if ticketID != nil {
 		body["ticket_id"] = *ticketID
@@ -472,13 +472,13 @@ func (c *BackendClient) UpdateDocument(ctx context.Context, channelID int, docum
 // Ticket Operations
 
 // SearchTickets searches for tickets.
-func (c *BackendClient) SearchTickets(ctx context.Context, productID *int, status *tools.TicketStatus, ticketType *tools.TicketType, priority *tools.TicketPriority, assigneeID, parentID *int, query string, limit, page int) ([]tools.Ticket, error) {
+func (c *BackendClient) SearchTickets(ctx context.Context, repositoryID *int, status *tools.TicketStatus, ticketType *tools.TicketType, priority *tools.TicketPriority, assigneeID, parentID *int, query string, limit, page int) ([]tools.Ticket, error) {
 	params := url.Values{}
 	params.Set("limit", strconv.Itoa(limit))
 	params.Set("page", strconv.Itoa(page))
 
-	if productID != nil {
-		params.Set("product_id", strconv.Itoa(*productID))
+	if repositoryID != nil {
+		params.Set("repository_id", strconv.Itoa(*repositoryID))
 	}
 	if status != nil {
 		params.Set("status", string(*status))
@@ -524,13 +524,15 @@ func (c *BackendClient) GetTicket(ctx context.Context, ticketID string) (*tools.
 }
 
 // CreateTicket creates a new ticket.
-func (c *BackendClient) CreateTicket(ctx context.Context, productID int, title, description string, ticketType tools.TicketType, priority tools.TicketPriority, parentTicketID *int) (*tools.Ticket, error) {
+func (c *BackendClient) CreateTicket(ctx context.Context, repositoryID *int64, title, description string, ticketType tools.TicketType, priority tools.TicketPriority, parentTicketID *int64) (*tools.Ticket, error) {
 	body := map[string]interface{}{
-		"product_id":  productID,
 		"title":       title,
 		"description": description,
 		"type":        ticketType,
 		"priority":    priority,
+	}
+	if repositoryID != nil {
+		body["repository_id"] = *repositoryID
 	}
 	if parentTicketID != nil {
 		body["parent_ticket_id"] = *parentTicketID

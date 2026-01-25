@@ -179,7 +179,7 @@ type Channel struct {
 	ID              int     `json:"id"`
 	Name            string  `json:"name"`
 	Description     string  `json:"description,omitempty"`
-	ProjectID       *int    `json:"project_id,omitempty"`
+	RepositoryID    *int    `json:"repository_id,omitempty"`
 	TicketID        *int    `json:"ticket_id,omitempty"`
 	Document        string  `json:"document,omitempty"`
 	MemberCount     int     `json:"member_count"`
@@ -274,11 +274,17 @@ type Repository struct {
 
 // PodCreateRequest represents a request to create a new pod.
 type PodCreateRequest struct {
-	RunnerID      int    `json:"runner_id,omitempty"`
-	AgentTypeID   *int64 `json:"agent_type_id,omitempty"` // Required by backend API
-	TicketID      *int   `json:"ticket_id,omitempty"`
-	InitialPrompt string `json:"initial_prompt,omitempty"`
-	Model         string `json:"model,omitempty"`
+	RunnerID            int                    `json:"runner_id,omitempty"`
+	AgentTypeID         *int64                 `json:"agent_type_id,omitempty"` // Required by backend API
+	TicketID            *int                   `json:"ticket_id,omitempty"`
+	InitialPrompt       string                 `json:"initial_prompt,omitempty"`
+	Model               string                 `json:"model,omitempty"`
+	RepositoryID        *int64                 `json:"repository_id,omitempty"`        // Repository ID (mutually exclusive with repository_url)
+	RepositoryURL       *string                `json:"repository_url,omitempty"`       // Direct repository URL (takes precedence over repository_id)
+	BranchName          *string                `json:"branch_name,omitempty"`          // Git branch name
+	CredentialProfileID *int64                 `json:"credential_profile_id,omitempty"` // Credential profile ID (0 or nil = RunnerHost mode)
+	ConfigOverrides     map[string]interface{} `json:"config_overrides,omitempty"`     // Override agent type default configuration
+	PermissionMode      *string                `json:"permission_mode,omitempty"`      // "plan", "default", or "bypassPermissions"
 }
 
 // PodCreateResponse represents the response from creating a pod.
@@ -314,8 +320,8 @@ type BindingClient interface {
 
 // ChannelClient defines the interface for channel operations.
 type ChannelClient interface {
-	SearchChannels(ctx context.Context, name string, projectID, ticketID *int, isArchived *bool, offset, limit int) ([]Channel, error)
-	CreateChannel(ctx context.Context, name, description string, projectID, ticketID *int) (*Channel, error)
+	SearchChannels(ctx context.Context, name string, repositoryID, ticketID *int, isArchived *bool, offset, limit int) ([]Channel, error)
+	CreateChannel(ctx context.Context, name, description string, repositoryID, ticketID *int) (*Channel, error)
 	GetChannel(ctx context.Context, channelID int) (*Channel, error)
 	SendMessage(ctx context.Context, channelID int, content string, msgType ChannelMessageType, mentions []string, replyTo *int) (*ChannelMessage, error)
 	GetMessages(ctx context.Context, channelID int, beforeTime, afterTime *string, mentionedPod *string, limit int) ([]ChannelMessage, error)
@@ -325,9 +331,9 @@ type ChannelClient interface {
 
 // TicketClient defines the interface for ticket operations.
 type TicketClient interface {
-	SearchTickets(ctx context.Context, productID *int, status *TicketStatus, ticketType *TicketType, priority *TicketPriority, assigneeID, parentID *int, query string, limit, page int) ([]Ticket, error)
+	SearchTickets(ctx context.Context, repositoryID *int, status *TicketStatus, ticketType *TicketType, priority *TicketPriority, assigneeID, parentID *int, query string, limit, page int) ([]Ticket, error)
 	GetTicket(ctx context.Context, ticketID string) (*Ticket, error)
-	CreateTicket(ctx context.Context, productID int, title, description string, ticketType TicketType, priority TicketPriority, parentTicketID *int) (*Ticket, error)
+	CreateTicket(ctx context.Context, repositoryID *int64, title, description string, ticketType TicketType, priority TicketPriority, parentTicketID *int64) (*Ticket, error)
 	UpdateTicket(ctx context.Context, ticketID string, title, description *string, status *TicketStatus, priority *TicketPriority, ticketType *TicketType) (*Ticket, error)
 }
 
