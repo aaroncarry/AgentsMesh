@@ -2,10 +2,10 @@
 
 import React, { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth";
 import { ResponsiveShell } from "@/components/layout";
 import { RealtimeProvider } from "@/providers/RealtimeProvider";
+import { useBrowserNotification } from "@/hooks";
 import type { TerminalNotificationData, TaskCompletedData } from "@/lib/realtime";
 
 export default function DashboardLayout({
@@ -14,7 +14,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { token, _hasHydrated } = useAuthStore();
+  const { token, currentOrg, _hasHydrated } = useAuthStore();
+  const { permission, showNotification, requestPermission } = useBrowserNotification();
 
   useEffect(() => {
     // Only redirect after hydration is complete
@@ -23,28 +24,59 @@ export default function DashboardLayout({
     }
   }, [token, router, _hasHydrated]);
 
+  // Request notification permission on first load (if not yet requested)
+  useEffect(() => {
+    if (_hasHydrated && token && permission === "default") {
+      // Auto-request permission after a short delay to not be intrusive
+      const timer = setTimeout(() => {
+        requestPermission();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [_hasHydrated, token, permission, requestPermission]);
+
+  // Navigate to workspace with specific pod
+  const navigateToWorkspace = useCallback(
+    (podKey: string) => {
+      if (currentOrg?.slug) {
+        router.push(`/${currentOrg.slug}/workspace?pod=${podKey}`);
+      }
+    },
+    [router, currentOrg]
+  );
+
   // Handle terminal notifications (OSC 777)
   const handleTerminalNotification = useCallback(
     (data: TerminalNotificationData) => {
-      // Show toast notification for terminal events
-      toast.info(data.title, {
-        description: data.body,
-        duration: 5000,
+      // Show browser notification for terminal events
+      showNotification({
+        title: data.title,
+        body: data.body,
+        tag: `terminal-${data.pod_key}`,
+        data: { podKey: data.pod_key },
+        onClick: () => navigateToWorkspace(data.pod_key),
       });
       console.log("[Notification] Terminal:", data.title, data.body);
     },
-    []
+    [showNotification, navigateToWorkspace]
   );
 
   // Handle task completed notifications
-  const handleTaskCompleted = useCallback((data: TaskCompletedData) => {
-    // Show toast notification for task completion
-    toast.success("Task Completed", {
-      description: `Pod ${data.pod_key.substring(0, 12)}... finished (${data.agent_status})`,
-      duration: 5000,
-    });
-    console.log("[Notification] Task completed:", data.pod_key, data.agent_status);
-  }, []);
+  const handleTaskCompleted = useCallback(
+    (data: TaskCompletedData) => {
+      const podKeyShort = data.pod_key.substring(0, 8);
+      // Show browser notification for task completion
+      showNotification({
+        title: "Task Completed",
+        body: `Pod ${podKeyShort}... finished (${data.agent_status})`,
+        tag: `task-${data.pod_key}`,
+        data: { podKey: data.pod_key },
+        onClick: () => navigateToWorkspace(data.pod_key),
+      });
+      console.log("[Notification] Task completed:", data.pod_key, data.agent_status);
+    },
+    [showNotification, navigateToWorkspace]
+  );
 
   // Show loading state while hydrating
   if (!_hasHydrated) {
