@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useRunnerStore, Runner, getRunnerStatusInfo } from "@/stores/runner";
+import { useRunnerStore, Runner } from "@/stores/runner";
+import { RunnerCard, TokenDialog, EditRunnerDialog } from "./runners";
 import type { TranslationFn } from "./GeneralSettings";
 
 interface RunnersSettingsProps {
@@ -83,6 +83,15 @@ export function RunnersSettings({ t }: RunnersSettingsProps) {
   );
 }
 
+interface RunnersPanelProps {
+  runners: Runner[];
+  loading: boolean;
+  onEdit: (runner: Runner) => void;
+  onDelete: (id: number) => Promise<void>;
+  onGenerateToken: () => void;
+  t: TranslationFn;
+}
+
 function RunnersPanel({
   runners,
   loading,
@@ -90,14 +99,7 @@ function RunnersPanel({
   onDelete,
   onGenerateToken,
   t,
-}: {
-  runners: Runner[];
-  loading: boolean;
-  onEdit: (runner: Runner) => void;
-  onDelete: (id: number) => Promise<void>;
-  onGenerateToken: () => void;
-  t: TranslationFn;
-}) {
+}: RunnersPanelProps) {
   // Confirm dialog for delete
   const { dialogProps, confirm } = useConfirmDialog();
 
@@ -168,191 +170,6 @@ function RunnersPanel({
 
       {/* Confirm Delete Dialog */}
       <ConfirmDialog {...dialogProps} />
-    </div>
-  );
-}
-
-function RunnerCard({
-  runner,
-  onEdit,
-  onDelete,
-  formatLastSeen,
-  t,
-}: {
-  runner: Runner;
-  onEdit: (runner: Runner) => void;
-  onDelete: () => void;
-  formatLastSeen: (dateString?: string) => string;
-  t: TranslationFn;
-}) {
-  const statusInfo = getRunnerStatusInfo(runner.status as "online" | "offline" | "maintenance" | "busy");
-
-  return (
-    <div
-      className={`p-4 border rounded-lg ${
-        runner.is_enabled ? "border-border" : "border-border bg-muted/50"
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{runner.node_id}</span>
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo?.color}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusInfo?.dotColor}`} />
-              {statusInfo?.label}
-            </span>
-            {!runner.is_enabled && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded">
-                {t("settings.runnersSection.disabled")}
-              </span>
-            )}
-          </div>
-          {runner.description && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {runner.description}
-            </p>
-          )}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
-            <span>
-              {t("settings.runnersSection.pods")} {runner.current_pods} / {runner.max_concurrent_pods}
-            </span>
-            {runner.runner_version && <span>v{runner.runner_version}</span>}
-            <span>{t("settings.runnersSection.lastSeen")} {formatLastSeen(runner.last_heartbeat)}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => onEdit(runner)}>
-            {t("settings.runnersSection.edit")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={onDelete}
-          >
-            {t("settings.runnersSection.delete")}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TokenDialog({
-  token,
-  onClose,
-  onCopy,
-  t,
-}: {
-  token: string;
-  onClose: () => void;
-  onCopy: () => void;
-  t: TranslationFn;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background border border-border rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-4">{t("settings.runnersSection.tokenDialog.title")}</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          {t("settings.runnersSection.tokenDialog.description")}
-        </p>
-        <div className="bg-muted p-3 rounded-lg mb-4 flex items-center justify-between">
-          <code className="text-sm break-all">{token}</code>
-          <Button variant="ghost" size="sm" onClick={onCopy}>
-            {t("settings.runnersSection.tokenDialog.copy")}
-          </Button>
-        </div>
-        <Button className="w-full" onClick={onClose}>
-          {t("settings.runnersSection.tokenDialog.done")}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function EditRunnerDialog({
-  runner,
-  onClose,
-  onSave,
-  t,
-}: {
-  runner: Runner;
-  onClose: () => void;
-  onSave: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean }) => Promise<void>;
-  t: TranslationFn;
-}) {
-  const [description, setDescription] = useState(runner.description || "");
-  const [maxPods, setMaxPods] = useState(runner.max_concurrent_pods.toString());
-  const [isEnabled, setIsEnabled] = useState(runner.is_enabled);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave(runner.id, {
-        description: description || undefined,
-        max_concurrent_pods: parseInt(maxPods, 10),
-        is_enabled: isEnabled,
-      });
-    } catch (err) {
-      console.error("Failed to save runner:", err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background border border-border rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-4">{t("settings.runnersSection.editDialog.title")}</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">{t("settings.runnersSection.editDialog.nodeIdLabel")}</label>
-            <Input value={runner.node_id} disabled />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">{t("settings.runnersSection.editDialog.descriptionLabel")}</label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("settings.runnersSection.editDialog.descriptionPlaceholder")}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {t("settings.runnersSection.editDialog.maxPodsLabel")}
-            </label>
-            <Input
-              type="number"
-              value={maxPods}
-              onChange={(e) => setMaxPods(e.target.value)}
-              min="1"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">{t("settings.runnersSection.editDialog.enabledLabel")}</label>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={isEnabled}
-                onChange={(e) => setIsEnabled(e.target.checked)}
-              />
-              <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-transparent after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <Button variant="outline" className="flex-1" onClick={onClose}>
-            {t("settings.runnersSection.editDialog.cancel")}
-          </Button>
-          <Button className="flex-1" onClick={handleSave} disabled={saving}>
-            {saving ? t("settings.runnersSection.editDialog.saving") : t("settings.runnersSection.editDialog.saveChanges")}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
