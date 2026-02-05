@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/client";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth";
-import { useTicketStore, Ticket, TicketStatus } from "@/stores/ticket";
+import { useTicketStore, TicketStatus } from "@/stores/ticket";
 import { StatusIcon, PriorityIcon, TypeIcon, getStatusDisplayInfo, getPriorityDisplayInfo, getTypeDisplayInfo } from "./TicketIcons";
-import { ticketApi, TicketRelation, TicketCommit } from "@/lib/api";
 import TicketPodPanel from "./TicketPodPanel";
+import { useTicketExtraData } from "./hooks";
+import { SubTicketsList, RelationsList, CommitsList, LabelsList } from "./shared";
 
 // Lazy load BlockEditor to avoid SSR issues
 const BlockEditor = lazy(() => import("@/components/ui/block-editor"));
@@ -26,51 +27,28 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
   const { currentOrg } = useAuthStore();
   const { currentTicket, fetchTicket, updateTicket, updateTicketStatus, deleteTicket, loading, error } = useTicketStore();
 
-  const [subTickets, setSubTickets] = useState<Ticket[]>([]);
-  const [relations, setRelations] = useState<TicketRelation[]>([]);
-  const [commits, setCommits] = useState<TicketCommit[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editContent, setEditContent] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [, setLoadingExtra] = useState(true);
+
+  // Use shared hook for extra data
+  const { subTickets, relations, commits } = useTicketExtraData(identifier, !!currentTicket);
 
   // Fetch ticket data
   useEffect(() => {
     fetchTicket(identifier);
   }, [identifier, fetchTicket]);
 
-  // Fetch extra data (sub-tickets, relations, commits)
-  const fetchExtraData = useCallback(async () => {
-    if (!currentTicket) return;
-
-    setLoadingExtra(true);
-    try {
-      const [subTicketsRes, relationsRes, commitsRes] = await Promise.all([
-        ticketApi.getSubTickets(identifier).catch(() => ({ tickets: [] })),
-        ticketApi.listRelations(identifier).catch(() => ({ relations: [] })),
-        ticketApi.listCommits(identifier).catch(() => ({ commits: [] })),
-      ]);
-
-      setSubTickets(subTicketsRes.tickets || []);
-      setRelations(relationsRes.relations || []);
-      setCommits(commitsRes.commits || []);
-    } catch (err) {
-      console.error("Failed to fetch extra data:", err);
-    } finally {
-      setLoadingExtra(false);
-    }
-  }, [currentTicket, identifier]);
-
+  // Initialize edit fields when ticket changes
   useEffect(() => {
     if (currentTicket) {
-      fetchExtraData();
       setEditTitle(currentTicket.title);
       setEditDescription(currentTicket.description || "");
       setEditContent(currentTicket.content || "");
     }
-  }, [currentTicket, fetchExtraData]);
+  }, [currentTicket]);
 
   // Handle status change
   const handleStatusChange = async (newStatus: TicketStatus) => {
@@ -103,6 +81,11 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
     } catch (err) {
       console.error("Failed to delete ticket:", err);
     }
+  };
+
+  // Handle ticket click for sub-tickets and relations
+  const handleTicketClick = (ticketIdentifier: string) => {
+    router.push(`/${currentOrg?.slug}/tickets/${ticketIdentifier}`);
   };
 
   if (loading && !currentTicket) {
@@ -207,121 +190,23 @@ export function TicketDetail({ identifier }: TicketDetailProps) {
           )}
         </div>
 
-        {/* Labels */}
-        {currentTicket.labels && currentTicket.labels.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {currentTicket.labels.map((label: { id: number; name: string; color: string }) => (
-              <span
-                key={label.id}
-                className="px-2 py-1 rounded text-sm"
-                style={{
-                  backgroundColor: `${label.color}20`,
-                  color: label.color,
-                }}
-              >
-                {label.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Labels (using shared component) */}
+        <LabelsList labels={currentTicket.labels || []} />
 
-        {/* Sub-tickets */}
-        {subTickets.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-medium mb-3 flex items-center gap-2">
-              <span className="text-muted-foreground">◦</span>
-              {t("tickets.detail.subTickets")} ({subTickets.length})
-            </h3>
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {subTickets.map((subTicket) => {
-                const subStatusInfo = getStatusDisplayInfo(subTicket.status);
-                return (
-                  <div
-                    key={subTicket.id}
-                    className="px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                    onClick={() => router.push(`/${currentOrg?.slug}/tickets/${subTicket.identifier}`)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <TypeIcon type={subTicket.type} size="sm" />
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {subTicket.identifier}
-                      </span>
-                      <span className="flex-1 truncate">{subTicket.title}</span>
-                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${subStatusInfo.bgColor} ${subStatusInfo.color}`}>
-                        <StatusIcon status={subTicket.status} size="xs" />
-                        {subStatusInfo.label}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Sub-tickets (using shared component) */}
+        <SubTicketsList
+          subTickets={subTickets}
+          onTicketClick={handleTicketClick}
+        />
 
-        {/* Relations */}
-        {relations.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-medium mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              {t("tickets.detail.related")} ({relations.length})
-            </h3>
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {relations.map((relation) => {
-                const targetTicket = relation.target_ticket;
-                if (!targetTicket) return null;
-                return (
-                  <div
-                    key={relation.id}
-                    className="px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                    onClick={() => router.push(`/${currentOrg?.slug}/tickets/${targetTicket.identifier}`)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {relation.relation_type}
-                      </span>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {targetTicket.identifier}
-                      </span>
-                      <span className="flex-1 truncate">{targetTicket.title}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Relations (using shared component) */}
+        <RelationsList
+          relations={relations}
+          onTicketClick={handleTicketClick}
+        />
 
-        {/* Commits */}
-        {commits.length > 0 && (
-          <div className="mb-6">
-            <h3 className="font-medium mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {t("tickets.detail.commits")} ({commits.length})
-            </h3>
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {commits.map((commit) => (
-                <div key={commit.id} className="px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                      {commit.commit_sha.substring(0, 7)}
-                    </code>
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate">{commit.commit_message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {commit.author_name} • {commit.committed_at ? new Date(commit.committed_at).toLocaleDateString() : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Commits (using shared component) */}
+        <CommitsList commits={commits} />
 
         {/* AgentPods */}
         <TicketPodPanel

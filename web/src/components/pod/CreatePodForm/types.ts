@@ -13,6 +13,7 @@ export interface TicketContext {
   identifier: string;
   title: string;
   description?: string;
+  repositoryId?: number;
 }
 
 /**

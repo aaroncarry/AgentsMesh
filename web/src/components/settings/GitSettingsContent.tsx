@@ -13,6 +13,7 @@ import {
   CredentialTypeValue,
   getCredentialTypeLabel,
 } from "@/lib/api";
+import { AlertMessage } from "@/components/ui/alert-message";
 import { useTranslations } from "@/lib/i18n/client";
 import { Plus, Settings, Check, Trash2, TestTube } from "lucide-react";
 import { GitProviderIcon, CredentialTypeIcon } from "@/components/icons/GitProviderIcon";
@@ -188,22 +189,8 @@ export function GitSettingsContent() {
   return (
     <div className="space-y-6">
       {/* Error/Success messages */}
-      {error && (
-        <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg flex items-center justify-between">
-          {error}
-          <button onClick={() => setError(null)} className="text-sm underline">
-            {t("common.close")}
-          </button>
-        </div>
-      )}
-      {success && (
-        <div className="mb-4 p-4 bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg flex items-center justify-between">
-          {success}
-          <button onClick={() => setSuccess(null)} className="text-sm underline">
-            {t("common.close")}
-          </button>
-        </div>
-      )}
+      {error && <AlertMessage type="error" message={error} onDismiss={() => setError(null)} className="mb-4" />}
+      {success && <AlertMessage type="success" message={success} onDismiss={() => setSuccess(null)} className="mb-4" />}
 
       {/* Section 1: Default Git Credential */}
       <div className="border border-border rounded-lg p-6 mb-6">
