@@ -14,6 +14,7 @@ import { AgentSelect } from "./AgentSelect";
 import { CredentialSelect } from "./CredentialSelect";
 import { RepositorySelect, BranchInput } from "./RepositorySelect";
 import { PromptInput } from "./PromptInput";
+import { estimateWorkspaceTerminalSize } from "@/lib/terminal-size";
 
 /**
  * Shared Pod creation form component
@@ -93,17 +94,17 @@ export function CreatePodForm({
     if (!selectedRunner || !form.selectedAgent) return;
 
     try {
-      // Use reasonable default terminal size for initial PTY creation
-      // Terminal will resize immediately after connection via fit addon
-      const defaultCols = 120;
-      const defaultRows = 40;
+      // Estimate terminal size based on current window/device dimensions
+      // This provides better initial PTY dimensions than hardcoded values
+      // Terminal will still resize after connection via fit addon if needed
+      const { cols, rows } = estimateWorkspaceTerminalSize();
 
       // onSuccess callback is handled in useCreatePodForm.submit
       await form.submit(selectedRunner.id, configValues, {
         ticketId: context?.ticket?.id,
         initialPrompt: form.prompt,
-        cols: defaultCols,
-        rows: defaultRows,
+        cols,
+        rows,
       });
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Unknown error");
