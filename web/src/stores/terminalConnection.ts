@@ -222,6 +222,30 @@ class TerminalConnectionPool {
     console.log(`[Relay] Received message: type=${type}, payload_len=${payload.length}`);
 
     switch (type) {
+      case MsgType.Snapshot: {
+        // Complete terminal snapshot - used to restore terminal state
+        // The payload contains serialized ANSI content that can be written directly to xterm
+        try {
+          const snapshot = JSON.parse(new TextDecoder().decode(payload));
+          console.log(`[Relay] Received snapshot: cols=${snapshot.cols}, rows=${snapshot.rows}, alt_screen=${snapshot.is_alt_screen}`);
+
+          // Update PTY size if provided
+          if (snapshot.cols > 0 && snapshot.rows > 0) {
+            conn.ptySize = { rows: snapshot.rows, cols: snapshot.cols };
+          }
+
+          // Forward serialized content to xterm (includes ANSI escape sequences)
+          if (snapshot.serialized_content) {
+            const content = new TextEncoder().encode(snapshot.serialized_content);
+            for (const listener of conn.listeners) {
+              listener(content);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse snapshot message:", e);
+        }
+        break;
+      }
       case MsgType.Output: {
         // Raw terminal output - forward directly to xterm
         conn.buffer.push(payload);
