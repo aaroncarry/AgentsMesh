@@ -49,6 +49,22 @@ const TERMINAL_THEME = {
 };
 
 /**
+ * Safely fit terminal only when container has valid dimensions.
+ * Uses FitAddon.proposeDimensions() to check before fitting.
+ * Returns true if fit was successful, false if dimensions are invalid.
+ *
+ * @see https://github.com/xtermjs/xterm.js/issues/3029
+ */
+function safeFit(fitAddon: FitAddon): { cols: number; rows: number } | null {
+  const dims = fitAddon.proposeDimensions();
+  if (!dims || !Number.isFinite(dims.cols) || !Number.isFinite(dims.rows) || dims.cols <= 0 || dims.rows <= 0) {
+    return null;
+  }
+  fitAddon.fit();
+  return { cols: dims.cols, rows: dims.rows };
+}
+
+/**
  * Hook for initializing and managing xterm.js terminal
  */
 export function useTerminal(
@@ -64,20 +80,53 @@ export function useTerminal(
   const schedulerRef = useRef<TerminalWriteScheduler | null>(null);
   const disposablesRef = useRef<IDisposable[]>([]);
   const sizeSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track last synced size to avoid redundant resize messages
+  const lastSyncedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
 
   /**
    * Debounced size sync to PTY.
    * Prevents excessive resize messages when switching panes rapidly or during animations.
+   * Only sends if size actually changed.
    */
   const debouncedSizeSync = useCallback((cols: number, rows: number) => {
+    // Skip if size hasn't changed
+    const last = lastSyncedSizeRef.current;
+    if (last && last.cols === cols && last.rows === rows) {
+      return;
+    }
+
     if (sizeSyncTimerRef.current) {
       clearTimeout(sizeSyncTimerRef.current);
     }
     sizeSyncTimerRef.current = setTimeout(() => {
+      lastSyncedSizeRef.current = { cols, rows };
       terminalPool.forceResize(podKey, cols, rows);
       sizeSyncTimerRef.current = null;
     }, SIZE_SYNC_DEBOUNCE_MS);
+  }, [podKey]);
+
+  /**
+   * Force immediate size sync to PTY (no debounce).
+   * Used for initial connection and explicit sync requests.
+   */
+  const forceImmediateSizeSync = useCallback((cols: number, rows: number) => {
+    if (cols <= 0 || rows <= 0) return;
+
+    // Skip if size hasn't changed
+    const last = lastSyncedSizeRef.current;
+    if (last && last.cols === cols && last.rows === rows) {
+      return;
+    }
+
+    // Clear any pending debounced sync
+    if (sizeSyncTimerRef.current) {
+      clearTimeout(sizeSyncTimerRef.current);
+      sizeSyncTimerRef.current = null;
+    }
+
+    lastSyncedSizeRef.current = { cols, rows };
+    terminalPool.forceResize(podKey, cols, rows);
   }, [podKey]);
 
   // Initialize terminal (only when Pod is ready)
@@ -107,16 +156,13 @@ export function useTerminal(
     // Note: Terminal state will be restored from backend via WebSocket on connect
     term.open(terminalRef.current);
 
-    // Fit after layout is complete using requestAnimationFrame
-    // This is more reliable than setTimeout as it waits for the next paint
-    requestAnimationFrame(() => {
-      fitAddon.fit();
-      // Send initial size to PTY immediately after first fit (no debounce for initial)
-      const { cols, rows } = term;
-      if (cols > 0 && rows > 0) {
-        terminalPool.forceResize(podKey, cols, rows);
-      }
-    });
+    // Try initial fit - may fail if container has zero dimensions
+    // ResizeObserver will handle fitting when dimensions become valid
+    const initialDims = safeFit(fitAddon);
+    if (initialDims) {
+      terminalPool.forceResize(podKey, initialDims.cols, initialDims.rows);
+      lastSyncedSizeRef.current = initialDims;
+    }
 
     // Create write scheduler to aggregate high-frequency writes
     // This reduces xterm.write() calls from 4000-6700/s to ~60/s
@@ -261,46 +307,76 @@ export function useTerminal(
       term.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
+      lastSyncedSizeRef.current = null;
     };
     // Note: fontSize is intentionally excluded from dependencies to prevent terminal recreation
     // Font size changes are handled separately in another useEffect below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [podKey, isPodReady]);
 
-  // Handle container resize
-  // Note: This effect should NOT depend on isActive to avoid re-registering observers
+  /**
+   * ResizeObserver-based container size tracking.
+   * This is the standard approach recommended by xterm.js maintainers.
+   * @see https://github.com/xtermjs/xterm.js/issues/3029
+   *
+   * The observer triggers fit() whenever container dimensions change,
+   * which handles:
+   * - Initial render when container gets valid dimensions
+   * - Window resize
+   * - Panel expand/collapse
+   * - Page/tab switch (container becomes visible)
+   */
   useEffect(() => {
-    const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
+    const fitAddon = fitAddonRef.current;
+    const container = terminalRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!fitAddon) return;
+
+      // Use safeFit to check dimensions before fitting
+      const dims = safeFit(fitAddon);
+      if (dims) {
+        // Sync size to PTY when dimensions change
+        debouncedSizeSync(dims.cols, dims.rows);
+      }
+    });
+
+    // Observe the terminal container itself (not parent)
+    // This catches all size changes including flex layout updates
+    resizeObserver.observe(container);
+
+    // Also listen to window resize as a fallback
+    const handleWindowResize = () => {
+      if (!fitAddon) return;
+      const dims = safeFit(fitAddon);
+      if (dims) {
+        debouncedSizeSync(dims.cols, dims.rows);
       }
     };
-
-    // Observe container size changes
-    const resizeObserver = new ResizeObserver(handleResize);
-    if (terminalRef.current?.parentElement) {
-      resizeObserver.observe(terminalRef.current.parentElement);
-    }
-
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleWindowResize);
 
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", handleWindowResize);
     };
-  }, []); // Empty deps - observer should be stable for component lifetime
+  }, [debouncedSizeSync]);
 
-  // Handle page visibility change (separate effect to use isActive without re-registering observers)
+  /**
+   * Handle page visibility change.
+   * When browser tab becomes visible again, ensure terminal is properly sized.
+   */
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && isActive && xtermRef.current) {
-        // Use requestAnimationFrame to ensure layout is complete
+      if (document.visibilityState === "visible" && isActive) {
+        const fitAddon = fitAddonRef.current;
+        if (!fitAddon) return;
+
+        // Delay slightly to allow browser to update layout
         requestAnimationFrame(() => {
-          fitAddonRef.current?.fit();
-          // Force send size to PTY in case it's out of sync (debounced)
-          const term = xtermRef.current;
-          if (term && term.cols > 0 && term.rows > 0) {
-            debouncedSizeSync(term.cols, term.rows);
+          const dims = safeFit(fitAddon);
+          if (dims) {
+            debouncedSizeSync(dims.cols, dims.rows);
           }
         });
       }
@@ -313,36 +389,49 @@ export function useTerminal(
     };
   }, [isActive, debouncedSizeSync]);
 
-  // Focus terminal and sync size when pane becomes active
+  /**
+   * Focus terminal and sync size when pane becomes active.
+   * This handles tab switching within the application.
+   */
   useEffect(() => {
     if (isActive && xtermRef.current) {
       xtermRef.current.focus();
-      fitAddonRef.current?.fit();
 
-      // Force send current size to PTY to ensure synchronization (debounced)
-      // fit() only triggers onResize when size actually changes,
-      // but PTY might be out of sync (e.g., after Runner restart)
-      const { cols, rows } = xtermRef.current;
-      if (cols > 0 && rows > 0) {
-        debouncedSizeSync(cols, rows);
-      }
+      const fitAddon = fitAddonRef.current;
+      if (!fitAddon) return;
+
+      // Fit after next paint to ensure layout is complete
+      requestAnimationFrame(() => {
+        const dims = safeFit(fitAddon);
+        if (dims) {
+          // Force immediate sync when pane becomes active
+          // to ensure PTY size matches terminal display
+          forceImmediateSizeSync(dims.cols, dims.rows);
+        }
+      });
     }
-  }, [isActive, debouncedSizeSync]);
+  }, [isActive, forceImmediateSizeSync]);
 
   // Update font size
   useEffect(() => {
-    if (xtermRef.current) {
-      xtermRef.current.options.fontSize = fontSize;
-      fitAddonRef.current?.fit();
+    const term = xtermRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (term && fitAddon) {
+      term.options.fontSize = fontSize;
+      const dims = safeFit(fitAddon);
+      if (dims) {
+        debouncedSizeSync(dims.cols, dims.rows);
+      }
     }
-  }, [fontSize]);
+  }, [fontSize, debouncedSizeSync]);
 
-  // Sync terminal size to PTY
-  const syncSize = () => {
-    if (xtermRef.current) {
-      terminalPool.forceResize(podKey, xtermRef.current.cols, xtermRef.current.rows);
+  // Sync terminal size to PTY (manual trigger)
+  const syncSize = useCallback(() => {
+    const term = xtermRef.current;
+    if (term && term.cols > 0 && term.rows > 0) {
+      forceImmediateSizeSync(term.cols, term.rows);
     }
-  };
+  }, [forceImmediateSizeSync]);
 
   return {
     terminalRef,
