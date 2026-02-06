@@ -36,6 +36,10 @@ vi.mock("@/components/ide/ConfigForm", () => ({
   ConfigForm: () => <div data-testid="config-form">Config Form</div>,
 }));
 
+vi.mock("@/lib/terminal-size", () => ({
+  estimateWorkspaceTerminalSize: () => ({ cols: 80, rows: 24 }),
+}));
+
 import { usePodCreationData, useCreatePodForm } from "../../hooks";
 
 describe("CreatePodForm", () => {
@@ -199,7 +203,7 @@ describe("CreatePodForm", () => {
       fireEvent.click(screen.getByText("ide.createPod.create"));
 
       await waitFor(() => {
-        expect(mockFormSubmit).toHaveBeenCalledWith(1, {}, { ticketId: undefined, initialPrompt: "test prompt", cols: 120, rows: 40 });
+        expect(mockFormSubmit).toHaveBeenCalledWith(1, {}, { ticketId: undefined, initialPrompt: "test prompt", cols: 80, rows: 24 });
       });
     });
 
@@ -216,7 +220,7 @@ describe("CreatePodForm", () => {
       fireEvent.click(screen.getByText("ide.createPod.create"));
 
       await waitFor(() => {
-        expect(mockFormSubmit).toHaveBeenCalledWith(1, {}, { ticketId: 123, initialPrompt: "test prompt", cols: 120, rows: 40 });
+        expect(mockFormSubmit).toHaveBeenCalledWith(1, {}, { ticketId: 123, initialPrompt: "test prompt", cols: 80, rows: 24 });
       });
     });
 

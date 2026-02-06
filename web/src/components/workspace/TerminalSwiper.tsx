@@ -118,14 +118,16 @@ export function TerminalSwiper({ onAddNew, className }: TerminalSwiperProps) {
       // For now, just trigger a resize with the current stored size or estimate
       const ptySize = terminalPool.getPtySize(currentPane.podKey);
       if (ptySize) {
-        terminalPool.forceResize(currentPane.podKey, ptySize.rows, ptySize.cols);
+        // Note: forceResize signature is (podKey, cols, rows)
+        terminalPool.forceResize(currentPane.podKey, ptySize.cols, ptySize.rows);
       } else {
         // Estimate based on container - using typical terminal font metrics
         const container = containerRef.current;
         const cols = Math.floor(container.clientWidth / 9); // ~9px per char at 14px font
         const rows = Math.floor(container.clientHeight / 17); // ~17px per line at 14px font
         if (cols > 0 && rows > 0) {
-          terminalPool.forceResize(currentPane.podKey, rows, cols);
+          // Note: forceResize signature is (podKey, cols, rows)
+          terminalPool.forceResize(currentPane.podKey, cols, rows);
         }
       }
     }

@@ -167,7 +167,8 @@ class TerminalConnectionPool {
         c.reconnectAttempts = 0;
         console.log(`Terminal WebSocket connected to Relay for ${podKey}`);
         if (c.pendingResize) {
-          this.doSendResize(podKey, c.pendingResize.rows, c.pendingResize.cols);
+          // Note: doSendResize signature is (podKey, cols, rows)
+          this.doSendResize(podKey, c.pendingResize.cols, c.pendingResize.rows);
           c.pendingResize = undefined;
         }
       }
