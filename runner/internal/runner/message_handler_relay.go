@@ -11,9 +11,10 @@ import (
 )
 
 // OnSubscribeTerminal handles subscribe terminal command from server.
-// The channel is identified by PodKey (not session ID):
-// - If already connected to the same Relay URL, just update the token
-// - If Relay URL changes, disconnect and reconnect
+// The channel is identified by PodKey (not session ID).
+// Always disconnect and reconnect to ensure a fresh connection - this handles cases
+// where the Relay channel was closed but Runner didn't detect it (e.g., browser tab
+// closed for >30s, Relay channel expired, but Runner's WebSocket appears connected).
 func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalRequest) error {
 	log := logger.Pod()
 	log.Info("Subscribing to terminal via Relay",
@@ -25,24 +26,12 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
 
-	// Check if relay client exists
+	// Always disconnect existing relay connection and reconnect fresh
+	// This ensures we get a new Relay channel even if the old one was closed server-side
 	existingClient := pod.GetRelayClient()
 	if existingClient != nil {
-		// Check if connected to the same Relay URL
-		// Note: We no longer check sessionID - channel is identified by podKey only
-		if existingClient.GetRelayURL() == req.RelayURL {
-			// Same Relay, only update token (idempotent)
-			log.Info("Already connected to same relay, updating token only",
-				"pod_key", req.PodKey, "relay_url", req.RelayURL)
-			existingClient.UpdateToken(req.RunnerToken)
-			pod.DeliverNewToken(req.RunnerToken)
-			return nil
-		}
-		// Different Relay, disconnect and reconnect
-		log.Info("Switching relay connection",
-			"pod_key", req.PodKey,
-			"old_relay", existingClient.GetRelayURL(),
-			"new_relay", req.RelayURL)
+		log.Info("Disconnecting existing relay connection for fresh reconnect",
+			"pod_key", req.PodKey, "relay_url", req.RelayURL)
 		pod.DisconnectRelay()
 	}
 

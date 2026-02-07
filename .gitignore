@@ -92,3 +92,13 @@ deploy/dev/runner-ssh/known_hosts
 *_coverage.out
 coverage.out
 runner/dist/
+images/backend.tar
+images/minio.tar
+images/postgres.tar
+images/redis.tar
+images/relay.tar
+images/traefik.tar
+images/web-admin.tar
+images/web.tar
+runner/agentsmesh-runner
+agentsmesh-onpremise-v1.0.0.tar.gz
