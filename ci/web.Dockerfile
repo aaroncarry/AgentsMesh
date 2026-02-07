@@ -26,11 +26,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build-time environment variables for Next.js
-# Unified Domain Configuration - all URLs derived from PRIMARY_DOMAIN
-ARG PRIMARY_DOMAIN=api.agentsmesh.cn
-ARG USE_HTTPS=true
-ENV PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
-ENV USE_HTTPS=${USE_HTTPS}
+# Use placeholders that will be replaced at runtime by docker-entrypoint.sh
+# This allows runtime configuration of PRIMARY_DOMAIN and USE_HTTPS
+ENV PRIMARY_DOMAIN=__PRIMARY_DOMAIN__
+ENV USE_HTTPS=__USE_HTTPS__
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED 1
@@ -64,6 +63,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Switch to non-root user
 USER nextjs
 
@@ -82,5 +85,6 @@ USER nextjs
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:3000/ || exit 1
 
-# Run the application
+# Run the application with entrypoint for runtime env injection
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

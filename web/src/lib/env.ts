@@ -102,6 +102,11 @@ export function getOAuthBaseUrl(): string {
   const derived = deriveHttpUrl();
   if (derived) return derived;
 
+  // Client-side: use current origin (supports IP-based access)
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
   return "http://localhost:10000";
 }
 

@@ -34,6 +34,7 @@ type S3Storage struct {
 	publicEndpoint     string // Full URL with scheme (e.g., https://oss-cn-beijing.aliyuncs.com)
 	publicEndpointHost string // Host only without scheme (e.g., oss-cn-beijing.aliyuncs.com)
 	useSSL             bool
+	usePathStyle       bool // Use path-style URLs (required for MinIO)
 }
 
 // NewS3Storage creates a new S3-compatible storage client.
@@ -102,6 +103,7 @@ func NewS3Storage(cfg S3Config) (*S3Storage, error) {
 		publicEndpoint:     publicEndpointURL,
 		publicEndpointHost: publicEndpointHost,
 		useSSL:             cfg.UseSSL,
+		usePathStyle:       cfg.UsePathStyle,
 	}, nil
 }
 
@@ -158,11 +160,15 @@ func (s *S3Storage) Delete(ctx context.Context, key string) error {
 func (s *S3Storage) GetURL(ctx context.Context, key string, expiry time.Duration) (string, error) {
 	// If public endpoint differs from internal endpoint, return simple public URL
 	// This is used when bucket is configured for public/anonymous read access
-	// Use virtual-hosted-style URL: https://bucket.endpoint/key (for Aliyun OSS)
 	if s.publicEndpoint != "" && s.endpoint != "" && s.publicEndpoint != s.endpoint {
 		scheme := "http"
 		if s.useSSL {
 			scheme = "https"
+		}
+		// Use path-style URL for MinIO: http://endpoint/bucket/key
+		// Use virtual-hosted-style URL for Aliyun OSS: http://bucket.endpoint/key
+		if s.usePathStyle {
+			return fmt.Sprintf("%s://%s/%s/%s", scheme, s.publicEndpointHost, s.bucket, key), nil
 		}
 		return fmt.Sprintf("%s://%s.%s/%s", scheme, s.bucket, s.publicEndpointHost, key), nil
 	}

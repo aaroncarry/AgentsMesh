@@ -18,6 +18,14 @@ function getApiUrl(): string {
     return `${protocol}://${primaryDomain}`;
   }
 
+  // In browser: use current origin (supports IP-based access)
+  if (typeof window !== "undefined") {
+    // For admin console running on separate port, API is on port 80
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}`;
+  }
+
+  // Server-side fallback
   return "http://localhost:10000";
 }
 
