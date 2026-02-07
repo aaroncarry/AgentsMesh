@@ -256,68 +256,109 @@ release:github:
     - apk add --no-cache curl jq
   script:
     - |
-      echo "Creating GitHub release for $CI_COMMIT_TAG..."
+      set -e
 
-      # Helper function for curl with retry and timeout
+      echo "=============================================="
+      echo "GitHub Release for $CI_COMMIT_TAG"
+      echo "=============================================="
+      echo "Start time: $(date)"
+      echo ""
+
+      # Helper function for curl with retry, timeout, and progress
       curl_retry() {
         local max_attempts=3
         local attempt=1
+        local exit_code=0
         while [ $attempt -le $max_attempts ]; do
-          if curl --connect-timeout 30 --max-time 300 "$@"; then
+          echo "    [Attempt $attempt/$max_attempts] $(date +%H:%M:%S)"
+          if curl --connect-timeout 30 --max-time 300 -w "\n    HTTP Status: %{http_code}, Time: %{time_total}s\n" "$@"; then
             return 0
           fi
-          echo "  Attempt $attempt failed, retrying..."
+          exit_code=$?
+          echo "    [FAILED] curl exit code: $exit_code"
+          if [ $attempt -lt $max_attempts ]; then
+            echo "    Waiting 5s before retry..."
+            sleep 5
+          fi
           attempt=$((attempt + 1))
-          sleep 5
         done
-        echo "  All $max_attempts attempts failed"
-        return 1
+        echo "    [ERROR] All $max_attempts attempts failed"
+        return $exit_code
       }
 
+      # List available artifacts
+      echo "[Step 1/5] Listing artifacts..."
+      echo "  CLI artifacts (runner/dist/):"
+      ls -lh runner/dist/*.tar.gz runner/dist/*.zip 2>/dev/null || echo "    (none)"
+      echo "  Linux packages (runner/dist/):"
+      ls -lh runner/dist/*.deb runner/dist/*.rpm runner/dist/*.apk 2>/dev/null || echo "    (none)"
+      echo "  Desktop artifacts (runner/):"
+      ls -lh runner/*.dmg runner/AgentsMesh*.tar.gz runner/AgentsMesh*.zip 2>/dev/null || echo "    (none)"
+      echo ""
+
       # Check if release already exists
+      echo "[Step 2/5] Checking existing release..."
       EXISTING_RELEASE=$(curl_retry -s \
         -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
-        "https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/tags/$CI_COMMIT_TAG")
+        "https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/tags/$CI_COMMIT_TAG" 2>&1) || true
 
-      EXISTING_ID=$(echo "$EXISTING_RELEASE" | jq -r '.id')
+      EXISTING_ID=$(echo "$EXISTING_RELEASE" | jq -r '.id // empty')
 
-      if [ "$EXISTING_ID" != "null" ] && [ -n "$EXISTING_ID" ]; then
-        echo "Release already exists (ID: $EXISTING_ID). Deleting and recreating..."
+      if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+        echo "  Found existing release (ID: $EXISTING_ID), deleting..."
         curl_retry -s -X DELETE \
           -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
-          "https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/$EXISTING_ID"
+          "https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/$EXISTING_ID" || true
+        echo "  Waiting 2s for GitHub to process deletion..."
         sleep 2
+      else
+        echo "  No existing release found"
       fi
+      echo ""
 
       # Create release
-      echo "Creating new release..."
+      echo "[Step 3/5] Creating new release..."
       RELEASE_RESPONSE=$(curl_retry -s -X POST \
         -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
         -H "Content-Type: application/json" \
         -d "{\"tag_name\":\"$CI_COMMIT_TAG\",\"name\":\"AgentsMesh Runner $CI_COMMIT_TAG\",\"draft\":false,\"prerelease\":false}" \
         "https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases")
 
-      UPLOAD_URL=$(echo "$RELEASE_RESPONSE" | jq -r '.upload_url' | sed 's/{.*}//')
+      RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id // empty')
+      UPLOAD_URL=$(echo "$RELEASE_RESPONSE" | jq -r '.upload_url // empty' | sed 's/{.*}//')
 
-      if [ "$UPLOAD_URL" = "null" ] || [ -z "$UPLOAD_URL" ]; then
-        echo "Failed to create release. Response:"
-        echo "$RELEASE_RESPONSE"
+      if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
+        echo "  [ERROR] Failed to create release!"
+        echo "  Response: $RELEASE_RESPONSE"
         exit 1
       fi
 
-      echo "Upload URL: $UPLOAD_URL"
+      echo "  Release created successfully!"
+      echo "  Release ID: $RELEASE_ID"
+      echo "  Upload URL: $UPLOAD_URL"
+      echo ""
 
-      # Upload CLI artifacts from GoReleaser dist/
-      echo "Uploading CLI artifacts..."
+      # Upload CLI artifacts
+      echo "[Step 4/5] Uploading CLI artifacts..."
+      upload_count=0
+      upload_failed=0
+
       for file in runner/dist/*.tar.gz runner/dist/*.zip; do
         if [ -f "$file" ]; then
           filename=$(basename "$file")
-          echo "  Uploading $filename..."
-          curl_retry -s -X POST \
+          filesize=$(ls -lh "$file" | awk '{print $5}')
+          echo "  [$((upload_count + 1))] $filename ($filesize)"
+          if curl_retry -s -X POST \
             -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @"$file" \
-            "$UPLOAD_URL?name=$filename" > /dev/null
+            "$UPLOAD_URL?name=$filename" > /dev/null; then
+            echo "    [OK] Uploaded successfully"
+            upload_count=$((upload_count + 1))
+          else
+            echo "    [FAILED] Upload failed"
+            upload_failed=$((upload_failed + 1))
+          fi
         fi
       done
 
@@ -325,29 +366,60 @@ release:github:
       for file in runner/dist/*.deb runner/dist/*.rpm runner/dist/*.apk; do
         if [ -f "$file" ]; then
           filename=$(basename "$file")
-          echo "  Uploading $filename..."
-          curl_retry -s -X POST \
+          filesize=$(ls -lh "$file" | awk '{print $5}')
+          echo "  [$((upload_count + 1))] $filename ($filesize)"
+          if curl_retry -s -X POST \
             -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @"$file" \
-            "$UPLOAD_URL?name=$filename" > /dev/null
+            "$UPLOAD_URL?name=$filename" > /dev/null; then
+            echo "    [OK] Uploaded successfully"
+            upload_count=$((upload_count + 1))
+          else
+            echo "    [FAILED] Upload failed"
+            upload_failed=$((upload_failed + 1))
+          fi
         fi
       done
+      echo ""
 
       # Upload Desktop artifacts
-      echo "Uploading Desktop artifacts..."
+      echo "[Step 5/5] Uploading Desktop artifacts..."
       for file in runner/*.dmg runner/*.tar.gz runner/*.zip; do
         if [ -f "$file" ] && [[ "$(basename "$file")" == AgentsMesh* ]]; then
           filename=$(basename "$file")
-          echo "  Uploading $filename..."
-          curl_retry -s -X POST \
+          filesize=$(ls -lh "$file" | awk '{print $5}')
+          echo "  [$((upload_count + 1))] $filename ($filesize)"
+          if curl_retry -s -X POST \
             -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @"$file" \
-            "$UPLOAD_URL?name=$filename" > /dev/null
+            "$UPLOAD_URL?name=$filename" > /dev/null; then
+            echo "    [OK] Uploaded successfully"
+            upload_count=$((upload_count + 1))
+          else
+            echo "    [FAILED] Upload failed"
+            upload_failed=$((upload_failed + 1))
+          fi
         fi
       done
+      echo ""
 
-      echo "Release complete!"
+      # Summary
+      echo "=============================================="
+      echo "Release Summary"
+      echo "=============================================="
+      echo "End time: $(date)"
+      echo "Files uploaded: $upload_count"
+      echo "Files failed: $upload_failed"
+      echo "Release URL: https://github.com/AgentsMesh/AgentsMeshRunner/releases/tag/$CI_COMMIT_TAG"
+      echo ""
+
+      if [ $upload_failed -gt 0 ]; then
+        echo "[WARNING] Some uploads failed!"
+        exit 1
+      fi
+
+      echo "[SUCCESS] Release complete!"
   rules:
     - if: $CI_COMMIT_TAG
