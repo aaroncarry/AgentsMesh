@@ -31,26 +31,57 @@ if [ -z "$GITHUB_RELEASE_TOKEN" ]; then
   exit 1
 fi
 
-# Helper function for curl with retry, timeout, and progress
+# Helper function for curl with retry and timeout
+# Outputs response body to stdout, logs progress to stderr
 curl_retry() {
-  local max_attempts=3
-  local attempt=1
-  local exit_code=0
+  max_attempts=3
+  attempt=1
   while [ $attempt -le $max_attempts ]; do
-    echo "    [Attempt $attempt/$max_attempts] $(date +%H:%M:%S)"
-    if curl --connect-timeout 30 --max-time 300 -w "\n    HTTP Status: %{http_code}, Time: %{time_total}s\n" "$@"; then
+    echo "    [Attempt $attempt/$max_attempts] $(date +%H:%M:%S)" >&2
+
+    # Create temp file for response body
+    tmp_body=$(mktemp)
+    tmp_headers=$(mktemp)
+
+    http_code=$(curl --connect-timeout 30 --max-time 300 \
+      -w "%{http_code}" \
+      -o "$tmp_body" \
+      -D "$tmp_headers" \
+      "$@" 2>/dev/null) || true
+
+    if [ -n "$http_code" ] && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 400 ]; then
+      echo "    [OK] HTTP $http_code" >&2
+      cat "$tmp_body"
+      rm -f "$tmp_body" "$tmp_headers"
       return 0
     fi
-    exit_code=$?
-    echo "    [FAILED] curl exit code: $exit_code"
+
+    echo "    [FAILED] HTTP $http_code" >&2
+    if [ -f "$tmp_body" ]; then
+      echo "    Response: $(cat "$tmp_body" | head -c 200)" >&2
+    fi
+    rm -f "$tmp_body" "$tmp_headers"
+
     if [ $attempt -lt $max_attempts ]; then
-      echo "    Waiting 5s before retry..."
+      echo "    Waiting 5s before retry..." >&2
       sleep 5
     fi
     attempt=$((attempt + 1))
   done
-  echo "    [ERROR] All $max_attempts attempts failed"
-  return $exit_code
+  echo "    [ERROR] All $max_attempts attempts failed" >&2
+  return 1
+}
+
+# Helper function to safely parse JSON
+json_get() {
+  json="$1"
+  field="$2"
+  # Check if input looks like JSON
+  if echo "$json" | grep -q '^{'; then
+    echo "$json" | jq -r "$field // empty" 2>/dev/null || echo ""
+  else
+    echo ""
+  fi
 }
 
 echo "=============================================="
@@ -73,15 +104,15 @@ echo ""
 echo "[Step 2/5] Checking existing release..."
 EXISTING_RELEASE=$(curl_retry -s \
   -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
-  "${GITHUB_API}/releases/tags/$CI_COMMIT_TAG" 2>&1) || true
+  "${GITHUB_API}/releases/tags/$CI_COMMIT_TAG") || true
 
-EXISTING_ID=$(echo "$EXISTING_RELEASE" | jq -r '.id // empty')
+EXISTING_ID=$(json_get "$EXISTING_RELEASE" '.id')
 
-if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "null" ]; then
+if [ -n "$EXISTING_ID" ]; then
   echo "  Found existing release (ID: $EXISTING_ID), deleting..."
   curl_retry -s -X DELETE \
     -H "Authorization: token $GITHUB_RELEASE_TOKEN" \
-    "${GITHUB_API}/releases/$EXISTING_ID" || true
+    "${GITHUB_API}/releases/$EXISTING_ID" > /dev/null || true
   echo "  Waiting 2s for GitHub to process deletion..."
   sleep 2
 else
@@ -97,10 +128,10 @@ RELEASE_RESPONSE=$(curl_retry -s -X POST \
   -d "{\"tag_name\":\"$CI_COMMIT_TAG\",\"name\":\"AgentsMesh Runner $CI_COMMIT_TAG\",\"draft\":false,\"prerelease\":false}" \
   "${GITHUB_API}/releases")
 
-RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id // empty')
-UPLOAD_URL=$(echo "$RELEASE_RESPONSE" | jq -r '.upload_url // empty' | sed 's/{.*}//')
+RELEASE_ID=$(json_get "$RELEASE_RESPONSE" '.id')
+UPLOAD_URL=$(json_get "$RELEASE_RESPONSE" '.upload_url' | sed 's/{.*}//')
 
-if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
+if [ -z "$UPLOAD_URL" ]; then
   echo "  [ERROR] Failed to create release!"
   echo "  Response: $RELEASE_RESPONSE"
   exit 1
@@ -113,9 +144,9 @@ echo ""
 
 # Upload function
 upload_file() {
-  local file="$1"
-  local filename=$(basename "$file")
-  local filesize=$(ls -lh "$file" | awk '{print $5}')
+  file="$1"
+  filename=$(basename "$file")
+  filesize=$(ls -lh "$file" | awk '{print $5}')
 
   upload_count=$((upload_count + 1))
   echo "  [$upload_count] $filename ($filesize)"
