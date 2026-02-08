@@ -2,26 +2,37 @@
  * 环境变量工具函数
  *
  * =============================================================================
- * Unified Domain Configuration (推荐)
+ * URL 解析优先级（所有 getXxxUrl 函数遵循此顺序）
  * =============================================================================
- * 只需配置两个变量，所有 URL 自动派生：
- * - NEXT_PUBLIC_PRIMARY_DOMAIN → 主域名 (e.g., "localhost:10000" 或 "agentsmesh.com")
+ * 1. 显式配置的环境变量（NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL 等）
+ * 2. 从 NEXT_PUBLIC_PRIMARY_DOMAIN + NEXT_PUBLIC_USE_HTTPS 派生
+ * 3. 客户端 fallback：window.location.origin（支持 IP 访问和 on-premise）
+ * 4. 默认值：localhost:10000
+ *
+ * =============================================================================
+ * 部署场景
+ * =============================================================================
+ *
+ * 【SaaS 生产环境】
+ * - 设置 NEXT_PUBLIC_PRIMARY_DOMAIN=agentsmesh.cn
+ * - 设置 NEXT_PUBLIC_USE_HTTPS=true
+ *
+ * 【本地开发】(dev.sh)
+ * - 设置 NEXT_PUBLIC_API_URL="" → 使用相对路径，由 Next.js rewrites 代理
+ *
+ * 【On-premise / 纯 IP 访问】
+ * - 不配置任何环境变量
+ * - 客户端自动使用 window.location.origin
+ * - 支持 http://192.168.1.100:3000 这类访问方式
+ *
+ * =============================================================================
+ * 环境变量说明
+ * =============================================================================
+ * - NEXT_PUBLIC_PRIMARY_DOMAIN → 主域名 (e.g., "agentsmesh.cn")
  * - NEXT_PUBLIC_USE_HTTPS → 是否使用 HTTPS (true/false)
- *
- * 派生的 URL：
- * - OAuth URL = http(s)://{PRIMARY_DOMAIN}
- * - WebSocket URL = ws(s)://{PRIMARY_DOMAIN}
- *
- * =============================================================================
- * 传统配置方式（向后兼容）
- * =============================================================================
- * 本地开发时（使用 dev.sh）：
- * - NEXT_PUBLIC_API_URL="" → 使用相对路径，由 Next.js rewrites 代理
- * - NEXT_PUBLIC_OAUTH_URL → OAuth 浏览器跳转使用
- * - NEXT_PUBLIC_WS_URL → WebSocket 连接使用
- *
- * Docker/生产环境：
- * - NEXT_PUBLIC_API_URL → 完整的后端 URL
+ * - NEXT_PUBLIC_API_URL → 显式指定 API URL（覆盖自动派生）
+ * - NEXT_PUBLIC_WS_URL → 显式指定 WebSocket URL
+ * - NEXT_PUBLIC_OAUTH_URL → 显式指定 OAuth 回调 URL
  */
 
 // =============================================================================
@@ -68,19 +79,29 @@ function deriveWsUrl(): string | undefined {
 
 /**
  * 获取 API 基础 URL
- * - 本地开发：返回空字符串（使用相对路径）
+ * - 本地开发：返回空字符串（使用相对路径，由 Next.js rewrites 代理）
  * - Docker/生产：返回完整 URL
+ * - On-premise：自动使用当前页面 origin（支持 IP 访问）
  */
 export function getApiBaseUrl(): string {
-  // NEXT_PUBLIC_API_URL="" 表示使用相对路径
-  // NEXT_PUBLIC_API_URL=undefined 表示未配置，尝试从 PRIMARY_DOMAIN 派生
-  if (typeof process.env.NEXT_PUBLIC_API_URL === "string") {
+  // NEXT_PUBLIC_API_URL="" 表示使用相对路径（本地开发模式）
+  if (process.env.NEXT_PUBLIC_API_URL === "") {
+    return "";
+  }
+
+  // 显式配置的 API URL 优先
+  if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
 
-  // Try deriving from PRIMARY_DOMAIN
+  // 从 PRIMARY_DOMAIN 派生
   const derived = deriveHttpUrl();
   if (derived) return derived;
+
+  // 客户端 fallback：使用当前页面 origin（支持 IP 访问和 on-premise 部署）
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
 
   return "http://localhost:10000";
 }
