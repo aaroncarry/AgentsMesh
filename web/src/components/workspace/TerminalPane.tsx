@@ -146,6 +146,7 @@ export function TerminalPane({
             initProgress={initProgress}
             isTerminating={isTerminating}
             onTerminate={handleTerminate}
+            onClose={onClose}
           />
         )
       ) : (

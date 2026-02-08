@@ -20,6 +20,7 @@ interface TerminalLoadingStateProps {
   initProgress?: InitProgress;
   isTerminating: boolean;
   onTerminate: () => void;
+  onClose?: () => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export function TerminalLoadingState({
   initProgress,
   isTerminating,
   onTerminate,
+  onClose,
 }: TerminalLoadingStateProps) {
   return (
     <div className="flex-1 flex items-center justify-center bg-terminal-bg">
@@ -50,21 +52,16 @@ export function TerminalLoadingState({
             Status: <span className="text-yellow-500 dark:text-yellow-400">{podStatus}</span>
           </p>
         )}
-        {/* Show terminate button when status is unknown */}
-        {podStatus === "unknown" && (
+        {/* Show close button when status is unknown */}
+        {podStatus === "unknown" && onClose && (
           <Button
             variant="outline"
             size="sm"
             className="mt-4 text-red-500 dark:text-red-400 border-red-500/50 hover:bg-red-500/10"
-            onClick={onTerminate}
-            disabled={isTerminating}
+            onClick={onClose}
           >
-            {isTerminating ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Square className="w-4 h-4 mr-2" />
-            )}
-            Terminate Pod
+            <X className="w-4 h-4 mr-2" />
+            Close Terminal
           </Button>
         )}
       </div>
