@@ -20,8 +20,6 @@ type Runner struct {
 	cfg       *config.Config
 	conn      client.Connection
 	workspace *workspace.Manager
-	pods      map[string]*Pod
-	mu        sync.RWMutex
 
 	// Pod management
 	podStore       PodStore
@@ -110,7 +108,6 @@ func New(cfg *config.Config) (*Runner, error) {
 		cfg:        cfg,
 		conn:       grpcConn,
 		workspace:  ws,
-		pods:       make(map[string]*Pod),
 		podStore:   podStore,
 		autopilots: make(map[string]*autopilot.AutopilotController),
 		stopChan:   make(chan struct{}),

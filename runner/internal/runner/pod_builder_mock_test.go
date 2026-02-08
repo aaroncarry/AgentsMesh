@@ -15,14 +15,14 @@ func TestNewPodBuilder(t *testing.T) {
 		cfg: &config.Config{},
 	}
 
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 
 	if builder == nil {
-		t.Fatal("NewPodBuilder returned nil")
+		t.Fatal("NewPodBuilderFromRunner returned nil")
 	}
 
-	if builder.runner != runner {
-		t.Error("runner should be set")
+	if builder.deps.Config != runner.cfg {
+		t.Error("deps.Config should be set")
 	}
 
 	if builder.rows != 24 {
@@ -45,7 +45,7 @@ func TestPodBuilderWithCommand(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	if builder.cmd == nil {
 		t.Fatal("cmd should not be nil")
@@ -66,7 +66,7 @@ func TestPodBuilderWithCommand(t *testing.T) {
 
 func TestPodBuilderWithTerminalSize(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
-	builder := NewPodBuilder(runner).WithTerminalSize(160, 48) // (cols, rows)
+	builder := NewPodBuilderFromRunner(runner).WithTerminalSize(160, 48) // (cols, rows)
 
 	if builder.cols != 160 {
 		t.Errorf("cols = %d, want 160", builder.cols)
@@ -79,7 +79,7 @@ func TestPodBuilderWithTerminalSize(t *testing.T) {
 
 func TestPodBuilderWithTerminalSizeZeroValues(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
-	builder := NewPodBuilder(runner).WithTerminalSize(0, 0)
+	builder := NewPodBuilderFromRunner(runner).WithTerminalSize(0, 0)
 
 	// Should keep defaults
 	if builder.rows != 24 {
@@ -103,7 +103,7 @@ func TestPodBuilderWithSandboxConfig(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	if builder.cmd.SandboxConfig == nil {
 		t.Error("sandboxConfig should not be nil")
@@ -127,7 +127,7 @@ func TestPodBuilderWithFilesToCreateMultiple(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	if len(builder.cmd.FilesToCreate) != 2 {
 		t.Errorf("filesToCreate length = %d, want 2", len(builder.cmd.FilesToCreate))
@@ -156,7 +156,7 @@ func TestPodBuilderCommandWithAllFields(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).
+	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(160, 48) // (cols, rows)
 
@@ -191,7 +191,7 @@ func TestPodBuilderCommandWithAllFields(t *testing.T) {
 
 func TestPodBuilderBuildNilCommand(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 	// Don't set command
 
 	ctx := context.Background()
@@ -212,7 +212,7 @@ func TestPodBuilderBuildEmptyPodKey(t *testing.T) {
 		LaunchCommand: "echo",
 		// PodKey is empty
 	}
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	ctx := context.Background()
 	_, err := builder.Build(ctx)
@@ -232,7 +232,7 @@ func TestPodBuilderBuildEmptyLaunchCommand(t *testing.T) {
 		PodKey: "test-pod",
 		// LaunchCommand is empty
 	}
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	ctx := context.Background()
 	_, err := builder.Build(ctx)

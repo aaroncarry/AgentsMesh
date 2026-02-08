@@ -16,7 +16,7 @@ func TestBuildInitialPrompt_Default(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir: "/workspace",
+		workDir: t.TempDir(),
 		podKey:  "worker-123",
 	}
 
@@ -58,7 +58,7 @@ func TestBuildInitialPrompt_CustomTemplate(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir: "/workspace",
+		workDir: t.TempDir(),
 		podKey:  "worker-123",
 	}
 
@@ -83,7 +83,7 @@ func TestBuildResumePrompt(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir: "/workspace",
+		workDir: t.TempDir(),
 		podKey:  "worker-123",
 	}
 

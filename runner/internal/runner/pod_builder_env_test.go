@@ -28,7 +28,7 @@ func TestPodBuilderMergeEnvVars(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -58,7 +58,7 @@ func TestPodBuilderMergeEnvVarsNilConfig(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -95,7 +95,7 @@ func TestPodBuilderWithAllOptions(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).
+	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(120, 40) // (cols, rows)
 
@@ -129,7 +129,7 @@ func BenchmarkNewPodBuilder(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		NewPodBuilder(runner)
+		NewPodBuilderFromRunner(runner)
 	}
 }
 
@@ -144,7 +144,7 @@ func BenchmarkPodBuilderFluentAPI(b *testing.B) {
 			LaunchArgs:    []string{"--headless"},
 			EnvVars:       map[string]string{"KEY": "VALUE"},
 		}
-		NewPodBuilder(runner).
+		NewPodBuilderFromRunner(runner).
 			WithCommand(cmd).
 			WithTerminalSize(120, 40) // (cols, rows)
 	}
@@ -168,7 +168,7 @@ func BenchmarkPodBuilderMergeEnvVars(b *testing.B) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

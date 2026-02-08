@@ -32,7 +32,7 @@ func TestRunnerWithConnection(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		pods:     make(map[string]*Pod),
+		
 		stopChan: make(chan struct{}),
 	}
 
@@ -59,7 +59,7 @@ func TestRunnerMessageHandlerOnListPods(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		pods:     make(map[string]*Pod),
+		
 	}
 
 	mockConn := client.NewMockConnection()
@@ -110,7 +110,7 @@ func TestRunnerRunWithGRPCConnection(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		pods:     make(map[string]*Pod),
+		
 		stopChan: make(chan struct{}),
 	}
 
@@ -148,7 +148,7 @@ func TestRunnerRunStopAllPods(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		pods:     make(map[string]*Pod),
+		
 		stopChan: make(chan struct{}),
 	}
 
@@ -177,8 +177,7 @@ func TestInitEnhancedComponentsWithMCPConfig(t *testing.T) {
 	}
 
 	r := &Runner{
-		cfg:  cfg,
-		pods: make(map[string]*Pod),
+		cfg: cfg,
 	}
 
 	// Should not panic
@@ -198,8 +197,7 @@ func TestInitEnhancedComponentsDefaultShell(t *testing.T) {
 	}
 
 	r := &Runner{
-		cfg:  cfg,
-		pods: make(map[string]*Pod),
+		cfg: cfg,
 	}
 
 	r.initEnhancedComponents(cfg)

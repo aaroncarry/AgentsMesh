@@ -25,7 +25,7 @@ func TestPodBuilderStruct(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).
+	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(80, 24) // (cols, rows)
 
@@ -61,7 +61,7 @@ func TestPodBuilderFluentAPI(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 	result := builder.
 		WithCommand(cmd).
 		WithTerminalSize(120, 40) // (cols, rows)
@@ -110,7 +110,7 @@ func TestPodBuilderFluentAPI(t *testing.T) {
 
 func TestPodBuilderDefaultValues(t *testing.T) {
 	runner := &Runner{}
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 
 	if builder.rows != 24 {
 		t.Errorf("default rows: got %v, want 24", builder.rows)
@@ -123,7 +123,7 @@ func TestPodBuilderDefaultValues(t *testing.T) {
 
 func TestPodBuilderTerminalSizeValidation(t *testing.T) {
 	runner := &Runner{}
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 
 	// Test with invalid values (should use defaults)
 	builder.WithTerminalSize(0, 0)
@@ -146,7 +146,7 @@ func TestPodBuilderTerminalSizeValidation(t *testing.T) {
 
 func TestPodBuilderBuildWithoutCommand(t *testing.T) {
 	runner := &Runner{}
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 
 	_, err := builder.Build(context.Background())
 	if err == nil {

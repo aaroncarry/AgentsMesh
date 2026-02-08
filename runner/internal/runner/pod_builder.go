@@ -9,15 +9,32 @@ import (
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/client"
+	"github.com/anthropics/agentsmesh/runner/internal/config"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal"
+	"github.com/anthropics/agentsmesh/runner/internal/workspace"
 )
+
+// PodBuilderDeps defines the dependencies for PodBuilder.
+// This decouples PodBuilder from the Runner struct, following DIP.
+type PodBuilderDeps struct {
+	// Config provides workspace configuration.
+	Config *config.Config
+
+	// Workspace provides git worktree management.
+	// Can be nil if git operations are not needed.
+	Workspace workspace.WorkspaceManagerInterface
+
+	// ProgressSender sends pod initialization progress.
+	// Can be nil if progress reporting is not needed.
+	ProgressSender client.ProgressSender
+}
 
 // PodBuilder builds pods using the Builder pattern.
 // It provides a fluent API for configuring and creating pods.
 // Uses Proto types directly for zero-copy message passing.
 type PodBuilder struct {
-	runner *Runner
+	deps PodBuilderDeps
 
 	// Pod command (Proto type)
 	cmd *runnerv1.CreatePodCommand
@@ -25,21 +42,51 @@ type PodBuilder struct {
 	// Terminal configuration
 	rows int
 	cols int
+
+	// Setup strategies (Strategy Pattern for OCP compliance)
+	// Strategies are tried in order; first matching strategy is used.
+	setupStrategies []SetupStrategy
 }
 
-// NewPodBuilder creates a new pod builder.
-func NewPodBuilder(runner *Runner) *PodBuilder {
-	return &PodBuilder{
-		runner: runner,
-		rows:   24,
-		cols:   80,
+// NewPodBuilder creates a new pod builder with explicit dependencies.
+// This is the preferred constructor for new code.
+func NewPodBuilder(deps PodBuilderDeps) *PodBuilder {
+	b := &PodBuilder{
+		deps: deps,
+		rows: 24,
+		cols: 80,
 	}
+	// Register default setup strategies
+	b.setupStrategies = DefaultSetupStrategies(b)
+	return b
+}
+
+// NewPodBuilderFromRunner creates a new pod builder from a Runner instance.
+// This maintains backward compatibility with existing code.
+func NewPodBuilderFromRunner(runner *Runner) *PodBuilder {
+	deps := PodBuilderDeps{
+		Config:         runner.cfg,
+		ProgressSender: runner.conn,
+	}
+	// Explicitly set Workspace only if not nil to avoid interface nil comparison issues
+	if runner.workspace != nil {
+		deps.Workspace = runner.workspace
+	}
+	return NewPodBuilder(deps)
 }
 
 // WithCommand sets the create pod command (Proto type).
 // This is the primary way to configure the pod.
 func (b *PodBuilder) WithCommand(cmd *runnerv1.CreatePodCommand) *PodBuilder {
 	b.cmd = cmd
+	return b
+}
+
+// WithSetupStrategies allows customizing the setup strategies.
+// This is useful for testing or extending with custom strategies.
+// Strategies are tried in order; first matching strategy is used.
+func (b *PodBuilder) WithSetupStrategies(strategies []SetupStrategy) *PodBuilder {
+	b.setupStrategies = strategies
 	return b
 }
 
@@ -154,8 +201,8 @@ func (b *PodBuilder) mergeEnvVars() map[string]string {
 	result := make(map[string]string)
 
 	// Add config env vars first (lowest priority)
-	if b.runner.cfg != nil {
-		for k, v := range b.runner.cfg.AgentEnvVars {
+	if b.deps.Config != nil {
+		for k, v := range b.deps.Config.AgentEnvVars {
 			result[k] = v
 		}
 	}
@@ -173,11 +220,11 @@ func (b *PodBuilder) mergeEnvVars() map[string]string {
 // sendProgress sends a pod initialization progress event to the server.
 // This is a best-effort operation - errors are logged but not returned.
 func (b *PodBuilder) sendProgress(phase string, progress int, message string) {
-	if b.cmd == nil || b.cmd.PodKey == "" || b.runner == nil || b.runner.conn == nil {
+	if b.cmd == nil || b.cmd.PodKey == "" || b.deps.ProgressSender == nil {
 		return
 	}
 
-	if err := b.runner.conn.SendPodInitProgress(b.cmd.PodKey, phase, int32(progress), message); err != nil {
+	if err := b.deps.ProgressSender.SendPodInitProgress(b.cmd.PodKey, phase, int32(progress), message); err != nil {
 		logger.Pod().Debug("Failed to send init progress", "pod_key", b.cmd.PodKey, "phase", phase, "error", err)
 	}
 }

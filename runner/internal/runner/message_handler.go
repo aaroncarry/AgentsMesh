@@ -50,7 +50,7 @@ func (h *RunnerMessageHandler) OnCreatePod(cmd *runnerv1.CreatePodCommand) error
 		rows = 24
 	}
 
-	builder := NewPodBuilder(h.runner).
+	builder := NewPodBuilderFromRunner(h.runner).
 		WithCommand(cmd).
 		WithTerminalSize(cols, rows)
 

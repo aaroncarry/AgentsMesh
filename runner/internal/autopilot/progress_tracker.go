@@ -19,6 +19,7 @@ type ProgressTracker struct {
 	lastSnapshot *ProgressSnapshot
 	mu           sync.RWMutex
 	log          *slog.Logger
+	gitExecutor  GitExecutor
 }
 
 // ProgressSnapshot represents a point-in-time state of the working directory.
@@ -42,8 +43,9 @@ type GitDiffSummary struct {
 
 // ProgressTrackerConfig contains configuration for ProgressTracker.
 type ProgressTrackerConfig struct {
-	WorkDir string
-	Logger  *slog.Logger
+	WorkDir     string
+	Logger      *slog.Logger
+	GitExecutor GitExecutor // Optional: defaults to DefaultGitExecutor
 }
 
 // NewProgressTracker creates a new ProgressTracker instance.
@@ -53,10 +55,16 @@ func NewProgressTracker(cfg ProgressTrackerConfig) *ProgressTracker {
 		log = slog.Default()
 	}
 
+	gitExecutor := cfg.GitExecutor
+	if gitExecutor == nil {
+		gitExecutor = NewDefaultGitExecutor()
+	}
+
 	return &ProgressTracker{
-		workDir:   cfg.WorkDir,
-		snapshots: make([]ProgressSnapshot, 0),
-		log:       log,
+		workDir:     cfg.WorkDir,
+		snapshots:   make([]ProgressSnapshot, 0),
+		log:         log,
+		gitExecutor: gitExecutor,
 	}
 }
 

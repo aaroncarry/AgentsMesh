@@ -16,7 +16,7 @@ func TestAutopilotController_OnPodWaiting_UserTakeover(t *testing.T) {
 
 	// Start with "executing" status so Start() doesn't trigger initial prompt
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -31,6 +31,7 @@ func TestAutopilotController_OnPodWaiting_UserTakeover(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// User takes over
 	rp.Takeover()
@@ -51,7 +52,7 @@ func TestAutopilotController_OnPodWaiting_Paused(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -66,6 +67,7 @@ func TestAutopilotController_OnPodWaiting_Paused(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Pause
 	rp.Pause()
@@ -87,7 +89,7 @@ func TestAutopilotController_MaxIterations(t *testing.T) {
 
 	// Start with "executing" status so Start() doesn't trigger initial prompt
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -102,6 +104,7 @@ func TestAutopilotController_MaxIterations(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Manually set iteration count to max
 	rp.setIterationForTest(2)
@@ -120,7 +123,7 @@ func TestAutopilotController_OnPodWaiting_Completed(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -135,6 +138,7 @@ func TestAutopilotController_OnPodWaiting_Completed(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Set phase to completed
 	rp.setPhaseForTest(PhaseCompleted)
@@ -155,7 +159,7 @@ func TestAutopilotController_OnPodWaiting_Failed(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -170,6 +174,7 @@ func TestAutopilotController_OnPodWaiting_Failed(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Set phase to failed
 	rp.setPhaseForTest(PhaseFailed)
@@ -192,7 +197,7 @@ func TestAutopilotController_OnPodWaiting_RunsDecision(t *testing.T) {
 	// Start with "executing" status so Start() doesn't trigger initial prompt
 	// This allows us to test OnPodWaiting in isolation
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -207,6 +212,7 @@ func TestAutopilotController_OnPodWaiting_RunsDecision(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	initialIterationCount := len(reporter.GetIterationEvents())
 
@@ -229,7 +235,7 @@ func TestAutopilotController_OnPodWaiting_MaxIterationsWithTerminatedEvent(t *te
 
 	// Start with "executing" status so Start() doesn't trigger initial prompt
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -244,6 +250,7 @@ func TestAutopilotController_OnPodWaiting_MaxIterationsWithTerminatedEvent(t *te
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Manually set iteration count to max
 	rp.setIterationForTest(2)
@@ -268,7 +275,7 @@ func TestAutopilotController_OnPodWaiting_Stopped(t *testing.T) {
 
 	// Start with "executing" status so Start() doesn't trigger initial prompt
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -283,6 +290,7 @@ func TestAutopilotController_OnPodWaiting_Stopped(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop() // Ensure cleanup even if test fails early
 
 	// Stop the pod
 	rp.Stop()
@@ -303,7 +311,7 @@ func TestAutopilotController_OnPodWaiting_WaitingApproval(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -318,6 +326,7 @@ func TestAutopilotController_OnPodWaiting_WaitingApproval(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Set phase to waiting_approval (Control requested human help)
 	rp.setPhaseForTest(PhaseWaitingApproval)
@@ -338,7 +347,7 @@ func TestAutopilotController_Start_WithWaitingWorker(t *testing.T) {
 	}
 
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     t.TempDir(),
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -356,6 +365,7 @@ func TestAutopilotController_Start_WithWaitingWorker(t *testing.T) {
 	// Start should succeed and initiate first iteration when worker is waiting
 	err := rp.Start()
 	assert.NoError(t, err)
+	defer rp.Stop()
 
 	// Should report created
 	assert.Len(t, reporter.GetCreatedEvents(), 1)

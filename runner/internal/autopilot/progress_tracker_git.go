@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -35,9 +34,7 @@ func (pt *ProgressTracker) getGitDiffSummary() *GitDiffSummary {
 	}
 
 	// Get git status (porcelain format for easy parsing)
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = pt.workDir
-	output, err := cmd.Output()
+	output, err := pt.gitExecutor.Status(pt.workDir)
 	if err != nil {
 		logger.AutopilotTrace().Trace("Failed to get git status", "error", err)
 		return summary
@@ -69,17 +66,13 @@ func (pt *ProgressTracker) getGitDiffSummary() *GitDiffSummary {
 	}
 
 	// Get diff stats
-	cmd = exec.Command("git", "diff", "--stat")
-	cmd.Dir = pt.workDir
-	output, err = cmd.Output()
+	output, err = pt.gitExecutor.DiffStat(pt.workDir)
 	if err == nil {
 		pt.parseDiffStats(string(output), summary)
 	}
 
 	// Also include staged changes
-	cmd = exec.Command("git", "diff", "--cached", "--stat")
-	cmd.Dir = pt.workDir
-	output, err = cmd.Output()
+	output, err = pt.gitExecutor.DiffCachedStat(pt.workDir)
 	if err == nil {
 		stagedSummary := &GitDiffSummary{}
 		pt.parseDiffStats(string(output), stagedSummary)

@@ -15,10 +15,11 @@ import (
 
 // setup sets up the sandbox and working directory.
 // Returns (sandboxRoot, workingDir, branchName, error).
+// Uses Strategy Pattern to select the appropriate setup strategy based on SandboxConfig.
 func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) {
 	// 1. Create sandbox root directory
 	b.sendProgress("preparing", 10, "Creating sandbox directory...")
-	sandboxRoot := filepath.Join(b.runner.cfg.WorkspaceRoot, "sandboxes", b.cmd.PodKey)
+	sandboxRoot := filepath.Join(b.deps.Config.WorkspaceRoot, "sandboxes", b.cmd.PodKey)
 	if err := os.MkdirAll(sandboxRoot, 0755); err != nil {
 		return "", "", "", &client.PodError{
 			Code:    client.ErrCodeSandboxCreate,
@@ -29,71 +30,23 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 
 	cfg := b.cmd.SandboxConfig
 
-	// 2. Setup working directory based on SandboxConfig
+	// 2. Select and execute setup strategy
 	b.sendProgress("preparing", 20, "Setting up working directory...")
 
-	// Determine setup mode
-	var setupMode string
-	if cfg != nil && cfg.RepositoryUrl != "" {
-		setupMode = "git_worktree"
-	} else if cfg != nil && cfg.LocalPath != "" {
-		setupMode = "local_path"
-	} else {
-		setupMode = "empty_sandbox"
-	}
-	logger.Pod().Debug("Working directory setup mode", "pod_key", b.cmd.PodKey, "mode", setupMode)
+	strategy := b.selectSetupStrategy(cfg)
+	logger.Pod().Debug("Working directory setup mode", "pod_key", b.cmd.PodKey, "mode", strategy.Name())
 
-	var workingDir, branchName string
-	var err error
-
-	if cfg != nil && cfg.RepositoryUrl != "" {
-		// Has repository - create git worktree as workspace
-		workingDir, branchName, err = b.setupGitWorktree(ctx, sandboxRoot, cfg)
-		if err != nil {
-			os.RemoveAll(sandboxRoot)
-			return "", "", "", err
-		}
-
-		// Run preparation script if configured
-		if cfg.PreparationScript != "" {
-			if err := b.runPreparationScript(ctx, cfg, workingDir, branchName); err != nil {
-				os.RemoveAll(sandboxRoot)
-				return "", "", "", err
-			}
-		}
-	} else if cfg != nil && cfg.LocalPath != "" {
-		// Local path mode (Resume mode) - use existing sandbox directly
-		if _, err := os.Stat(cfg.LocalPath); os.IsNotExist(err) {
-			os.RemoveAll(sandboxRoot)
-			return "", "", "", &client.PodError{
-				Code:    client.ErrCodeWorkDirNotExist,
-				Message: fmt.Sprintf("local path does not exist: %s", cfg.LocalPath),
-				Details: map[string]string{"path": cfg.LocalPath},
-			}
-		}
-		// For resume mode, the working directory is the workspace inside the existing sandbox
-		workingDir = filepath.Join(cfg.LocalPath, "workspace")
-		if _, err := os.Stat(workingDir); os.IsNotExist(err) {
-			// Fallback to local path itself if workspace subdirectory doesn't exist
-			workingDir = cfg.LocalPath
-		}
-	} else {
-		// No repository - create empty sandbox workspace
-		workingDir = filepath.Join(sandboxRoot, "workspace")
-		if err := os.MkdirAll(workingDir, 0755); err != nil {
-			os.RemoveAll(sandboxRoot)
-			return "", "", "", &client.PodError{
-				Code:    client.ErrCodeSandboxCreate,
-				Message: fmt.Sprintf("failed to create temp workspace: %v", err),
-			}
-		}
+	result, err := strategy.Setup(ctx, sandboxRoot, cfg)
+	if err != nil {
+		os.RemoveAll(sandboxRoot)
+		return "", "", "", err
 	}
 
 	// 3. Create files from FilesToCreate
 	if len(b.cmd.FilesToCreate) > 0 {
 		b.sendProgress("preparing", 70, "Creating files...")
 	}
-	if err := b.createFiles(sandboxRoot, workingDir); err != nil {
+	if err := b.createFiles(sandboxRoot, result.WorkingDir); err != nil {
 		os.RemoveAll(sandboxRoot)
 		return "", "", "", err
 	}
@@ -101,10 +54,22 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	logger.Pod().Info("Sandbox setup completed",
 		"pod_key", b.cmd.PodKey,
 		"sandbox_root", sandboxRoot,
-		"working_dir", workingDir,
-		"branch", branchName)
+		"working_dir", result.WorkingDir,
+		"branch", result.BranchName)
 
-	return sandboxRoot, workingDir, branchName, nil
+	return sandboxRoot, result.WorkingDir, result.BranchName, nil
+}
+
+// selectSetupStrategy selects the appropriate setup strategy based on configuration.
+// Strategies are tried in order; first matching strategy is used.
+func (b *PodBuilder) selectSetupStrategy(cfg *runnerv1.SandboxConfig) SetupStrategy {
+	for _, strategy := range b.setupStrategies {
+		if strategy.CanHandle(cfg) {
+			return strategy
+		}
+	}
+	// Fallback to empty sandbox (should not reach here if strategies are properly configured)
+	return NewEmptySandboxStrategy()
 }
 
 // setupGitWorktree creates a git worktree for the pod.
@@ -117,7 +82,7 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string, c
 	}
 
 	// Use workspace manager if available
-	if b.runner.workspace == nil {
+	if b.deps.Workspace == nil {
 		return "", "", &client.PodError{
 			Code:    client.ErrCodeGitWorktree,
 			Message: "workspace manager not available for git operations",
@@ -165,7 +130,7 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string, c
 
 	// Create git worktree inside sandbox directory: sandboxes/{podKey}/workspace
 	workspaceTarget := filepath.Join(sandboxRoot, "workspace")
-	workspacePath, err := b.runner.workspace.CreateWorktreeWithOptions(
+	workspacePath, err := b.deps.Workspace.CreateWorktreeWithOptions(
 		ctx,
 		cfg.RepositoryUrl,
 		cfg.SourceBranch,

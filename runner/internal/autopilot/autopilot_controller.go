@@ -52,8 +52,10 @@ type AutopilotController struct {
 	lastDecisionMsg string
 
 	// Lifecycle
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx      context.Context
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup // Tracks running goroutines for clean shutdown
+	stopOnce sync.Once      // Ensures cleanup runs only once
 
 	// Event reporting
 	reporter EventReporter
@@ -267,7 +269,11 @@ func (ac *AutopilotController) OnPodWaiting() {
 	ac.iterCtrl.ReportIterationEvent(iteration, "started", "", nil)
 
 	// Run single decision in a goroutine
-	go ac.runSingleDecision(iteration)
+	ac.wg.Add(1)
+	go func() {
+		defer ac.wg.Done()
+		ac.runSingleDecision(iteration)
+	}()
 }
 
 // sendInitialPrompt starts the first iteration when Pod is waiting.
@@ -285,7 +291,11 @@ func (ac *AutopilotController) sendInitialPrompt() {
 	ac.iterCtrl.ReportIterationEvent(iteration, "started", "", nil)
 
 	// Run the control process
-	go ac.runSingleDecision(iteration)
+	ac.wg.Add(1)
+	go func() {
+		defer ac.wg.Done()
+		ac.runSingleDecision(iteration)
+	}()
 }
 
 // =============================================================================

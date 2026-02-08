@@ -25,7 +25,7 @@ func TestPodBuilderBuildSuccessWithOptions(t *testing.T) {
 		LaunchArgs:    []string{"hello"},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	pod, err := builder.Build(context.Background())
 	if err != nil {
@@ -59,7 +59,7 @@ func TestPodBuilderBuildTerminalError(t *testing.T) {
 		LaunchCommand: "/nonexistent/command/path/that/doesnt/exist/12345",
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	pod, err := builder.Build(context.Background())
 	// May or may not fail depending on terminal implementation
@@ -86,7 +86,7 @@ func TestPodBuilderSetupNoManager(t *testing.T) {
 		LaunchArgs:    []string{"test"},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	pod, err := builder.Build(context.Background())
 	if err != nil {
@@ -122,7 +122,7 @@ func TestPodBuilderSetupWithEmptySandbox(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	pod, err := builder.Build(context.Background())
 	if err != nil {

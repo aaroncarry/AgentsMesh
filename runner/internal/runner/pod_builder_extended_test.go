@@ -19,7 +19,7 @@ func TestPodBuilderBuildWithEmptyCommand(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner)
+	builder := NewPodBuilderFromRunner(runner)
 	// Don't set command
 
 	_, err := builder.Build(context.Background())
@@ -43,7 +43,7 @@ func TestPodBuilderBuildWithEmptyPodKey(t *testing.T) {
 		// PodKey is empty
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	_, err := builder.Build(context.Background())
 	if err == nil {
@@ -81,7 +81,7 @@ func TestPodBuilderBuildWithAllOptions(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(100, 30). // (cols, rows)
 		Build(context.Background())
@@ -114,7 +114,7 @@ func TestPodBuilderMergeEnvVarsWithNilConfig(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -145,7 +145,7 @@ func TestPodBuilderMergeEnvVarsOverride(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -168,7 +168,7 @@ func TestPodBuilderTerminalSizeDefaults(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).
+	builder := NewPodBuilderFromRunner(runner).
 		WithTerminalSize(0, 0) // Zero values should use defaults
 
 	if builder.rows != 24 {
@@ -197,7 +197,7 @@ func TestPodBuilderWithLocalPath(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -235,7 +235,7 @@ func TestPodBuilderWithFilesToCreate(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -267,7 +267,7 @@ func TestPodBuilderWithEmptySandboxConfig(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -306,7 +306,7 @@ func TestPodBuilderCommandFields(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).
+	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(120, 40) // (cols, rows)
 

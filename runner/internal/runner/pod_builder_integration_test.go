@@ -26,7 +26,7 @@ func TestPodBuilderBuildSuccess(t *testing.T) {
 		LaunchArgs:    []string{"hello"},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		WithTerminalSize(100, 30). // (cols, rows)
 		Build(context.Background())
@@ -65,7 +65,7 @@ func TestPodBuilderBuildWithMinimalConfig(t *testing.T) {
 		LaunchCommand: "echo",
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -109,7 +109,7 @@ func TestPodBuilderSetupWithWorkspaceManager(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -140,7 +140,7 @@ func TestPodBuilderSetupLocalPath(t *testing.T) {
 		},
 	}
 
-	pod, err := NewPodBuilder(runner).
+	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -170,7 +170,7 @@ func TestPodBuilderSetupLocalPathNotExist(t *testing.T) {
 		},
 	}
 
-	_, err := NewPodBuilder(runner).
+	_, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -199,7 +199,7 @@ func TestPodBuilderSetupWorktreeNoManager(t *testing.T) {
 		},
 	}
 
-	_, err := NewPodBuilder(runner).
+	_, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
 		Build(context.Background())
 
@@ -223,7 +223,7 @@ func TestPodBuilderMergeEnvVarsEmptyBoth(t *testing.T) {
 		// No EnvVars
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -248,7 +248,7 @@ func TestPodBuilderMergeEnvVarsOnlyConfig(t *testing.T) {
 		// No EnvVars
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -275,7 +275,7 @@ func TestPodBuilderMergeEnvVarsOnlyCommand(t *testing.T) {
 		},
 	}
 
-	builder := NewPodBuilder(runner).WithCommand(cmd)
+	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
 	result := builder.mergeEnvVars()
 
@@ -316,7 +316,7 @@ func BenchmarkPodBuilderBuild(b *testing.B) {
 			LaunchArgs:    []string{"test"},
 		}
 
-		pod, _ := NewPodBuilder(runner).
+		pod, _ := NewPodBuilderFromRunner(runner).
 			WithCommand(cmd).
 			Build(ctx)
 

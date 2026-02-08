@@ -35,7 +35,7 @@ func TestPodStruct(t *testing.T) {
 		PodKey:           "key-123",
 		AgentType:        "claude-code",
 		Branch:           "main",
-		SandboxPath:     "/workspace/worktrees/pod-1",
+		SandboxPath:      "/workspace/worktrees/pod-1",
 		Terminal:         nil,
 		StartedAt:        now,
 		Status:           PodStatusRunning,
@@ -63,55 +63,27 @@ func TestPodAllFields(t *testing.T) {
 	now := time.Now()
 
 	// Note: InitialPrompt field has been removed - prompt is now passed via LaunchArgs by Backend
+	// Note: OnOutput and OnExit fields have been removed - callbacks are now set via Terminal
 	pod := &Pod{
 		ID:               "id-1",
 		PodKey:           "key-1",
 		AgentType:        "claude-code",
 		Branch:           "feature/test",
-		SandboxPath:     "/workspace/worktrees/test",
+		SandboxPath:      "/workspace/worktrees/test",
 		Terminal:         nil,
 		StartedAt:        now,
 		Status:           PodStatusRunning,
 		TicketIdentifier: "TICKET-123",
-		OnOutput:         func([]byte) {},
-		OnExit:           func(int) {},
 	}
 
-	if pod.OnOutput == nil {
-		t.Error("OnOutput should not be nil")
+	if pod.ID != "id-1" {
+		t.Errorf("ID: got %v, want id-1", pod.ID)
 	}
-	if pod.OnExit == nil {
-		t.Error("OnExit should not be nil")
+	if pod.PodKey != "key-1" {
+		t.Errorf("PodKey: got %v, want key-1", pod.PodKey)
 	}
-}
-
-func TestPodWithCallbacks(t *testing.T) {
-	outputCalled := false
-	exitCalled := false
-
-	pod := &Pod{
-		ID:     "pod-1",
-		Status: PodStatusRunning,
-		OnOutput: func(data []byte) {
-			outputCalled = true
-		},
-		OnExit: func(exitCode int) {
-			exitCalled = true
-		},
-	}
-
-	if pod.OnOutput != nil {
-		pod.OnOutput([]byte("test"))
-	}
-	if pod.OnExit != nil {
-		pod.OnExit(0)
-	}
-
-	if !outputCalled {
-		t.Error("OnOutput should be called")
-	}
-	if !exitCalled {
-		t.Error("OnExit should be called")
+	if pod.GetStatus() != PodStatusRunning {
+		t.Errorf("Status: got %v, want running", pod.GetStatus())
 	}
 }
 
@@ -170,7 +142,6 @@ func TestRunnerConfigFields(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		pods:     make(map[string]*Pod),
 		stopChan: make(chan struct{}),
 	}
 

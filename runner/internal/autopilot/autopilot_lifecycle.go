@@ -34,33 +34,40 @@ func (ac *AutopilotController) Start() error {
 	return nil
 }
 
-// Stop stops the AutopilotController.
+// Stop stops the AutopilotController and waits for all goroutines to complete.
+// This method is safe to call multiple times - cleanup only runs once,
+// but it always waits for goroutines to finish.
 func (ac *AutopilotController) Stop() {
-	if !ac.phaseMgr.SetPhaseWithoutReport(PhaseStopped) {
-		// Already stopped
-		return
-	}
+	// Run cleanup logic only once
+	ac.stopOnce.Do(func() {
+		// Set phase to stopped (may already be stopped by Approve(false, _))
+		ac.phaseMgr.SetPhaseWithoutReport(PhaseStopped)
 
-	ac.stateCoordinator.Stop()
-	ac.cancel()
+		ac.stateCoordinator.Stop()
+		ac.cancel()
 
-	// Cleanup MCP config file
-	if ac.mcpConfigPath != "" {
-		if err := os.Remove(ac.mcpConfigPath); err != nil && !os.IsNotExist(err) {
-			ac.log.Warn("Failed to cleanup MCP config file",
-				"path", ac.mcpConfigPath,
-				"error", err)
+		// Wait for all running goroutines to complete inside stopOnce
+		// to ensure cleanup happens in the correct order
+		ac.wg.Wait()
+
+		// Cleanup MCP config file
+		if ac.mcpConfigPath != "" {
+			if err := os.Remove(ac.mcpConfigPath); err != nil && !os.IsNotExist(err) {
+				ac.log.Warn("Failed to cleanup MCP config file",
+					"path", ac.mcpConfigPath,
+					"error", err)
+			}
 		}
-	}
 
-	ac.log.Info("AutopilotController stopped", "autopilot_key", ac.key)
+		ac.log.Info("AutopilotController stopped", "autopilot_key", ac.key)
 
-	if ac.reporter != nil {
-		ac.reporter.ReportAutopilotTerminated(&runnerv1.AutopilotTerminatedEvent{
-			AutopilotKey: ac.key,
-			Reason:       "stopped",
-		})
-	}
+		if ac.reporter != nil {
+			ac.reporter.ReportAutopilotTerminated(&runnerv1.AutopilotTerminatedEvent{
+				AutopilotKey: ac.key,
+				Reason:       "stopped",
+			})
+		}
+	})
 }
 
 // Pause pauses the AutopilotController.

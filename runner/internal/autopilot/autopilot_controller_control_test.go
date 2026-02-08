@@ -13,8 +13,9 @@ func TestAutopilotController_Pause_Resume(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -29,6 +30,7 @@ func TestAutopilotController_Pause_Resume(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Pause
 	rp.Pause()
@@ -47,8 +49,9 @@ func TestAutopilotController_Takeover_Handback(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -63,6 +66,7 @@ func TestAutopilotController_Takeover_Handback(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Takeover
 	rp.Takeover()
@@ -81,8 +85,9 @@ func TestAutopilotController_Approve(t *testing.T) {
 		MaxIterations: 5,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -97,6 +102,7 @@ func TestAutopilotController_Approve(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Set to waiting approval state (e.g., Control requested human help)
 	rp.setPhaseForTest(PhaseWaitingApproval)
@@ -115,8 +121,9 @@ func TestAutopilotController_Approve_Stop(t *testing.T) {
 		MaxIterations: 5,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -131,6 +138,7 @@ func TestAutopilotController_Approve_Stop(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Set to waiting approval state
 	rp.setPhaseForTest(PhaseWaitingApproval)
@@ -148,8 +156,9 @@ func TestAutopilotController_Approve_NotWaitingApproval(t *testing.T) {
 		MaxIterations: 5,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -164,6 +173,7 @@ func TestAutopilotController_Approve_NotWaitingApproval(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	// Phase is running, not waiting_approval
 	statusBefore := rp.GetStatus()

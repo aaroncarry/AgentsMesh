@@ -16,8 +16,9 @@ func TestAutopilotController_NewAutopilotController(t *testing.T) {
 		ApprovalTimeoutMinutes:  30,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace/project",
+		workDir:     workDir,
 		podKey:      "worker-pod-123",
 		agentStatus: "waiting",
 	}
@@ -48,8 +49,9 @@ func TestAutopilotController_Start(t *testing.T) {
 		IterationTimeoutSeconds: 300,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace/project",
+		workDir:     workDir,
 		podKey:      "worker-pod-123",
 		agentStatus: "waiting",
 	}
@@ -66,6 +68,7 @@ func TestAutopilotController_Start(t *testing.T) {
 
 	err := rp.Start()
 	require.NoError(t, err)
+	defer rp.Stop()
 
 	// Should report created event
 	createdEvents := reporter.GetCreatedEvents()
@@ -83,8 +86,9 @@ func TestAutopilotController_Stop(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -115,8 +119,9 @@ func TestAutopilotController_Stop_AlreadyStopped(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -149,8 +154,9 @@ func TestAutopilotController_GetStatus(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}
@@ -165,6 +171,7 @@ func TestAutopilotController_GetStatus(t *testing.T) {
 		Reporter:     reporter,
 	})
 	_ = rp.Start()
+	defer rp.Stop()
 
 	status := rp.GetStatus()
 
@@ -179,8 +186,9 @@ func TestAutopilotController_DefaultMaxIterations(t *testing.T) {
 		MaxIterations: 0, // Should use default of 10
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -224,8 +232,9 @@ func TestAutopilotController_NilReporter(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "waiting",
 	}
@@ -242,12 +251,12 @@ func TestAutopilotController_NilReporter(t *testing.T) {
 	// These operations should not panic with nil reporter
 	err := rp.Start()
 	assert.NoError(t, err)
+	defer rp.Stop()
 
 	rp.Pause()
 	rp.Resume()
 	rp.Takeover()
 	rp.Handback()
-	rp.Stop()
 }
 
 func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
@@ -256,8 +265,9 @@ func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "executing", // Not waiting
 	}
@@ -274,6 +284,7 @@ func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
 
 	err := rp.Start()
 	assert.NoError(t, err)
+	defer rp.Stop()
 
 	// Should not have sent initial prompt when executing
 	assert.Len(t, workerCtrl.sendTextCalls, 0)
@@ -288,8 +299,9 @@ func TestAutopilotController_SessionID(t *testing.T) {
 		MaxIterations: 10,
 	}
 
+	workDir := t.TempDir()
 	workerCtrl := &MockPodController{
-		workDir:     "/workspace",
+		workDir:     workDir,
 		podKey:      "worker-123",
 		agentStatus: "executing",
 	}

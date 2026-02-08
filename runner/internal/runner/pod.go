@@ -26,8 +26,6 @@ type Pod struct {
 	Status           string              // Pod status - use statusMu for thread-safe access
 	statusMu         sync.RWMutex        // Protects Status field
 	TicketIdentifier string              // Ticket ID for worktree-based pods
-	OnOutput         func([]byte)        // Output callback
-	OnExit           func(int)           // Exit callback
 	PTYLogger        *terminal.PTYLogger // PTY logger for debugging (optional)
 
 	// StateDetector for multi-signal state detection (used by Autopilot)
