@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/anthropics/agentsmesh/runner/internal/autopilot"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/vt"
@@ -15,7 +14,8 @@ import (
 // - Lifecycle management (Start/Stop)
 // - Configuration of detection parameters
 //
-// This implements autopilot.StateDetector interface.
+// This implements detector.StateDetector interface, providing a foundation
+// service that can be used by Autopilot, Monitor, or any other component.
 type ManagedStateDetector struct {
 	detector *detector.MultiSignalDetector
 	vt       *vt.VirtualTerminal
@@ -24,7 +24,7 @@ type ManagedStateDetector struct {
 }
 
 // Compile-time interface check
-var _ autopilot.StateDetector = (*ManagedStateDetector)(nil)
+var _ detector.StateDetector = (*ManagedStateDetector)(nil)
 
 // NewManagedStateDetector creates a new managed state detector.
 // It starts a background goroutine to periodically run detection for timeout-based transitions.
@@ -96,8 +96,20 @@ func (m *ManagedStateDetector) GetState() detector.AgentState {
 }
 
 // SetCallback sets the state change callback.
+// Deprecated: Use Subscribe for multiple subscribers support.
 func (m *ManagedStateDetector) SetCallback(cb detector.StateChangeCallback) {
 	m.detector.SetCallback(cb)
+}
+
+// Subscribe adds a subscriber for state change events.
+// The subscriber ID must be unique; duplicate IDs will replace existing subscriptions.
+func (m *ManagedStateDetector) Subscribe(id string, cb func(detector.StateChangeEvent)) {
+	m.detector.Subscribe(id, cb)
+}
+
+// Unsubscribe removes a subscriber by ID.
+func (m *ManagedStateDetector) Unsubscribe(id string) {
+	m.detector.Unsubscribe(id)
 }
 
 // Reset resets the detector state.

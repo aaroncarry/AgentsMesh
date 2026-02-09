@@ -5,6 +5,7 @@ import (
 	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
+	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // Phase represents the current phase of an AutopilotController.
@@ -56,5 +57,7 @@ type TargetPodController interface {
 	GetAgentStatus() string
 	// GetStateDetector returns a StateDetector for the pod.
 	// Returns nil if state detection is not available.
-	GetStateDetector() StateDetector
+	// The StateDetector interface is defined in terminal/detector package,
+	// which is a foundational service independent of Autopilot.
+	GetStateDetector() detector.StateDetector
 }

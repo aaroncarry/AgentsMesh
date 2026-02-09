@@ -9,7 +9,11 @@ import (
 )
 
 // Note: AgentState, StateNotRunning, StateExecuting, StateWaiting, and StateChangeCallback
-// are defined in state_detector.go to avoid redeclaration
+// are defined in agent_state.go. StateDetector interface and StateChangeEvent are defined
+// in state_detector.go.
+
+// Compile-time interface check
+var _ StateDetector = (*MultiSignalDetector)(nil)
 
 // MultiSignalDetector detects agent state by fusing multiple signals.
 // This approach is Agent-agnostic and doesn't depend on specific implementations.
@@ -52,12 +56,18 @@ type MultiSignalDetector struct {
 	config MultiSignalConfig
 
 	// Current state
-	currentState    AgentState
-	stateChangeTime time.Time
-	lastCheckTime   time.Time
+	currentState     AgentState
+	stateChangeTime  time.Time
+	lastCheckTime    time.Time
+	lastConfidence   float64 // Last calculated waiting confidence
 
-	// Callback
+	// Legacy callback (for backward compatibility)
+	// Deprecated: Use Subscribe for multiple subscribers support.
 	onStateChange StateChangeCallback
+
+	// Multi-subscriber support
+	subscribers map[string]func(StateChangeEvent)
+	subMu       sync.RWMutex // Separate lock for subscribers to avoid deadlock
 
 	// Screen content for prompt detection
 	screenLines []string
@@ -133,6 +143,7 @@ func NewMultiSignalDetector(cfg MultiSignalConfig) *MultiSignalDetector {
 		config:           cfg,
 		currentState:     StateNotRunning,
 		onStateChange:    cfg.OnStateChange,
+		subscribers:      make(map[string]func(StateChangeEvent)),
 	}
 }
 
@@ -144,13 +155,31 @@ func (d *MultiSignalDetector) GetState() AgentState {
 }
 
 // SetCallback sets the state change callback.
+// Deprecated: Use Subscribe for multiple subscribers support.
 func (d *MultiSignalDetector) SetCallback(cb StateChangeCallback) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.onStateChange = cb
 }
 
+// Subscribe adds a subscriber for state change events.
+// The subscriber ID must be unique; duplicate IDs will replace existing subscriptions.
+// Callbacks are invoked asynchronously in separate goroutines.
+func (d *MultiSignalDetector) Subscribe(id string, cb func(StateChangeEvent)) {
+	d.subMu.Lock()
+	defer d.subMu.Unlock()
+	d.subscribers[id] = cb
+}
+
+// Unsubscribe removes a subscriber by ID.
+func (d *MultiSignalDetector) Unsubscribe(id string) {
+	d.subMu.Lock()
+	defer d.subMu.Unlock()
+	delete(d.subscribers, id)
+}
+
 // Reset resets the detector to initial state.
+// Note: Subscribers are NOT cleared; they should unsubscribe explicitly.
 func (d *MultiSignalDetector) Reset() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -163,6 +192,7 @@ func (d *MultiSignalDetector) Reset() {
 	d.lastOSCTitleTime = time.Time{}
 	d.currentState = StateNotRunning
 	d.stateChangeTime = time.Time{}
+	d.lastConfidence = 0
 	d.screenLines = nil
 }
 
@@ -212,19 +242,57 @@ func (d *MultiSignalDetector) GetIdleDuration() time.Duration {
 	return d.activityDetector.IdleDuration()
 }
 
-// setState updates the current state and triggers callback.
+// setState updates the current state and triggers callbacks.
+// Must be called with d.mu held.
 func (d *MultiSignalDetector) setState(newState AgentState) {
+	d.setStateWithConfidence(newState, d.lastConfidence)
+}
+
+// setStateWithConfidence updates the current state with a specific confidence value.
+// Must be called with d.mu held.
+func (d *MultiSignalDetector) setStateWithConfidence(newState AgentState, confidence float64) {
 	if d.currentState == newState {
 		return
 	}
 
 	prevState := d.currentState
 	d.currentState = newState
-	d.stateChangeTime = time.Now()
+	now := time.Now()
+	d.stateChangeTime = now
 
+	// Create event for subscribers
+	event := StateChangeEvent{
+		NewState:   newState,
+		PrevState:  prevState,
+		Timestamp:  now,
+		Confidence: confidence,
+	}
+
+	// Legacy callback (for backward compatibility)
 	if d.onStateChange != nil {
 		cb := d.onStateChange
 		go cb(newState, prevState)
+	}
+
+	// Notify subscribers (use separate lock to avoid deadlock)
+	d.notifySubscribers(event)
+}
+
+// notifySubscribers sends the event to all registered subscribers.
+// Each subscriber callback is invoked in a separate goroutine.
+func (d *MultiSignalDetector) notifySubscribers(event StateChangeEvent) {
+	d.subMu.RLock()
+	// Copy subscribers to avoid holding lock during callback execution
+	subs := make(map[string]func(StateChangeEvent), len(d.subscribers))
+	for id, cb := range d.subscribers {
+		subs[id] = cb
+	}
+	d.subMu.RUnlock()
+
+	// Invoke callbacks asynchronously
+	for _, cb := range subs {
+		callback := cb
+		go callback(event)
 	}
 }
 

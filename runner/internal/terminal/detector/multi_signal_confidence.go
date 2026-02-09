@@ -34,6 +34,9 @@ func (d *MultiSignalDetector) DetectState() AgentState {
 	// Calculate confidence for "waiting" state (captures values for logging)
 	confidence, logData := d.calculateWaitingConfidenceLocked(activityState)
 
+	// Store confidence for use in setState
+	d.lastConfidence = confidence
+
 	// State transition logic
 	switch d.currentState {
 	case StateNotRunning:
@@ -42,7 +45,7 @@ func (d *MultiSignalDetector) DetectState() AgentState {
 	case StateExecuting:
 		// Check if we should transition to Waiting
 		if confidence >= d.config.WaitingThreshold {
-			d.setState(StateWaiting)
+			d.setStateWithConfidence(StateWaiting, confidence)
 		}
 
 	case StateWaiting:
@@ -50,7 +53,7 @@ func (d *MultiSignalDetector) DetectState() AgentState {
 		// This happens in OnOutput when new output is received
 		// But we can also check if confidence dropped significantly
 		if confidence < d.config.WaitingThreshold*0.5 {
-			d.setState(StateExecuting)
+			d.setStateWithConfidence(StateExecuting, confidence)
 		}
 	}
 

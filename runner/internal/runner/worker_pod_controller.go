@@ -2,6 +2,7 @@ package runner
 
 import (
 	"github.com/anthropics/agentsmesh/runner/internal/autopilot"
+	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // PodControllerImpl implements autopilot.TargetPodController interface.
@@ -44,18 +45,16 @@ func (c *PodControllerImpl) GetAgentStatus() string {
 	return agentStatus
 }
 
-// GetStateDetector returns the ManagedStateDetector for the pod.
+// GetStateDetector returns the StateDetector for the pod.
 // Returns nil if the virtual terminal is not available.
 // Returns the same instance across multiple calls to ensure state continuity.
-func (c *PodControllerImpl) GetStateDetector() autopilot.StateDetector {
+// The StateDetector interface is defined in terminal/detector package,
+// which is a foundational service independent of Autopilot.
+func (c *PodControllerImpl) GetStateDetector() detector.StateDetector {
 	if c.pod.VirtualTerminal == nil {
 		return nil
 	}
-	detector := c.pod.GetOrCreateStateDetector()
-	if detector == nil {
-		return nil
-	}
-	return detector
+	return c.pod.GetOrCreateStateDetector()
 }
 
 // Compile-time interface check

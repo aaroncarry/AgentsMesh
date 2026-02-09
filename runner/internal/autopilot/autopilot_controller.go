@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
+	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // AutopilotController is a supervised automation controller that orchestrates
@@ -158,12 +159,12 @@ func NewAutopilotController(cfg Config) *AutopilotController {
 	})
 
 	// Initialize StateDetectorCoordinator
-	var detector StateDetector
+	var stateDetector detector.StateDetector
 	if cfg.PodCtrl != nil {
-		detector = cfg.PodCtrl.GetStateDetector()
+		stateDetector = cfg.PodCtrl.GetStateDetector()
 	}
 	ac.stateCoordinator = NewStateDetectorCoordinator(StateDetectorCoordinatorConfig{
-		Detector:     detector,
+		Detector:     stateDetector,
 		OnWaiting:    ac.OnPodWaiting,
 		CheckPeriod:  500 * time.Millisecond,
 		Logger:       log,

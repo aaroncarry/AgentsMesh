@@ -10,29 +10,12 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
-// StateDetector is an interface for detecting terminal/agent state.
-// This abstraction allows AutopilotController to be decoupled from concrete
-// implementations like terminal.MultiSignalDetector.
-type StateDetector interface {
-	// DetectState analyzes and returns the current agent state.
-	DetectState() detector.AgentState
-	// GetState returns the current state without performing detection.
-	GetState() detector.AgentState
-	// SetCallback sets the state change callback.
-	SetCallback(cb detector.StateChangeCallback)
-	// Reset resets the detector state.
-	Reset()
-	// OnOutput should be called when terminal output is received.
-	OnOutput(bytes int)
-	// OnScreenUpdate should be called with current screen lines after each Feed.
-	// This enables single-direction data flow without reverse lock acquisition.
-	OnScreenUpdate(lines []string)
-}
-
 // StateDetectorCoordinator coordinates state detection and triggers callbacks.
 // It runs periodic state detection and converts terminal states to AutopilotController callbacks.
+// The coordinator uses detector.StateDetector interface from the terminal/detector package,
+// which is a foundational service independent of Autopilot.
 type StateDetectorCoordinator struct {
-	detector     StateDetector
+	detector     detector.StateDetector
 	onWaiting    func() // Called when pod transitions to waiting
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -43,7 +26,7 @@ type StateDetectorCoordinator struct {
 
 // StateDetectorCoordinatorConfig contains configuration for StateDetectorCoordinator.
 type StateDetectorCoordinatorConfig struct {
-	Detector     StateDetector
+	Detector     detector.StateDetector
 	OnWaiting    func()
 	CheckPeriod  time.Duration
 	Logger       *slog.Logger

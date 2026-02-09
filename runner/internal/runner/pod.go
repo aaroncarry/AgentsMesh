@@ -8,6 +8,7 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/relay"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/aggregator"
+	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/vt"
 )
 
@@ -30,7 +31,8 @@ type Pod struct {
 	TicketIdentifier string              // Ticket ID for worktree-based pods
 	PTYLogger        *aggregator.PTYLogger // PTY logger for debugging (optional)
 
-	// StateDetector for multi-signal state detection (used by Autopilot)
+	// StateDetector for multi-signal state detection.
+	// This is a foundational service that can be used by Autopilot, Monitor, or other components.
 	stateDetector   *ManagedStateDetector
 	stateDetectorMu sync.RWMutex
 
@@ -103,7 +105,58 @@ func (p *Pod) DisconnectRelay() {
 }
 
 // GetOrCreateStateDetector returns the state detector for this pod, creating one if needed.
-func (p *Pod) GetOrCreateStateDetector() *ManagedStateDetector {
+// Returns the detector.StateDetector interface for use by any component.
+func (p *Pod) GetOrCreateStateDetector() detector.StateDetector {
+	p.stateDetectorMu.RLock()
+	if p.stateDetector != nil {
+		defer p.stateDetectorMu.RUnlock()
+		return p.stateDetector
+	}
+	p.stateDetectorMu.RUnlock()
+
+	// Need to create - acquire write lock
+	p.stateDetectorMu.Lock()
+	defer p.stateDetectorMu.Unlock()
+
+	// Double check after acquiring write lock
+	if p.stateDetector != nil {
+		return p.stateDetector
+	}
+
+	// Create new detector if VirtualTerminal is available
+	if p.VirtualTerminal != nil {
+		p.stateDetector = NewManagedStateDetector(p.VirtualTerminal)
+	}
+	return p.stateDetector
+}
+
+// SubscribeStateChange subscribes to state change events.
+// This is the preferred way to receive state updates (event-driven, single-direction data flow).
+// The subscriber ID must be unique; duplicate IDs will replace existing subscriptions.
+// Returns false if VirtualTerminal is not available.
+func (p *Pod) SubscribeStateChange(id string, cb func(detector.StateChangeEvent)) bool {
+	d := p.getOrCreateStateDetectorInternal()
+	if d == nil {
+		return false
+	}
+	d.Subscribe(id, cb)
+	return true
+}
+
+// UnsubscribeStateChange removes a state change subscription by ID.
+func (p *Pod) UnsubscribeStateChange(id string) {
+	p.stateDetectorMu.RLock()
+	d := p.stateDetector
+	p.stateDetectorMu.RUnlock()
+
+	if d != nil {
+		d.Unsubscribe(id)
+	}
+}
+
+// getOrCreateStateDetectorInternal returns the internal ManagedStateDetector, creating one if needed.
+// This is an internal method that returns the concrete type.
+func (p *Pod) getOrCreateStateDetectorInternal() *ManagedStateDetector {
 	p.stateDetectorMu.RLock()
 	if p.stateDetector != nil {
 		defer p.stateDetectorMu.RUnlock()

@@ -3,6 +3,7 @@ package autopilot
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
@@ -14,8 +15,8 @@ type MockPodController struct {
 	workDir         string
 	podKey          string
 	agentStatus     string
-	sendTextError   error         // If set, SendTerminalText will return this error
-	stateDetector   StateDetector // Mock state detector
+	sendTextError   error                   // If set, SendTerminalText will return this error
+	stateDetector   detector.StateDetector // Mock state detector
 }
 
 func (m *MockPodController) SendTerminalText(text string) error {
@@ -35,7 +36,7 @@ func (m *MockPodController) GetAgentStatus() string {
 	return m.agentStatus
 }
 
-func (m *MockPodController) GetStateDetector() StateDetector {
+func (m *MockPodController) GetStateDetector() detector.StateDetector {
 	return m.stateDetector
 }
 
@@ -124,18 +125,24 @@ func (m *MockEventReporter) GetCreatedEvents() []*runnerv1.AutopilotCreatedEvent
 	return result
 }
 
-// MockStateDetector is a mock implementation of StateDetector for testing
+// MockStateDetector is a mock implementation of detector.StateDetector for testing
 type MockStateDetector struct {
 	state           detector.AgentState
 	stateMu         sync.RWMutex
 	callback        detector.StateChangeCallback
 	callbackMu      sync.RWMutex
+	subscribers     map[string]func(detector.StateChangeEvent)
+	subscribersMu   sync.RWMutex
 	detectCallCount atomic.Int32 // Track number of DetectState calls (atomic for race safety)
 }
 
+// Compile-time interface check
+var _ detector.StateDetector = (*MockStateDetector)(nil)
+
 func NewMockStateDetector() *MockStateDetector {
 	return &MockStateDetector{
-		state: detector.StateNotRunning,
+		state:       detector.StateNotRunning,
+		subscribers: make(map[string]func(detector.StateChangeEvent)),
 	}
 }
 
@@ -174,12 +181,34 @@ func (m *MockStateDetector) SetState(state detector.AgentState) {
 	m.state = state
 	m.stateMu.Unlock()
 
+	if prevState == state {
+		return
+	}
+
+	// Legacy callback
 	m.callbackMu.RLock()
 	cb := m.callback
 	m.callbackMu.RUnlock()
 
-	if cb != nil && prevState != state {
+	if cb != nil {
 		cb(state, prevState)
+	}
+
+	// Notify subscribers
+	m.subscribersMu.RLock()
+	subs := make(map[string]func(detector.StateChangeEvent), len(m.subscribers))
+	for id, cb := range m.subscribers {
+		subs[id] = cb
+	}
+	m.subscribersMu.RUnlock()
+
+	event := detector.StateChangeEvent{
+		NewState:  state,
+		PrevState: prevState,
+		Timestamp: time.Now(),
+	}
+	for _, subCb := range subs {
+		go subCb(event)
 	}
 }
 
@@ -189,4 +218,16 @@ func (m *MockStateDetector) OnOutput(bytes int) {
 
 func (m *MockStateDetector) OnScreenUpdate(lines []string) {
 	// No-op for mock
+}
+
+func (m *MockStateDetector) Subscribe(id string, cb func(detector.StateChangeEvent)) {
+	m.subscribersMu.Lock()
+	defer m.subscribersMu.Unlock()
+	m.subscribers[id] = cb
+}
+
+func (m *MockStateDetector) Unsubscribe(id string) {
+	m.subscribersMu.Lock()
+	defer m.subscribersMu.Unlock()
+	delete(m.subscribers, id)
 }
