@@ -23,7 +23,7 @@ type Pod struct {
 	Terminal         *terminal.Terminal
 	VirtualTerminal  *vt.VirtualTerminal        // Virtual terminal for state management and snapshots
 	Aggregator       *aggregator.SmartAggregator // Output aggregator for adaptive frame rate
-	RelayClient      *relay.Client              // WebSocket client for Relay connection
+	RelayClient      relay.RelayClient          // WebSocket client for Relay connection (interface for testability)
 	relayMu          sync.RWMutex               // Protects RelayClient field
 	StartedAt        time.Time
 	Status           string              // Pod status - use statusMu for thread-safe access
@@ -69,14 +69,14 @@ func (p *Pod) GetStatus() string {
 }
 
 // SetRelayClient sets the relay client in a thread-safe manner
-func (p *Pod) SetRelayClient(client *relay.Client) {
+func (p *Pod) SetRelayClient(client relay.RelayClient) {
 	p.relayMu.Lock()
 	defer p.relayMu.Unlock()
 	p.RelayClient = client
 }
 
 // GetRelayClient returns the relay client in a thread-safe manner
-func (p *Pod) GetRelayClient() *relay.Client {
+func (p *Pod) GetRelayClient() relay.RelayClient {
 	p.relayMu.RLock()
 	defer p.relayMu.RUnlock()
 	return p.RelayClient

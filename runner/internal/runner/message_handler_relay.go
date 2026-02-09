@@ -12,9 +12,8 @@ import (
 
 // OnSubscribeTerminal handles subscribe terminal command from server.
 // The channel is identified by PodKey (not session ID).
-// Always disconnect and reconnect to ensure a fresh connection - this handles cases
-// where the Relay channel was closed but Runner didn't detect it (e.g., browser tab
-// closed for >30s, Relay channel expired, but Runner's WebSocket appears connected).
+// If already connected to the same Relay URL, just update the token without reconnecting.
+// This allows multiple clients (Web + Mobile) to share the same connection.
 func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalRequest) error {
 	log := logger.Pod()
 	log.Info("Subscribing to terminal via Relay",
@@ -26,12 +25,23 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
 
-	// Always disconnect existing relay connection and reconnect fresh
-	// This ensures we get a new Relay channel even if the old one was closed server-side
+	// Check if already connected to the same Relay URL
 	existingClient := pod.GetRelayClient()
 	if existingClient != nil {
-		log.Info("Disconnecting existing relay connection for fresh reconnect",
-			"pod_key", req.PodKey, "relay_url", req.RelayURL)
+		if existingClient.IsConnected() && existingClient.GetRelayURL() == req.RelayURL {
+			// Already connected to the same Relay, just update token for future reconnects
+			log.Info("Already connected to same relay, updating token only",
+				"pod_key", req.PodKey,
+				"relay_url", req.RelayURL)
+			existingClient.UpdateToken(req.RunnerToken)
+			return nil
+		}
+		// Connected to different Relay or disconnected, need to reconnect
+		log.Info("Disconnecting existing relay connection",
+			"pod_key", req.PodKey,
+			"old_relay_url", existingClient.GetRelayURL(),
+			"new_relay_url", req.RelayURL,
+			"was_connected", existingClient.IsConnected())
 		pod.DisconnectRelay()
 	}
 
@@ -75,7 +85,7 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 }
 
 // setupRelayClientHandlers sets up all handlers for a relay client
-func (h *RunnerMessageHandler) setupRelayClientHandlers(relayClient *relay.Client, pod *Pod, req client.SubscribeTerminalRequest) {
+func (h *RunnerMessageHandler) setupRelayClientHandlers(relayClient relay.RelayClient, pod *Pod, req client.SubscribeTerminalRequest) {
 	log := logger.Pod()
 	podKey := req.PodKey
 
