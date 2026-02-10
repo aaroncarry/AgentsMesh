@@ -233,7 +233,7 @@ export function ResponsiveDialogBody({
   return (
     <div
       className={cn(
-        "px-6 py-4 flex-1 overflow-y-auto",
+        "px-6 py-4 flex-1 overflow-y-auto min-h-0",
         isMobile && "px-4 overscroll-contain",
         className
       )}
