@@ -7,7 +7,8 @@ import {
   rectIntersection,
   pointerWithin,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -77,7 +78,7 @@ function SortableTicket({ ticket, onTicketClick, onMouseEnter, onMouseLeave }: S
       {...attributes}
       {...listeners}
       className={cn(
-        "transition-all duration-200 cursor-grab active:cursor-grabbing touch-none",
+        "transition-all duration-200 cursor-grab active:cursor-grabbing",
         isDragging
           ? "opacity-50 scale-95 rotate-1 z-50"
           : "hover:scale-[1.02] hover:shadow-md"
@@ -185,10 +186,18 @@ export function KanbanBoard({
   const columnIds = useMemo(() => new Set<string>(columns.map(c => c.status)), [columns]);
 
   // Configure sensors for drag and drop
+  // MouseSensor for desktop (activate after 8px movement)
+  // TouchSensor for mobile (activate after 250ms long-press, allowing normal scroll)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 8, // 8px movement before drag starts
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor)
