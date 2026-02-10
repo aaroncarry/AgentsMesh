@@ -192,7 +192,7 @@ describe("Pod Store", () => {
       vi.mocked(podApi.get).mockRejectedValue({ message: "Pod not found" });
 
       await act(async () => {
-        await usePodStore.getState().fetchPod("non-existent");
+        await usePodStore.getState().fetchPod("non-existent").catch(() => {});
       });
 
       const state = usePodStore.getState();

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CenteredSpinner } from "@/components/ui/spinner";
@@ -13,6 +14,7 @@ import { GitProviderIcon } from "@/components/icons/GitProviderIcon";
 import { ImportRepositoryModal } from "@/components/ide/modals/ImportRepositoryModal";
 
 export default function RepositoriesPage() {
+  const { org: orgSlug } = useParams<{ org: string }>();
   const t = useTranslations();
   const [repositories, setRepositories] = useState<RepositoryData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +158,7 @@ export default function RepositoriesPage() {
               <tr key={repo.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3">
                   <Link
-                    href={`./${repo.id}`}
+                    href={`/${orgSlug}/repositories/${repo.id}`}
                     className="font-medium hover:text-primary"
                   >
                     {repo.name}

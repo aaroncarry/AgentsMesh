@@ -87,6 +87,7 @@ export const usePodStore = create<PodState>((set) => ({
         error: getErrorMessage(error, "Failed to fetch pod"),
         loading: false,
       });
+      throw error;
     }
   },
 

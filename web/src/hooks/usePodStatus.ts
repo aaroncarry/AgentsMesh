@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { usePodStore } from "@/stores/pod";
+import { ApiError } from "@/lib/api";
 
 interface UsePodStatusResult {
   podStatus: string;
@@ -15,6 +16,7 @@ interface UsePodStatusResult {
  */
 export function usePodStatus(podKey: string): UsePodStatusResult {
   const initialFetchDone = useRef(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { pods, fetchPod } = usePodStore();
 
   // Get pod from store (updated via realtime events)
@@ -22,6 +24,11 @@ export function usePodStatus(podKey: string): UsePodStatusResult {
 
   // Derive status from store - no local state needed
   const { podStatus, isPodReady, podError } = useMemo(() => {
+    // If fetch failed (e.g. 404), report the error immediately
+    if (fetchError) {
+      return { podStatus: "error", isPodReady: false, podError: fetchError };
+    }
+
     const status = storePod?.status ?? "unknown";
     const isReady = status === "running";
 
@@ -38,7 +45,7 @@ export function usePodStatus(podKey: string): UsePodStatusResult {
     }
 
     return { podStatus: status, isPodReady: isReady, podError: error };
-  }, [storePod?.status, storePod?.error_message]);
+  }, [storePod?.status, storePod?.error_message, fetchError]);
 
   // Initial status fetch (once only) - updates store via fetchPod
   useEffect(() => {
@@ -46,7 +53,11 @@ export function usePodStatus(podKey: string): UsePodStatusResult {
     initialFetchDone.current = true;
 
     fetchPod(podKey).catch((error) => {
-      console.error("Failed to fetch initial pod status:", error);
+      if (error instanceof ApiError && error.status === 404) {
+        setFetchError("Pod not found");
+      } else {
+        setFetchError("Failed to load pod");
+      }
     });
   }, [podKey, fetchPod, storePod]);
 
