@@ -104,6 +104,8 @@
           "gitProvidersDesc": "Git 集成",
           "notifications": "通知",
           "notificationsDesc": "通知偏好设置",
+          "apiKeys": "API 密钥",
+          "apiKeysDesc": "第三方服务集成",
           "billing": "账单",
           "billingDesc": "订阅和付款"
         }

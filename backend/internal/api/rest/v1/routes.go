@@ -77,6 +77,9 @@ func RegisterOrgScopedRoutes(rg *gin.RouterGroup, svc *Services) {
 
 	// Register file routes
 	registerFileRoutes(rg, svc)
+
+	// Register API key management routes (owner/admin only)
+	registerAPIKeyManagementRoutes(rg, svc)
 }
 
 func registerAgentRoutes(rg *gin.RouterGroup, svc *Services) {

@@ -637,6 +637,91 @@
         "next": "下一页",
         "page": "第 {page} 页"
       }
+    },
+    "apiKeys": {
+      "title": "API 密钥",
+      "description": "管理用于第三方服务集成的 API 密钥",
+      "createKey": "创建 API 密钥",
+      "loading": "加载 API 密钥中...",
+      "noKeys": "暂无 API 密钥。创建一个以允许第三方服务访问您组织的资源。",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "neverExpires": "永不过期",
+      "expiresAt": "过期时间 {date}",
+      "lastUsed": "最后使用 {time}",
+      "neverUsed": "从未使用",
+      "loadError": "加载 API 密钥失败",
+      "dismiss": "关闭",
+      "expired": "已过期",
+      "justNow": "刚刚",
+      "minutesAgo": "{count}分钟前",
+      "hoursAgo": "{count}小时前",
+      "daysAgo": "{count}天前",
+      "scopeGroupPods": "Pod",
+      "scopeGroupTickets": "工单",
+      "scopeGroupChannels": "频道",
+      "scopeGroupRunners": "Runner",
+      "scopeGroupRepositories": "仓库",
+      "createFailed": "创建 API 密钥失败",
+      "updateFailed": "更新 API 密钥失败",
+      "revokeFailed": "撤销 API 密钥失败",
+      "scopes": "权限范围",
+      "createDialog": {
+        "title": "创建 API 密钥",
+        "nameLabel": "名称",
+        "namePlaceholder": "例如 CI/CD 流水线",
+        "descriptionLabel": "描述",
+        "descriptionPlaceholder": "此密钥的用途是什么？",
+        "scopesLabel": "权限",
+        "scopePodsRead": "读取 Pod",
+        "scopePodsReadDesc": "列出和查看 Pod 详情、状态和日志",
+        "scopePodsWrite": "写入 Pod",
+        "scopePodsWriteDesc": "创建、终止和管理 Pod 生命周期",
+        "scopeTicketsRead": "读取工单",
+        "scopeTicketsReadDesc": "列出和查看工单、看板和工单详情",
+        "scopeTicketsWrite": "写入工单",
+        "scopeTicketsWriteDesc": "创建、更新、删除工单和更改状态",
+        "scopeChannelsRead": "读取频道",
+        "scopeChannelsReadDesc": "列出频道、查看详情和读取消息",
+        "scopeChannelsWrite": "写入频道",
+        "scopeChannelsWriteDesc": "创建、更新频道和发送消息",
+        "scopeRunnersRead": "读取 Runner",
+        "scopeRunnersReadDesc": "列出 Runner、查看详情、状态和关联 Pod",
+        "scopeReposRead": "读取仓库",
+        "scopeReposReadDesc": "列出仓库、查看详情、分支和合并请求",
+        "expirationLabel": "有效期",
+        "expirationNever": "永不过期",
+        "expiration30d": "30 天",
+        "expiration90d": "90 天",
+        "expiration1y": "1 年",
+        "cancel": "取消",
+        "create": "创建",
+        "creating": "创建中..."
+      },
+      "secretDialog": {
+        "title": "API 密钥已创建",
+        "description": "请立即复制您的 API 密钥，之后将无法再次查看。",
+        "copy": "复制",
+        "done": "完成"
+      },
+      "editDialog": {
+        "title": "编辑 API 密钥",
+        "save": "保存更改",
+        "saving": "保存中...",
+        "cancel": "取消"
+      },
+      "revokeDialog": {
+        "title": "撤销 API 密钥",
+        "description": "确定要撤销此 API 密钥吗？使用此密钥的所有服务将立即失去访问权限。",
+        "revoke": "撤销",
+        "cancel": "取消"
+      },
+      "deleteDialog": {
+        "title": "删除 API 密钥",
+        "description": "确定要永久删除此 API 密钥吗？此操作无法撤销。",
+        "delete": "删除",
+        "cancel": "取消"
+      }
     }
   }
 }

@@ -104,6 +104,8 @@
           "gitProvidersDesc": "Git integrations",
           "notifications": "Notifications",
           "notificationsDesc": "Notification preferences",
+          "apiKeys": "API Keys",
+          "apiKeysDesc": "Third-party integrations",
           "billing": "Billing",
           "billingDesc": "Subscription and payments"
         }

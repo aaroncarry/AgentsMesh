@@ -500,6 +500,91 @@
         "next": "Next",
         "page": "Page {page}"
       }
+    },
+    "apiKeys": {
+      "title": "Claves API",
+      "description": "Gestionar claves API para integraciones de servicios externos",
+      "createKey": "Crear clave API",
+      "loading": "Cargando claves API...",
+      "noKeys": "Aún no hay claves API. Cree una para permitir que servicios externos accedan a los recursos de su organización.",
+      "enabled": "Habilitada",
+      "disabled": "Deshabilitada",
+      "neverExpires": "Sin expiración",
+      "expiresAt": "Expira el {date}",
+      "lastUsed": "Último uso {time}",
+      "neverUsed": "Nunca usada",
+      "loadError": "Error al cargar las claves API",
+      "dismiss": "Cerrar",
+      "expired": "Expirado",
+      "justNow": "ahora mismo",
+      "minutesAgo": "hace {count}min",
+      "hoursAgo": "hace {count}h",
+      "daysAgo": "hace {count}d",
+      "scopeGroupPods": "Pods",
+      "scopeGroupTickets": "Tickets",
+      "scopeGroupChannels": "Canales",
+      "scopeGroupRunners": "Runners",
+      "scopeGroupRepositories": "Repositorios",
+      "createFailed": "Error al crear la clave API",
+      "updateFailed": "Error al actualizar la clave API",
+      "revokeFailed": "Error al revocar la clave API",
+      "scopes": "Alcances",
+      "createDialog": {
+        "title": "Crear clave API",
+        "nameLabel": "Nombre",
+        "namePlaceholder": "ej. Pipeline CI/CD",
+        "descriptionLabel": "Descripción",
+        "descriptionPlaceholder": "¿Para qué se usa esta clave?",
+        "scopesLabel": "Permisos",
+        "scopePodsRead": "Leer Pods",
+        "scopePodsReadDesc": "Listar y ver detalles, estado y registros de Pods",
+        "scopePodsWrite": "Escribir Pods",
+        "scopePodsWriteDesc": "Crear, terminar y gestionar el ciclo de vida de los Pods",
+        "scopeTicketsRead": "Leer tickets",
+        "scopeTicketsReadDesc": "Listar y ver tickets, tablero y detalles de tickets",
+        "scopeTicketsWrite": "Escribir tickets",
+        "scopeTicketsWriteDesc": "Crear, actualizar, eliminar tickets y cambiar estado",
+        "scopeChannelsRead": "Leer canales",
+        "scopeChannelsReadDesc": "Listar canales, ver detalles y leer mensajes",
+        "scopeChannelsWrite": "Escribir canales",
+        "scopeChannelsWriteDesc": "Crear, actualizar canales y enviar mensajes",
+        "scopeRunnersRead": "Leer Runners",
+        "scopeRunnersReadDesc": "Listar runners, ver detalles, estado y pods asociados",
+        "scopeReposRead": "Leer repositorios",
+        "scopeReposReadDesc": "Listar repositorios, ver detalles, ramas y solicitudes de fusión",
+        "expirationLabel": "Expiración",
+        "expirationNever": "Nunca",
+        "expiration30d": "30 días",
+        "expiration90d": "90 días",
+        "expiration1y": "1 año",
+        "cancel": "Cancelar",
+        "create": "Crear",
+        "creating": "Creando..."
+      },
+      "secretDialog": {
+        "title": "Clave API creada",
+        "description": "Copie su clave API ahora. No podrá verla de nuevo.",
+        "copy": "Copiar",
+        "done": "Listo"
+      },
+      "editDialog": {
+        "title": "Editar clave API",
+        "save": "Guardar cambios",
+        "saving": "Guardando...",
+        "cancel": "Cancelar"
+      },
+      "revokeDialog": {
+        "title": "Revocar clave API",
+        "description": "¿Está seguro de que desea revocar esta clave API? Todos los servicios que la utilicen perderán el acceso de inmediato.",
+        "revoke": "Revocar",
+        "cancel": "Cancelar"
+      },
+      "deleteDialog": {
+        "title": "Eliminar clave API",
+        "description": "¿Está seguro de que desea eliminar permanentemente esta clave API? Esta acción no se puede deshacer.",
+        "delete": "Eliminar",
+        "cancel": "Cancelar"
+      }
     }
   }
 }

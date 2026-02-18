@@ -637,6 +637,91 @@
         "next": "Next",
         "page": "Page {page}"
       }
+    },
+    "apiKeys": {
+      "title": "API Keys",
+      "description": "Manage API keys for third-party service integrations",
+      "createKey": "Create API Key",
+      "loading": "Loading API keys...",
+      "noKeys": "No API keys yet. Create one to allow third-party services to access your organization's resources.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "neverExpires": "Never expires",
+      "expiresAt": "Expires {date}",
+      "lastUsed": "Last used {time}",
+      "neverUsed": "Never used",
+      "loadError": "Failed to load API keys",
+      "dismiss": "Dismiss",
+      "expired": "Expired",
+      "justNow": "just now",
+      "minutesAgo": "{count}m ago",
+      "hoursAgo": "{count}h ago",
+      "daysAgo": "{count}d ago",
+      "scopeGroupPods": "Pods",
+      "scopeGroupTickets": "Tickets",
+      "scopeGroupChannels": "Channels",
+      "scopeGroupRunners": "Runners",
+      "scopeGroupRepositories": "Repositories",
+      "createFailed": "Failed to create API key",
+      "updateFailed": "Failed to update API key",
+      "revokeFailed": "Failed to revoke API key",
+      "scopes": "Scopes",
+      "createDialog": {
+        "title": "Create API Key",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g., CI/CD Pipeline",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "What is this key used for?",
+        "scopesLabel": "Permissions",
+        "scopePodsRead": "Read Pods",
+        "scopePodsReadDesc": "List and view pod details, status, and logs",
+        "scopePodsWrite": "Write Pods",
+        "scopePodsWriteDesc": "Create, terminate, and manage pod lifecycle",
+        "scopeTicketsRead": "Read Tickets",
+        "scopeTicketsReadDesc": "List and view tickets, board, and ticket details",
+        "scopeTicketsWrite": "Write Tickets",
+        "scopeTicketsWriteDesc": "Create, update, delete tickets and change status",
+        "scopeChannelsRead": "Read Channels",
+        "scopeChannelsReadDesc": "List channels, view details, and read messages",
+        "scopeChannelsWrite": "Write Channels",
+        "scopeChannelsWriteDesc": "Create, update channels, and send messages",
+        "scopeRunnersRead": "Read Runners",
+        "scopeRunnersReadDesc": "List runners, view details, status, and runner pods",
+        "scopeReposRead": "Read Repositories",
+        "scopeReposReadDesc": "List repositories, view details, branches, and merge requests",
+        "expirationLabel": "Expiration",
+        "expirationNever": "Never",
+        "expiration30d": "30 days",
+        "expiration90d": "90 days",
+        "expiration1y": "1 year",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating..."
+      },
+      "secretDialog": {
+        "title": "API Key Created",
+        "description": "Copy your API key now. You won't be able to see it again.",
+        "copy": "Copy",
+        "done": "Done"
+      },
+      "editDialog": {
+        "title": "Edit API Key",
+        "save": "Save Changes",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "revokeDialog": {
+        "title": "Revoke API Key",
+        "description": "Are you sure you want to revoke this API key? Any services using it will lose access immediately.",
+        "revoke": "Revoke",
+        "cancel": "Cancel"
+      },
+      "deleteDialog": {
+        "title": "Delete API Key",
+        "description": "Are you sure you want to permanently delete this API key? This action cannot be undone.",
+        "delete": "Delete",
+        "cancel": "Cancel"
+      }
     }
   }
 }

@@ -104,6 +104,8 @@
           "gitProvidersDesc": "Git integrations",
           "notifications": "Notifications",
           "notificationsDesc": "Notification preferences",
+          "apiKeys": "Chaves API",
+          "apiKeysDesc": "Integrações externas",
           "billing": "Billing",
           "billingDesc": "Subscription and payments"
         }

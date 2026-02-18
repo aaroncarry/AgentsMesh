@@ -7,6 +7,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/websocket"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
+	apikeyservice "github.com/anthropics/agentsmesh/backend/internal/service/apikey"
 	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	"github.com/anthropics/agentsmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentsmesh/backend/internal/service/binding"
@@ -61,6 +62,8 @@ type Services struct {
 	File               *fileservice.Service // File storage service
 	PromoCode          *promocode.Service   // Promo code management
 	License            *license.Service     // License service for OnPremise
+	APIKey             *apikeyservice.Service // API key management for third-party access
+	APIKeyAdapter      *apikeyservice.MiddlewareAdapter // API key middleware adapter
 	// NOTE: GitProvider and SSHKey services have been removed (moved to user-level settings)
 
 	// gRPC/mTLS Runner registration handler (optional, only when PKI is enabled)

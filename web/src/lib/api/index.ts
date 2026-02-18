@@ -153,6 +153,10 @@ export type {
 
 // AutopilotController
 export { autopilotApi } from "./autopilot";
+
+// API Key
+export { apiKeyApi } from "./apikey";
+export type { APIKeyData, CreateAPIKeyRequest, UpdateAPIKeyRequest } from "./apikey";
 export type {
   AutopilotPhase,
   CircuitBreakerState,

@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 
 interface SettingsSidebarContentProps {
@@ -76,6 +77,7 @@ export function SettingsSidebarContent({ className }: SettingsSidebarContentProp
   const orgSettingsTabs: TabItem[] = [
     { id: "general", labelKey: "ide.sidebar.settings.tabs.general", icon: Settings },
     { id: "members", labelKey: "ide.sidebar.settings.tabs.members", icon: Users },
+    { id: "api-keys", labelKey: "ide.sidebar.settings.tabs.apiKeys", icon: KeyRound },
     { id: "billing", labelKey: "ide.sidebar.settings.tabs.billing", icon: CreditCard },
   ];
 
