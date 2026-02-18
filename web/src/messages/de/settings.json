@@ -500,6 +500,91 @@
         "next": "Next",
         "page": "Page {page}"
       }
+    },
+    "apiKeys": {
+      "title": "API-Schlüssel",
+      "description": "API-Schlüssel für Drittanbieter-Integrationen verwalten",
+      "createKey": "API-Schlüssel erstellen",
+      "loading": "API-Schlüssel werden geladen...",
+      "noKeys": "Noch keine API-Schlüssel. Erstellen Sie einen, damit Drittanbieter auf die Ressourcen Ihrer Organisation zugreifen können.",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "neverExpires": "Läuft nie ab",
+      "expiresAt": "Läuft ab am {date}",
+      "lastUsed": "Zuletzt verwendet {time}",
+      "neverUsed": "Nie verwendet",
+      "loadError": "API-Schlüssel konnten nicht geladen werden",
+      "dismiss": "Schließen",
+      "expired": "Abgelaufen",
+      "justNow": "gerade eben",
+      "minutesAgo": "vor {count}min",
+      "hoursAgo": "vor {count}h",
+      "daysAgo": "vor {count}T",
+      "scopeGroupPods": "Pods",
+      "scopeGroupTickets": "Tickets",
+      "scopeGroupChannels": "Kanäle",
+      "scopeGroupRunners": "Runner",
+      "scopeGroupRepositories": "Repositories",
+      "createFailed": "API-Schlüssel konnte nicht erstellt werden",
+      "updateFailed": "API-Schlüssel konnte nicht aktualisiert werden",
+      "revokeFailed": "API-Schlüssel konnte nicht widerrufen werden",
+      "scopes": "Berechtigungen",
+      "createDialog": {
+        "title": "API-Schlüssel erstellen",
+        "nameLabel": "Name",
+        "namePlaceholder": "z.B. CI/CD-Pipeline",
+        "descriptionLabel": "Beschreibung",
+        "descriptionPlaceholder": "Wofür wird dieser Schlüssel verwendet?",
+        "scopesLabel": "Berechtigungen",
+        "scopePodsRead": "Pods lesen",
+        "scopePodsReadDesc": "Pods auflisten und Details, Status und Protokolle anzeigen",
+        "scopePodsWrite": "Pods schreiben",
+        "scopePodsWriteDesc": "Pods erstellen, beenden und Lebenszyklus verwalten",
+        "scopeTicketsRead": "Tickets lesen",
+        "scopeTicketsReadDesc": "Tickets, Board und Ticketdetails auflisten und anzeigen",
+        "scopeTicketsWrite": "Tickets schreiben",
+        "scopeTicketsWriteDesc": "Tickets erstellen, aktualisieren, löschen und Status ändern",
+        "scopeChannelsRead": "Kanäle lesen",
+        "scopeChannelsReadDesc": "Kanäle auflisten, Details anzeigen und Nachrichten lesen",
+        "scopeChannelsWrite": "Kanäle schreiben",
+        "scopeChannelsWriteDesc": "Kanäle erstellen, aktualisieren und Nachrichten senden",
+        "scopeRunnersRead": "Runner lesen",
+        "scopeRunnersReadDesc": "Runner auflisten, Details, Status und zugehörige Pods anzeigen",
+        "scopeReposRead": "Repositories lesen",
+        "scopeReposReadDesc": "Repositories auflisten, Details, Branches und Merge Requests anzeigen",
+        "expirationLabel": "Ablauf",
+        "expirationNever": "Nie",
+        "expiration30d": "30 Tage",
+        "expiration90d": "90 Tage",
+        "expiration1y": "1 Jahr",
+        "cancel": "Abbrechen",
+        "create": "Erstellen",
+        "creating": "Erstellen..."
+      },
+      "secretDialog": {
+        "title": "API-Schlüssel erstellt",
+        "description": "Kopieren Sie Ihren API-Schlüssel jetzt. Er kann nicht erneut angezeigt werden.",
+        "copy": "Kopieren",
+        "done": "Fertig"
+      },
+      "editDialog": {
+        "title": "API-Schlüssel bearbeiten",
+        "save": "Änderungen speichern",
+        "saving": "Speichern...",
+        "cancel": "Abbrechen"
+      },
+      "revokeDialog": {
+        "title": "API-Schlüssel widerrufen",
+        "description": "Möchten Sie diesen API-Schlüssel wirklich widerrufen? Alle Dienste, die ihn verwenden, verlieren sofort den Zugriff.",
+        "revoke": "Widerrufen",
+        "cancel": "Abbrechen"
+      },
+      "deleteDialog": {
+        "title": "API-Schlüssel löschen",
+        "description": "Möchten Sie diesen API-Schlüssel wirklich dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "delete": "Löschen",
+        "cancel": "Abbrechen"
+      }
     }
   }
 }

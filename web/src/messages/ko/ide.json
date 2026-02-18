@@ -104,6 +104,8 @@
           "gitProvidersDesc": "Git integrations",
           "notifications": "Notifications",
           "notificationsDesc": "Notification preferences",
+          "apiKeys": "API 키",
+          "apiKeysDesc": "서드파티 연동",
           "billing": "Billing",
           "billingDesc": "Subscription and payments"
         }

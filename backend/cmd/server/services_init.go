@@ -10,6 +10,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/storage"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
+	apikeyservice "github.com/anthropics/agentsmesh/backend/internal/service/apikey"
 	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	"github.com/anthropics/agentsmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentsmesh/backend/internal/service/binding"
@@ -55,6 +56,8 @@ type serviceContainer struct {
 	agentpodSettings   *agentpod.SettingsService
 	agentpodAIProvider *agentpod.AIProviderService
 	license           *license.Service
+	apikey            *apikeyservice.Service
+	apikeyAdapter     *apikeyservice.MiddlewareAdapter
 	email             email.Service
 }
 
@@ -112,6 +115,10 @@ func initializeServices(cfg *config.Config, db *gorm.DB, redisClient *redis.Clie
 	// Initialize storage (S3-compatible)
 	fileSvc := initializeFileService(cfg, db)
 
+	// Initialize API key service
+	apikeySvc := apikeyservice.NewService(db, redisClient)
+	apikeyAdapterSvc := apikeyservice.NewMiddlewareAdapter(apikeySvc)
+
 	// Initialize license service (for OnPremise deployments)
 	licenseSvc := initializeLicenseService(cfg, db)
 
@@ -139,6 +146,8 @@ func initializeServices(cfg *config.Config, db *gorm.DB, redisClient *redis.Clie
 		agentpodSettings:   agentpodSettingsSvc,
 		agentpodAIProvider: agentpodAIProviderSvc,
 		license:            licenseSvc,
+		apikey:             apikeySvc,
+		apikeyAdapter:      apikeyAdapterSvc,
 		email:              emailSvc,
 	}
 }

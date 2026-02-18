@@ -500,6 +500,91 @@
         "next": "Next",
         "page": "Page {page}"
       }
+    },
+    "apiKeys": {
+      "title": "APIキー",
+      "description": "サードパーティサービス連携用のAPIキーを管理",
+      "createKey": "APIキーを作成",
+      "loading": "APIキーを読み込み中...",
+      "noKeys": "APIキーはまだありません。サードパーティサービスが組織のリソースにアクセスできるよう作成してください。",
+      "enabled": "有効",
+      "disabled": "無効",
+      "neverExpires": "無期限",
+      "expiresAt": "有効期限 {date}",
+      "lastUsed": "最終使用 {time}",
+      "neverUsed": "未使用",
+      "loadError": "APIキーの読み込みに失敗しました",
+      "dismiss": "閉じる",
+      "expired": "期限切れ",
+      "justNow": "たった今",
+      "minutesAgo": "{count}分前",
+      "hoursAgo": "{count}時間前",
+      "daysAgo": "{count}日前",
+      "scopeGroupPods": "Pod",
+      "scopeGroupTickets": "チケット",
+      "scopeGroupChannels": "チャンネル",
+      "scopeGroupRunners": "ランナー",
+      "scopeGroupRepositories": "リポジトリ",
+      "createFailed": "APIキーの作成に失敗しました",
+      "updateFailed": "APIキーの更新に失敗しました",
+      "revokeFailed": "APIキーの無効化に失敗しました",
+      "scopes": "スコープ",
+      "createDialog": {
+        "title": "APIキーを作成",
+        "nameLabel": "名前",
+        "namePlaceholder": "例: CI/CDパイプライン",
+        "descriptionLabel": "説明",
+        "descriptionPlaceholder": "このキーの用途は？",
+        "scopesLabel": "権限",
+        "scopePodsRead": "Podの読み取り",
+        "scopePodsReadDesc": "Podの一覧表示、詳細、ステータス、ログの閲覧",
+        "scopePodsWrite": "Podの書き込み",
+        "scopePodsWriteDesc": "Podの作成、終了、ライフサイクル管理",
+        "scopeTicketsRead": "チケットの読み取り",
+        "scopeTicketsReadDesc": "チケット、ボード、チケット詳細の一覧表示と閲覧",
+        "scopeTicketsWrite": "チケットの書き込み",
+        "scopeTicketsWriteDesc": "チケットの作成、更新、削除、ステータス変更",
+        "scopeChannelsRead": "チャンネルの読み取り",
+        "scopeChannelsReadDesc": "チャンネルの一覧表示、詳細の閲覧、メッセージの読み取り",
+        "scopeChannelsWrite": "チャンネルの書き込み",
+        "scopeChannelsWriteDesc": "チャンネルの作成、更新、メッセージの送信",
+        "scopeRunnersRead": "ランナーの読み取り",
+        "scopeRunnersReadDesc": "ランナーの一覧表示、詳細、ステータス、関連Podの閲覧",
+        "scopeReposRead": "リポジトリの読み取り",
+        "scopeReposReadDesc": "リポジトリの一覧表示、詳細、ブランチ、マージリクエストの閲覧",
+        "expirationLabel": "有効期限",
+        "expirationNever": "無期限",
+        "expiration30d": "30日",
+        "expiration90d": "90日",
+        "expiration1y": "1年",
+        "cancel": "キャンセル",
+        "create": "作成",
+        "creating": "作成中..."
+      },
+      "secretDialog": {
+        "title": "APIキーが作成されました",
+        "description": "今すぐAPIキーをコピーしてください。再度表示することはできません。",
+        "copy": "コピー",
+        "done": "完了"
+      },
+      "editDialog": {
+        "title": "APIキーを編集",
+        "save": "変更を保存",
+        "saving": "保存中...",
+        "cancel": "キャンセル"
+      },
+      "revokeDialog": {
+        "title": "APIキーを無効化",
+        "description": "このAPIキーを無効化しますか？このキーを使用しているすべてのサービスは即座にアクセスできなくなります。",
+        "revoke": "無効化",
+        "cancel": "キャンセル"
+      },
+      "deleteDialog": {
+        "title": "APIキーを削除",
+        "description": "このAPIキーを完全に削除しますか？この操作は取り消せません。",
+        "delete": "削除",
+        "cancel": "キャンセル"
+      }
     }
   }
 }

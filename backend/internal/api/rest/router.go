@@ -39,7 +39,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 	corsConfig := cors.Config{
 		AllowOrigins:     cfg.Server.CORSAllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Organization-Slug"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Organization-Slug", "X-API-Key"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}
@@ -150,6 +150,15 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 		// Note: Runner communication is now via gRPC/mTLS (see internal/api/grpc/)
 		// MCP tool communication has been migrated to gRPC bidirectional stream.
 		// The Pod REST API (/api/v1/orgs/:slug/pod/*) has been removed.
+	}
+
+	// External API (API key authenticated, for third-party service access)
+	if svc.APIKeyAdapter != nil {
+		extScoped := apiV1.Group("/ext/orgs/:slug")
+		extScoped.Use(middleware.APIKeyAuthMiddleware(svc.APIKeyAdapter, svc.Org))
+		{
+			v1.RegisterExtRoutes(extScoped, svc)
+		}
 	}
 
 	// Admin Console routes

@@ -1,0 +1,125 @@
+package apikey
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/anthropics/agentsmesh/backend/internal/domain/apikey"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+// setupTestDB creates an in-memory SQLite database for testing
+func setupTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger:                                   logger.Default.LogMode(logger.Silent),
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
+	if err != nil {
+		t.Fatalf("failed to connect database: %v", err)
+	}
+
+	// Create table manually for SQLite compatibility (JSONB → TEXT)
+	err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS api_keys (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			organization_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT,
+			key_prefix TEXT NOT NULL,
+			key_hash TEXT NOT NULL UNIQUE,
+			scopes TEXT NOT NULL DEFAULT '[]',
+			is_enabled INTEGER NOT NULL DEFAULT 1,
+			expires_at DATETIME,
+			last_used_at DATETIME,
+			created_by INTEGER NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`).Error
+	if err != nil {
+		t.Fatalf("failed to create api_keys table: %v", err)
+	}
+
+	return db
+}
+
+// newTestService creates a Service with an in-memory DB and nil redis
+func newTestService(t *testing.T) (*Service, *gorm.DB) {
+	db := setupTestDB(t)
+	svc := NewService(db, nil)
+	return svc, db
+}
+
+// createTestAPIKey is a convenience helper that creates an API key via the service
+// and returns both the response (containing the raw key) and the persisted record.
+func createTestAPIKey(t *testing.T, svc *Service, orgID int64, name string, scopes []string) (*CreateAPIKeyResponse, *apikey.APIKey) {
+	t.Helper()
+	ctx := context.Background()
+
+	resp, err := svc.CreateAPIKey(ctx, &CreateAPIKeyRequest{
+		OrganizationID: orgID,
+		CreatedBy:      1,
+		Name:           name,
+		Scopes:         scopes,
+	})
+	if err != nil {
+		t.Fatalf("createTestAPIKey: failed to create key %q: %v", name, err)
+	}
+
+	return resp, resp.APIKey
+}
+
+// createTestAPIKeyWithExpiry creates an API key that expires in the given duration.
+func createTestAPIKeyWithExpiry(t *testing.T, svc *Service, orgID int64, name string, scopes []string, expiresIn int) *CreateAPIKeyResponse {
+	t.Helper()
+	ctx := context.Background()
+
+	resp, err := svc.CreateAPIKey(ctx, &CreateAPIKeyRequest{
+		OrganizationID: orgID,
+		CreatedBy:      1,
+		Name:           name,
+		Scopes:         scopes,
+		ExpiresIn:      &expiresIn,
+	})
+	if err != nil {
+		t.Fatalf("createTestAPIKeyWithExpiry: failed to create key %q: %v", name, err)
+	}
+
+	return resp
+}
+
+// createExpiredAPIKey creates an API key and directly sets its expiry to the past in the DB.
+func createExpiredAPIKey(t *testing.T, svc *Service, db *gorm.DB, orgID int64, name string, scopes []string) (*CreateAPIKeyResponse, *apikey.APIKey) {
+	t.Helper()
+	resp, key := createTestAPIKey(t, svc, orgID, name, scopes)
+
+	past := time.Now().Add(-24 * time.Hour)
+	err := db.Model(&apikey.APIKey{}).Where("id = ?", key.ID).Update("expires_at", past).Error
+	if err != nil {
+		t.Fatalf("createExpiredAPIKey: failed to set past expiry: %v", err)
+	}
+
+	return resp, key
+}
+
+// createDisabledAPIKey creates an API key and disables it in the DB.
+func createDisabledAPIKey(t *testing.T, svc *Service, db *gorm.DB, orgID int64, name string, scopes []string) (*CreateAPIKeyResponse, *apikey.APIKey) {
+	t.Helper()
+	resp, key := createTestAPIKey(t, svc, orgID, name, scopes)
+
+	err := db.Model(&apikey.APIKey{}).Where("id = ?", key.ID).Update("is_enabled", false).Error
+	if err != nil {
+		t.Fatalf("createDisabledAPIKey: failed to disable key: %v", err)
+	}
+
+	return resp, key
+}
+
+// strPtr is a helper to create *string values.
+func strPtr(s string) *string { return &s }
+
+// boolPtr is a helper to create *bool values.
+func boolPtr(b bool) *bool { return &b }

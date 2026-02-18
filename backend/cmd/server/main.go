@@ -163,6 +163,8 @@ func main() {
 		AgentPodSettings:   services.agentpodSettings,
 		AgentPodAIProvider: services.agentpodAIProvider,
 		License:            services.license,
+		APIKey:             services.apikey,
+		APIKeyAdapter:      services.apikeyAdapter,
 		GRPCRunnerHandler:  grpcRunnerHandler,
 		SandboxQueryService: sandboxQuerySvc,
 		SandboxQuerySender:  sandboxQuerySender,
