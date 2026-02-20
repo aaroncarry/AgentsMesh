@@ -1,6 +1,6 @@
 module github.com/anthropics/agentsmesh/runner
 
-go 1.24.11
+go 1.25
 
 replace github.com/anthropics/agentsmesh/proto => ../proto
 
@@ -17,6 +17,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.11.1
+	github.com/thejerf/suture/v4 v4.0.6
 	golang.org/x/term v0.38.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.78.0
@@ -59,7 +60,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/thejerf/suture/v4 v4.0.6 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	gitlab.com/gitlab-org/api/client-go v1.9.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
