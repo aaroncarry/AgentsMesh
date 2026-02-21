@@ -293,7 +293,6 @@ export const ticketApi = {
     initial_prompt?: string;
     model?: string;
     permission_mode?: string;
-    think_level?: string;
   }) =>
     request<{
       message: string;

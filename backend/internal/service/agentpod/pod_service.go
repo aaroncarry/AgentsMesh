@@ -52,7 +52,6 @@ type CreatePodRequest struct {
 	Model             string
 	PermissionMode    string
 	SkipPermissions   bool
-	ThinkLevel        string
 	PreparationConfig *agentpod.PreparationConfig
 	EnvVars           map[string]string
 
@@ -83,11 +82,6 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 	if permissionMode == "" {
 		permissionMode = agentpod.PermissionModePlan
 	}
-	thinkLevel := req.ThinkLevel
-	if thinkLevel == "" {
-		thinkLevel = agentpod.ThinkLevelUltrathink
-	}
-
 	// Handle session ID
 	var sessionID *string
 	if req.SessionID != "" {
@@ -115,7 +109,6 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 		BranchName:        req.BranchName,
 		Model:             &model,
 		PermissionMode:    &permissionMode,
-		ThinkLevel:        &thinkLevel,
 		SessionID:         sessionID,
 		SourcePodKey:      sourcePodKey,
 	}

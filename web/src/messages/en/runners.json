@@ -202,15 +202,6 @@
         "dangerously_skip_permissions": {
           "label": "Skip Permission Checks",
           "description": "WARNING: Bypass all permission prompts. The agent will execute commands without asking for approval. Use with caution."
-        },
-        "think_level": {
-          "label": "Think Level",
-          "description": "Extended thinking capability for complex reasoning",
-          "options": {
-            "": "Default",
-            "megathink": "Megathink",
-            "ultrathink": "Ultrathink"
-          }
         }
       }
     },

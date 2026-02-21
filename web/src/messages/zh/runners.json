@@ -202,15 +202,6 @@
         "dangerously_skip_permissions": {
           "label": "跳过权限检查",
           "description": "警告：绕过所有权限提示。Agent 将在不请求批准的情况下执行命令。请谨慎使用。"
-        },
-        "think_level": {
-          "label": "思考级别",
-          "description": "用于复杂推理的扩展思考能力",
-          "options": {
-            "": "默认",
-            "megathink": "超级思考",
-            "ultrathink": "深度思考"
-          }
         }
       }
     },
