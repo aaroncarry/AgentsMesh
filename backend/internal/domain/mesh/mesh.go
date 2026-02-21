@@ -98,7 +98,6 @@ type CreatePodForTicketRequest struct {
 	InitialPrompt  string `json:"initial_prompt,omitempty"`
 	Model          string `json:"model,omitempty"`
 	PermissionMode string `json:"permission_mode,omitempty"`
-	ThinkLevel     string `json:"think_level,omitempty"`
 }
 
 // TicketPodInfo represents pod information for a ticket

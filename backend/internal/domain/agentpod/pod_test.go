@@ -46,18 +46,6 @@ func TestAgentStatusConstants(t *testing.T) {
 	}
 }
 
-func TestThinkLevelConstants(t *testing.T) {
-	if ThinkLevelNone != "" {
-		t.Errorf("expected empty string, got '%s'", ThinkLevelNone)
-	}
-	if ThinkLevelUltrathink != "ultrathink" {
-		t.Errorf("expected 'ultrathink', got '%s'", ThinkLevelUltrathink)
-	}
-	if ThinkLevelMegathink != "megathink" {
-		t.Errorf("expected 'megathink', got '%s'", ThinkLevelMegathink)
-	}
-}
-
 func TestPermissionModeConstants(t *testing.T) {
 	tests := []struct {
 		constant string

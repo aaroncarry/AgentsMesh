@@ -16,7 +16,6 @@ export interface CreatePodForTicketRequest {
   initial_prompt?: string;
   model?: string;
   permission_mode?: string;
-  think_level?: string;
 }
 
 interface MeshState {

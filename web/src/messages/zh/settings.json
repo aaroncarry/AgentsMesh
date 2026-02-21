@@ -275,10 +275,6 @@
           "label": "跳过权限确认",
           "description": "跳过权限确认提示（危险）"
         },
-        "thinkLevel": {
-          "label": "思考深度",
-          "description": "响应的思考深度级别"
-        },
         "customConfig": {
           "label": "自定义配置",
           "description": "输入自定义配置（高级）"
@@ -302,11 +298,6 @@
       "permissionOptions": {
         "plan": "计划模式",
         "default": "默认模式"
-      },
-      "thinkLevelOptions": {
-        "ultrathink": "深度思考",
-        "megathink": "超级思考",
-        "default": "默认"
       }
     },
     "credentials": {

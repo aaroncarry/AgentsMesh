@@ -311,7 +311,6 @@ func TestCreatePodForTicketRequestStruct(t *testing.T) {
 		InitialPrompt:  "Start working on ticket",
 		Model:          "opus",
 		PermissionMode: "bypassPermissions",
-		ThinkLevel:     "ultrathink",
 	}
 
 	if req.OrganizationID != 100 {
@@ -322,9 +321,6 @@ func TestCreatePodForTicketRequestStruct(t *testing.T) {
 	}
 	if req.Model != "opus" {
 		t.Errorf("expected Model 'opus', got %s", req.Model)
-	}
-	if req.ThinkLevel != "ultrathink" {
-		t.Errorf("expected ThinkLevel 'ultrathink', got %s", req.ThinkLevel)
 	}
 }
 

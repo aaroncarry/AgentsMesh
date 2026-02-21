@@ -110,8 +110,8 @@ func TestUserConfigService_SetUserAgentConfig(t *testing.T) {
 		}
 
 		updatedConfig, err := svc.SetUserAgentConfig(ctx, 3, at.ID, agent.ConfigValues{
-			"model":       "sonnet",
-			"think_level": "high",
+			"model":           "sonnet",
+			"permission_mode": "default",
 		})
 		if err != nil {
 			t.Errorf("Update SetUserAgentConfig failed: %v", err)
@@ -119,8 +119,8 @@ func TestUserConfigService_SetUserAgentConfig(t *testing.T) {
 		if updatedConfig.ConfigValues["model"] != "sonnet" {
 			t.Errorf("model should be updated to sonnet, got %v", updatedConfig.ConfigValues["model"])
 		}
-		if updatedConfig.ConfigValues["think_level"] != "high" {
-			t.Errorf("think_level = %v, want high", updatedConfig.ConfigValues["think_level"])
+		if updatedConfig.ConfigValues["permission_mode"] != "default" {
+			t.Errorf("permission_mode = %v, want default", updatedConfig.ConfigValues["permission_mode"])
 		}
 	})
 
@@ -249,7 +249,7 @@ func TestUserConfigService_GetUserEffectiveConfig(t *testing.T) {
 
 		overrides := agent.ConfigValues{
 			"model":       "sonnet",
-			"think_level": "high",
+			"mcp_enabled": true,
 		}
 
 		config := svc.GetUserEffectiveConfig(ctx, 2, at.ID, overrides)
@@ -260,8 +260,8 @@ func TestUserConfigService_GetUserEffectiveConfig(t *testing.T) {
 		if config["permission_mode"] != "plan" {
 			t.Errorf("permission_mode = %v, want plan", config["permission_mode"])
 		}
-		if config["think_level"] != "high" {
-			t.Errorf("think_level = %v, want high", config["think_level"])
+		if config["mcp_enabled"] != true {
+			t.Errorf("mcp_enabled = %v, want true", config["mcp_enabled"])
 		}
 	})
 

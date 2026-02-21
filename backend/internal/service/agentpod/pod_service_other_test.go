@@ -57,7 +57,6 @@ func TestCreatePodRequest(t *testing.T) {
 		Model:             "opus",
 		PermissionMode:    "plan",
 		SkipPermissions:   true,
-		ThinkLevel:        "ultrathink",
 		EnvVars:           map[string]string{"KEY": "VALUE"},
 	}
 

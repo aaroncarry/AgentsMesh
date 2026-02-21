@@ -36,7 +36,6 @@ func TestCreatePod(t *testing.T) {
 				InitialPrompt:  "Test prompt",
 				Model:          "sonnet",
 				PermissionMode: "default",
-				ThinkLevel:     "megathink",
 			},
 			wantErr: false,
 		},
@@ -101,9 +100,6 @@ func TestCreatePod_DefaultValues(t *testing.T) {
 	}
 	if sess.PermissionMode == nil || *sess.PermissionMode != agentpod.PermissionModePlan {
 		t.Error("Default permission mode should be plan")
-	}
-	if sess.ThinkLevel == nil || *sess.ThinkLevel != agentpod.ThinkLevelUltrathink {
-		t.Error("Default think level should be ultrathink")
 	}
 }
 

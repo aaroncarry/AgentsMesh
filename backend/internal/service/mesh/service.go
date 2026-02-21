@@ -206,7 +206,6 @@ func (s *Service) CreatePodForTicket(ctx context.Context, req *mesh.CreatePodFor
 		InitialPrompt:  req.InitialPrompt,
 		Model:          req.Model,
 		PermissionMode: req.PermissionMode,
-		ThinkLevel:     req.ThinkLevel,
 	})
 }
 

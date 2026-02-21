@@ -275,10 +275,6 @@
           "label": "Skip Permissions",
           "description": "Skip permission confirmation prompts (dangerous)"
         },
-        "thinkLevel": {
-          "label": "Think Level",
-          "description": "Thinking depth level for responses"
-        },
         "customConfig": {
           "label": "Custom Configuration",
           "description": "Enter custom configuration (advanced)"
@@ -302,11 +298,6 @@
       "permissionOptions": {
         "plan": "Plan Mode",
         "default": "Default Mode"
-      },
-      "thinkLevelOptions": {
-        "ultrathink": "Ultrathink",
-        "megathink": "Megathink",
-        "default": "Default"
       }
     },
     "credentials": {

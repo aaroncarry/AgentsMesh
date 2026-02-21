@@ -49,7 +49,6 @@ type CreatePodForTicketRequest struct {
 	InitialPrompt  string `json:"initial_prompt"`
 	Model          string `json:"model"`
 	PermissionMode string `json:"permission_mode"`
-	ThinkLevel     string `json:"think_level"`
 }
 
 // CreatePodForTicket creates a new pod for a ticket
@@ -80,7 +79,6 @@ func (h *MeshHandler) CreatePodForTicket(c *gin.Context) {
 		InitialPrompt:  req.InitialPrompt,
 		Model:          req.Model,
 		PermissionMode: req.PermissionMode,
-		ThinkLevel:     req.ThinkLevel,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create pod: " + err.Error()})
