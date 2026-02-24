@@ -5,7 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func runRegister(args []string) {
@@ -14,6 +17,7 @@ func runRegister(args []string) {
 	token := fs.String("token", "", "Registration token (for token-based registration)")
 	nodeID := fs.String("node-id", "", "Node ID for this runner (default: hostname)")
 	headless := fs.Bool("headless", false, "Run without opening browser automatically (for SSH/remote sessions)")
+	force := fs.Bool("force", false, "Skip confirmation when overwriting existing registration")
 
 	fs.Usage = func() {
 		fmt.Println(`Register this runner with the AgentsMesh server using gRPC/mTLS.
@@ -26,14 +30,14 @@ Examples:
   runner register --headless         # Interactive without browser (for SSH)
   runner register --token <token>    # Token-based registration
   runner register --server <url>     # Self-hosted server
+  runner register --force            # Overwrite existing registration without confirmation
 
 Options:
   --server <url>     Server URL (default: https://agentsmesh.ai)
   --token <token>    Registration token for automated deployment
   --node-id <id>     Runner node ID (default: hostname)
   --headless         Don't open browser (for SSH/remote sessions)
-
-After successful registration, certificates and configuration will be saved to ~/.agentsmesh/`)
+  --force            Skip confirmation when overwriting existing registration`)
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -55,6 +59,29 @@ After successful registration, certificates and configuration will be saved to ~
 
 	fmt.Printf("Registering runner '%s' with server %s...\n", nID, *serverURL)
 
+	// Check for existing registration and warn user
+	if existingOrg := checkExistingRegistration(); existingOrg != "" {
+		fmt.Printf("\n⚠️  WARNING: This runner is already registered to organization '%s'.\n", existingOrg)
+		fmt.Println("   Re-registering will overwrite the existing configuration and certificates.")
+		fmt.Println("   The old configuration will be backed up automatically.")
+		fmt.Println()
+		if !*force {
+			if *token != "" {
+				// Token-based registration requires --force to overwrite
+				fmt.Fprintln(os.Stderr, "Use --force to overwrite existing registration in token mode.")
+				os.Exit(1)
+			}
+			// Interactive mode: prompt for confirmation
+			fmt.Print("Continue? [y/N]: ")
+			var answer string
+			fmt.Scanln(&answer)
+			if answer != "y" && answer != "Y" && answer != "yes" && answer != "Yes" {
+				fmt.Println("Registration cancelled.")
+				os.Exit(0)
+			}
+		}
+	}
+
 	// gRPC/mTLS registration
 	if *token != "" {
 		// Token-based registration
@@ -70,4 +97,29 @@ After successful registration, certificates and configuration will be saved to ~
 		}
 	}
 	fmt.Println("gRPC/mTLS Registration successful!")
+}
+
+// checkExistingRegistration checks if there's an existing registration config.
+// Returns the org slug if found, empty string otherwise.
+func checkExistingRegistration() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	configFile := filepath.Join(home, ".agentsmesh", "config.yaml")
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return ""
+	}
+
+	// Parse just the org_slug field
+	var cfg struct {
+		OrgSlug string `yaml:"org_slug"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
+
+	return cfg.OrgSlug
 }

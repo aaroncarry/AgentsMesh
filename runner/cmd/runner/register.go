@@ -109,6 +109,45 @@ func reactivateRunner(ctx context.Context, serverURL, token string) error {
 	return nil
 }
 
+// backupExistingConfig backs up existing configuration and certificates before overwriting.
+// Files are backed up as config.<org-slug>.yaml.bak and certs.<org-slug>.bak/
+func backupExistingConfig(configDir string) {
+	configFile := filepath.Join(configDir, "config.yaml")
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return // No existing config to backup
+	}
+
+	// Parse org_slug from existing config
+	var cfg struct {
+		OrgSlug string `yaml:"org_slug"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil || cfg.OrgSlug == "" {
+		return
+	}
+
+	// Backup config file
+	backupConfigFile := filepath.Join(configDir, fmt.Sprintf("config.%s.yaml.bak", cfg.OrgSlug))
+	if err := os.WriteFile(backupConfigFile, data, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to backup config: %v\n", err)
+	} else {
+		fmt.Printf("  Backed up config to %s\n", backupConfigFile)
+	}
+
+	// Backup certs directory
+	certsDir := filepath.Join(configDir, "certs")
+	backupCertsDir := filepath.Join(configDir, fmt.Sprintf("certs.%s.bak", cfg.OrgSlug))
+	if _, err := os.Stat(certsDir); err == nil {
+		// Remove old backup if exists
+		os.RemoveAll(backupCertsDir)
+		if err := os.Rename(certsDir, backupCertsDir); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to backup certs: %v\n", err)
+		} else {
+			fmt.Printf("  Backed up certs to %s\n", backupCertsDir)
+		}
+	}
+}
+
 // saveGRPCConfig saves gRPC registration result to ~/.agentsmesh/
 func saveGRPCConfig(nodeID, serverURL, orgSlug, certPEM, keyPEM, caCertPEM, grpcEndpoint string) error {
 	cfg := &config.Config{
@@ -133,6 +172,9 @@ func saveGRPCConfig(nodeID, serverURL, orgSlug, certPEM, keyPEM, caCertPEM, grpc
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
+
+	// Backup existing configuration before overwriting
+	backupExistingConfig(configDir)
 
 	grpcConfig := savedGRPCConfig{
 		ServerURL:         serverURL,

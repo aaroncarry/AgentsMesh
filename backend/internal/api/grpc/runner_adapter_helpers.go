@@ -12,22 +12,20 @@ import (
 
 // validateRunner validates the Runner exists and belongs to the organization.
 func (a *GRPCRunnerAdapter) validateRunner(ctx context.Context, identity *ClientIdentity) (*RunnerInfo, error) {
-	runner, err := a.runnerService.GetByNodeID(ctx, identity.NodeID)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "runner not found")
-	}
-
-	if !runner.IsEnabled {
-		return nil, status.Error(codes.PermissionDenied, "runner is disabled")
-	}
-
+	// Look up org first to get orgID
 	org, err := a.orgService.GetBySlug(ctx, identity.OrgSlug)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "organization not found")
 	}
 
-	if runner.OrganizationID != org.ID {
-		return nil, status.Error(codes.PermissionDenied, "runner does not belong to this organization")
+	// Use precise (node_id, org_id) lookup to avoid cross-org mismatch
+	runner, err := a.runnerService.GetByNodeIDAndOrgID(ctx, identity.NodeID, org.ID)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "runner not found for this organization")
+	}
+
+	if !runner.IsEnabled {
+		return nil, status.Error(codes.PermissionDenied, "runner is disabled")
 	}
 
 	return &runner, nil

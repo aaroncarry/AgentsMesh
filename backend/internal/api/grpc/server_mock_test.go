@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 )
@@ -60,8 +61,22 @@ func (m *mockRunnerService) UpdateRunnerVersionAndHostInfo(ctx context.Context, 
 	return m.err
 }
 
+func (m *mockRunnerService) GetByNodeIDAndOrgID(ctx context.Context, nodeID string, orgID int64) (RunnerInfo, error) {
+	if m.err != nil {
+		return RunnerInfo{}, m.err
+	}
+	key := fmt.Sprintf("%s:%d", nodeID, orgID)
+	if runner, ok := m.runners[key]; ok {
+		return runner, nil
+	}
+	return RunnerInfo{}, context.DeadlineExceeded
+}
+
 func (m *mockRunnerService) AddRunner(nodeID string, runner RunnerInfo) {
 	m.runners[nodeID] = runner
+	// Also register with composite key for GetByNodeIDAndOrgID
+	key := fmt.Sprintf("%s:%d", nodeID, runner.OrganizationID)
+	m.runners[key] = runner
 }
 
 func (m *mockRunnerService) SetCertificateRevoked(serialNumber string, revoked bool) {
