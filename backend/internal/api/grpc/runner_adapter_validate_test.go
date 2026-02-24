@@ -50,6 +50,11 @@ func TestGRPCRunnerAdapter_ValidateRunner_NotFound(t *testing.T) {
 	orgSvc := newMockOrgService()
 	connMgr := runner.NewRunnerConnectionManager(logger)
 
+	orgSvc.AddOrg("test-org", OrganizationInfo{
+		ID:   100,
+		Slug: "test-org",
+	})
+
 	adapter := NewGRPCRunnerAdapter(logger, nil, runnerSvc, orgSvc, nil, nil, connMgr, nil)
 
 	identity := &ClientIdentity{
@@ -59,7 +64,7 @@ func TestGRPCRunnerAdapter_ValidateRunner_NotFound(t *testing.T) {
 
 	_, err := adapter.validateRunner(context.Background(), identity)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "runner not found")
+	assert.Contains(t, err.Error(), "runner not found for this organization")
 }
 
 func TestGRPCRunnerAdapter_ValidateRunner_Disabled(t *testing.T) {
@@ -73,6 +78,10 @@ func TestGRPCRunnerAdapter_ValidateRunner_Disabled(t *testing.T) {
 		NodeID:         "disabled-node",
 		OrganizationID: 100,
 		IsEnabled:      false, // Disabled
+	})
+	orgSvc.AddOrg("test-org", OrganizationInfo{
+		ID:   100,
+		Slug: "test-org",
 	})
 
 	adapter := NewGRPCRunnerAdapter(logger, nil, runnerSvc, orgSvc, nil, nil, connMgr, nil)
@@ -113,7 +122,7 @@ func TestGRPCRunnerAdapter_ValidateRunner_WrongOrg(t *testing.T) {
 
 	_, err := adapter.validateRunner(context.Background(), identity)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not belong to this organization")
+	assert.Contains(t, err.Error(), "runner not found for this organization")
 }
 
 func TestGRPCRunnerAdapter_ValidateRunner_OrgNotFound(t *testing.T) {
@@ -140,4 +149,46 @@ func TestGRPCRunnerAdapter_ValidateRunner_OrgNotFound(t *testing.T) {
 	_, err := adapter.validateRunner(context.Background(), identity)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "organization not found")
+}
+
+func TestGRPCRunnerAdapter_ValidateRunner_SameNodeDifferentOrgs(t *testing.T) {
+	logger := newTestLogger()
+	runnerSvc := newMockRunnerService()
+	orgSvc := newMockOrgService()
+	connMgr := runner.NewRunnerConnectionManager(logger)
+
+	// Same node_id registered in two different organizations
+	runnerSvc.AddRunner("shared-node", RunnerInfo{
+		ID:             1,
+		NodeID:         "shared-node",
+		OrganizationID: 100,
+		IsEnabled:      true,
+	})
+	// AddRunner with nodeID "shared-node" will overwrite the nodeID key,
+	// but composite keys "shared-node:100" and "shared-node:200" remain separate
+	runnerSvc.runners["shared-node:200"] = RunnerInfo{
+		ID:             2,
+		NodeID:         "shared-node",
+		OrganizationID: 200,
+		IsEnabled:      true,
+	}
+
+	orgSvc.AddOrg("org-a", OrganizationInfo{ID: 100, Slug: "org-a"})
+	orgSvc.AddOrg("org-b", OrganizationInfo{ID: 200, Slug: "org-b"})
+
+	adapter := NewGRPCRunnerAdapter(logger, nil, runnerSvc, orgSvc, nil, nil, connMgr, nil)
+
+	// Connect with org-a credentials → should get runner 1
+	identityA := &ClientIdentity{NodeID: "shared-node", OrgSlug: "org-a"}
+	infoA, err := adapter.validateRunner(context.Background(), identityA)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), infoA.ID)
+	assert.Equal(t, int64(100), infoA.OrganizationID)
+
+	// Connect with org-b credentials → should get runner 2
+	identityB := &ClientIdentity{NodeID: "shared-node", OrgSlug: "org-b"}
+	infoB, err := adapter.validateRunner(context.Background(), identityB)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), infoB.ID)
+	assert.Equal(t, int64(200), infoB.OrganizationID)
 }

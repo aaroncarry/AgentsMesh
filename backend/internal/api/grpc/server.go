@@ -53,6 +53,7 @@ type ServerDependencies struct {
 // RunnerServiceInterface defines the runner service methods needed by gRPC server.
 type RunnerServiceInterface interface {
 	GetByNodeID(ctx context.Context, nodeID string) (RunnerInfo, error)
+	GetByNodeIDAndOrgID(ctx context.Context, nodeID string, orgID int64) (RunnerInfo, error)
 	UpdateLastSeen(ctx context.Context, runnerID int64) error
 	UpdateAvailableAgents(ctx context.Context, runnerID int64, agents []string) error
 	// IsCertificateRevoked checks if a certificate has been revoked.

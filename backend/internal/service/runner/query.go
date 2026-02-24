@@ -19,6 +19,18 @@ func (s *Service) GetByNodeID(ctx context.Context, nodeID string) (*runner.Runne
 	return &r, nil
 }
 
+// GetByNodeIDAndOrgID returns a runner by node ID within a specific organization.
+// This prevents cross-org runner mismatch when the same node_id exists in multiple orgs.
+func (s *Service) GetByNodeIDAndOrgID(ctx context.Context, nodeID string, orgID int64) (*runner.Runner, error) {
+	var r runner.Runner
+	if err := s.db.WithContext(ctx).
+		Where("node_id = ? AND organization_id = ?", nodeID, orgID).
+		First(&r).Error; err != nil {
+		return nil, ErrRunnerNotFound
+	}
+	return &r, nil
+}
+
 // UpdateLastSeen updates the last heartbeat time for a runner.
 // This is called when gRPC server receives messages from a runner.
 func (s *Service) UpdateLastSeen(ctx context.Context, runnerID int64) error {

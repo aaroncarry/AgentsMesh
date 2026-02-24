@@ -125,6 +125,24 @@ func (a *grpcRunnerServiceAdapter) GetByNodeID(ctx context.Context, nodeID strin
 	}, nil
 }
 
+func (a *grpcRunnerServiceAdapter) GetByNodeIDAndOrgID(ctx context.Context, nodeID string, orgID int64) (grpcserver.RunnerInfo, error) {
+	r, err := a.svc.GetByNodeIDAndOrgID(ctx, nodeID, orgID)
+	if err != nil {
+		return grpcserver.RunnerInfo{}, err
+	}
+	certSerial := ""
+	if r.CertSerialNumber != nil {
+		certSerial = *r.CertSerialNumber
+	}
+	return grpcserver.RunnerInfo{
+		ID:               r.ID,
+		NodeID:           r.NodeID,
+		OrganizationID:   r.OrganizationID,
+		IsEnabled:        r.IsEnabled,
+		CertSerialNumber: certSerial,
+	}, nil
+}
+
 func (a *grpcRunnerServiceAdapter) UpdateLastSeen(ctx context.Context, runnerID int64) error {
 	return a.svc.UpdateLastSeen(ctx, runnerID)
 }

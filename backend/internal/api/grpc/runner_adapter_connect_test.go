@@ -60,6 +60,12 @@ func TestGRPCRunnerAdapter_Connect_RunnerNotFound(t *testing.T) {
 	orgSvc := newMockOrgService()
 	connMgr := runner.NewRunnerConnectionManager(logger)
 
+	// Add org so validateRunner can find it, but no runner is registered
+	orgSvc.AddOrg("test-org", OrganizationInfo{
+		ID:   100,
+		Slug: "test-org",
+	})
+
 	adapter := NewGRPCRunnerAdapter(logger, nil, runnerSvc, orgSvc, nil, nil, connMgr, nil)
 
 	md := metadata.New(map[string]string{
@@ -74,7 +80,7 @@ func TestGRPCRunnerAdapter_Connect_RunnerNotFound(t *testing.T) {
 
 	err := adapter.Connect(mockStream)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "runner not found")
+	assert.Contains(t, err.Error(), "runner not found for this organization")
 }
 
 // NOTE: Certificate-related Connect tests are in runner_adapter_connect_cert_test.go
