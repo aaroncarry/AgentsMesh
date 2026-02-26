@@ -61,11 +61,6 @@ export default function TicketPodPanel({
     loadData();
   }, [fetchPods]);
 
-  // Poll for pod updates
-  useEffect(() => {
-    const interval = setInterval(fetchPods, 5000);
-    return () => clearInterval(interval);
-  }, [fetchPods]);
 
   const handlePodCreated = () => {
     setShowCreateForm(false);
