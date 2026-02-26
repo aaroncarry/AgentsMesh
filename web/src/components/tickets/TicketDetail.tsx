@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, lazy, Suspense, useCallback } from "react";
+import { useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,10 @@ import TicketPodPanel from "./TicketPodPanel";
 import { useTicketExtraData } from "./hooks";
 import { SubTicketsList, RelationsList, CommitsList, LabelsList, CommentsList } from "./shared";
 import { TicketDetailSidebar } from "./TicketDetailSidebar";
-import { TicketEditForm } from "./TicketEditForm";
+import { InlineEditableText } from "./InlineEditableText";
 
-// Lazy load BlockViewer to avoid SSR issues
-const BlockViewer = lazy(() =>
-  import("@/components/ui/block-editor").then((mod) => ({ default: mod.BlockViewer }))
-);
+// Lazy load BlockEditor for inline editing
+const BlockEditor = lazy(() => import("@/components/ui/block-editor"));
 
 interface TicketDetailProps {
   slug: string;
@@ -29,29 +27,53 @@ export function TicketDetail({ slug }: TicketDetailProps) {
   const { currentOrg } = useAuthStore();
   const { currentTicket, fetchTicket, updateTicket, updateTicketStatus, deleteTicket, loading, error } = useTicketStore();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
-
   // Confirm dialog for delete
   const { dialogProps, confirm } = useConfirmDialog();
 
   // Use shared hook for extra data
   const { subTickets, relations, commits, comments, addComment, updateComment, deleteComment } = useTicketExtraData(slug, !!currentTicket);
 
+  // Debounce timer for content auto-save
+  const contentSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (contentSaveTimerRef.current) {
+        clearTimeout(contentSaveTimerRef.current);
+      }
+    };
+  }, []);
+
   // Fetch ticket data
   useEffect(() => {
     fetchTicket(slug);
   }, [slug, fetchTicket]);
 
-  // Start editing - initialize edit fields from current ticket data
-  const startEditing = () => {
-    if (currentTicket) {
-      setEditTitle(currentTicket.title);
-      setEditContent(currentTicket.content || "");
+  // Handle inline title save
+  const handleTitleSave = useCallback(async (newTitle: string) => {
+    if (!newTitle.trim()) return;
+    try {
+      await updateTicket(slug, { title: newTitle });
+    } catch (err) {
+      console.error("Failed to update title:", err);
+      throw err;
     }
-    setIsEditing(true);
-  };
+  }, [slug, updateTicket]);
+
+  // Handle content change with debounced auto-save
+  const handleContentChange = useCallback((newContent: string) => {
+    if (contentSaveTimerRef.current) {
+      clearTimeout(contentSaveTimerRef.current);
+    }
+    contentSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await updateTicket(slug, { content: newContent });
+      } catch (err) {
+        console.error("Failed to update content:", err);
+      }
+    }, 800);
+  }, [slug, updateTicket]);
 
   // Handle status change
   const handleStatusChange = async (newStatus: TicketStatus) => {
@@ -71,19 +93,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   };
 
-  // Handle save edit
-  const handleSaveEdit = async () => {
-    try {
-      await updateTicket(slug, {
-        title: editTitle,
-        content: editContent,
-      });
-      setIsEditing(false);
-    } catch (err) {
-      console.error("Failed to update ticket:", err);
-    }
-  };
-
   // Handle delete with confirmation
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
@@ -96,8 +105,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     if (confirmed) {
       try {
         await deleteTicket(slug);
-        // Navigate to clean tickets list instead of router.back(),
-        // which may return to a page that tries to reload the deleted ticket
         router.push(`/${currentOrg?.slug}/tickets`);
       } catch (err) {
         console.error("Failed to delete ticket:", err);
@@ -150,28 +157,26 @@ export function TicketDetail({ slug }: TicketDetailProps) {
             </span>
           </div>
 
-          {isEditing ? (
-            <TicketEditForm
-              title={editTitle}
-              content={editContent}
-              onTitleChange={setEditTitle}
-              onContentChange={setEditContent}
-              onSave={handleSaveEdit}
-              onCancel={() => setIsEditing(false)}
-              t={t}
-            />
-          ) : (
-            <>
-              <h1 className="text-2xl font-semibold mb-2">{currentTicket.title}</h1>
-              {currentTicket.content && (
-                <div className="border border-border rounded-md overflow-hidden bg-card">
-                  <Suspense fallback={<div className="h-[100px] animate-pulse bg-muted" />}>
-                    <BlockViewer content={currentTicket.content} />
-                  </Suspense>
-                </div>
-              )}
-            </>
-          )}
+          {/* Inline editable title */}
+          <InlineEditableText
+            value={currentTicket.title}
+            onSave={handleTitleSave}
+            placeholder={t("tickets.createDialog.titlePlaceholder")}
+            className="text-2xl font-semibold leading-tight"
+            inputClassName="text-2xl font-semibold"
+          />
+
+          {/* Always-editable content */}
+          <div className="mt-4 border border-border rounded-md overflow-hidden bg-card min-h-[120px]">
+            <Suspense fallback={<div className="h-[120px] animate-pulse bg-muted" />}>
+              <BlockEditor
+                key={slug}
+                initialContent={currentTicket.content || ""}
+                onChange={handleContentChange}
+                editable={true}
+              />
+            </Suspense>
+          </div>
         </div>
 
         {/* Labels (using shared component) */}
@@ -212,8 +217,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
       {/* Sidebar */}
       <TicketDetailSidebar
         ticket={currentTicket}
-        isEditing={isEditing}
-        onEdit={startEditing}
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
         onRepositoryChange={handleRepositoryChange}

@@ -64,10 +64,12 @@ vi.mock('@/components/common/RepositorySelect', () => ({
   ),
 }))
 
-// Mock BlockViewer (lazy-loaded in TicketDetail via lazy(() => import(...).then(mod => ({ default: mod.BlockViewer }))))
+// Mock BlockEditor (lazy-loaded in TicketDetail, always editable)
 vi.mock('@/components/ui/block-editor', () => ({
   BlockViewer: ({ content }: { content: string }) => <div data-testid="block-viewer">{content}</div>,
-  default: ({ content }: { content: string }) => <div data-testid="block-viewer">{content}</div>,
+  default: ({ initialContent, onChange }: { initialContent: string; onChange?: (v: string) => void; editable?: boolean }) => (
+    <div data-testid="block-editor" onClick={() => onChange?.('updated content')}>{initialContent}</div>
+  ),
 }))
 
 // Mock TicketPodPanel
@@ -143,10 +145,12 @@ describe('TicketDetail Component', () => {
       })
     })
 
-    it('should render ticket description', async () => {
+    it('should render ticket description in block editor', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByText('This is the ticket description')).toBeInTheDocument()
+        const editor = screen.getByTestId('block-editor')
+        expect(editor).toBeInTheDocument()
+        expect(editor).toHaveTextContent('This is the ticket description')
       })
     })
 
@@ -476,64 +480,26 @@ describe('TicketDetail Component', () => {
     })
   })
 
-  describe('editing', () => {
-    it('should show edit button', async () => {
+  describe('inline editing (Linear-style)', () => {
+    it('should render inline editable title', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeInTheDocument()
+        // Title should be rendered as a clickable inline-editable element
+        expect(screen.getByText('Implement new feature')).toBeInTheDocument()
       })
     })
 
-    it('should enter edit mode when edit button is clicked', async () => {
+    it('should render block editor for content (always editable)', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        const editButton = screen.getByText('Edit')
-        fireEvent.click(editButton)
-      })
-
-      // Should show input for title
-      expect(screen.getByDisplayValue('Implement new feature')).toBeInTheDocument()
-      // Should show Save and Cancel buttons
-      expect(screen.getByText('Save')).toBeInTheDocument()
-      expect(screen.getByText('Cancel')).toBeInTheDocument()
-    })
-
-    it('should call updateTicket when save is clicked', async () => {
-      mockUpdateTicket.mockResolvedValue({})
-
-      render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        const editButton = screen.getByText('Edit')
-        fireEvent.click(editButton)
-      })
-
-      const titleInput = screen.getByDisplayValue('Implement new feature')
-      fireEvent.change(titleInput, { target: { value: 'Updated title' } })
-
-      const saveButton = screen.getByText('Save')
-      fireEvent.click(saveButton)
-
-      await waitFor(() => {
-        expect(mockUpdateTicket).toHaveBeenCalledWith('PROJ-42', {
-          title: 'Updated title',
-          content: 'This is the ticket description',
-        })
+        expect(screen.getByTestId('block-editor')).toBeInTheDocument()
       })
     })
 
-    it('should exit edit mode when cancel is clicked', async () => {
+    it('should not show a separate Edit button', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        const editButton = screen.getByText('Edit')
-        fireEvent.click(editButton)
-      })
-
-      const cancelButton = screen.getByText('Cancel')
-      fireEvent.click(cancelButton)
-
-      // Should show Edit button again
-      await waitFor(() => {
-        expect(screen.getByText('Edit')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
       })
     })
   })

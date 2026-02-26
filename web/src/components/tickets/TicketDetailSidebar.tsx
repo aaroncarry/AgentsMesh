@@ -7,8 +7,6 @@ import { RepositorySelect } from "@/components/common/RepositorySelect";
 
 interface TicketDetailSidebarProps {
   ticket: Ticket;
-  isEditing: boolean;
-  onEdit: () => void;
   onDelete: () => void;
   onStatusChange: (status: TicketStatus) => void;
   onRepositoryChange: (repositoryId: number | null) => void;
@@ -21,8 +19,6 @@ interface TicketDetailSidebarProps {
  */
 export function TicketDetailSidebar({
   ticket,
-  isEditing,
-  onEdit,
   onDelete,
   onStatusChange,
   onRepositoryChange,
@@ -37,14 +33,6 @@ export function TicketDetailSidebar({
       <div className="border border-border rounded-lg p-4">
         <h3 className="font-medium mb-3">{t("tickets.detail.actions")}</h3>
         <div className="space-y-2">
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={onEdit}
-            disabled={isEditing}
-          >
-            {t("common.edit")}
-          </Button>
           <Button
             className="w-full"
             variant="destructive"
