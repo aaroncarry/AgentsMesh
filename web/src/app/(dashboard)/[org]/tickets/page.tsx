@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTicketStore, useFilteredTickets, Ticket, TicketStatus } from "@/stores/ticket";
 import { useAuthStore } from "@/stores/auth";
 import { TicketKeyboardHandler } from "@/components/tickets";
@@ -10,51 +10,24 @@ import { CreatePodModal } from "@/components/ide/CreatePodModal";
 import { useTranslations } from "next-intl";
 import { ListViewLayout, BoardViewLayout } from "./components";
 
-// Breakpoint for responsive layout
-const DESKTOP_BREAKPOINT = 1024;
-
 export default function TicketsPage() {
   const t = useTranslations();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { currentOrg } = useAuthStore();
   const {
     loading,
     viewMode,
-    selectedTicketSlug,
     fetchTickets,
     updateTicketStatus,
-    setSelectedTicketSlug,
   } = useTicketStore();
 
   const tickets = useFilteredTickets();
 
-  // Track screen size for responsive layout
-  const [isDesktop, setIsDesktop] = useState(true);
+  // Keyboard-selected ticket for J/K navigation highlighting
+  const [keyboardSelectedSlug, setKeyboardSelectedSlug] = useState<string | null>(null);
 
   // State for auto-triggered create pod modal (when dragging ticket to in_progress)
   const [createPodTicket, setCreatePodTicket] = useState<Ticket | null>(null);
-
-  // Get selected ticket from URL or store
-  const selectedTicketFromUrl = searchParams.get("ticket");
-
-  // Sync URL with store
-  useEffect(() => {
-    if (selectedTicketFromUrl !== selectedTicketSlug) {
-      setSelectedTicketSlug(selectedTicketFromUrl);
-    }
-  }, [selectedTicketFromUrl, selectedTicketSlug, setSelectedTicketSlug]);
-
-  // Handle window resize
-  useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT);
-    };
-
-    checkDesktop();
-    window.addEventListener("resize", checkDesktop);
-    return () => window.removeEventListener("resize", checkDesktop);
-  }, []);
 
   // Load tickets on mount
   useEffect(() => {
@@ -70,15 +43,9 @@ export default function TicketsPage() {
   }, [updateTicketStatus]);
 
   const handleTicketClick = useCallback((ticket: Ticket) => {
-    if (!isDesktop) {
-      // On mobile, navigate to full page
-      router.push(`/${currentOrg?.slug}/tickets/${ticket.slug}`);
-    } else {
-      // On desktop, update URL with query param to show panel
-      const newUrl = `/${currentOrg?.slug}/tickets?ticket=${ticket.slug}`;
-      router.push(newUrl, { scroll: false });
-    }
-  }, [router, currentOrg, isDesktop]);
+    // Navigate directly to ticket detail page (Linear-style)
+    router.push(`/${currentOrg?.slug}/tickets/${ticket.slug}`);
+  }, [router, currentOrg]);
 
   const handleCreatePodRequest = useCallback((ticket: Ticket) => {
     setCreatePodTicket(ticket);
@@ -88,64 +55,48 @@ export default function TicketsPage() {
     setCreatePodTicket(null);
   }, []);
 
-  const handleClosePanel = useCallback(() => {
-    setSelectedTicketSlug(null);
-    router.push(`/${currentOrg?.slug}/tickets`, { scroll: false });
-  }, [router, currentOrg, setSelectedTicketSlug]);
-
-  const handleSelectTicket = useCallback((id: string | null) => {
-    if (id) {
-      router.push(`/${currentOrg?.slug}/tickets?ticket=${id}`, { scroll: false });
-    } else {
-      router.push(`/${currentOrg?.slug}/tickets`, { scroll: false });
-    }
-  }, [router, currentOrg]);
-
-  // Check if we have a selected ticket
-  const hasSelectedTicket = !!selectedTicketSlug;
+  // J/K only highlights, does not navigate
+  const handleSelectTicket = useCallback((slug: string | null) => {
+    setKeyboardSelectedSlug(slug);
+  }, []);
 
   if (loading && tickets.length === 0) {
     return <CenteredSpinner className="h-full" />;
   }
 
-  // Common keyboard handler props
+  // Keyboard handler props
   const keyboardHandlerProps = {
     tickets,
-    selectedSlug: selectedTicketSlug,
+    selectedSlug: keyboardSelectedSlug,
     onSelectTicket: handleSelectTicket,
-    onOpenDetail: handleTicketClick,
-    onCloseDetail: handleClosePanel,
-    enabled: isDesktop,
+    onOpenDetail: handleTicketClick,          // Enter → navigate
+    onCloseDetail: () => setKeyboardSelectedSlug(null), // Escape → clear selection
+    enabled: true,
   };
 
-  // Render content based on view mode and screen size
+  // Render content based on view mode
   if (viewMode === "list") {
     return (
       <>
         <TicketKeyboardHandler {...keyboardHandlerProps} />
         <ListViewLayout
           tickets={tickets}
-          selectedTicketSlug={selectedTicketSlug}
-          hasSelectedTicket={hasSelectedTicket && isDesktop}
+          selectedSlug={keyboardSelectedSlug}
           onTicketClick={handleTicketClick}
-          onClosePanel={handleClosePanel}
           t={t}
         />
       </>
     );
   }
 
-  // Board view with bottom slide-up panel
+  // Board view
   return (
     <>
       <TicketKeyboardHandler {...keyboardHandlerProps} />
       <BoardViewLayout
         tickets={tickets}
-        selectedTicketSlug={selectedTicketSlug}
-        hasSelectedTicket={hasSelectedTicket && isDesktop}
         onStatusChange={handleStatusChange}
         onTicketClick={handleTicketClick}
-        onClosePanel={handleClosePanel}
         onCreatePodRequest={handleCreatePodRequest}
       />
       <CreatePodModal
