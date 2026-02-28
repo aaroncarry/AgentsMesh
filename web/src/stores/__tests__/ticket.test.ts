@@ -39,7 +39,6 @@ const createMockTicket = (overrides: Partial<{
   slug: string;
   title: string;
   status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  type: 'task' | 'bug' | 'feature' | 'improvement' | 'epic' | 'subtask' | 'story';
   priority: 'none' | 'low' | 'medium' | 'high' | 'urgent';
   created_at: string;
   updated_at: string;
@@ -49,7 +48,6 @@ const createMockTicket = (overrides: Partial<{
   slug: 'TKT-1',
   title: 'Test Ticket',
   status: 'todo' as const,
-  type: 'task' as const,
   priority: 'medium' as const,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
@@ -119,7 +117,6 @@ describe('Ticket Store Actions', () => {
 
       const result = await useTicketStore.getState().createTicket({
         repositoryId: 1,
-        type: 'task',
         title: 'New Ticket',
       })
 
@@ -133,7 +130,6 @@ describe('Ticket Store Actions', () => {
 
       await expect(useTicketStore.getState().createTicket({
         repositoryId: 1,
-        type: 'task',
         title: 'New Ticket',
       })).rejects.toThrow('Creation failed')
     })

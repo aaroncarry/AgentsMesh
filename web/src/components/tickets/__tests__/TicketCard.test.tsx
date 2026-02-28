@@ -23,7 +23,6 @@ describe('TicketCard Component', () => {
     id: 1,
     number: 42,
     slug: 'PROJ-42',
-    type: 'task' as const,
     title: 'Implement new feature',
     status: 'todo' as const,
     priority: 'medium' as const,

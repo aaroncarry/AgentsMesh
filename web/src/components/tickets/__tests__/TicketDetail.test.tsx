@@ -94,7 +94,6 @@ describe('TicketDetail Component', () => {
     id: 1,
     number: 42,
     slug: 'PROJ-42',
-    type: 'task' as const,
     title: 'Implement new feature',
     content: 'This is the ticket description',
     status: 'in_progress' as const,

@@ -212,17 +212,19 @@ function SidebarPodSection({
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const fetchPods = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await ticketApi.getPods(ticketSlug);
       setPods(response.pods || []);
     } catch {
       // silently fail
+    } finally {
+      setLoading(false);
     }
   }, [ticketSlug]);
 
   useEffect(() => {
-    setLoading(true);
-    fetchPods().finally(() => setLoading(false));
+    fetchPods();
   }, [fetchPods]);
 
   const handlePodCreated = () => {

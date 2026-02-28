@@ -191,7 +191,6 @@ describe("TicketCreateDialog", () => {
         expect(mockCreate).toHaveBeenCalledWith(
           expect.objectContaining({
             title: "Test Ticket",
-            type: "task",
             priority: "medium",
           })
         );

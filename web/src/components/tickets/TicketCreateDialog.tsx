@@ -122,7 +122,6 @@ export function TicketCreateDialog({
       const response = await ticketApi.create({
         title: form.title.trim(),
         content: form.content || undefined,
-        type: "task",
         priority: form.priority,
         parentSlug: parentTicketSlug,
         assigneeIds: form.assigneeIds.length > 0 ? form.assigneeIds : undefined,
