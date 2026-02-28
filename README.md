@@ -150,7 +150,7 @@ agentsmesh/backend:1.0.0
 agentsmesh/backend:1.0
 ```
 
-See [deploy/onpremise/](deploy/onpremise/) for self-hosted deployment guide.
+See [deploy/selfhost/](deploy/selfhost/) for self-hosted deployment guide.
 
 </details>
 
@@ -191,7 +191,7 @@ AgentsMesh/
 ├── ci/               # CI Dockerfiles
 ├── deploy/
 │   ├── dev/          # Docker Compose dev environment
-│   └── onpremise/    # Self-hosted deployment guide
+│   └── selfhost/     # Self-hosted deployment guide
 └── docs/             # Architecture docs and RFCs
 ```
 
