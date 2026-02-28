@@ -9,14 +9,10 @@ import { cn } from "@/lib/utils";
 interface SubTicketsListProps {
   subTickets: Ticket[];
   onTicketClick: (slug: string) => void;
-  /** Compact style for panel view */
   compact?: boolean;
   className?: string;
 }
 
-/**
- * Shared sub-tickets list component used by both TicketDetail and TicketDetailPane
- */
 export function SubTicketsList({
   subTickets,
   onTicketClick,
@@ -54,36 +50,35 @@ export function SubTicketsList({
   }
 
   return (
-    <div className={cn("mb-6", className)}>
-      <h3 className="font-medium mb-3 flex items-center gap-2">
-        <span className="text-muted-foreground">◦</span>
+    <div className={className}>
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
         {t("tickets.detail.subTickets")} ({subTickets.length})
-      </h3>
-      <div className="border border-border rounded-lg divide-y divide-border">
+      </p>
+      <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
         {subTickets.map((subTicket) => {
           const subStatusInfo = getStatusDisplayInfo(subTicket.status);
           return (
-            <div
+            <button
               key={subTicket.id}
-              className="px-4 py-3 hover:bg-muted/50 cursor-pointer"
+              type="button"
+              className="w-full text-left px-3 py-2.5 hover:bg-muted/40 transition-colors flex items-center gap-2 group"
               onClick={() => onTicketClick(subTicket.slug)}
             >
-              <div className="flex items-center gap-2">
-                <TypeIcon type={subTicket.type} size="sm" />
-                <span className="font-mono text-xs text-muted-foreground">
-                  {subTicket.slug}
-                </span>
-                <span className="flex-1 truncate">{subTicket.title}</span>
-                <span className={cn(
-                  "flex items-center gap-1 px-2 py-0.5 rounded text-xs",
-                  subStatusInfo.bgColor,
-                  subStatusInfo.color
-                )}>
-                  <StatusIcon status={subTicket.status} size="xs" />
-                  {subStatusInfo.label}
-                </span>
-              </div>
-            </div>
+              <TypeIcon type={subTicket.type} size="sm" />
+              <span className="font-mono text-xs text-muted-foreground">
+                {subTicket.slug}
+              </span>
+              <span className="flex-1 truncate text-sm">{subTicket.title}</span>
+              <span className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] shrink-0",
+                subStatusInfo.bgColor,
+                subStatusInfo.color
+              )}>
+                <StatusIcon status={subTicket.status} size="xs" />
+                {subStatusInfo.label}
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </button>
           );
         })}
       </div>

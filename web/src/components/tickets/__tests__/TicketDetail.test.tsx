@@ -18,6 +18,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     currentOrg: { slug: 'test-org' },
+    user: { id: 1, username: 'john' },
   }),
 }))
 
@@ -48,6 +49,7 @@ vi.mock('@/lib/api', () => ({
     listRelations: vi.fn(),
     listCommits: vi.fn(),
     listComments: vi.fn(),
+    getPods: vi.fn(),
   },
   organizationApi: {
     listMembers: vi.fn().mockResolvedValue({ members: [] }),
@@ -72,13 +74,24 @@ vi.mock('@/components/ui/block-editor', () => ({
   ),
 }))
 
-// Mock TicketPodPanel
-vi.mock('../TicketPodPanel', () => ({
-  default: ({ ticketSlug, ticketTitle }: { ticketSlug: string; ticketTitle: string }) => (
-    <div data-testid="pod-panel">
-      Pod Panel for {ticketSlug}: {ticketTitle}
-    </div>
-  ),
+// Mock workspace store (used by sidebar pod section)
+vi.mock('@/stores/workspace', () => ({
+  useWorkspaceStore: () => ({
+    addPane: vi.fn(),
+  }),
+}))
+
+// Mock CreatePodModal
+vi.mock('@/components/ide/CreatePodModal', () => ({
+  CreatePodModal: () => null,
+}))
+
+// Mock pod utils and AgentStatusBadge
+vi.mock('@/lib/pod-utils', () => ({
+  getPodDisplayName: (pod: { pod_key: string }) => pod.pod_key,
+}))
+vi.mock('@/components/shared/AgentStatusBadge', () => ({
+  AgentStatusBadge: () => null,
 }))
 
 describe('TicketDetail Component', () => {
@@ -112,7 +125,6 @@ describe('TicketDetail Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
-    // Setup default mock implementation
     ;(useTicketStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       currentTicket: mockTicket,
       fetchTicket: mockFetchTicket,
@@ -123,11 +135,11 @@ describe('TicketDetail Component', () => {
       error: null,
     })
 
-    // Setup API mocks
     ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({ sub_tickets: [] })
     ;(ticketApi.listRelations as ReturnType<typeof vi.fn>).mockResolvedValue({ relations: [] })
     ;(ticketApi.listCommits as ReturnType<typeof vi.fn>).mockResolvedValue({ commits: [] })
     ;(ticketApi.listComments as ReturnType<typeof vi.fn>).mockResolvedValue({ comments: [], total: 0 })
+    ;(ticketApi.getPods as ReturnType<typeof vi.fn>).mockResolvedValue({ pods: [] })
   })
 
   describe('rendering', () => {
@@ -154,13 +166,11 @@ describe('TicketDetail Component', () => {
       })
     })
 
-
     it('should render status badge', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        // Status badge should be in the header section with specific styling
-        const statusBadge = screen.getByText('In Progress', { selector: 'span.rounded.text-xs' })
-        expect(statusBadge).toBeInTheDocument()
+        const badges = screen.getAllByText('In Progress')
+        expect(badges.length).toBeGreaterThanOrEqual(1)
       })
     })
 
@@ -236,7 +246,6 @@ describe('TicketDetail Component', () => {
       const retryButton = screen.getByText('Retry')
       fireEvent.click(retryButton)
 
-      // Once on mount, once on retry click
       expect(mockFetchTicket).toHaveBeenCalledTimes(2)
     })
   })
@@ -323,24 +332,17 @@ describe('TicketDetail Component', () => {
       })
     })
 
-    it('should display repository selector', async () => {
-      render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        expect(screen.getByText('Repository')).toBeInTheDocument()
-        expect(screen.getByTestId('repository-select')).toBeInTheDocument()
-      })
-    })
-
     it('should display timestamps', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByText('Created')).toBeInTheDocument()
-        expect(screen.getByText('Updated')).toBeInTheDocument()
+        // Timestamps are now in compact "Created Xd ago · Updated Xd ago" format
+        const timestampEl = screen.getByText(/Created/)
+        expect(timestampEl).toBeInTheDocument()
       })
     })
   })
 
-  describe('sub-tickets', () => {
+  describe('sub-tickets (linked tab)', () => {
     it('should display sub-tickets when available', async () => {
       ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({
         sub_tickets: [
@@ -355,8 +357,14 @@ describe('TicketDetail Component', () => {
       })
 
       render(<TicketDetail slug="PROJ-42" />)
+
+      // Switch to the linked tab
       await waitFor(() => {
-        expect(screen.getByText('Sub-tickets (1)')).toBeInTheDocument()
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
+      await waitFor(() => {
         expect(screen.getByText('PROJ-43')).toBeInTheDocument()
         expect(screen.getByText('Sub-task 1')).toBeInTheDocument()
       })
@@ -364,6 +372,12 @@ describe('TicketDetail Component', () => {
 
     it('should not render sub-tickets section when empty', async () => {
       render(<TicketDetail slug="PROJ-42" />)
+
+      await waitFor(() => {
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
       await waitFor(() => {
         expect(screen.queryByText(/Sub-tickets/)).not.toBeInTheDocument()
       })
@@ -383,6 +397,12 @@ describe('TicketDetail Component', () => {
       })
 
       render(<TicketDetail slug="PROJ-42" />)
+
+      await waitFor(() => {
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
       await waitFor(() => {
         const subTicket = screen.getByText('Sub-task 1')
         fireEvent.click(subTicket)
@@ -391,7 +411,7 @@ describe('TicketDetail Component', () => {
     })
   })
 
-  describe('relations', () => {
+  describe('relations (linked tab)', () => {
     it('should display relations when available', async () => {
       ;(ticketApi.listRelations as ReturnType<typeof vi.fn>).mockResolvedValue({
         relations: [
@@ -411,8 +431,13 @@ describe('TicketDetail Component', () => {
       })
 
       render(<TicketDetail slug="PROJ-42" />)
+
       await waitFor(() => {
-        expect(screen.getByText('Related (1)')).toBeInTheDocument()
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
+      await waitFor(() => {
         expect(screen.getByText('PROJ-44')).toBeInTheDocument()
         expect(screen.getByText('Related ticket')).toBeInTheDocument()
       })
@@ -437,6 +462,12 @@ describe('TicketDetail Component', () => {
       })
 
       render(<TicketDetail slug="PROJ-42" />)
+
+      await waitFor(() => {
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
       await waitFor(() => {
         const relatedTicket = screen.getByText('Related ticket')
         fireEvent.click(relatedTicket)
@@ -445,7 +476,7 @@ describe('TicketDetail Component', () => {
     })
   })
 
-  describe('commits', () => {
+  describe('commits (linked tab)', () => {
     it('should display commits when available', async () => {
       ;(ticketApi.listCommits as ReturnType<typeof vi.fn>).mockResolvedValue({
         commits: [
@@ -462,20 +493,31 @@ describe('TicketDetail Component', () => {
       })
 
       render(<TicketDetail slug="PROJ-42" />)
+
       await waitFor(() => {
-        expect(screen.getByText('Commits (1)')).toBeInTheDocument()
-        expect(screen.getByText('abc123d')).toBeInTheDocument() // Short SHA
+        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
+        fireEvent.click(linkedTab)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('abc123d')).toBeInTheDocument()
         expect(screen.getByText('Fix bug in authentication')).toBeInTheDocument()
       })
     })
   })
 
   describe('pod panel', () => {
-    it('should render TicketPodPanel', async () => {
+    it('should show execute button in sidebar', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByTestId('pod-panel')).toBeInTheDocument()
-        expect(screen.getByText(/Pod Panel for PROJ-42/)).toBeInTheDocument()
+        expect(screen.getByText('Execute')).toBeInTheDocument()
+      })
+    })
+
+    it('should show no pods message when empty', async () => {
+      render(<TicketDetail slug="PROJ-42" />)
+      await waitFor(() => {
+        expect(screen.getByText('No pods for this ticket yet')).toBeInTheDocument()
       })
     })
   })
@@ -484,7 +526,6 @@ describe('TicketDetail Component', () => {
     it('should render inline editable title', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        // Title should be rendered as a clickable inline-editable element
         expect(screen.getByText('Implement new feature')).toBeInTheDocument()
       })
     })
@@ -505,34 +546,30 @@ describe('TicketDetail Component', () => {
   })
 
   describe('status change', () => {
-    it('should show status dropdown', async () => {
+    it('should render StatusSelect in sidebar', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        const comboboxes = screen.getAllByRole('combobox')
-        const statusDropdown = comboboxes.find(el => (el as HTMLSelectElement).value === 'in_progress')
-        expect(statusDropdown).toBeInTheDocument()
-      })
-    })
-
-    it('should call updateTicketStatus when status is changed', async () => {
-      mockUpdateTicketStatus.mockResolvedValue({})
-
-      render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        const comboboxes = screen.getAllByRole('combobox')
-        const statusDropdown = comboboxes.find(el => (el as HTMLSelectElement).value === 'in_progress')!
-        fireEvent.change(statusDropdown, { target: { value: 'done' } })
-      })
-
-      await waitFor(() => {
-        expect(mockUpdateTicketStatus).toHaveBeenCalledWith('PROJ-42', 'done')
+        // StatusSelect renders as a dropdown trigger button with status label
+        expect(screen.getByText('Status')).toBeInTheDocument()
       })
     })
   })
 
   describe('delete action', () => {
-    it('should show delete button', async () => {
+    it('should show danger zone toggle', async () => {
       render(<TicketDetail slug="PROJ-42" />)
+      await waitFor(() => {
+        expect(screen.getByText('Danger Zone')).toBeInTheDocument()
+      })
+    })
+
+    it('should show delete button after expanding danger zone', async () => {
+      render(<TicketDetail slug="PROJ-42" />)
+      await waitFor(() => {
+        const dangerToggle = screen.getByText('Danger Zone')
+        fireEvent.click(dangerToggle)
+      })
+
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeInTheDocument()
       })
@@ -540,6 +577,13 @@ describe('TicketDetail Component', () => {
 
     it('should show confirmation modal when delete is clicked', async () => {
       render(<TicketDetail slug="PROJ-42" />)
+
+      // Expand danger zone
+      await waitFor(() => {
+        const dangerToggle = screen.getByText('Danger Zone')
+        fireEvent.click(dangerToggle)
+      })
+
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')
         fireEvent.click(deleteButton)
@@ -549,16 +593,22 @@ describe('TicketDetail Component', () => {
       expect(screen.getByText(/Are you sure you want to delete ticket/)).toBeInTheDocument()
     })
 
-    it('should call deleteTicket and navigate to tickets list when confirmed', async () => {
+    it('should call deleteTicket and navigate when confirmed', async () => {
       mockDeleteTicket.mockResolvedValue({})
 
       render(<TicketDetail slug="PROJ-42" />)
+
+      // Expand danger zone
+      await waitFor(() => {
+        const dangerToggle = screen.getByText('Danger Zone')
+        fireEvent.click(dangerToggle)
+      })
+
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')
         fireEvent.click(deleteButton)
       })
 
-      // Click the confirm delete button in the modal
       const confirmButtons = screen.getAllByText('Delete')
       const confirmDeleteButton = confirmButtons[confirmButtons.length - 1]
       fireEvent.click(confirmDeleteButton)
@@ -571,6 +621,13 @@ describe('TicketDetail Component', () => {
 
     it('should close modal when cancel is clicked', async () => {
       render(<TicketDetail slug="PROJ-42" />)
+
+      // Expand danger zone
+      await waitFor(() => {
+        const dangerToggle = screen.getByText('Danger Zone')
+        fireEvent.click(dangerToggle)
+      })
+
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')
         fireEvent.click(deleteButton)

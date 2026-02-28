@@ -190,19 +190,25 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   },
 
   updateTicketStatus: async (slug, status) => {
+    const prevTickets = get().tickets;
+    const prevCurrent = get().currentTicket;
+
+    // Optimistic update
+    set((state) => ({
+      tickets: state.tickets.map((t) =>
+        t.slug === slug ? { ...t, status } : t
+      ),
+      currentTicket:
+        state.currentTicket?.slug === slug
+          ? { ...state.currentTicket, status }
+          : state.currentTicket,
+    }));
+
     try {
       await ticketApi.updateStatus(slug, status);
-      set((state) => ({
-        tickets: state.tickets.map((t) =>
-          t.slug === slug ? { ...t, status } : t
-        ),
-        currentTicket:
-          state.currentTicket?.slug === slug
-            ? { ...state.currentTicket, status }
-            : state.currentTicket,
-      }));
     } catch (error: unknown) {
-      set({ error: getErrorMessage(error, "Failed to update ticket status") });
+      // Rollback on failure
+      set({ tickets: prevTickets, currentTicket: prevCurrent, error: getErrorMessage(error, "Failed to update ticket status") });
       throw error;
     }
   },

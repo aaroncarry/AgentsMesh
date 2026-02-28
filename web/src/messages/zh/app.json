@@ -126,7 +126,8 @@
       "noTickets": "未找到 Ticket。使用侧边栏筛选或创建新 Ticket。"
     },
     "kanban": {
-      "noTickets": "暂无 Ticket"
+      "noTickets": "暂无 Ticket",
+      "dropHere": "拖放到这里"
     },
     "priority": {
       "none": "无优先级",
@@ -142,6 +143,8 @@
       "feature": "功能",
       "improvement": "改进",
       "epic": "史诗",
+      "subtask": "子任务",
+      "story": "用户故事",
       "unknown": "未知"
     },
     "status": {
@@ -164,7 +167,9 @@
       "repository": "仓库",
       "selectRepository": "选择仓库...",
       "content": "内容",
-      "submit": "创建 Ticket"
+      "submit": "创建 Ticket",
+      "moreOptions": "更多选项",
+      "labelsPlaceholder": "添加标签..."
     },
     "detail": {
       "retry": "重试",
@@ -200,11 +205,15 @@
       "replyTo": "回复 @{username}",
       "cancelReply": "取消",
       "submit": "评论",
-      "edited": "已编辑"
+      "edited": "已编辑",
+      "dangerZone": "危险操作",
+      "deleteWarning": "此操作不可撤销。",
+      "linked": "关联项",
+      "noLinkedItems": "暂无关联项。"
     },
     "podPanel": {
       "activeCount": "{count} 个活跃",
-      "newPod": "新建 Pod",
+      "newPod": "执行",
       "createNewPod": "创建新 Pod",
       "runner": "Runner",
       "selectRunner": "选择 Runner...",

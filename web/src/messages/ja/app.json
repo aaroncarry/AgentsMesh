@@ -120,7 +120,8 @@
       "noTickets": "チケットが見つかりません。サイドバーのフィルターを使用するか、新しいチケットを作成してください。"
     },
     "kanban": {
-      "noTickets": "チケットなし"
+      "noTickets": "チケットなし",
+      "dropHere": "ここにドロップ"
     },
     "priority": {
       "none": "優先度なし",
@@ -136,6 +137,8 @@
       "feature": "機能",
       "improvement": "Improvement",
       "epic": "エピック",
+      "subtask": "サブタスク",
+      "story": "ストーリー",
       "unknown": "不明"
     },
     "status": {
@@ -158,7 +161,9 @@
       "repository": "Repository",
       "selectRepository": "Select a repository...",
       "content": "Content",
-      "submit": "Create Ticket"
+      "submit": "Create Ticket",
+      "moreOptions": "その他のオプション",
+      "labelsPlaceholder": "ラベルを追加..."
     },
     "detail": {
       "retry": "Retry",
@@ -183,11 +188,15 @@
       "timeline": "Timeline",
       "started": "Started",
       "completed": "Completed",
-      "viewFullDetails": "View Full Details"
+      "viewFullDetails": "View Full Details",
+      "dangerZone": "危険ゾーン",
+      "deleteWarning": "この操作は取り消せません。",
+      "linked": "リンク済み",
+      "noLinkedItems": "リンクされた項目はまだありません。"
     },
     "podPanel": {
       "activeCount": "{count} active",
-      "newPod": "New Pod",
+      "newPod": "実行",
       "createNewPod": "Create New Pod",
       "runner": "Runner",
       "selectRunner": "Select a runner...",

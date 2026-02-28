@@ -4,17 +4,17 @@ import { useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/stores/auth";
-import { useTicketStore, TicketStatus } from "@/stores/ticket";
+import { useTicketStore, TicketStatus, TicketPriority } from "@/stores/ticket";
 import { StatusIcon, TypeIcon, getStatusDisplayInfo } from "./TicketIcons";
-import TicketPodPanel from "./TicketPodPanel";
 import { useTicketExtraData } from "./hooks";
 import { SubTicketsList, RelationsList, CommitsList, LabelsList, CommentsList } from "./shared";
 import { TicketDetailSidebar } from "./TicketDetailSidebar";
 import { InlineEditableText } from "./InlineEditableText";
+import { MessageSquare, GitBranch, FileText } from "lucide-react";
 
-// Lazy load BlockEditor for inline editing
 const BlockEditor = lazy(() => import("@/components/ui/block-editor"));
 
 interface TicketDetailProps {
@@ -27,16 +27,11 @@ export function TicketDetail({ slug }: TicketDetailProps) {
   const { currentOrg } = useAuthStore();
   const { currentTicket, fetchTicket, updateTicket, updateTicketStatus, deleteTicket, loading, error } = useTicketStore();
 
-  // Confirm dialog for delete
   const { dialogProps, confirm } = useConfirmDialog();
-
-  // Use shared hook for extra data
   const { subTickets, relations, commits, comments, addComment, updateComment, deleteComment } = useTicketExtraData(slug, !!currentTicket);
 
-  // Debounce timer for content auto-save
   const contentSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup debounce timer on unmount
   useEffect(() => {
     return () => {
       if (contentSaveTimerRef.current) {
@@ -45,12 +40,10 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     };
   }, []);
 
-  // Fetch ticket data
   useEffect(() => {
     fetchTicket(slug);
   }, [slug, fetchTicket]);
 
-  // Handle inline title save
   const handleTitleSave = useCallback(async (newTitle: string) => {
     if (!newTitle.trim()) return;
     try {
@@ -61,7 +54,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   }, [slug, updateTicket]);
 
-  // Handle content change with debounced auto-save
   const handleContentChange = useCallback((newContent: string) => {
     if (contentSaveTimerRef.current) {
       clearTimeout(contentSaveTimerRef.current);
@@ -75,7 +67,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }, 800);
   }, [slug, updateTicket]);
 
-  // Handle status change
   const handleStatusChange = async (newStatus: TicketStatus) => {
     try {
       await updateTicketStatus(slug, newStatus);
@@ -84,16 +75,14 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   };
 
-  // Handle repository change
-  const handleRepositoryChange = async (repositoryId: number | null) => {
+  const handlePriorityChange = async (newPriority: TicketPriority) => {
     try {
-      await updateTicket(slug, { repositoryId });
+      await updateTicket(slug, { priority: newPriority });
     } catch (err) {
-      console.error("Failed to update repository:", err);
+      console.error("Failed to update priority:", err);
     }
   };
 
-  // Handle delete with confirmation
   const handleDelete = useCallback(async () => {
     const confirmed = await confirm({
       title: t("tickets.detail.deleteTicket"),
@@ -112,7 +101,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   }, [confirm, deleteTicket, slug, router, currentOrg, t]);
 
-  // Handle ticket click for sub-tickets and relations
   const handleTicketClick = (ticketSlug: string) => {
     router.push(`/${currentOrg?.slug}/tickets/${ticketSlug}`);
   };
@@ -123,95 +111,144 @@ export function TicketDetail({ slug }: TicketDetailProps) {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
-        <Button onClick={() => fetchTicket(slug)}>{t("tickets.detail.retry")}</Button>
+      <div className="text-center py-16">
+        <div className="text-destructive mb-4 text-sm">{error}</div>
+        <Button variant="outline" size="sm" onClick={() => fetchTicket(slug)}>
+          {t("tickets.detail.retry")}
+        </Button>
       </div>
     );
   }
 
   if (!currentTicket) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
+      <div className="text-center py-16 text-muted-foreground text-sm">
         {t("tickets.detail.notFound")}
       </div>
     );
   }
 
-  const statusInfo = getStatusDisplayInfo(currentTicket.status);
+  const statusInfo = getStatusDisplayInfo(currentTicket.status, t);
+  const linkedCount = subTickets.length + relations.length + commits.length;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-8">
       {/* Main Content */}
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
+          {/* Meta row: type icon + slug + status badge */}
+          <div className="flex items-center gap-2 mb-3">
             <TypeIcon type={currentTicket.type} size="md" />
             <span className="text-muted-foreground font-mono text-sm">
               {currentTicket.slug}
             </span>
-            <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+            <span className="mx-1 text-border">·</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
               <StatusIcon status={currentTicket.status} size="xs" />
               {statusInfo.label}
             </span>
           </div>
 
-          {/* Inline editable title */}
+          {/* Title */}
           <InlineEditableText
             value={currentTicket.title}
             onSave={handleTitleSave}
             placeholder={t("tickets.createDialog.titlePlaceholder")}
-            className="text-2xl font-semibold leading-tight"
-            inputClassName="text-2xl font-semibold"
+            className="text-xl sm:text-2xl font-semibold leading-snug"
+            inputClassName="text-xl sm:text-2xl font-semibold"
           />
 
-          {/* Always-editable content */}
-          <div className="mt-4 border border-border rounded-md overflow-hidden bg-card min-h-[120px]">
-            <Suspense fallback={<div className="h-[120px] animate-pulse bg-muted" />}>
-              <BlockEditor
-                key={slug}
-                initialContent={currentTicket.content || ""}
-                onChange={handleContentChange}
-                editable={true}
-              />
-            </Suspense>
-          </div>
+          {/* Labels (inline with header) */}
+          {currentTicket.labels && currentTicket.labels.length > 0 && (
+            <div className="mt-3">
+              <LabelsList labels={currentTicket.labels} compact />
+            </div>
+          )}
         </div>
 
-        {/* Labels (using shared component) */}
-        <LabelsList labels={currentTicket.labels || []} />
+        {/* Tabs */}
+        <Tabs defaultValue="content" className="mt-2">
+          <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto gap-0">
+            <TabsTrigger
+              value="content"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5" />
+              {t("tickets.detail.content") || "Content"}
+            </TabsTrigger>
+            <TabsTrigger
+              value="activity"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
+            >
+              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+              {t("tickets.detail.comments")}
+              {comments.length > 0 && (
+                <span className="ml-1.5 text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground tabular-nums">
+                  {comments.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="linked"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
+            >
+              <GitBranch className="w-3.5 h-3.5 mr-1.5" />
+              {t("tickets.detail.linked") || "Linked"}
+              {linkedCount > 0 && (
+                <span className="ml-1.5 text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground tabular-nums">
+                  {linkedCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Sub-tickets (using shared component) */}
-        <SubTicketsList
-          subTickets={subTickets}
-          onTicketClick={handleTicketClick}
-        />
+          {/* Content tab */}
+          <TabsContent value="content" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+            <div className="rounded-lg border border-border overflow-hidden bg-card min-h-[150px] max-h-[60vh] overflow-y-auto">
+              <Suspense fallback={<div className="h-[150px] animate-pulse bg-muted/50" />}>
+                <BlockEditor
+                  key={slug}
+                  initialContent={currentTicket.content || ""}
+                  onChange={handleContentChange}
+                  editable={true}
+                />
+              </Suspense>
+            </div>
+          </TabsContent>
 
-        {/* Relations (using shared component) */}
-        <RelationsList
-          relations={relations}
-          onTicketClick={handleTicketClick}
-        />
+          {/* Activity tab */}
+          <TabsContent value="activity" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+            <CommentsList
+              comments={comments}
+              onAddComment={addComment}
+              onUpdateComment={updateComment}
+              onDeleteComment={deleteComment}
+            />
+          </TabsContent>
 
-        {/* Commits (using shared component) */}
-        <CommitsList commits={commits} />
+          {/* Linked tab */}
+          <TabsContent value="linked" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
+            <div className="space-y-1">
+              <SubTicketsList
+                subTickets={subTickets}
+                onTicketClick={handleTicketClick}
+              />
+              <RelationsList
+                relations={relations}
+                onTicketClick={handleTicketClick}
+              />
+              <CommitsList commits={commits} />
+              {linkedCount === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <GitBranch className="w-8 h-8 mb-3 text-muted-foreground/30" />
+                  <p className="text-sm">{t("tickets.detail.noLinkedItems") || "No linked items yet."}</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
-        {/* Comments */}
-        <CommentsList
-          comments={comments}
-          onAddComment={addComment}
-          onUpdateComment={updateComment}
-          onDeleteComment={deleteComment}
-        />
-
-        {/* AgentPods */}
-        <TicketPodPanel
-          ticketSlug={slug}
-          ticketTitle={currentTicket.title}
-          ticketId={currentTicket.id}
-          repositoryId={currentTicket.repository_id}
-        />
       </div>
 
       {/* Sidebar */}
@@ -219,11 +256,11 @@ export function TicketDetail({ slug }: TicketDetailProps) {
         ticket={currentTicket}
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
-        onRepositoryChange={handleRepositoryChange}
+        onPriorityChange={handlePriorityChange}
+        ticketSlug={slug}
         t={t}
       />
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog {...dialogProps} />
     </div>
   );
@@ -232,17 +269,21 @@ export function TicketDetail({ slug }: TicketDetailProps) {
 function TicketDetailSkeleton() {
   return (
     <div className="animate-pulse" data-testid="ticket-detail-skeleton">
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row gap-8">
         <div className="flex-1">
-          <div className="h-6 bg-muted rounded w-48 mb-4" />
-          <div className="h-10 bg-muted rounded w-3/4 mb-4" />
-          <div className="h-24 bg-muted rounded mb-6" />
-          <div className="h-40 bg-muted rounded" />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-5 w-5 bg-muted rounded" />
+            <div className="h-4 w-24 bg-muted rounded" />
+            <div className="h-5 w-20 bg-muted rounded-full" />
+          </div>
+          <div className="h-8 bg-muted rounded w-3/4 mb-6" />
+          <div className="h-10 bg-muted rounded w-full mb-4" />
+          <div className="h-48 bg-muted rounded" />
         </div>
-        <div className="lg:w-80 space-y-6">
-          <div className="h-32 bg-muted rounded" />
-          <div className="h-24 bg-muted rounded" />
-          <div className="h-40 bg-muted rounded" />
+        <div className="lg:w-72 space-y-3">
+          <div className="h-16 bg-muted rounded-lg" />
+          <div className="h-40 bg-muted rounded-lg" />
+          <div className="h-20 bg-muted rounded-lg" />
         </div>
       </div>
     </div>

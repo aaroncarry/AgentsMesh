@@ -181,74 +181,112 @@ export interface TypeInfo {
   icon: React.ReactNode;
 }
 
-export function getStatusDisplayInfo(status: TicketStatus, size: IconSize = "sm"): StatusInfo {
-  const bgColorMap: Record<TicketStatus, string> = {
-    backlog: "bg-gray-100 dark:bg-gray-800",
-    todo: "bg-blue-100 dark:bg-blue-900/30",
-    in_progress: "bg-yellow-100 dark:bg-yellow-900/30",
-    in_review: "bg-purple-100 dark:bg-purple-900/30",
-    done: "bg-green-100 dark:bg-green-900/30",
-    cancelled: "bg-red-100 dark:bg-red-900/30",
-  };
+type TranslateFn = (key: string) => string;
 
-  const labelMap: Record<TicketStatus, string> = {
-    backlog: "Backlog",
-    todo: "To Do",
-    in_progress: "In Progress",
-    in_review: "In Review",
-    done: "Done",
-    cancelled: "Cancelled",
-  };
+const statusFallbackLabels: Record<TicketStatus, string> = {
+  backlog: "Backlog",
+  todo: "To Do",
+  in_progress: "In Progress",
+  in_review: "In Review",
+  done: "Done",
+  cancelled: "Cancelled",
+};
+
+const statusBgColorMap: Record<TicketStatus, string> = {
+  backlog: "bg-gray-100 dark:bg-gray-800",
+  todo: "bg-blue-100 dark:bg-blue-900/30",
+  in_progress: "bg-yellow-100 dark:bg-yellow-900/30",
+  in_review: "bg-purple-100 dark:bg-purple-900/30",
+  done: "bg-green-100 dark:bg-green-900/30",
+  cancelled: "bg-red-100 dark:bg-red-900/30",
+};
+
+export function getStatusDisplayInfo(status: TicketStatus, sizeOrT?: IconSize | TranslateFn, maybeSize?: IconSize): StatusInfo {
+  let size: IconSize = "sm";
+  let t: TranslateFn | undefined;
+
+  if (typeof sizeOrT === "function") {
+    t = sizeOrT;
+    size = maybeSize || "sm";
+  } else if (typeof sizeOrT === "string") {
+    size = sizeOrT;
+  }
+
+  const label = t ? t(`tickets.status.${status}`) : (statusFallbackLabels[status] || status);
 
   return {
-    label: labelMap[status] || status,
+    label,
     color: statusColorMap[status] || statusColorMap.backlog,
-    bgColor: bgColorMap[status] || bgColorMap.backlog,
+    bgColor: statusBgColorMap[status] || statusBgColorMap.backlog,
     icon: <StatusIcon status={status} size={size} />,
   };
 }
 
-export function getPriorityDisplayInfo(priority: TicketPriority, size: IconSize = "sm"): PriorityInfo {
-  const labelMap: Record<TicketPriority, string> = {
-    none: "None",
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    urgent: "Urgent",
-  };
+const priorityFallbackLabels: Record<TicketPriority, string> = {
+  none: "None",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  urgent: "Urgent",
+};
+
+export function getPriorityDisplayInfo(priority: TicketPriority, sizeOrT?: IconSize | TranslateFn, maybeSize?: IconSize): PriorityInfo {
+  let size: IconSize = "sm";
+  let t: TranslateFn | undefined;
+
+  if (typeof sizeOrT === "function") {
+    t = sizeOrT;
+    size = maybeSize || "sm";
+  } else if (typeof sizeOrT === "string") {
+    size = sizeOrT;
+  }
+
+  const label = t ? t(`tickets.priority.${priority}`) : (priorityFallbackLabels[priority] || priority);
 
   return {
-    label: labelMap[priority] || priority,
+    label,
     color: priorityColorMap[priority] || priorityColorMap.none,
     icon: <PriorityIcon priority={priority} size={size} />,
   };
 }
 
-export function getTypeDisplayInfo(type: TicketType, size: IconSize = "sm"): TypeInfo {
-  const labelMap: Record<TicketType, string> = {
-    task: "Task",
-    bug: "Bug",
-    feature: "Feature",
-    improvement: "Improvement",
-    epic: "Epic",
-    subtask: "Subtask",
-    story: "Story",
-  };
+const typeFallbackLabels: Record<TicketType, string> = {
+  task: "Task",
+  bug: "Bug",
+  feature: "Feature",
+  improvement: "Improvement",
+  epic: "Epic",
+  subtask: "Subtask",
+  story: "Story",
+};
 
-  const bgColorMap: Record<TicketType, string> = {
-    task: "bg-blue-100 dark:bg-blue-900/30",
-    bug: "bg-red-100 dark:bg-red-900/30",
-    feature: "bg-purple-100 dark:bg-purple-900/30",
-    improvement: "bg-green-100 dark:bg-green-900/30",
-    epic: "bg-indigo-100 dark:bg-indigo-900/30",
-    subtask: "bg-gray-100 dark:bg-gray-800",
-    story: "bg-cyan-100 dark:bg-cyan-900/30",
-  };
+const typeBgColorMap: Record<TicketType, string> = {
+  task: "bg-blue-100 dark:bg-blue-900/30",
+  bug: "bg-red-100 dark:bg-red-900/30",
+  feature: "bg-purple-100 dark:bg-purple-900/30",
+  improvement: "bg-green-100 dark:bg-green-900/30",
+  epic: "bg-indigo-100 dark:bg-indigo-900/30",
+  subtask: "bg-gray-100 dark:bg-gray-800",
+  story: "bg-cyan-100 dark:bg-cyan-900/30",
+};
+
+export function getTypeDisplayInfo(type: TicketType, sizeOrT?: IconSize | TranslateFn, maybeSize?: IconSize): TypeInfo {
+  let size: IconSize = "sm";
+  let t: TranslateFn | undefined;
+
+  if (typeof sizeOrT === "function") {
+    t = sizeOrT;
+    size = maybeSize || "sm";
+  } else if (typeof sizeOrT === "string") {
+    size = sizeOrT;
+  }
+
+  const label = t ? t(`tickets.type.${type}`) : (typeFallbackLabels[type] || type);
 
   return {
-    label: labelMap[type] || type,
+    label,
     color: typeColorMap[type] || typeColorMap.task,
-    bgColor: bgColorMap[type] || bgColorMap.task,
+    bgColor: typeBgColorMap[type] || typeBgColorMap.task,
     icon: <TypeIcon type={type} size={size} />,
   };
 }

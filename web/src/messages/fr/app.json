@@ -120,7 +120,8 @@
       "noTickets": "Aucun ticket trouvé. Utilisez les filtres de la barre latérale ou créez un nouveau ticket."
     },
     "kanban": {
-      "noTickets": "Aucun ticket"
+      "noTickets": "Aucun ticket",
+      "dropHere": "Déposer ici"
     },
     "priority": {
       "none": "Sans Priorité",
@@ -136,6 +137,8 @@
       "feature": "Fonctionnalité",
       "improvement": "Improvement",
       "epic": "Epic",
+      "subtask": "Sous-tâche",
+      "story": "Récit",
       "unknown": "Unknown"
     },
     "status": {
@@ -158,7 +161,9 @@
       "repository": "Repository",
       "selectRepository": "Select a repository...",
       "content": "Content",
-      "submit": "Create Ticket"
+      "submit": "Create Ticket",
+      "moreOptions": "Plus d'options",
+      "labelsPlaceholder": "Ajouter des labels..."
     },
     "detail": {
       "retry": "Retry",
@@ -183,11 +188,15 @@
       "timeline": "Timeline",
       "started": "Started",
       "completed": "Completed",
-      "viewFullDetails": "View Full Details"
+      "viewFullDetails": "View Full Details",
+      "dangerZone": "Zone de danger",
+      "deleteWarning": "Cette action est irréversible.",
+      "linked": "Liés",
+      "noLinkedItems": "Aucun élément lié pour le moment."
     },
     "podPanel": {
       "activeCount": "{count} active",
-      "newPod": "New Pod",
+      "newPod": "Exécuter",
       "createNewPod": "Create New Pod",
       "runner": "Runner",
       "selectRunner": "Select a runner...",

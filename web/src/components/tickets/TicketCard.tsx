@@ -10,9 +10,10 @@ interface TicketCardProps {
   ticket: Ticket;
   onClick?: () => void;
   showRepository?: boolean;
+  showStatus?: boolean;
 }
 
-export function TicketCard({ ticket, onClick, showRepository = true }: TicketCardProps) {
+export function TicketCard({ ticket, onClick, showRepository = true, showStatus = true }: TicketCardProps) {
   const t = useTranslations();
   const { currentOrg } = useAuthStore();
   const statusInfo = getStatusDisplayInfo(ticket.status);
@@ -50,12 +51,14 @@ export function TicketCard({ ticket, onClick, showRepository = true }: TicketCar
             {ticket.slug}
           </Link>
         </div>
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
-        >
-          <StatusIcon status={ticket.status} size="xs" />
-          {t(`tickets.status.${ticket.status}`)}
-        </span>
+        {showStatus && (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}
+          >
+            <StatusIcon status={ticket.status} size="xs" />
+            {t(`tickets.status.${ticket.status}`)}
+          </span>
+        )}
       </div>
 
       {/* Title */}
