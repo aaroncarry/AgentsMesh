@@ -42,10 +42,10 @@ export const DropdownMenuTrigger = React.forwardRef<HTMLButtonElement, DropdownM
     };
 
     if (asChild && React.isValidElement(children)) {
-      return React.cloneElement(children as React.ReactElement<any>, {
-        onClick: handleClick,
-        ref,
-      });
+      return React.cloneElement(
+        children as React.ReactElement<Record<string, unknown>>,
+        { onClick: handleClick },
+      );
     }
 
     return (
@@ -148,7 +148,7 @@ export function DropdownMenuItem({
   };
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
+    return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
       className: cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
         "hover:bg-accent hover:text-accent-foreground",

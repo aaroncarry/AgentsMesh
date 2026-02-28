@@ -441,7 +441,9 @@ func (c *TerminalChannel) handleControlRequest(subscriberID string, payload []by
 		data, _ := protocol.EncodeControlRequest(response)
 		c.subscribersMu.RLock()
 		if subscriber, ok := c.subscribers[subscriberID]; ok {
-			subscriber.Conn.WriteMessage(websocket.BinaryMessage, data)
+			if err := subscriber.Conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+				c.logger.Warn("Failed to send control response", "subscriber_id", subscriberID, "error", err)
+			}
 		}
 		c.subscribersMu.RUnlock()
 	}

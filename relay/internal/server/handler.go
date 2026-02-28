@@ -131,10 +131,10 @@ func (h *Handler) HandleBrowserWS(w http.ResponseWriter, r *http.Request) {
 
 		// Send error message before closing
 		if _, ok := err.(*channel.MaxSubscribersError); ok {
-			conn.WriteMessage(websocket.CloseMessage,
+			_ = conn.WriteMessage(websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "max subscribers reached"))
 		}
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 }
@@ -143,7 +143,7 @@ func (h *Handler) HandleBrowserWS(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 // HandleStats handles stats requests
@@ -153,7 +153,7 @@ func (h *Handler) HandleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	// Simple JSON encoding without external dependency
-	w.Write([]byte(`{"active_channels":` + itoa(stats.ActiveChannels) +
+	_, _ = w.Write([]byte(`{"active_channels":` + itoa(stats.ActiveChannels) +
 		`,"total_subscribers":` + itoa(stats.TotalSubscribers) +
 		`,"pending_publishers":` + itoa(stats.PendingPublishers) +
 		`,"pending_subscribers":` + itoa(stats.PendingSubscribers) + `}`))

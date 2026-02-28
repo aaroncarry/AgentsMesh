@@ -23,9 +23,9 @@ func TestGracefulUpdater_ScheduleUpdate_StateTransitions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	// This will fail due to network, but should transition through states
-	err := g.ScheduleUpdate(ctx)
-	assert.Error(t, err) // Expected to fail
+	// ScheduleUpdate may succeed (no update) or fail (network/timeout) depending on environment.
+	// The key assertion is that StateChecking was reached during the flow.
+	_ = g.ScheduleUpdate(ctx)
 
 	// Verify StateChecking was reached
 	assert.Contains(t, states, StateChecking)

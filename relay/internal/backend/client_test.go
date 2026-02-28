@@ -59,7 +59,7 @@ func TestClient_SendHeartbeat(t *testing.T) {
 	}
 	var req HeartbeatRequest
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -67,7 +67,7 @@ func TestClient_SendHeartbeat(t *testing.T) {
 	c.mu.Lock()
 	c.registered = true
 	c.mu.Unlock()
-	c.SendHeartbeat(context.Background(), 5)
+	_ = c.SendHeartbeat(context.Background(), 5)
 	if req.Connections != 5 {
 		t.Error("data wrong")
 	}
@@ -175,7 +175,7 @@ func TestRequestStructs(t *testing.T) {
 	}
 	data, _ := json.Marshal(reg)
 	var dec RegisterRequest
-	json.Unmarshal(data, &dec)
+	_ = json.Unmarshal(data, &dec)
 	if dec.RelayID != reg.RelayID {
 		t.Error("roundtrip failed")
 	}
