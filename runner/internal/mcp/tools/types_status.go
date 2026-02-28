@@ -49,17 +49,6 @@ const (
 	TicketStatusDone       TicketStatus = "done"
 )
 
-// TicketType represents the type of ticket.
-type TicketType string
-
-const (
-	TicketTypeTask        TicketType = "task"
-	TicketTypeBug         TicketType = "bug"
-	TicketTypeFeature     TicketType = "feature"
-	TicketTypeImprovement TicketType = "improvement"
-	TicketTypeEpic        TicketType = "epic"
-)
-
 // TicketPriority represents ticket priority levels.
 type TicketPriority string
 

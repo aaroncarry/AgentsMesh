@@ -1,7 +1,6 @@
 import { request, orgPath } from "./base";
 
 // Ticket types
-export type TicketType = "task" | "bug" | "feature" | "improvement" | "epic" | "subtask" | "story";
 export type TicketStatus = "backlog" | "todo" | "in_progress" | "in_review" | "done";
 export type TicketPriority = "none" | "low" | "medium" | "high" | "urgent";
 
@@ -9,7 +8,6 @@ export interface TicketData {
   id: number;
   number: number;
   slug: string;
-  type: TicketType;
   title: string;
   content?: string;
   status: TicketStatus;

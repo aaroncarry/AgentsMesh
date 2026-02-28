@@ -92,28 +92,6 @@ func TestTicketStatus(t *testing.T) {
 	}
 }
 
-func TestTicketType(t *testing.T) {
-	tests := []struct {
-		name       string
-		ticketType TicketType
-		want       string
-	}{
-		{"task", TicketTypeTask, "task"},
-		{"bug", TicketTypeBug, "bug"},
-		{"feature", TicketTypeFeature, "feature"},
-		{"improvement", TicketTypeImprovement, "improvement"},
-		{"epic", TicketTypeEpic, "epic"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.ticketType) != tt.want {
-				t.Errorf("got %v, want %v", tt.ticketType, tt.want)
-			}
-		})
-	}
-}
-
 func TestTicketPriority(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -54,25 +54,6 @@ func TestTicketIsCompleted(t *testing.T) {
 	}
 }
 
-func TestTicketIsBug(t *testing.T) {
-	tests := []struct {
-		ticketType string
-		expected   bool
-	}{
-		{TicketTypeBug, true},
-		{TicketTypeTask, false},
-		{TicketTypeFeature, false},
-		{TicketTypeEpic, false},
-	}
-
-	for _, tt := range tests {
-		ticket := &Ticket{Type: tt.ticketType}
-		if ticket.IsBug() != tt.expected {
-			t.Errorf("type %s: expected IsBug() = %v", tt.ticketType, tt.expected)
-		}
-	}
-}
-
 func TestTicketHasSubTickets(t *testing.T) {
 	ticketWithSubs := &Ticket{
 		SubTickets: []Ticket{{ID: 1}, {ID: 2}},

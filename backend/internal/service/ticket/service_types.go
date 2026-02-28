@@ -50,7 +50,6 @@ type CreateTicketRequest struct {
 	RepositoryID   *int64
 	ReporterID     int64
 	ParentTicketID *int64
-	Type           string
 	Title          string
 	Content        *string
 	Status         string

@@ -140,7 +140,6 @@ func (h *TicketHandler) CreateTicket(c *gin.Context) {
 		OrganizationID: tenant.OrganizationID,
 		RepositoryID:   req.RepositoryID,
 		ReporterID:     tenant.UserID,
-		Type:           "task",
 		Title:          req.Title,
 		Content:        content,
 		Status:         req.Status,

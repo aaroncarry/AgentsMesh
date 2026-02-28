@@ -165,7 +165,7 @@
         "codexCliEnv": "export OPENAI_API_KEY=sk-...",
         "codexCliHint": "Get your API key from",
         "geminiCli": "Gemini CLI",
-        "geminiCliInstall": "npm install -g @anthropic-ai/gemini-cli",
+        "geminiCliInstall": "npm install -g @google/gemini-cli",
         "geminiCliEnv": "export GOOGLE_API_KEY=...",
         "geminiCliHint": "Get your API key from",
         "tip": "After installing, restart the Runner or wait for the next heartbeat. The newly available agents will appear in the New Pod dialog."
@@ -196,7 +196,7 @@
         "title": "Interact with Your Agent",
         "description": "After creation the terminal view opens with a live session. Your AI agent begins executing the initial prompt or waits for input if none was provided.",
         "item1": "Type follow-up prompts or commands directly in the terminal",
-        "item2": "Watch the agent status indicator — idle, working, waiting, or finished",
+        "item2": "Watch the agent status indicator — idle, executing, or waiting",
         "item3": "The agent works inside the repository worktree if one was linked",
         "item4": "Terminate the Pod from the toolbar when your task is complete"
       },
@@ -265,12 +265,10 @@
           "descriptionHeader": "Description",
           "idle": "Idle",
           "idleDesc": "Agent is waiting for a task or prompt",
-          "working": "Working",
-          "workingDesc": "Agent is actively executing a task",
+          "executing": "Executing",
+          "executingDesc": "Agent is actively executing a task",
           "waiting": "Waiting",
-          "waitingDesc": "Agent is waiting for user input or approval",
-          "finished": "Finished",
-          "finishedDesc": "Agent has completed its task"
+          "waitingDesc": "Agent is waiting for user input or approval"
         },
         "configuration": {
           "title": "Pod Configuration",
@@ -462,7 +460,7 @@
           "item1": "Pod creation and termination events",
           "item2": "Binding requests and status changes",
           "item3": "Channel message activity",
-          "item4": "Agent status transitions (idle → working → waiting → finished)"
+          "item4": "Agent status transitions (idle → executing → waiting)"
         }
       },
       "tickets": {
@@ -653,6 +651,8 @@
           "brewTitle": "macOS (Homebrew)",
           "linuxTitle": "Linux (Package Manager)",
           "afterInstall": "After Installation",
+          "methodToken": "Option A: Register with a token",
+          "methodLogin": "Option B: Register with browser login",
           "tokenHint": "Get your registration token from Settings → Runners → Create Token in the AgentsMesh web interface."
         },
         "docker": {
@@ -825,7 +825,7 @@
         "github": {
           "title": "GitHub (OAuth)",
           "description": "Connect your GitHub account using OAuth for one-click authorization:",
-          "step1": "Go to Settings → Git Providers",
+          "step1": "Go to Settings → Personal → Git Settings",
           "step2": "Click Connect GitHub",
           "step3": "Authorize AgentsMesh in the GitHub popup",
           "step4": "Select which repositories to grant access to",
@@ -836,7 +836,7 @@
           "description": "Connect GitLab using a Personal Access Token:",
           "step1": "In GitLab, go to Settings → Access Tokens",
           "step2": "Create a new token with api and read_repository scopes",
-          "step3": "In AgentsMesh, go to Settings → Git Providers",
+          "step3": "In AgentsMesh, go to Settings → Personal → Git Settings",
           "step4": "Click Add GitLab Provider and paste your token",
           "step5": "Enter your GitLab instance URL (for self-hosted)",
           "selfHosted": "Self-Hosted GitLab: Enter the full URL of your GitLab instance (e.g., https://gitlab.yourcompany.com)."
@@ -846,7 +846,7 @@
           "description": "Connect Gitee using a Personal Access Token:",
           "step1": "In Gitee, go to Settings → Personal Access Tokens",
           "step2": "Create a new token with projects scope",
-          "step3": "In AgentsMesh, go to Settings → Git Providers",
+          "step3": "In AgentsMesh, go to Settings → Personal → Git Settings",
           "step4": "Click Add Gitee Provider and paste your token"
         },
         "sshKeys": {
@@ -1142,11 +1142,10 @@
           "title": "Endpoint Details",
           "listTickets": {
             "title": "GET /tickets",
-            "description": "Retrieve a paginated list of tickets. Supports filtering by repository, status, type, assignee, and labels.",
+            "description": "Retrieve a paginated list of tickets. Supports filtering by repository, status, assignee, and labels.",
             "params": {
               "repository_id": "Filter by repository ID",
-              "status": "Filter by status (open, in_progress, resolved, closed)",
-              "type": "Filter by type (bug, feature, task, improvement)",
+              "status": "Filter by status (backlog, todo, in_progress, in_review, done)",
               "assignee_id": "Filter by assignee user ID",
               "labels": "Filter by labels (comma-separated)",
               "limit": "Maximum number of results to return",
@@ -1169,12 +1168,11 @@
           },
           "createTicket": {
             "title": "POST /tickets",
-            "description": "Create a new ticket. Requires a type and title at minimum.",
+            "description": "Create a new ticket. Requires a title at minimum.",
             "fields": {
-              "type": "Ticket type: bug, feature, task, or improvement",
               "title": "Ticket title (1-500 characters)",
-              "priority": "Priority level: low, medium, high, or critical",
-              "status": "Initial status (defaults to open)",
+              "priority": "Priority level: low, medium, high, or urgent",
+              "status": "Initial status (defaults to backlog)",
               "assignee_id": "User ID to assign the ticket to",
               "repository_id": "Repository to associate with",
               "labels": "Array of label strings",
@@ -1189,7 +1187,6 @@
             },
             "fields": {
               "title": "Updated ticket title",
-              "type": "Updated ticket type",
               "priority": "Updated priority level",
               "status": "Updated status",
               "assignee_id": "Updated assignee user ID",
@@ -1204,7 +1201,7 @@
               "slug": "Ticket slug (e.g., AM-123)"
             },
             "fields": {
-              "status": "New status: open, in_progress, resolved, or closed"
+              "status": "New status: backlog, todo, in_progress, in_review, or done"
             }
           },
           "deleteTicket": {
@@ -1521,7 +1518,7 @@
         },
         "gitCloneFail": {
           "question": "Git clone fails when creating a Pod. What should I check?",
-          "answer": "Verify: 1) The Git provider is connected in Settings → Git Providers. 2) The repository URL is correct. 3) For SSH access, ensure the Runner machine has the correct SSH keys. 4) For HTTPS, ensure the token has repository read access."
+          "answer": "Verify: 1) The Git provider is connected in Settings → Personal → Git Settings. 2) The repository URL is correct. 3) For SSH access, ensure the Runner machine has the correct SSH keys. 4) For HTTPS, ensure the token has repository read access."
         },
         "gitWorktreeConflict": {
           "question": "Can multiple Pods work on the same repository simultaneously?",
