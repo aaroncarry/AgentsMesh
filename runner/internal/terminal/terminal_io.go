@@ -144,13 +144,15 @@ func (t *Terminal) waitExit() {
 
 	log.Info("Process exited", "pid", t.cmd.Process.Pid, "exit_code", exitCode)
 
+	// Signal that the process has exited (unblocks Stop() if waiting)
+	close(t.doneCh)
+
 	t.mu.Lock()
 	t.closed = true
 	t.mu.Unlock()
 
-	if t.pty != nil {
-		t.pty.Close()
-	}
+	// Close PTY via sync.Once (safe if Stop() also calls closePTY)
+	t.closePTY()
 
 	// Get handler with lock to prevent race condition
 	t.mu.Lock()

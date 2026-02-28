@@ -108,28 +108,13 @@ func (p *Pod) DisconnectRelay() {
 
 // GetOrCreateStateDetector returns the state detector for this pod, creating one if needed.
 // Returns the detector.StateDetector interface for use by any component.
+// Delegates to getOrCreateStateDetectorInternal to avoid duplicating DCL logic.
 func (p *Pod) GetOrCreateStateDetector() detector.StateDetector {
-	p.stateDetectorMu.RLock()
-	if p.stateDetector != nil {
-		defer p.stateDetectorMu.RUnlock()
-		return p.stateDetector
+	d := p.getOrCreateStateDetectorInternal()
+	if d == nil {
+		return nil // Explicit nil to avoid non-nil interface wrapping nil pointer
 	}
-	p.stateDetectorMu.RUnlock()
-
-	// Need to create - acquire write lock
-	p.stateDetectorMu.Lock()
-	defer p.stateDetectorMu.Unlock()
-
-	// Double check after acquiring write lock
-	if p.stateDetector != nil {
-		return p.stateDetector
-	}
-
-	// Create new detector if VirtualTerminal is available
-	if p.VirtualTerminal != nil {
-		p.stateDetector = NewManagedStateDetector(p.VirtualTerminal)
-	}
-	return p.stateDetector
+	return d
 }
 
 // SubscribeStateChange subscribes to state change events.
