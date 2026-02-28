@@ -111,7 +111,6 @@
     "view": "表示",
     "filters": {
       "status": "ステータス",
-      "type": "タイプ",
       "priority": "優先度"
     },
     "emptyState": {
@@ -124,7 +123,6 @@
       "id": "ID",
       "titleColumn": "タイトル",
       "status": "ステータス",
-      "type": "タイプ",
       "priority": "優先度",
       "assignee": "担当者",
       "created": "作成日",
@@ -142,23 +140,12 @@
       "urgent": "緊急",
       "unknown": "不明"
     },
-    "type": {
-      "task": "タスク",
-      "bug": "バグ",
-      "feature": "機能",
-      "improvement": "Improvement",
-      "epic": "エピック",
-      "subtask": "サブタスク",
-      "story": "ストーリー",
-      "unknown": "不明"
-    },
     "status": {
       "backlog": "バックログ",
       "todo": "To Do",
       "in_progress": "進行中",
       "in_review": "レビュー中",
       "done": "完了",
-      "cancelled": "キャンセル",
       "unknown": "不明"
     },
     "createDialog": {

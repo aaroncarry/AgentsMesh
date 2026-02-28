@@ -2,7 +2,7 @@
 
 import { useTicketPrefetch } from "@/hooks/useTicketPrefetch";
 import type { Ticket } from "@/stores/ticket";
-import { StatusIcon, PriorityIcon, TypeIcon, getStatusDisplayInfo } from "@/components/tickets";
+import { StatusIcon, PriorityIcon, getStatusDisplayInfo } from "@/components/tickets";
 import { cn } from "@/lib/utils";
 
 interface TicketListViewProps {
@@ -76,7 +76,6 @@ export function TicketListView({ tickets, selectedSlug, onTicketClick, t }: Tick
                 >
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <TypeIcon type={ticket.type} size="sm" />
                       <code className={cn(
                         "text-sm font-mono",
                         isSelected ? "text-primary font-medium" : "text-primary"

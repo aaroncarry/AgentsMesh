@@ -257,7 +257,7 @@ func TestGetTicketStats(t *testing.T) {
 		t.Fatalf("GetTicketStats() error = %v", err)
 	}
 	// Just verify it returns a map with expected keys
-	expectedStatuses := []string{"backlog", "todo", "in_progress", "in_review", "done", "cancelled"}
+	expectedStatuses := []string{"backlog", "todo", "in_progress", "in_review", "done"}
 	for _, status := range expectedStatuses {
 		if _, ok := stats[status]; !ok {
 			t.Errorf("stats missing key: %s", status)

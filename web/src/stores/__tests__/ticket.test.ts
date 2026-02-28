@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getStatusInfo, getPriorityInfo, getTypeInfo, useTicketStore } from '../ticket'
+import { getStatusInfo, getPriorityInfo, useTicketStore } from '../ticket'
 
 // Mock the API client
 vi.mock('@/lib/api', () => ({
@@ -38,7 +38,7 @@ const createMockTicket = (overrides: Partial<{
   number: number;
   slug: string;
   title: string;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled';
+  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
   type: 'task' | 'bug' | 'feature' | 'improvement' | 'epic' | 'subtask' | 'story';
   priority: 'none' | 'low' | 'medium' | 'high' | 'urgent';
   created_at: string;
@@ -311,14 +311,6 @@ describe('Ticket Store Helper Functions', () => {
       })
     })
 
-    it('should return correct info for cancelled status', () => {
-      const info = getStatusInfo('cancelled')
-      expect(info).toEqual({
-        label: 'Cancelled',
-        color: 'text-red-600 dark:text-red-400',
-        bgColor: 'bg-red-100 dark:bg-red-900/30',
-      })
-    })
   })
 
   describe('getPriorityInfo', () => {
@@ -368,59 +360,4 @@ describe('Ticket Store Helper Functions', () => {
     })
   })
 
-  describe('getTypeInfo', () => {
-    it('should return correct info for task type', () => {
-      const info = getTypeInfo('task')
-      expect(info).toEqual({
-        label: 'Task',
-        color: 'text-blue-500 dark:text-blue-400',
-        icon: '✓',
-      })
-    })
-
-    it('should return correct info for bug type', () => {
-      const info = getTypeInfo('bug')
-      expect(info).toEqual({
-        label: 'Bug',
-        color: 'text-red-500 dark:text-red-400',
-        icon: '🐛',
-      })
-    })
-
-    it('should return correct info for feature type', () => {
-      const info = getTypeInfo('feature')
-      expect(info).toEqual({
-        label: 'Feature',
-        color: 'text-green-500 dark:text-green-400',
-        icon: '✨',
-      })
-    })
-
-    it('should return correct info for epic type', () => {
-      const info = getTypeInfo('epic')
-      expect(info).toEqual({
-        label: 'Epic',
-        color: 'text-purple-500 dark:text-purple-400',
-        icon: '⚡',
-      })
-    })
-
-    it('should return correct info for subtask type', () => {
-      const info = getTypeInfo('subtask')
-      expect(info).toEqual({
-        label: 'Subtask',
-        color: 'text-gray-500 dark:text-gray-400',
-        icon: '◦',
-      })
-    })
-
-    it('should return correct info for story type', () => {
-      const info = getTypeInfo('story')
-      expect(info).toEqual({
-        label: 'Story',
-        color: 'text-teal-500 dark:text-teal-400',
-        icon: '📖',
-      })
-    })
-  })
 })

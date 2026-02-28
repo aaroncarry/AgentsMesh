@@ -189,7 +189,7 @@ export function KanbanBoard({
   onStatusChange,
   onTicketClick,
   onCreatePodRequest,
-  excludeStatuses = ["cancelled"],
+  excludeStatuses = [],
 }: KanbanBoardProps) {
   const t = useTranslations();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);

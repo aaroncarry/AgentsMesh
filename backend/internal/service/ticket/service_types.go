@@ -66,7 +66,6 @@ type ListTicketsFilter struct {
 	OrganizationID int64
 	RepositoryID   *int64
 	Status         string
-	Type           string
 	Priority       string
 	AssigneeID     *int64
 	ReporterID     *int64

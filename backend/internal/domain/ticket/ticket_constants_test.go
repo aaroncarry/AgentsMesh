@@ -37,9 +37,6 @@ func TestTicketStatusConstants(t *testing.T) {
 	if TicketStatusDone != "done" {
 		t.Errorf("expected 'done', got %s", TicketStatusDone)
 	}
-	if TicketStatusCancelled != "cancelled" {
-		t.Errorf("expected 'cancelled', got %s", TicketStatusCancelled)
-	}
 }
 
 func TestTicketPriorityConstants(t *testing.T) {

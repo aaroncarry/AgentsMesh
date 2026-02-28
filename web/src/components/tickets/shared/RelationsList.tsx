@@ -57,11 +57,11 @@ export function RelationsList({
 
   return (
     <div className={className}>
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+      <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
         <Link2 className="h-3.5 w-3.5" />
         {t("tickets.detail.related")} ({relations.length})
       </p>
-      <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+      <div className="rounded-xl border border-border/50 divide-y divide-border/40 overflow-hidden bg-card shadow-sm">
         {relations.map((relation) => {
           const targetTicket = relation.target_ticket;
           if (!targetTicket) return null;
@@ -69,17 +69,17 @@ export function RelationsList({
             <button
               key={relation.id}
               type="button"
-              className="w-full text-left px-3 py-2.5 hover:bg-muted/40 transition-colors flex items-center gap-2 group"
+              className="w-full text-left px-3.5 py-2.5 hover:bg-muted/30 transition-colors flex items-center gap-2.5 group"
               onClick={() => onTicketClick(targetTicket.slug)}
             >
-              <span className="text-[10px] text-muted-foreground capitalize bg-muted px-1.5 py-0.5 rounded shrink-0">
+              <span className="text-[10px] text-muted-foreground/70 capitalize bg-muted/60 px-1.5 py-0.5 rounded shrink-0">
                 {relation.relation_type}
               </span>
-              <span className="font-mono text-xs text-muted-foreground">
+              <code className="font-mono text-[11px] text-muted-foreground/60">
                 {targetTicket.slug}
-              </span>
+              </code>
               <span className="flex-1 truncate text-sm">{targetTicket.title}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           );
         })}

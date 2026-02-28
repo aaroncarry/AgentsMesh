@@ -81,20 +81,20 @@ export function CommitsList({
 
   return (
     <div className={className}>
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+      <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
         <GitCommit className="h-3.5 w-3.5" />
         {t("tickets.detail.commits")} ({commits.length})
       </p>
-      <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+      <div className="rounded-xl border border-border/50 divide-y divide-border/40 overflow-hidden bg-card shadow-sm">
         {commits.map((commit) => (
-          <div key={commit.id} className="px-3 py-2.5 hover:bg-muted/30 transition-colors">
+          <div key={commit.id} className="px-3.5 py-2.5 hover:bg-muted/20 transition-colors">
             <div className="flex items-start gap-2.5">
-              <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground shrink-0">
+              <code className="font-mono text-[11px] bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground/70 shrink-0">
                 {commit.commit_sha.substring(0, 7)}
               </code>
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{commit.commit_message}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground/50 mt-0.5">
                   {commit.author_name} · {commit.committed_at ? formatRelativeDate(commit.committed_at) : "N/A"}
                 </p>
               </div>

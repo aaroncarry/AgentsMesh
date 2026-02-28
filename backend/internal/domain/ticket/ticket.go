@@ -20,7 +20,6 @@ const (
 	TicketStatusInProgress = "in_progress"
 	TicketStatusInReview   = "in_review"
 	TicketStatusDone       = "done"
-	TicketStatusCancelled  = "cancelled"
 )
 
 // Ticket priority constants
@@ -90,11 +89,6 @@ func (t *Ticket) IsActive() bool {
 // IsCompleted returns true if the ticket is completed
 func (t *Ticket) IsCompleted() bool {
 	return t.Status == TicketStatusDone
-}
-
-// IsCancelled returns true if the ticket is cancelled
-func (t *Ticket) IsCancelled() bool {
-	return t.Status == TicketStatusCancelled
 }
 
 // IsBug returns true if the ticket is a bug type

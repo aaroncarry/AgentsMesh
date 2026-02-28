@@ -111,7 +111,6 @@
     "view": "Visualizar",
     "filters": {
       "status": "Status",
-      "type": "Tipo",
       "priority": "Prioridade"
     },
     "emptyState": {
@@ -124,7 +123,6 @@
       "id": "ID",
       "titleColumn": "Título",
       "status": "Status",
-      "type": "Tipo",
       "priority": "Prioridade",
       "assignee": "Responsável",
       "created": "Criado",
@@ -142,23 +140,12 @@
       "urgent": "Urgente",
       "unknown": "Desconhecido"
     },
-    "type": {
-      "task": "Tarefa",
-      "bug": "Bug",
-      "feature": "Recurso",
-      "improvement": "Improvement",
-      "epic": "Epic",
-      "subtask": "Subtarefa",
-      "story": "História",
-      "unknown": "Unknown"
-    },
     "status": {
       "backlog": "Backlog",
       "todo": "A Fazer",
       "in_progress": "Em Progresso",
       "in_review": "Em Revisão",
       "done": "Concluído",
-      "cancelled": "Cancelado",
       "unknown": "Desconhecido"
     },
     "createDialog": {

@@ -35,11 +35,6 @@ vi.mock('@/stores/ticket', () => ({
     color: 'text-gray-500',
     icon: '→',
   }),
-  getTypeInfo: (type: string) => ({
-    label: type.charAt(0).toUpperCase() + type.slice(1),
-    color: 'text-blue-500',
-    icon: '✓',
-  }),
 }))
 
 // Mock ticket API
@@ -311,13 +306,6 @@ describe('TicketDetail Component', () => {
   })
 
   describe('metadata sidebar', () => {
-    it('should display ticket type', async () => {
-      render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        expect(screen.getByText('Type')).toBeInTheDocument()
-      })
-    })
-
     it('should display ticket priority', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
@@ -338,170 +326,6 @@ describe('TicketDetail Component', () => {
         // Timestamps are now in compact "Created Xd ago · Updated Xd ago" format
         const timestampEl = screen.getByText(/Created/)
         expect(timestampEl).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe('sub-tickets (linked tab)', () => {
-    it('should display sub-tickets when available', async () => {
-      ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({
-        sub_tickets: [
-          {
-            id: 2,
-            slug: 'PROJ-43',
-            title: 'Sub-task 1',
-            status: 'todo',
-            type: 'task',
-          },
-        ],
-      })
-
-      render(<TicketDetail slug="PROJ-42" />)
-
-      // Switch to the linked tab
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        expect(screen.getByText('PROJ-43')).toBeInTheDocument()
-        expect(screen.getByText('Sub-task 1')).toBeInTheDocument()
-      })
-    })
-
-    it('should not render sub-tickets section when empty', async () => {
-      render(<TicketDetail slug="PROJ-42" />)
-
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        expect(screen.queryByText(/Sub-tickets/)).not.toBeInTheDocument()
-      })
-    })
-
-    it('should navigate to sub-ticket on click', async () => {
-      ;(ticketApi.getSubTickets as ReturnType<typeof vi.fn>).mockResolvedValue({
-        sub_tickets: [
-          {
-            id: 2,
-            slug: 'PROJ-43',
-            title: 'Sub-task 1',
-            status: 'todo',
-            type: 'task',
-          },
-        ],
-      })
-
-      render(<TicketDetail slug="PROJ-42" />)
-
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        const subTicket = screen.getByText('Sub-task 1')
-        fireEvent.click(subTicket)
-        expect(mockRouterPush).toHaveBeenCalledWith('/test-org/tickets/PROJ-43')
-      })
-    })
-  })
-
-  describe('relations (linked tab)', () => {
-    it('should display relations when available', async () => {
-      ;(ticketApi.listRelations as ReturnType<typeof vi.fn>).mockResolvedValue({
-        relations: [
-          {
-            id: 1,
-            source_ticket_id: 42,
-            target_ticket_id: 3,
-            relation_type: 'blocks',
-            target_ticket: {
-              id: 3,
-              slug: 'PROJ-44',
-              title: 'Related ticket',
-            },
-            created_at: '2024-01-10T10:00:00Z',
-          },
-        ],
-      })
-
-      render(<TicketDetail slug="PROJ-42" />)
-
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        expect(screen.getByText('PROJ-44')).toBeInTheDocument()
-        expect(screen.getByText('Related ticket')).toBeInTheDocument()
-      })
-    })
-
-    it('should navigate to related ticket on click', async () => {
-      ;(ticketApi.listRelations as ReturnType<typeof vi.fn>).mockResolvedValue({
-        relations: [
-          {
-            id: 1,
-            source_ticket_id: 42,
-            target_ticket_id: 3,
-            relation_type: 'blocks',
-            target_ticket: {
-              id: 3,
-              slug: 'PROJ-44',
-              title: 'Related ticket',
-            },
-            created_at: '2024-01-10T10:00:00Z',
-          },
-        ],
-      })
-
-      render(<TicketDetail slug="PROJ-42" />)
-
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        const relatedTicket = screen.getByText('Related ticket')
-        fireEvent.click(relatedTicket)
-        expect(mockRouterPush).toHaveBeenCalledWith('/test-org/tickets/PROJ-44')
-      })
-    })
-  })
-
-  describe('commits (linked tab)', () => {
-    it('should display commits when available', async () => {
-      ;(ticketApi.listCommits as ReturnType<typeof vi.fn>).mockResolvedValue({
-        commits: [
-          {
-            id: 1,
-            ticket_id: 42,
-            commit_sha: 'abc123def456',
-            commit_message: 'Fix bug in authentication',
-            author_name: 'John Doe',
-            committed_at: '2024-01-10T10:00:00Z',
-            created_at: '2024-01-10T10:00:00Z',
-          },
-        ],
-      })
-
-      render(<TicketDetail slug="PROJ-42" />)
-
-      await waitFor(() => {
-        const linkedTab = screen.getByRole('tab', { name: /Linked/i })
-        fireEvent.click(linkedTab)
-      })
-
-      await waitFor(() => {
-        expect(screen.getByText('abc123d')).toBeInTheDocument()
-        expect(screen.getByText('Fix bug in authentication')).toBeInTheDocument()
       })
     })
   })
@@ -556,20 +380,8 @@ describe('TicketDetail Component', () => {
   })
 
   describe('delete action', () => {
-    it('should show danger zone toggle', async () => {
+    it('should show delete button', async () => {
       render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        expect(screen.getByText('Danger Zone')).toBeInTheDocument()
-      })
-    })
-
-    it('should show delete button after expanding danger zone', async () => {
-      render(<TicketDetail slug="PROJ-42" />)
-      await waitFor(() => {
-        const dangerToggle = screen.getByText('Danger Zone')
-        fireEvent.click(dangerToggle)
-      })
-
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeInTheDocument()
       })
@@ -577,12 +389,6 @@ describe('TicketDetail Component', () => {
 
     it('should show confirmation modal when delete is clicked', async () => {
       render(<TicketDetail slug="PROJ-42" />)
-
-      // Expand danger zone
-      await waitFor(() => {
-        const dangerToggle = screen.getByText('Danger Zone')
-        fireEvent.click(dangerToggle)
-      })
 
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')
@@ -597,12 +403,6 @@ describe('TicketDetail Component', () => {
       mockDeleteTicket.mockResolvedValue({})
 
       render(<TicketDetail slug="PROJ-42" />)
-
-      // Expand danger zone
-      await waitFor(() => {
-        const dangerToggle = screen.getByText('Danger Zone')
-        fireEvent.click(dangerToggle)
-      })
 
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')
@@ -621,12 +421,6 @@ describe('TicketDetail Component', () => {
 
     it('should close modal when cancel is clicked', async () => {
       render(<TicketDetail slug="PROJ-42" />)
-
-      // Expand danger zone
-      await waitFor(() => {
-        const dangerToggle = screen.getByText('Danger Zone')
-        fireEvent.click(dangerToggle)
-      })
 
       await waitFor(() => {
         const deleteButton = screen.getByText('Delete')

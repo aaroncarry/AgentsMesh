@@ -81,7 +81,6 @@ func TestTicketStatus(t *testing.T) {
 		{"in_progress", TicketStatusInProgress, "in_progress"},
 		{"in_review", TicketStatusInReview, "in_review"},
 		{"done", TicketStatusDone, "done"},
-		{"canceled", TicketStatusCanceled, "canceled"},
 	}
 
 	for _, tt := range tests {

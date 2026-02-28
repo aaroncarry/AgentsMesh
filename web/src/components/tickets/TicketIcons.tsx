@@ -8,22 +8,13 @@ import {
   CircleDot,
   Timer,
   CheckCircle2,
-  XCircle,
   // Priority icons
   Minus,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
-  // Type icons
-  CheckSquare,
-  Bug,
-  Sparkles,
-  TrendingUp,
-  Zap,
-  CircleDot as SubtaskIcon,
-  BookOpen,
 } from "lucide-react";
-import { TicketStatus, TicketPriority, TicketType } from "@/lib/api";
+import { TicketStatus, TicketPriority } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // Icon size presets
@@ -52,7 +43,6 @@ const statusIconMap: Record<TicketStatus, React.ComponentType<{ className?: stri
   in_progress: Timer,
   in_review: CircleDot,
   done: CheckCircle2,
-  cancelled: XCircle,
 };
 
 const statusColorMap: Record<TicketStatus, string> = {
@@ -61,7 +51,6 @@ const statusColorMap: Record<TicketStatus, string> = {
   in_progress: "text-yellow-500 dark:text-yellow-400",
   in_review: "text-purple-500 dark:text-purple-400",
   done: "text-green-500 dark:text-green-400",
-  cancelled: "text-red-500 dark:text-red-400",
 };
 
 export function StatusIcon({ status, size = "sm", className }: StatusIconProps) {
@@ -117,47 +106,6 @@ export function PriorityIcon({ priority, size = "sm", className }: PriorityIconP
 }
 
 // ============================================================================
-// Type Icons
-// ============================================================================
-
-interface TypeIconProps {
-  type: TicketType;
-  size?: IconSize;
-  className?: string;
-}
-
-const typeIconMap: Record<TicketType, React.ComponentType<{ className?: string }>> = {
-  task: CheckSquare,
-  bug: Bug,
-  feature: Sparkles,
-  improvement: TrendingUp,
-  epic: Zap,
-  subtask: SubtaskIcon,
-  story: BookOpen,
-};
-
-const typeColorMap: Record<TicketType, string> = {
-  task: "text-blue-500 dark:text-blue-400",
-  bug: "text-red-500 dark:text-red-400",
-  feature: "text-green-500 dark:text-green-400",
-  improvement: "text-cyan-500 dark:text-cyan-400",
-  epic: "text-purple-500 dark:text-purple-400",
-  subtask: "text-gray-500 dark:text-gray-400",
-  story: "text-teal-500 dark:text-teal-400",
-};
-
-export function TypeIcon({ type, size = "sm", className }: TypeIconProps) {
-  const IconComponent = typeIconMap[type] || CheckSquare;
-  const colorClass = typeColorMap[type] || typeColorMap.task;
-
-  return (
-    <IconComponent
-      className={cn(sizeClasses[size], colorClass, className)}
-    />
-  );
-}
-
-// ============================================================================
 // Helper functions for getting display info with React nodes
 // ============================================================================
 
@@ -174,13 +122,6 @@ export interface PriorityInfo {
   icon: React.ReactNode;
 }
 
-export interface TypeInfo {
-  label: string;
-  color: string;
-  bgColor: string;
-  icon: React.ReactNode;
-}
-
 type TranslateFn = (key: string) => string;
 
 const statusFallbackLabels: Record<TicketStatus, string> = {
@@ -189,7 +130,6 @@ const statusFallbackLabels: Record<TicketStatus, string> = {
   in_progress: "In Progress",
   in_review: "In Review",
   done: "Done",
-  cancelled: "Cancelled",
 };
 
 const statusBgColorMap: Record<TicketStatus, string> = {
@@ -198,7 +138,6 @@ const statusBgColorMap: Record<TicketStatus, string> = {
   in_progress: "bg-yellow-100 dark:bg-yellow-900/30",
   in_review: "bg-purple-100 dark:bg-purple-900/30",
   done: "bg-green-100 dark:bg-green-900/30",
-  cancelled: "bg-red-100 dark:bg-red-900/30",
 };
 
 export function getStatusDisplayInfo(status: TicketStatus, sizeOrT?: IconSize | TranslateFn, maybeSize?: IconSize): StatusInfo {
@@ -250,46 +189,5 @@ export function getPriorityDisplayInfo(priority: TicketPriority, sizeOrT?: IconS
   };
 }
 
-const typeFallbackLabels: Record<TicketType, string> = {
-  task: "Task",
-  bug: "Bug",
-  feature: "Feature",
-  improvement: "Improvement",
-  epic: "Epic",
-  subtask: "Subtask",
-  story: "Story",
-};
-
-const typeBgColorMap: Record<TicketType, string> = {
-  task: "bg-blue-100 dark:bg-blue-900/30",
-  bug: "bg-red-100 dark:bg-red-900/30",
-  feature: "bg-purple-100 dark:bg-purple-900/30",
-  improvement: "bg-green-100 dark:bg-green-900/30",
-  epic: "bg-indigo-100 dark:bg-indigo-900/30",
-  subtask: "bg-gray-100 dark:bg-gray-800",
-  story: "bg-cyan-100 dark:bg-cyan-900/30",
-};
-
-export function getTypeDisplayInfo(type: TicketType, sizeOrT?: IconSize | TranslateFn, maybeSize?: IconSize): TypeInfo {
-  let size: IconSize = "sm";
-  let t: TranslateFn | undefined;
-
-  if (typeof sizeOrT === "function") {
-    t = sizeOrT;
-    size = maybeSize || "sm";
-  } else if (typeof sizeOrT === "string") {
-    size = sizeOrT;
-  }
-
-  const label = t ? t(`tickets.type.${type}`) : (typeFallbackLabels[type] || type);
-
-  return {
-    label,
-    color: typeColorMap[type] || typeColorMap.task,
-    bgColor: typeBgColorMap[type] || typeBgColorMap.task,
-    icon: <TypeIcon type={type} size={size} />,
-  };
-}
-
 // Export color maps for external use
-export { statusColorMap, priorityColorMap, typeColorMap };
+export { statusColorMap, priorityColorMap };

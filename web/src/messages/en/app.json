@@ -117,7 +117,6 @@
     "view": "View",
     "filters": {
       "status": "Status",
-      "type": "Type",
       "priority": "Priority"
     },
     "emptyState": {
@@ -130,7 +129,6 @@
       "id": "ID",
       "titleColumn": "Title",
       "status": "Status",
-      "type": "Type",
       "priority": "Priority",
       "assignee": "Assignee",
       "created": "Created",
@@ -148,23 +146,12 @@
       "urgent": "Urgent",
       "unknown": "Unknown"
     },
-    "type": {
-      "task": "Task",
-      "bug": "Bug",
-      "feature": "Feature",
-      "improvement": "Improvement",
-      "epic": "Epic",
-      "subtask": "Subtask",
-      "story": "Story",
-      "unknown": "Unknown"
-    },
     "status": {
       "backlog": "Backlog",
       "todo": "To Do",
       "in_progress": "In Progress",
       "in_review": "In Review",
       "done": "Done",
-      "cancelled": "Cancelled",
       "unknown": "Unknown"
     },
     "createDialog": {

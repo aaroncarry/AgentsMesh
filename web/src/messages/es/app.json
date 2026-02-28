@@ -111,7 +111,6 @@
     "view": "Ver",
     "filters": {
       "status": "Estado",
-      "type": "Tipo",
       "priority": "Prioridad"
     },
     "emptyState": {
@@ -124,7 +123,6 @@
       "id": "ID",
       "titleColumn": "Título",
       "status": "Estado",
-      "type": "Tipo",
       "priority": "Prioridad",
       "assignee": "Asignado",
       "created": "Creado",
@@ -142,23 +140,12 @@
       "urgent": "Urgente",
       "unknown": "Desconocido"
     },
-    "type": {
-      "task": "Tarea",
-      "bug": "Bug",
-      "feature": "Característica",
-      "improvement": "Improvement",
-      "epic": "Epic",
-      "subtask": "Subtarea",
-      "story": "Historia",
-      "unknown": "Unknown"
-    },
     "status": {
       "backlog": "Backlog",
       "todo": "Por Hacer",
       "in_progress": "En Progreso",
       "in_review": "En Revisión",
       "done": "Hecho",
-      "cancelled": "Cancelado",
       "unknown": "Desconocido"
     },
     "createDialog": {

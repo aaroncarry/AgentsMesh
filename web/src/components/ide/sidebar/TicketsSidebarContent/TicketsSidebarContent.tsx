@@ -9,7 +9,6 @@ import { TicketCreateDialog } from "@/components/tickets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Loader2,
   Plus,
   Search,
   LayoutList,
@@ -19,7 +18,6 @@ import {
 import { useTranslations } from "next-intl";
 import { useTicketFilters } from "./useTicketFilters";
 import { TicketFilterSection } from "./TicketFilterSection";
-import { TicketListItem } from "./TicketListItem";
 import type { TicketsSidebarContentProps } from "./types";
 
 /**
@@ -29,18 +27,15 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
   const t = useTranslations();
   const router = useRouter();
   const { currentOrg } = useAuthStore();
-  const { loading, viewMode, tickets: allTickets, fetchTickets, setViewMode } = useTicketStore();
+  const { viewMode, tickets: allTickets, fetchTickets, setViewMode } = useTicketStore();
 
   // Filter state and actions
   const {
     searchQuery,
     selectedStatuses,
-    selectedTypes,
     selectedPriorities,
-    filteredTickets,
     setSearchQuery,
     toggleStatus,
-    toggleType,
     togglePriority,
     clearAllFilters,
     hasActiveFilters,
@@ -50,9 +45,7 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
   const [refreshing, setRefreshing] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [statusExpanded, setStatusExpanded] = useState(true);
-  const [typeExpanded, setTypeExpanded] = useState(false);
   const [priorityExpanded, setPriorityExpanded] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(20);
 
   // Load tickets on mount
   useEffect(() => {
@@ -70,10 +63,6 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
       setRefreshing(false);
     }
   }, [fetchTickets]);
-
-  const handleTicketClick = useCallback((slug: string) => {
-    router.push(`/${currentOrg?.slug}/tickets/${slug}`);
-  }, [router, currentOrg]);
 
   // Handle ticket created
   const handleTicketCreated = useCallback((ticketId: number, slug: string) => {
@@ -171,61 +160,16 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
       {/* Filters */}
       <TicketFilterSection
         statusExpanded={statusExpanded}
-        typeExpanded={typeExpanded}
         priorityExpanded={priorityExpanded}
         onStatusExpandedChange={setStatusExpanded}
-        onTypeExpandedChange={setTypeExpanded}
         onPriorityExpandedChange={setPriorityExpanded}
         selectedStatuses={selectedStatuses}
-        selectedTypes={selectedTypes}
         selectedPriorities={selectedPriorities}
         onToggleStatus={toggleStatus}
-        onToggleType={toggleType}
         onTogglePriority={togglePriority}
         allTickets={allTickets}
         t={t}
       />
-
-      {/* Ticket list preview */}
-      <div className="flex-1 overflow-y-auto border-t border-border">
-        <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border">
-          {filteredTickets.length} {t("tickets.ticketCount")}
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredTickets.length === 0 ? (
-          <div className="px-3 py-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              {hasActiveFilters ? t("tickets.emptyState.noMatch") : t("tickets.emptyState.title")}
-            </p>
-          </div>
-        ) : (
-          <div className="py-1">
-            {filteredTickets.slice(0, visibleCount).map((ticket) => (
-              <TicketListItem
-                key={ticket.id}
-                ticket={ticket}
-                onClick={handleTicketClick}
-              />
-            ))}
-            {filteredTickets.length > visibleCount && (
-              <div className="px-2 py-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full h-7 text-xs text-muted-foreground"
-                  onClick={() => setVisibleCount((prev) => prev + 20)}
-                >
-                  {t("tickets.moreTickets", { count: filteredTickets.length - visibleCount })}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

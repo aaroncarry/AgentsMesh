@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { Ticket, TicketStatus, TicketPriority } from "@/stores/ticket";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { TypeIcon } from "./TicketIcons";
 import { StatusSelect } from "./StatusSelect";
 import { PrioritySelect } from "./PrioritySelect";
 import { ticketApi } from "@/lib/api";
@@ -16,7 +15,7 @@ import { CreatePodModal } from "@/components/ide/CreatePodModal";
 import { getPodDisplayName } from "@/lib/pod-utils";
 import { AgentStatusBadge } from "@/components/shared/AgentStatusBadge";
 import {
-  Trash2, ChevronDown, Clock, Play, Terminal,
+  Trash2, Clock, Play, Terminal,
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,8 +62,6 @@ export function TicketDetailSidebar({
   ticketSlug,
   t,
 }: TicketDetailSidebarProps) {
-  const [dangerOpen, setDangerOpen] = useState(false);
-
   const handleStatusChange = async (status: TicketStatus) => {
     onStatusChange(status);
   };
@@ -82,11 +79,11 @@ export function TicketDetailSidebar({
       />
 
       {/* Properties panel */}
-      <div className="border border-border rounded-lg divide-y divide-border">
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
         {/* Status */}
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t("tickets.filters.status")}</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("tickets.filters.status")}</span>
             <StatusSelect
               value={ticket.status}
               onChange={handleStatusChange}
@@ -96,10 +93,12 @@ export function TicketDetailSidebar({
           </div>
         </div>
 
+        <div className="mx-4 border-t border-border/40" />
+
         {/* Priority */}
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t("tickets.filters.priority")}</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("tickets.filters.priority")}</span>
             {onPriorityChange ? (
               <PrioritySelect
                 value={ticket.priority}
@@ -113,90 +112,82 @@ export function TicketDetailSidebar({
           </div>
         </div>
 
-        {/* Type */}
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{t("tickets.filters.type")}</span>
-            <span className="flex items-center gap-1.5 text-sm">
-              <TypeIcon type={ticket.type} size="sm" />
-              {t(`tickets.type.${ticket.type}`)}
-            </span>
-          </div>
-        </div>
+        <div className="mx-4 border-t border-border/40" />
 
         {/* Due Date */}
         {ticket.due_date && (
-          <div className="px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{t("tickets.detail.dueDate")}</span>
-              <span className="text-sm">{new Date(ticket.due_date).toLocaleDateString()}</span>
+          <>
+            <div className="px-4 py-3 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">{t("tickets.detail.dueDate")}</span>
+                <span className={cn(
+                  "text-sm tabular-nums",
+                  new Date(ticket.due_date) < new Date() && ticket.status !== "done"
+                    ? "text-destructive font-medium"
+                    : "text-foreground"
+                )}>
+                  {new Date(ticket.due_date).toLocaleDateString()}
+                </span>
+              </div>
             </div>
-          </div>
+            <div className="mx-4 border-t border-border/40" />
+          </>
         )}
 
         {/* Assignees */}
         <div className="px-4 py-3">
-          <span className="text-xs text-muted-foreground block mb-2">{t("tickets.detail.assignees")}</span>
+          <span className="text-xs font-medium text-muted-foreground block mb-2.5">{t("tickets.detail.assignees")}</span>
           {ticket.assignees && ticket.assignees.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {ticket.assignees.map((assignee) => (
-                <div key={assignee.user_id} className="flex items-center gap-1.5">
+                <div key={assignee.user_id} className="flex items-center gap-2 group">
                   {assignee.user?.avatar_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={assignee.user.avatar_url} alt="" className="w-5 h-5 rounded-full" />
+                    <img src={assignee.user.avatar_url} alt="" className="w-6 h-6 rounded-full ring-1 ring-border/50" />
                   ) : (
-                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-medium text-primary">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary ring-1 ring-primary/20">
                       {(assignee.user?.name || assignee.user?.username || "?")[0].toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm">{assignee.user?.name || assignee.user?.username}</span>
+                  <span className="text-sm text-foreground/90">{assignee.user?.name || assignee.user?.username}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/60">{t("tickets.detail.noAssignees")}</p>
+            <p className="text-xs text-muted-foreground/50 italic">{t("tickets.detail.noAssignees")}</p>
           )}
         </div>
 
+        <div className="mx-4 border-t border-border/40" />
+
         {/* Timestamps */}
         <div className="px-4 py-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
-            <Clock className="w-3 h-3 shrink-0" />
-            <span title={new Date(ticket.created_at).toLocaleString()}>
-              {t("tickets.detail.created")} {formatRelativeDate(ticket.created_at)}
-            </span>
-            <span>·</span>
-            <span title={new Date(ticket.updated_at).toLocaleString()}>
-              {t("tickets.detail.updated")} {formatRelativeDate(ticket.updated_at)}
-            </span>
+          <div className="flex flex-col gap-1 text-xs text-muted-foreground/70">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span title={new Date(ticket.created_at).toLocaleString()}>
+                {t("tickets.detail.created")} {formatRelativeDate(ticket.created_at)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 ml-[18px]">
+              <span title={new Date(ticket.updated_at).toLocaleString()}>
+                {t("tickets.detail.updated")} {formatRelativeDate(ticket.updated_at)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Danger Zone */}
-      <div className="border border-border/50 rounded-lg overflow-hidden">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
-          onClick={() => setDangerOpen(!dangerOpen)}
-        >
-          <span>{t("tickets.detail.dangerZone") || "Danger Zone"}</span>
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", dangerOpen && "rotate-180")} />
-        </button>
-        {dangerOpen && (
-          <div className="px-4 pb-3">
-            <Button
-              className="w-full"
-              variant="destructive"
-              size="sm"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-              {t("common.delete")}
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Delete */}
+      <Button
+        className="w-full"
+        variant="outline"
+        size="sm"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-3.5 w-3.5 mr-1.5 text-destructive" />
+        <span className="text-destructive">{t("common.delete")}</span>
+      </Button>
     </div>
   );
 }
@@ -273,33 +264,32 @@ function SidebarPodSection({
         }
       />
 
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
         {/* Execute button */}
         <div className="p-3">
           <Button
-            className="w-full"
+            className="w-full gap-1.5 shadow-sm"
             size="sm"
             onClick={() => setShowCreateModal(true)}
           >
-            <Play className="h-3.5 w-3.5 mr-1.5" />
+            <Play className="h-3.5 w-3.5" />
             {t("tickets.podPanel.newPod")}
           </Button>
         </div>
 
         {/* Pod list */}
-        <div className="border-t border-border">
+        <div className="border-t border-border/40">
           {loading ? (
-            <div className="flex items-center justify-center py-4">
+            <div className="flex items-center justify-center py-5">
               <Spinner size="sm" />
             </div>
           ) : pods.length === 0 ? (
-            <div className="py-4 px-3 text-center">
-              <Terminal className="w-5 h-5 mx-auto mb-1.5 text-muted-foreground/25" />
-              <p className="text-xs text-muted-foreground">{t("tickets.podPanel.noPods")}</p>
+            <div className="py-5 px-3 text-center">
+              <Terminal className="w-5 h-5 mx-auto mb-2 text-muted-foreground/20" />
+              <p className="text-xs text-muted-foreground/60">{t("tickets.podPanel.noPods")}</p>
             </div>
           ) : (
             <div className="py-1">
-              {/* Active pods */}
               {activePods.map((pod) => (
                 <SidebarPodItem
                   key={pod.pod_key}
@@ -309,10 +299,9 @@ function SidebarPodSection({
                 />
               ))}
 
-              {/* Inactive pods */}
               {inactivePods.length > 0 && (
                 <details className="group">
-                  <summary className="px-3 py-1.5 text-[11px] text-muted-foreground cursor-pointer hover:bg-muted/50 select-none">
+                  <summary className="px-3 py-1.5 text-[11px] text-muted-foreground/60 cursor-pointer hover:bg-muted/30 select-none transition-colors">
                     {t("tickets.podPanel.previousPods", { count: inactivePods.length })}
                   </summary>
                   <div className="pb-1">
@@ -350,20 +339,20 @@ function SidebarPodItem({
   return (
     <div
       className={cn(
-        "px-3 py-1.5 flex items-center gap-2 group transition-colors",
-        isActive ? "hover:bg-green-50/50 dark:hover:bg-green-900/10" : "hover:bg-muted/50"
+        "mx-1.5 px-2 py-1.5 flex items-center gap-2 group transition-colors rounded-md",
+        isActive ? "hover:bg-green-50/60 dark:hover:bg-green-900/10" : "hover:bg-muted/40"
       )}
     >
       <div
         className={cn(
           "w-1.5 h-1.5 rounded-full shrink-0",
-          pod.status === "running" && "bg-green-500 animate-pulse",
-          pod.status === "initializing" && "bg-yellow-500 animate-pulse",
+          pod.status === "running" && "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)] animate-pulse",
+          pod.status === "initializing" && "bg-yellow-500 shadow-[0_0_6px_rgba(234,179,8,0.4)] animate-pulse",
           pod.status === "failed" && "bg-red-500",
-          pod.status !== "running" && pod.status !== "initializing" && pod.status !== "failed" && "bg-gray-400"
+          pod.status !== "running" && pod.status !== "initializing" && pod.status !== "failed" && "bg-muted-foreground/30"
         )}
       />
-      <code className="text-[11px] font-mono text-muted-foreground flex-1 truncate">
+      <code className="text-[11px] font-mono text-muted-foreground/80 flex-1 truncate">
         {getPodDisplayName(pod)}
       </code>
       <AgentStatusBadge
@@ -376,7 +365,7 @@ function SidebarPodItem({
           <button
             type="button"
             onClick={onConnect}
-            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title={t("tickets.podPanel.connect")}
           >
             <Terminal className="w-3 h-3" />
@@ -384,7 +373,7 @@ function SidebarPodItem({
           <button
             type="button"
             onClick={onOpenInNewTab}
-            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             title={t("tickets.podPanel.openInNewTab")}
           >
             <ExternalLink className="w-3 h-3" />

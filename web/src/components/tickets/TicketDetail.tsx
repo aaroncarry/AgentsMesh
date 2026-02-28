@@ -4,16 +4,14 @@ import { useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/stores/auth";
 import { useTicketStore, TicketStatus, TicketPriority } from "@/stores/ticket";
-import { StatusIcon, TypeIcon, getStatusDisplayInfo } from "./TicketIcons";
+import { StatusIcon, getStatusDisplayInfo } from "./TicketIcons";
 import { useTicketExtraData } from "./hooks";
-import { SubTicketsList, RelationsList, CommitsList, LabelsList, CommentsList } from "./shared";
+import { LabelsList, CommentsList, SubTicketsList, RelationsList, CommitsList } from "./shared";
 import { TicketDetailSidebar } from "./TicketDetailSidebar";
 import { InlineEditableText } from "./InlineEditableText";
-import { MessageSquare, GitBranch, FileText } from "lucide-react";
 
 const BlockEditor = lazy(() => import("@/components/ui/block-editor"));
 
@@ -101,10 +99,6 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   }, [confirm, deleteTicket, slug, router, currentOrg, t]);
 
-  const handleTicketClick = (ticketSlug: string) => {
-    router.push(`/${currentOrg?.slug}/tickets/${ticketSlug}`);
-  };
-
   if (loading && !currentTicket) {
     return <TicketDetailSkeleton />;
   }
@@ -129,22 +123,19 @@ export function TicketDetail({ slug }: TicketDetailProps) {
   }
 
   const statusInfo = getStatusDisplayInfo(currentTicket.status, t);
-  const linkedCount = subTickets.length + relations.length + commits.length;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8">
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
       {/* Main Content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 space-y-6">
         {/* Header */}
-        <div className="mb-6">
-          {/* Meta row: type icon + slug + status badge */}
-          <div className="flex items-center gap-2 mb-3">
-            <TypeIcon type={currentTicket.type} size="md" />
-            <span className="text-muted-foreground font-mono text-sm">
+        <div className="space-y-4">
+          {/* Meta row */}
+          <div className="flex items-center gap-2.5">
+            <code className="text-muted-foreground/80 font-mono text-xs tracking-wide bg-muted/50 px-2 py-0.5 rounded">
               {currentTicket.slug}
-            </span>
-            <span className="mx-1 text-border">·</span>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+            </code>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color} ring-1 ring-inset ring-current/10`}>
               <StatusIcon status={currentTicket.status} size="xs" />
               {statusInfo.label}
             </span>
@@ -155,99 +146,46 @@ export function TicketDetail({ slug }: TicketDetailProps) {
             value={currentTicket.title}
             onSave={handleTitleSave}
             placeholder={t("tickets.createDialog.titlePlaceholder")}
-            className="text-xl sm:text-2xl font-semibold leading-snug"
-            inputClassName="text-xl sm:text-2xl font-semibold"
+            className="text-xl sm:text-2xl font-bold tracking-tight leading-snug"
+            inputClassName="text-xl sm:text-2xl font-bold tracking-tight"
           />
 
-          {/* Labels (inline with header) */}
+          {/* Labels */}
           {currentTicket.labels && currentTicket.labels.length > 0 && (
-            <div className="mt-3">
-              <LabelsList labels={currentTicket.labels} compact />
-            </div>
+            <LabelsList labels={currentTicket.labels} compact />
           )}
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="content" className="mt-2">
-          <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent p-0 h-auto gap-0">
-            <TabsTrigger
-              value="content"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
-            >
-              <FileText className="w-3.5 h-3.5 mr-1.5" />
-              {t("tickets.detail.content") || "Content"}
-            </TabsTrigger>
-            <TabsTrigger
-              value="activity"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
-            >
-              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-              {t("tickets.detail.comments")}
-              {comments.length > 0 && (
-                <span className="ml-1.5 text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground tabular-nums">
-                  {comments.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="linked"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground"
-            >
-              <GitBranch className="w-3.5 h-3.5 mr-1.5" />
-              {t("tickets.detail.linked") || "Linked"}
-              {linkedCount > 0 && (
-                <span className="ml-1.5 text-[10px] bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground tabular-nums">
-                  {linkedCount}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Content tab */}
-          <TabsContent value="content" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-            <div className="rounded-lg border border-border overflow-hidden bg-card min-h-[150px] max-h-[60vh] overflow-y-auto">
-              <Suspense fallback={<div className="h-[150px] animate-pulse bg-muted/50" />}>
-                <BlockEditor
-                  key={slug}
-                  initialContent={currentTicket.content || ""}
-                  onChange={handleContentChange}
-                  editable={true}
-                />
-              </Suspense>
-            </div>
-          </TabsContent>
-
-          {/* Activity tab */}
-          <TabsContent value="activity" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-            <CommentsList
-              comments={comments}
-              onAddComment={addComment}
-              onUpdateComment={updateComment}
-              onDeleteComment={deleteComment}
+        {/* Content */}
+        <div className="rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm min-h-[200px] max-h-[65vh] overflow-y-auto">
+          <Suspense fallback={<div className="h-[200px] animate-pulse bg-muted/30 rounded-xl" />}>
+            <BlockEditor
+              key={slug}
+              initialContent={currentTicket.content || ""}
+              onChange={handleContentChange}
+              editable={true}
             />
-          </TabsContent>
+          </Suspense>
+        </div>
 
-          {/* Linked tab */}
-          <TabsContent value="linked" className="mt-4 focus-visible:outline-none focus-visible:ring-0">
-            <div className="space-y-1">
-              <SubTicketsList
-                subTickets={subTickets}
-                onTicketClick={handleTicketClick}
-              />
-              <RelationsList
-                relations={relations}
-                onTicketClick={handleTicketClick}
-              />
-              <CommitsList commits={commits} />
-              {linkedCount === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <GitBranch className="w-8 h-8 mb-3 text-muted-foreground/30" />
-                  <p className="text-sm">{t("tickets.detail.noLinkedItems") || "No linked items yet."}</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* Linked items */}
+        <SubTicketsList
+          subTickets={subTickets}
+          onTicketClick={(ticketSlug) => router.push(`/${currentOrg?.slug}/tickets/${ticketSlug}`)}
+        />
+        <RelationsList
+          relations={relations}
+          onTicketClick={(ticketSlug) => router.push(`/${currentOrg?.slug}/tickets/${ticketSlug}`)}
+        />
+        <CommitsList commits={commits} />
+
+        {/* Comments */}
+        <CommentsList
+          comments={comments}
+          onAddComment={addComment}
+          onUpdateComment={updateComment}
+          onDeleteComment={deleteComment}
+        />
 
       </div>
 
@@ -269,21 +207,28 @@ export function TicketDetail({ slug }: TicketDetailProps) {
 function TicketDetailSkeleton() {
   return (
     <div className="animate-pulse" data-testid="ticket-detail-skeleton">
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-5 w-5 bg-muted rounded" />
-            <div className="h-4 w-24 bg-muted rounded" />
-            <div className="h-5 w-20 bg-muted rounded-full" />
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        <div className="flex-1 space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-5 w-20 bg-muted/60 rounded" />
+              <div className="h-5 w-24 bg-muted/60 rounded-full" />
+            </div>
+            <div className="h-8 bg-muted/60 rounded-lg w-3/4" />
           </div>
-          <div className="h-8 bg-muted rounded w-3/4 mb-6" />
-          <div className="h-10 bg-muted rounded w-full mb-4" />
-          <div className="h-48 bg-muted rounded" />
+          <div className="h-10 bg-muted/40 rounded-lg w-full" />
+          <div className="h-64 bg-muted/40 rounded-xl" />
         </div>
-        <div className="lg:w-72 space-y-3">
-          <div className="h-16 bg-muted rounded-lg" />
-          <div className="h-40 bg-muted rounded-lg" />
-          <div className="h-20 bg-muted rounded-lg" />
+        <div className="lg:w-72 shrink-0 space-y-3">
+          <div className="h-[52px] bg-muted/50 rounded-xl" />
+          <div className="rounded-xl border border-border/40 overflow-hidden">
+            <div className="h-12 bg-muted/30" />
+            <div className="h-12 bg-muted/20" />
+            <div className="h-12 bg-muted/30" />
+            <div className="h-16 bg-muted/20" />
+            <div className="h-10 bg-muted/30" />
+          </div>
+          <div className="h-9 bg-muted/30 rounded-lg" />
         </div>
       </div>
     </div>

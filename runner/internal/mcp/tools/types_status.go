@@ -47,7 +47,6 @@ const (
 	TicketStatusInProgress TicketStatus = "in_progress"
 	TicketStatusInReview   TicketStatus = "in_review"
 	TicketStatusDone       TicketStatus = "done"
-	TicketStatusCanceled   TicketStatus = "canceled"
 )
 
 // TicketType represents the type of ticket.

@@ -129,7 +129,6 @@ func (a *GRPCRunnerAdapter) mcpSearchTickets(ctx context.Context, tc *middleware
 		OrganizationID: tc.OrganizationID,
 		RepositoryID:   params.RepositoryID,
 		Status:         params.Status,
-		Type:           params.Type,
 		Priority:       params.Priority,
 		AssigneeID:     params.AssigneeID,
 		ParentTicketID: parentTicketID,
