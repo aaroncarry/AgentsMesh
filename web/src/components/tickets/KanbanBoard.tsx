@@ -140,14 +140,11 @@ function DroppableColumn({
       <div className={cn("h-1 w-full", topColor)} />
 
       {/* Column Header */}
-      <div className="flex items-center justify-between px-3 py-2.5">
+      <div className="flex items-center px-3 py-2.5">
         <div className="flex items-center gap-2">
           <div className={cn("w-2 h-2 rounded-full", dotColor)} />
           <h3 className="font-medium text-sm">{t(labelKey)}</h3>
         </div>
-        <span className="text-xs text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full font-mono">
-          {tickets.length}
-        </span>
       </div>
 
       {/* Column Content */}

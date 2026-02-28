@@ -37,6 +37,7 @@ interface TicketDetailSidebarProps {
   onPriorityChange?: (priority: TicketPriority) => void;
   ticketSlug: string;
   t: (key: string, params?: Record<string, string | number>) => string;
+  commentsSlot?: React.ReactNode;
 }
 
 function formatRelativeDate(dateString: string): string {
@@ -61,6 +62,7 @@ export function TicketDetailSidebar({
   onPriorityChange,
   ticketSlug,
   t,
+  commentsSlot,
 }: TicketDetailSidebarProps) {
   const handleStatusChange = async (status: TicketStatus) => {
     onStatusChange(status);
@@ -177,6 +179,8 @@ export function TicketDetailSidebar({
           </div>
         </div>
       </div>
+
+      {commentsSlot}
 
       {/* Delete */}
       <Button

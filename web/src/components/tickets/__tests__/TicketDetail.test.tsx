@@ -137,11 +137,12 @@ describe('TicketDetail Component', () => {
   })
 
   describe('rendering', () => {
-    it('should render ticket slug', async () => {
+    it('should not render slug (slug shown in page breadcrumb only)', async () => {
       render(<TicketDetail slug="PROJ-42" />)
       await waitFor(() => {
-        expect(screen.getByText('PROJ-42')).toBeInTheDocument()
+        expect(screen.getByText('Implement new feature')).toBeInTheDocument()
       })
+      expect(screen.queryByText('PROJ-42')).not.toBeInTheDocument()
     })
 
     it('should render ticket title', async () => {

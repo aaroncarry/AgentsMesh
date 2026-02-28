@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/stores/auth";
 import { useTicketStore, TicketStatus, TicketPriority } from "@/stores/ticket";
-import { StatusIcon, getStatusDisplayInfo } from "./TicketIcons";
 import { useTicketExtraData } from "./hooks";
 import { LabelsList, CommentsList, SubTicketsList, RelationsList, CommitsList } from "./shared";
 import { TicketDetailSidebar } from "./TicketDetailSidebar";
@@ -122,25 +121,12 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     );
   }
 
-  const statusInfo = getStatusDisplayInfo(currentTicket.status, t);
-
   return (
     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
       {/* Main Content */}
       <div className="flex-1 min-w-0 space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          {/* Meta row */}
-          <div className="flex items-center gap-2.5">
-            <code className="text-muted-foreground/80 font-mono text-xs tracking-wide bg-muted/50 px-2 py-0.5 rounded">
-              {currentTicket.slug}
-            </code>
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color} ring-1 ring-inset ring-current/10`}>
-              <StatusIcon status={currentTicket.status} size="xs" />
-              {statusInfo.label}
-            </span>
-          </div>
-
           {/* Title */}
           <InlineEditableText
             value={currentTicket.title}
@@ -179,13 +165,15 @@ export function TicketDetail({ slug }: TicketDetailProps) {
         />
         <CommitsList commits={commits} />
 
-        {/* Comments */}
-        <CommentsList
-          comments={comments}
-          onAddComment={addComment}
-          onUpdateComment={updateComment}
-          onDeleteComment={deleteComment}
-        />
+        {/* Comments (large screens only — on small screens shown above delete in sidebar) */}
+        <div className="hidden lg:block">
+          <CommentsList
+            comments={comments}
+            onAddComment={addComment}
+            onUpdateComment={updateComment}
+            onDeleteComment={deleteComment}
+          />
+        </div>
 
       </div>
 
@@ -197,6 +185,16 @@ export function TicketDetail({ slug }: TicketDetailProps) {
         onPriorityChange={handlePriorityChange}
         ticketSlug={slug}
         t={t}
+        commentsSlot={
+          <div className="lg:hidden">
+            <CommentsList
+              comments={comments}
+              onAddComment={addComment}
+              onUpdateComment={updateComment}
+              onDeleteComment={deleteComment}
+            />
+          </div>
+        }
       />
 
       <ConfirmDialog {...dialogProps} />
