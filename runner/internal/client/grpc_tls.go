@@ -65,7 +65,11 @@ func (c *GRPCConnection) createAdvancedTLSCredentials() (credentials.TransportCr
 			// Only verify certificate chain, not hostname (server may use IP)
 			VerificationType: advancedtls.CertVerification,
 		}
-		return advancedtls.NewClientCreds(options)
+		creds, err := advancedtls.NewClientCreds(options)
+		if err != nil {
+			return nil, err
+		}
+		return creds, nil
 	}
 
 	// Save providers for cleanup to prevent goroutine leaks
@@ -86,7 +90,11 @@ func (c *GRPCConnection) createAdvancedTLSCredentials() (credentials.TransportCr
 		VerificationType: advancedtls.CertVerification,
 	}
 
-	return advancedtls.NewClientCreds(options)
+	creds, err := advancedtls.NewClientCreds(options)
+	if err != nil {
+		return nil, err
+	}
+	return creds, nil
 }
 
 // createFallbackTLSCredentials creates standard TLS credentials as fallback.
@@ -113,6 +121,7 @@ func (c *GRPCConnection) createFallbackTLSCredentials() (credentials.TransportCr
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caPool,
+		ServerName:   c.tlsServerName,
 		MinVersion:   tls.VersionTLS13,
 	}
 
