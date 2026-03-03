@@ -116,3 +116,13 @@ func (s *Service) RevokeAdmin(ctx context.Context, userID int64, currentAdminID 
 	}
 	return s.UpdateUser(ctx, userID, map[string]interface{}{"is_system_admin": false})
 }
+
+// VerifyUserEmail marks a user's email as verified
+func (s *Service) VerifyUserEmail(ctx context.Context, userID int64) (*user.User, error) {
+	return s.UpdateUser(ctx, userID, map[string]interface{}{"is_email_verified": true})
+}
+
+// UnverifyUserEmail marks a user's email as unverified
+func (s *Service) UnverifyUserEmail(ctx context.Context, userID int64) (*user.User, error) {
+	return s.UpdateUser(ctx, userID, map[string]interface{}{"is_email_verified": false})
+}

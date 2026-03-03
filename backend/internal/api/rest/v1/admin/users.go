@@ -34,6 +34,8 @@ func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 		usersGroup.POST("/:id/enable", h.EnableUser)
 		usersGroup.POST("/:id/grant-admin", h.GrantAdmin)
 		usersGroup.POST("/:id/revoke-admin", h.RevokeAdmin)
+		usersGroup.POST("/:id/verify-email", h.VerifyUserEmail)
+		usersGroup.POST("/:id/unverify-email", h.UnverifyUserEmail)
 	}
 }
 

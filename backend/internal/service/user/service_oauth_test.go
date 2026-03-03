@@ -35,27 +35,55 @@ func TestGetOrCreateByOAuth(t *testing.T) {
 	}
 }
 
-func TestGetOrCreateByOAuthExistingEmail(t *testing.T) {
+func TestGetOrCreateByOAuthExistingVerifiedEmail(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
 
 	// Create user via regular signup
-	service.Create(ctx, &CreateRequest{
+	created, _ := service.Create(ctx, &CreateRequest{
 		Email:    "existing@example.com",
 		Username: "existing",
 	})
 
-	// Now OAuth with same email should link to existing user
+	// Mark email as verified
+	db.Model(created).Update("is_email_verified", true)
+
+	// OAuth with same verified email should link to existing user
 	user, isNew, err := service.GetOrCreateByOAuth(ctx, "gitlab", "99999", "gitlabuser", "existing@example.com", "Existing User", "")
 	if err != nil {
 		t.Fatalf("failed: %v", err)
 	}
 	if isNew {
-		t.Error("expected isNew to be false for existing email")
+		t.Error("expected isNew to be false for existing verified email")
 	}
 	if user.Username != "existing" {
 		t.Errorf("expected username 'existing', got %s", user.Username)
+	}
+}
+
+func TestGetOrCreateByOAuthExistingUnverifiedEmail(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	// Create user via regular signup (email NOT verified)
+	service.Create(ctx, &CreateRequest{
+		Email:    "unverified@example.com",
+		Username: "unverified",
+	})
+
+	// OAuth with same unverified email should create a NEW user
+	// to prevent OAuth email takeover attacks
+	user, isNew, err := service.GetOrCreateByOAuth(ctx, "gitlab", "88888", "attacker", "unverified@example.com", "Attacker", "")
+	if err != nil {
+		t.Fatalf("failed: %v", err)
+	}
+	if !isNew {
+		t.Error("expected isNew to be true for unverified email (should not link)")
+	}
+	if user.Username != "attacker" {
+		t.Errorf("expected username 'attacker', got %s", user.Username)
 	}
 }
 

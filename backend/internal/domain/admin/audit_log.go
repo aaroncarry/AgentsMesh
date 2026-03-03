@@ -17,8 +17,10 @@ const (
 	AuditActionUserUpdate      AuditAction = "user.update"
 	AuditActionUserDisable     AuditAction = "user.disable"
 	AuditActionUserEnable      AuditAction = "user.enable"
-	AuditActionUserGrantAdmin  AuditAction = "user.grant_admin"
-	AuditActionUserRevokeAdmin AuditAction = "user.revoke_admin"
+	AuditActionUserGrantAdmin    AuditAction = "user.grant_admin"
+	AuditActionUserRevokeAdmin   AuditAction = "user.revoke_admin"
+	AuditActionUserVerifyEmail   AuditAction = "user.verify_email"
+	AuditActionUserUnverifyEmail AuditAction = "user.unverify_email"
 
 	// Organization actions
 	AuditActionOrgView   AuditAction = "organization.view"

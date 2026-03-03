@@ -63,28 +63,6 @@ func (s *Service) isTokenBlacklisted(ctx context.Context, token string) (bool, e
 	return exists > 0, err
 }
 
-// RefreshTokens generates new tokens using refresh token
-func (s *Service) RefreshTokens(ctx context.Context, accessToken, refreshToken string) (*TokenPair, error) {
-	// Parse expired access token to get user info
-	token, _ := jwt.ParseWithClaims(accessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(s.config.JWTSecret), nil
-	})
-
-	claims, ok := token.Claims.(*Claims)
-	if !ok {
-		return nil, ErrInvalidToken
-	}
-
-	// Get user
-	u, err := s.userService.GetByID(ctx, claims.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate new token pair
-	return s.GenerateTokenPair(u, claims.OrganizationID, claims.Role)
-}
-
 // RefreshToken refreshes access token using refresh token stored in Redis
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*LoginResult, error) {
 	if s.redis == nil {

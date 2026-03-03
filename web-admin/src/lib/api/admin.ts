@@ -72,6 +72,14 @@ export async function revokeAdmin(id: number): Promise<User> {
   return apiClient.post<User>(`/users/${id}/revoke-admin`);
 }
 
+export async function verifyUserEmail(id: number): Promise<User> {
+  return apiClient.post<User>(`/users/${id}/verify-email`);
+}
+
+export async function unverifyUserEmail(id: number): Promise<User> {
+  return apiClient.post<User>(`/users/${id}/unverify-email`);
+}
+
 // Organizations
 export interface Organization {
   id: number;

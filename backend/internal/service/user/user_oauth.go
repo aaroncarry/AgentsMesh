@@ -20,22 +20,32 @@ func (s *Service) GetOrCreateByOAuth(ctx context.Context, provider, providerUser
 	}
 
 	// Check if user with email exists (only when email is non-empty to avoid
-	// matching unrelated users who also have empty emails)
+	// matching unrelated users who also have empty emails).
+	// Only link to existing users who have verified their email to prevent
+	// OAuth email takeover attacks (e.g., attacker registers on OAuth provider
+	// with victim's email, then logs in to take over their account).
 	var u *user.User
 	var isNew bool
+	var emailTaken bool // whether email already exists in DB (verified or not)
 	if email != "" {
 		existing, err := s.GetByEmail(ctx, email)
 		if err == nil {
-			u = existing
+			if existing.IsEmailVerified {
+				u = existing
+			} else {
+				emailTaken = true
+			}
 		}
 	}
 
 	if u == nil {
-		// Create new user
-		// Generate a placeholder email when OAuth provider returns no email,
-		// since the email column has a unique constraint
+		// Create new user.
+		// Use a placeholder email when:
+		// - OAuth provider returned no email, OR
+		// - the email is already taken by an unverified account
+		// The email column has a unique constraint.
 		userEmail := email
-		if userEmail == "" {
+		if userEmail == "" || emailTaken {
 			userEmail = fmt.Sprintf("%s_%s@noemail.agentsmesh.placeholder", provider, providerUserID)
 		}
 
@@ -49,7 +59,7 @@ func (s *Service) GetOrCreateByOAuth(ctx context.Context, provider, providerUser
 			if _, err := s.GetByUsername(ctx, username); err != nil {
 				break
 			}
-			username = providerUsername + "_" + string(rune('0'+i))
+			username = fmt.Sprintf("%s_%d", providerUsername, i)
 		}
 
 		u = &user.User{

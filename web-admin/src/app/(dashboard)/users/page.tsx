@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, MoreHorizontal, Shield, ShieldOff, UserX, UserCheck } from "lucide-react";
+import { Search, MoreHorizontal, Shield, ShieldOff, UserX, UserCheck, MailCheck, MailX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import {
   enableUser,
   grantAdmin,
   revokeAdmin,
+  verifyUserEmail,
+  unverifyUserEmail,
   User,
 } from "@/lib/api/admin";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
@@ -72,6 +74,28 @@ export default function UsersPage() {
     },
   });
 
+  const verifyEmailMutation = useMutation({
+    mutationFn: verifyUserEmail,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Email verified successfully");
+    },
+    onError: (err: { error: string }) => {
+      toast.error(err.error || "Failed to verify email");
+    },
+  });
+
+  const unverifyEmailMutation = useMutation({
+    mutationFn: unverifyUserEmail,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Email unverified successfully");
+    },
+    onError: (err: { error: string }) => {
+      toast.error(err.error || "Failed to unverify email");
+    },
+  });
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -112,6 +136,8 @@ export default function UsersPage() {
                   onEnable={() => enableMutation.mutate(user.id)}
                   onGrantAdmin={() => grantAdminMutation.mutate(user.id)}
                   onRevokeAdmin={() => revokeAdminMutation.mutate(user.id)}
+                  onVerifyEmail={() => verifyEmailMutation.mutate(user.id)}
+                  onUnverifyEmail={() => unverifyEmailMutation.mutate(user.id)}
                 />
               ))}
               {data?.data.length === 0 && (
@@ -160,12 +186,16 @@ function UserRow({
   onEnable,
   onGrantAdmin,
   onRevokeAdmin,
+  onVerifyEmail,
+  onUnverifyEmail,
 }: {
   user: User;
   onDisable: () => void;
   onEnable: () => void;
   onGrantAdmin: () => void;
   onRevokeAdmin: () => void;
+  onVerifyEmail: () => void;
+  onUnverifyEmail: () => void;
 }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-border p-4">
@@ -229,6 +259,25 @@ function UserRow({
               title="Enable user"
             >
               <UserCheck className="h-4 w-4" />
+            </Button>
+          )}
+          {user.is_email_verified ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onUnverifyEmail}
+              title="Unverify email"
+            >
+              <MailX className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onVerifyEmail}
+              title="Verify email"
+            >
+              <MailCheck className="h-4 w-4" />
             </Button>
           )}
           {user.is_system_admin ? (
