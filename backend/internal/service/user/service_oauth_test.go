@@ -171,5 +171,49 @@ func TestUpdateIdentityTokens(t *testing.T) {
 	}
 }
 
+func TestGetOrCreateByOAuthEmptyEmail(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(db)
+	ctx := context.Background()
+
+	// First user with empty email via OAuth
+	user1, isNew1, err := service.GetOrCreateByOAuth(ctx, "github", "111", "user_a", "", "User A", "")
+	if err != nil {
+		t.Fatalf("failed to create first user: %v", err)
+	}
+	if !isNew1 {
+		t.Error("expected isNew to be true for first user")
+	}
+
+	// Second user with empty email should NOT be linked to the first user
+	user2, isNew2, err := service.GetOrCreateByOAuth(ctx, "github", "222", "user_b", "", "User B", "")
+	if err != nil {
+		t.Fatalf("failed to create second user: %v", err)
+	}
+	if !isNew2 {
+		t.Error("expected isNew to be true for second user")
+	}
+	if user2.ID == user1.ID {
+		t.Errorf("second user should have a different ID from first user, both got %d", user1.ID)
+	}
+
+	// Third user with empty email should also be independent
+	user3, isNew3, err := service.GetOrCreateByOAuth(ctx, "github", "333", "user_c", "", "User C", "")
+	if err != nil {
+		t.Fatalf("failed to create third user: %v", err)
+	}
+	if !isNew3 {
+		t.Error("expected isNew to be true for third user")
+	}
+	if user3.ID == user1.ID || user3.ID == user2.ID {
+		t.Error("third user should be independent from first and second")
+	}
+
+	// Verify placeholder emails are unique
+	if user1.Email == user2.Email || user1.Email == user3.Email || user2.Email == user3.Email {
+		t.Errorf("placeholder emails should be unique: %q, %q, %q", user1.Email, user2.Email, user3.Email)
+	}
+}
+
 // Note: Search tests are skipped because SQLite doesn't support ILIKE
 // The Search function is tested through integration tests with PostgreSQL

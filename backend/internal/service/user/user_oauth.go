@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/user"
@@ -18,14 +19,26 @@ func (s *Service) GetOrCreateByOAuth(ctx context.Context, provider, providerUser
 		return u, false, err
 	}
 
-	// Check if user with email exists
+	// Check if user with email exists (only when email is non-empty to avoid
+	// matching unrelated users who also have empty emails)
 	var u *user.User
 	var isNew bool
-	existing, err := s.GetByEmail(ctx, email)
-	if err == nil {
-		u = existing
-	} else {
+	if email != "" {
+		existing, err := s.GetByEmail(ctx, email)
+		if err == nil {
+			u = existing
+		}
+	}
+
+	if u == nil {
 		// Create new user
+		// Generate a placeholder email when OAuth provider returns no email,
+		// since the email column has a unique constraint
+		userEmail := email
+		if userEmail == "" {
+			userEmail = fmt.Sprintf("%s_%s@noemail.agentsmesh.placeholder", provider, providerUserID)
+		}
+
 		username := providerUsername
 		if username == "" {
 			username = email
@@ -40,7 +53,7 @@ func (s *Service) GetOrCreateByOAuth(ctx context.Context, provider, providerUser
 		}
 
 		u = &user.User{
-			Email:    email,
+			Email:    userEmail,
 			Username: username,
 			IsActive: true,
 		}
