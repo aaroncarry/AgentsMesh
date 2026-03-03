@@ -132,3 +132,57 @@ func (h *UserHandler) RevokeAdmin(c *gin.Context) {
 
 	c.JSON(http.StatusOK, adminUserResponse(user))
 }
+
+// VerifyUserEmail marks a user's email as verified
+func (h *UserHandler) VerifyUserEmail(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		apierr.InvalidInput(c, "Invalid user ID")
+		return
+	}
+
+	// Get old data for audit log
+	oldUser, _ := h.adminService.GetUser(c.Request.Context(), userID)
+
+	user, err := h.adminService.VerifyUserEmail(c.Request.Context(), userID)
+	if err != nil {
+		if err == adminservice.ErrUserNotFound {
+			apierr.ResourceNotFound(c, "User not found")
+			return
+		}
+		apierr.InternalError(c, "Failed to verify user email")
+		return
+	}
+
+	// Log verify email action
+	h.logAction(c, admin.AuditActionUserVerifyEmail, admin.TargetTypeUser, userID, oldUser, user)
+
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}
+
+// UnverifyUserEmail marks a user's email as unverified
+func (h *UserHandler) UnverifyUserEmail(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		apierr.InvalidInput(c, "Invalid user ID")
+		return
+	}
+
+	// Get old data for audit log
+	oldUser, _ := h.adminService.GetUser(c.Request.Context(), userID)
+
+	user, err := h.adminService.UnverifyUserEmail(c.Request.Context(), userID)
+	if err != nil {
+		if err == adminservice.ErrUserNotFound {
+			apierr.ResourceNotFound(c, "User not found")
+			return
+		}
+		apierr.InternalError(c, "Failed to unverify user email")
+		return
+	}
+
+	// Log unverify email action
+	h.logAction(c, admin.AuditActionUserUnverifyEmail, admin.TargetTypeUser, userID, oldUser, user)
+
+	c.JSON(http.StatusOK, adminUserResponse(user))
+}

@@ -132,7 +132,17 @@ func (c *Config) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo
 		return nil, fmt.Errorf("user info request failed: %s", string(body))
 	}
 
-	return c.parseUserInfo(body)
+	userInfo, err := c.parseUserInfo(body)
+	if err != nil {
+		return nil, err
+	}
+
+	// GitHub users may have a private email; fall back to /user/emails API
+	if c.Provider == "github" && userInfo.Email == "" {
+		userInfo.Email, _ = fetchGitHubPrimaryEmail(ctx, accessToken)
+	}
+
+	return userInfo, nil
 }
 
 // parseUserInfo parses user info response based on provider
@@ -212,6 +222,50 @@ func NewGiteeConfig(clientID, clientSecret, redirectURL string) *Config {
 		UserInfoURL:   "https://gitee.com/api/v5/user",
 		Scopes:        []string{"user_info", "emails", "projects"},
 	}
+}
+
+// fetchGitHubPrimaryEmail fetches the primary verified email from GitHub
+// /user/emails API when the public profile email is empty.
+func fetchGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub emails API returned status %d", resp.StatusCode)
+	}
+
+	var emails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+		return "", err
+	}
+
+	// Prefer primary + verified email
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email, nil
+		}
+	}
+	// Fall back to any verified email
+	for _, e := range emails {
+		if e.Verified {
+			return e.Email, nil
+		}
+	}
+	return "", nil
 }
 
 // parseGitHubUserInfo parses GitHub user info
