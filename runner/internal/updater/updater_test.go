@@ -56,7 +56,7 @@ func TestUpdater_CurrentVersion(t *testing.T) {
 
 func TestRepoConstants(t *testing.T) {
 	assert.Equal(t, "AgentsMesh", RepoOwner)
-	assert.Equal(t, "AgentsMeshRunner", RepoName)
+	assert.Equal(t, "AgentsMesh", RepoName)
 }
 
 func TestUpdater_GetDetector(t *testing.T) {

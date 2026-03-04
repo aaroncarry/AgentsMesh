@@ -65,13 +65,13 @@ brew install agentsmesh/tap/agentsmesh-runner`}</pre>
         </h3>
         <div className="bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto">
           <pre className="text-green-500 dark:text-green-400">{`# Debian/Ubuntu
-VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v\${VERSION}/agentsmesh-runner_\${VERSION}_linux_amd64.deb
+VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMesh/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v\${VERSION}/agentsmesh-runner_\${VERSION}_linux_amd64.deb
 sudo dpkg -i agentsmesh-runner_\${VERSION}_linux_amd64.deb
 
 # RHEL/CentOS/Fedora
-VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v\${VERSION}/agentsmesh-runner_\${VERSION}_linux_amd64.rpm
+VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMesh/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v\${VERSION}/agentsmesh-runner_\${VERSION}_linux_amd64.rpm
 sudo rpm -i agentsmesh-runner_\${VERSION}_linux_amd64.rpm`}</pre>
         </div>
 

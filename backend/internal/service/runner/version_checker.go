@@ -25,7 +25,7 @@ const (
 
 const (
 	// githubRepo is the hardcoded GitHub repository for runner releases.
-	githubRepo = "AgentsMesh/AgentsMeshRunner"
+	githubRepo = "AgentsMesh/AgentsMesh"
 )
 
 // VersionChecker periodically fetches the latest Runner version from GitHub Releases

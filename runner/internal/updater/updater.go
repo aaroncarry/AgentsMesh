@@ -1,5 +1,5 @@
 // Package updater provides self-update functionality for the runner.
-// It uses GitHub Releases from AgentsMesh/AgentsMeshRunner to download and install updates.
+// It uses GitHub Releases from AgentsMesh/AgentsMesh to download and install updates.
 package updater
 
 import (
@@ -17,7 +17,7 @@ const (
 	// RepoOwner is the GitHub organization/user that owns the runner repository.
 	RepoOwner = "AgentsMesh"
 	// RepoName is the name of the runner repository on GitHub.
-	RepoName = "AgentsMeshRunner"
+	RepoName = "AgentsMesh"
 )
 
 // UpdateInfo contains information about an available update.

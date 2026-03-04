@@ -7,7 +7,7 @@
 $ErrorActionPreference = "Stop"
 
 # GitHub release repository
-$GITHUB_REPO = "AgentsMesh/AgentsMeshRunner"
+$GITHUB_REPO = "AgentsMesh/AgentsMesh"
 $BINARY_NAME = "agentsmesh-runner.exe"
 
 # Colors

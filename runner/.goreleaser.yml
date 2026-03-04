@@ -1,8 +1,8 @@
 # GoReleaser configuration for AgentsMesh Runner
 # https://goreleaser.com
 #
-# Release repository: https://github.com/AgentsMesh/AgentsMeshRunner
-# This is a dedicated release repository for distributing pre-built binaries.
+# Release repository: https://github.com/AgentsMesh/AgentsMesh
+# Runner binaries are published as part of the main repository releases.
 
 version: 2
 
@@ -132,7 +132,6 @@ checksum:
 #     output: true
 
 changelog:
-  # Use local git log since release repo is separate from source
   sort: asc
   use: git
   filters:
@@ -156,20 +155,12 @@ changelog:
     - title: "Other"
       order: 999
 
-# Release to AgentsMesh/AgentsMeshRunner repository
-# GitLab CI: GoReleaser builds only (skip_upload: true), then release:github job
-#            uploads artifacts to AgentsMesh/AgentsMeshRunner via github-release.sh
-# GitHub Actions: GoReleaser builds only (--skip=publish), then softprops/action-gh-release
-#                 uploads artifacts to the current repository
+# Release to AgentsMesh/AgentsMesh repository (via GitHub Actions)
 release:
   github:
     owner: AgentsMesh
-    name: AgentsMeshRunner
+    name: AgentsMesh
 
-  # Skip GitHub release upload - handled by CI-specific release jobs
-  skip_upload: true
-
-  # Draft release for review before publishing
   draft: false
 
   # Auto-detect prerelease from tag (v1.0.0-beta.1)
@@ -198,43 +189,43 @@ release:
     **macOS (Direct download):**
     ```bash
     # Intel or Apple Silicon (Universal binary)
-    curl -fsSL https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_darwin_all.tar.gz | tar xz
+    curl -fsSL https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_darwin_all.tar.gz | tar xz
     sudo mv agentsmesh-runner /usr/local/bin/
     ```
 
     **Linux (Debian/Ubuntu):**
     ```bash
     # x86_64
-    wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.deb
+    wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.deb
     sudo dpkg -i agentsmesh-runner_{{.Version}}_linux_amd64.deb
 
     # ARM64
-    wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_arm64.deb
+    wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_arm64.deb
     sudo dpkg -i agentsmesh-runner_{{.Version}}_linux_arm64.deb
     ```
 
     **Linux (RHEL/CentOS/Fedora):**
     ```bash
     # x86_64
-    wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.rpm
+    wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.rpm
     sudo rpm -i agentsmesh-runner_{{.Version}}_linux_amd64.rpm
 
     # ARM64
-    wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_arm64.rpm
+    wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_arm64.rpm
     sudo rpm -i agentsmesh-runner_{{.Version}}_linux_arm64.rpm
     ```
 
     **Linux (Alpine):**
     ```bash
     # x86_64
-    wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.apk
+    wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.apk
     sudo apk add --allow-untrusted agentsmesh-runner_{{.Version}}_linux_amd64.apk
     ```
 
     **Linux (Direct download):**
     ```bash
     # x86_64
-    curl -fsSL https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.tar.gz | tar xz
+    curl -fsSL https://github.com/AgentsMesh/AgentsMesh/releases/download/v{{.Version}}/agentsmesh-runner_{{.Version}}_linux_amd64.tar.gz | tar xz
     sudo mv agentsmesh-runner /usr/local/bin/
     ```
 
@@ -278,7 +269,7 @@ brews:
     repository:
       owner: AgentsMesh
       name: BrewCask
-      token: "{{ .Env.GITHUB_RELEASE_TOKEN }}"
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     commit_author:
       name: AgentsMesh Bot
       email: bot@agentsmesh.ai

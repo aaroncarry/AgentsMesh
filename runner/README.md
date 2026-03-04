@@ -1,6 +1,6 @@
 # AgentsMesh Runner
 
-[![Release](https://img.shields.io/github/v/release/AgentsMesh/AgentsMeshRunner?style=flat-square)](https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest)
+[![Release](https://img.shields.io/github/v/release/AgentsMesh/AgentsMesh?style=flat-square)](https://github.com/AgentsMesh/AgentsMesh/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/anthropics/agentsmesh/runner?style=flat-square)](https://goreportcard.com/report/github.com/anthropics/agentsmesh/runner)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
@@ -27,26 +27,26 @@ brew install agentsmesh/tap/agentsmesh-runner
 
 ```bash
 # macOS (Universal binary - Intel & Apple Silicon)
-curl -fsSL https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest/download/agentsmesh-runner_0.2.1_darwin_all.tar.gz | tar xz
+curl -fsSL https://github.com/AgentsMesh/AgentsMesh/releases/latest/download/agentsmesh-runner_0.2.1_darwin_all.tar.gz | tar xz
 sudo mv agentsmesh-runner /usr/local/bin/
 
 # Linux x86_64
-curl -fsSL https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest/download/agentsmesh-runner_0.2.1_linux_amd64.tar.gz | tar xz
+curl -fsSL https://github.com/AgentsMesh/AgentsMesh/releases/latest/download/agentsmesh-runner_0.2.1_linux_amd64.tar.gz | tar xz
 sudo mv agentsmesh-runner /usr/local/bin/
 
 # Linux ARM64
-curl -fsSL https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest/download/agentsmesh-runner_0.2.1_linux_arm64.tar.gz | tar xz
+curl -fsSL https://github.com/AgentsMesh/AgentsMesh/releases/latest/download/agentsmesh-runner_0.2.1_linux_arm64.tar.gz | tar xz
 sudo mv agentsmesh-runner /usr/local/bin/
 ```
 
-> **Note**: Replace `0.2.1` with the [latest version](https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest).
+> **Note**: Replace `0.2.1` with the [latest version](https://github.com/AgentsMesh/AgentsMesh/releases/latest).
 
 ### Linux (Debian/Ubuntu)
 
 ```bash
 # Download the latest .deb package (x86_64)
-VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v${VERSION}/agentsmesh-runner_${VERSION}_linux_amd64.deb
+VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMesh/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v${VERSION}/agentsmesh-runner_${VERSION}_linux_amd64.deb
 sudo dpkg -i agentsmesh-runner_${VERSION}_linux_amd64.deb
 ```
 
@@ -54,14 +54,14 @@ sudo dpkg -i agentsmesh-runner_${VERSION}_linux_amd64.deb
 
 ```bash
 # Download the latest .rpm package (x86_64)
-VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMeshRunner/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-wget https://github.com/AgentsMesh/AgentsMeshRunner/releases/download/v${VERSION}/agentsmesh-runner_${VERSION}_linux_amd64.rpm
+VERSION=$(curl -s https://api.github.com/repos/AgentsMesh/AgentsMesh/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
+wget https://github.com/AgentsMesh/AgentsMesh/releases/download/v${VERSION}/agentsmesh-runner_${VERSION}_linux_amd64.rpm
 sudo rpm -i agentsmesh-runner_${VERSION}_linux_amd64.rpm
 ```
 
 ### Windows
 
-Download the latest `.zip` file from [Releases](https://github.com/AgentsMesh/AgentsMeshRunner/releases/latest), extract, and add to your PATH.
+Download the latest `.zip` file from [Releases](https://github.com/AgentsMesh/AgentsMesh/releases/latest), extract, and add to your PATH.
 
 Or using Scoop:
 
@@ -164,7 +164,7 @@ make build-all
 
 ## Release
 
-Releases are published to [AgentsMesh/AgentsMeshRunner](https://github.com/AgentsMesh/AgentsMeshRunner).
+Releases are published to [AgentsMesh/AgentsMesh](https://github.com/AgentsMesh/AgentsMesh).
 
 To create a new release:
 
@@ -187,4 +187,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [AgentsMesh](https://agentsmesh.ai) - Main product website
 - [Documentation](https://agentsmesh.ai/docs/runner) - Full documentation
-- [Releases](https://github.com/AgentsMesh/AgentsMeshRunner/releases) - Download binaries
+- [Releases](https://github.com/AgentsMesh/AgentsMesh/releases) - Download binaries

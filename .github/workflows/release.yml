@@ -97,26 +97,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: runner/go.sum
 
-      - name: Build with GoReleaser
+      - name: Release with GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --skip=publish
+          args: release --clean
           workdir: runner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create release with runner binaries
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          files: |
-            runner/dist/*.tar.gz
-            runner/dist/*.zip
-            runner/dist/*.deb
-            runner/dist/*.rpm
-            runner/dist/*.apk
-            runner/dist/checksums.txt
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

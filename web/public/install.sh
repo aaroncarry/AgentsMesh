@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # GitHub release repository
-GITHUB_REPO="AgentsMesh/AgentsMeshRunner"
+GITHUB_REPO="AgentsMesh/AgentsMesh"
 BINARY_NAME="agentsmesh-runner"
 INSTALL_DIR=""
 
