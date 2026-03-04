@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://agentsmesh.com/logo.svg" alt="AgentsMesh" height="60" />
+  <img src="docs/images/logo.svg" alt="AgentsMesh" height="60" />
 </p>
 
 <h3 align="center">AI Agent Fleet Command Center</h3>
@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://agentsmesh.com">Website</a> ·
-  <a href="https://agentsmesh.com/docs">Docs</a> ·
+  <a href="https://agentsmesh.ai">Website</a> ·
+  <a href="https://agentsmesh.ai/docs">Docs</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="https://discord.gg/agentsmesh">Discord</a>
 </p>

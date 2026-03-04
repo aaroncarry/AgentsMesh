@@ -27,7 +27,7 @@ type Config struct {
 	Marketplace MarketplaceConfig
 
 	// Unified domain configuration - all URLs are derived from these two values
-	PrimaryDomain string // Primary domain (e.g., "localhost:10000" or "agentsmesh.com")
+	PrimaryDomain string // Primary domain (e.g., "localhost:10000" or "agentsmesh.ai")
 	UseHTTPS      bool   // Use HTTPS/WSS protocols
 }
 

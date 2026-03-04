@@ -174,13 +174,13 @@ func TestLoad_PrimaryDomain_WSS(t *testing.T) {
 	defer clearEnv()
 	os.Setenv("JWT_SECRET", "test-jwt")
 	os.Setenv("INTERNAL_API_SECRET", "test-internal")
-	os.Setenv("PRIMARY_DOMAIN", "agentsmesh.com")
+	os.Setenv("PRIMARY_DOMAIN", "agentsmesh.ai")
 	os.Setenv("USE_HTTPS", "true")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	want := "wss://agentsmesh.com/relay"
+	want := "wss://agentsmesh.ai/relay"
 	if cfg.Relay.URL != want {
 		t.Errorf("Relay.URL: got %q, want %q", cfg.Relay.URL, want)
 	}

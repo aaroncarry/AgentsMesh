@@ -31,7 +31,7 @@ type Config struct {
 	// Unified Domain Configuration - Single source of truth for public URLs
 	// If PRIMARY_DOMAIN is set, RELAY_URL is derived as ws(s)://{PRIMARY_DOMAIN}/relay
 	// =============================================================================
-	PrimaryDomain string `mapstructure:"primary_domain"` // e.g., "localhost:10000" or "agentsmesh.com"
+	PrimaryDomain string `mapstructure:"primary_domain"` // e.g., "localhost:10000" or "agentsmesh.ai"
 	UseHTTPS      bool   `mapstructure:"use_https"`      // Use wss:// instead of ws://
 }
 
