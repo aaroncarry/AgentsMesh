@@ -4,7 +4,7 @@ import React, { useEffect, useCallback, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import { useWorkspaceStore } from "@/stores/workspace";
-import { usePodStore, Pod } from "@/stores/pod";
+import { usePodStore, Pod, SIDEBAR_STATUS_MAP } from "@/stores/pod";
 import { useRunnerStore } from "@/stores/runner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,10 +30,19 @@ interface WorkspaceSidebarContentProps {
 
 export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod }: WorkspaceSidebarContentProps) {
   const t = useTranslations();
-  const { currentOrg } = useAuthStore();
-  const { pods, loading, fetchSidebarPods, loadMorePods, terminatePod, podHasMore, loadingMore } = usePodStore();
-  const { runners, loading: runnersLoading, fetchRunners } = useRunnerStore();
-  const { addPane, panes } = useWorkspaceStore();
+  const currentOrg = useAuthStore((s) => s.currentOrg);
+  const pods = usePodStore((s) => s.pods);
+  const loading = usePodStore((s) => s.loading);
+  const fetchSidebarPods = usePodStore((s) => s.fetchSidebarPods);
+  const loadMorePods = usePodStore((s) => s.loadMorePods);
+  const terminatePod = usePodStore((s) => s.terminatePod);
+  const podHasMore = usePodStore((s) => s.podHasMore);
+  const loadingMore = usePodStore((s) => s.loadingMore);
+  const runners = useRunnerStore((s) => s.runners);
+  const runnersLoading = useRunnerStore((s) => s.loading);
+  const fetchRunners = useRunnerStore((s) => s.fetchRunners);
+  const addPane = useWorkspaceStore((s) => s.addPane);
+  const panes = useWorkspaceStore((s) => s.panes);
 
   const [filter, setFilter] = useState<FilterType>("running");
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,18 +77,32 @@ export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod
     }
   }, [fetchSidebarPods, filter, fetchRunners]);
 
-  // Search filter (status filtering is now server-side)
-  const filteredPods = pods.filter((pod) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesPodKey = pod.pod_key.toLowerCase().includes(query);
-      const matchesTicket = pod.ticket?.slug?.toLowerCase().includes(query);
-      const matchesRunner = pod.runner?.node_id?.toLowerCase().includes(query);
-      return matchesPodKey || matchesTicket || matchesRunner;
-    }
+  // Client-side status + search filter.
+  // Status filtering is primarily server-side (fetchSidebarPods), but fetchPod and
+  // WebSocket events can inject pods that don't match the current tab. Guard here.
+  const filteredPods = useMemo(() => {
+    const allowedStatuses = SIDEBAR_STATUS_MAP[filter];
+    const statusSet = allowedStatuses
+      ? new Set(allowedStatuses.split(","))
+      : null; // "all" → show everything
 
-    return true;
-  });
+    return pods.filter((pod) => {
+      // Status guard
+      if (statusSet && !statusSet.has(pod.status)) return false;
+
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          pod.pod_key.toLowerCase().includes(query) ||
+          !!pod.ticket?.slug?.toLowerCase().includes(query) ||
+          !!pod.runner?.node_id?.toLowerCase().includes(query)
+        );
+      }
+
+      return true;
+    });
+  }, [pods, searchQuery, filter]);
 
   // Sort pods: running/initializing first, then by creation time (newest first)
   const sortedPods = useMemo(() => {
@@ -104,14 +127,12 @@ export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod
     [panes]
   );
 
-  // Handle opening terminal
+  // Handle opening terminal (or switching to it if already open)
   const handleOpenTerminal = useCallback(
     (pod: Pod) => {
-      if (!isPodOpen(pod.pod_key)) {
-        addPane(pod.pod_key, pod.pod_key);
-      }
+      addPane(pod.pod_key);
     },
-    [addPane, isPodOpen]
+    [addPane]
   );
 
   // Handle terminate with confirmation

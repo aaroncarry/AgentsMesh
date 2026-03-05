@@ -572,7 +572,7 @@ deploy:uswest-prod:backend:
         - backend/**/*
         - proto/**/*
         - ci/backend.Dockerfile
-      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 # Deploy Web to US West Production
 deploy:uswest-prod:web:
@@ -596,7 +596,7 @@ deploy:uswest-prod:web:
       changes:
         - web/**/*
         - ci/web.Dockerfile
-      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 # Deploy Web-Admin to US West Production
 deploy:uswest-prod:web-admin:
@@ -620,7 +620,7 @@ deploy:uswest-prod:web-admin:
       changes:
         - web-admin/**/*
         - ci/web-admin.Dockerfile
-      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 # Deploy Relay: uswest-relay-01
 deploy:uswest-prod:uswest-relay-01:
@@ -644,18 +644,49 @@ deploy:uswest-prod:uswest-relay-01:
       changes:
         - relay/**/*
         - ci/relay.Dockerfile
-      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
 
-# Database Migration for US West Production
-migrate:uswest-prod:
+# Deploy Relay: uswest-relay-beijing-02 (Beijing accelerator for US West)
+deploy:uswest-prod:uswest-relay-beijing-02:
   stage: deploy
-  when: manual
+  needs:
+    - job: build-relay
   tags:
     - deploy
     - linux
   variables:
-    MIGRATE_DIRECTION: "up"      # up or down
-    MIGRATE_STEPS: ""            # empty for all, or number for specific steps
+    DEPLOY_VERSION: "${CI_COMMIT_SHORT_SHA}"
+  environment:
+    name: uswest-production
+    url: https://beijing-02.relay.agentsmesh.ai:8443
+  script:
+    - echo "Deploying uswest-relay-beijing-02 ${DEPLOY_VERSION}..."
+    - ssh aliyun-agentsmesh-us-relay-beijing-002 "cd /opt/agentsmesh && git pull origin main"
+    - ssh aliyun-agentsmesh-us-relay-beijing-002 "cd /opt/agentsmesh/relay && ./deploy.sh uswest-relay-beijing-02 --pull"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - relay/**/*
+        - ci/relay.Dockerfile
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# =============================================================================
+# Database Migration - US West Production (auto after backend deploy)
+# =============================================================================
+# Runs automatically after backend deployment when migration files change.
+# Migration runs AFTER backend deploy to ensure the new binary is in place.
+
+# Database Migration for US West Production
+migrate:uswest-prod:
+  stage: deploy
+  needs:
+    - job: deploy:uswest-prod:backend
+  tags:
+    - deploy
+    - linux
+  variables:
+    MIGRATE_DIRECTION: "up"
+    MIGRATE_STEPS: ""
   environment:
     name: uswest-production
     url: https://agentsmesh.ai
@@ -667,4 +698,4 @@ migrate:uswest-prod:
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - backend/migrations/**/*
-      when: manual
+    - if: $CI_PIPELINE_SOURCE == "web"
