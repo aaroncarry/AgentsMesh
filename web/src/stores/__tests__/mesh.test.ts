@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "@testing-library/react";
 import {
   useMeshStore,
@@ -106,13 +106,25 @@ describe("Mesh Store", () => {
   });
 
   describe("fetchTopology", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it("should fetch topology successfully", async () => {
       vi.mocked(meshApi.getTopology).mockResolvedValue({
         topology: mockTopology,
       });
 
+      act(() => {
+        useMeshStore.getState().fetchTopology();
+      });
+      // Advance past the 500ms debounce window and flush the async work
       await act(async () => {
-        await useMeshStore.getState().fetchTopology();
+        vi.advanceTimersByTime(500);
       });
 
       const state = useMeshStore.getState();
@@ -126,8 +138,11 @@ describe("Mesh Store", () => {
         new Error("Network error")
       );
 
+      act(() => {
+        useMeshStore.getState().fetchTopology();
+      });
       await act(async () => {
-        await useMeshStore.getState().fetchTopology();
+        vi.advanceTimersByTime(500);
       });
 
       const state = useMeshStore.getState();
@@ -138,8 +153,11 @@ describe("Mesh Store", () => {
     it("should handle non-Error rejection", async () => {
       vi.mocked(meshApi.getTopology).mockRejectedValue("Unknown error");
 
+      act(() => {
+        useMeshStore.getState().fetchTopology();
+      });
       await act(async () => {
-        await useMeshStore.getState().fetchTopology();
+        vi.advanceTimersByTime(500);
       });
 
       const state = useMeshStore.getState();

@@ -6,7 +6,6 @@ import { usePodStore } from "@/stores/pod";
 import { useRunnerStore } from "@/stores/runner";
 import { useTicketStore } from "@/stores/ticket";
 import { useMeshStore } from "@/stores/mesh";
-import { useWorkspaceStore } from "@/stores/workspace";
 import { useChannelStore } from "@/stores/channel";
 import { useAutopilotStore } from "@/stores/autopilot";
 import { useLoopStore } from "@/stores/loop";
@@ -124,12 +123,8 @@ export function RealtimeProvider({
 
         case "pod:title_changed": {
           const data = event.data as PodTitleChangedData;
-          // Update terminal pane title in workspace store
-          useWorkspaceStore.getState().updatePaneTitle(data.pod_key, data.title);
-          // Also update pod title in podStore for sidebar display
+          // Update pod title in podStore for sidebar display
           usePodStore.getState().updatePodTitle(data.pod_key, data.title);
-          // Also update node title in meshStore for mesh view display
-          useMeshStore.getState().updateNodeTitle(data.pod_key, data.title);
           console.log("[Realtime] Pod title changed:", data.pod_key, data.title);
           break;
         }
