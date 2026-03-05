@@ -94,21 +94,19 @@ func (c *GRPCConnection) tryEndpointDiscovery() {
 	}
 
 	c.mu.Lock()
-	currentEndpoint := c.endpoint
-	c.mu.Unlock()
-
-	if newEndpoint == currentEndpoint {
+	if newEndpoint == c.endpoint {
+		currentEndpoint := c.endpoint
+		c.mu.Unlock()
 		log.Debug("Endpoint unchanged after discovery", "endpoint", currentEndpoint)
 		return
 	}
-
-	log.Info("Auto-discovered new gRPC endpoint",
-		"old_endpoint", currentEndpoint,
-		"new_endpoint", newEndpoint)
-
-	c.mu.Lock()
+	oldEndpoint := c.endpoint
 	c.endpoint = newEndpoint
 	c.mu.Unlock()
+
+	log.Info("Auto-discovered new gRPC endpoint",
+		"old_endpoint", oldEndpoint,
+		"new_endpoint", newEndpoint)
 
 	// Persist the new endpoint to config file so restarts use the updated value
 	if c.onEndpointChanged != nil {

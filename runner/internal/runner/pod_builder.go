@@ -327,7 +327,11 @@ func (b *PodBuilder) mergeEnvVars(sandboxRoot string) map[string]string {
 				if basePath == "" {
 					basePath = os.Getenv("PATH")
 				}
-				result["PATH"] = v + ":" + basePath
+				if basePath == "" {
+					result["PATH"] = v
+				} else {
+					result["PATH"] = v + ":" + basePath
+				}
 				continue
 			}
 			result[k] = v

@@ -2,12 +2,18 @@ package envpath
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
+
+// pathSentinel is a unique prefix printed before $PATH so we can extract it
+// even when the login shell profile emits other output (nvm init, banners, etc.).
+const pathSentinel = "AGENTSMESH_PATH="
 
 // ResolveLoginShellPATH resolves the user's login shell PATH by spawning
 // a login shell. This is critical when the runner runs as a systemd/launchd
@@ -28,10 +34,20 @@ func ResolveLoginShellPATH() string {
 		return fallback
 	}
 
+	// Fish shell uses space-separated PATH; skip login resolution and use current PATH.
+	if filepath.Base(shell) == "fish" {
+		slog.Info("envpath: fish shell detected, using current PATH")
+		return fallback
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, shell, "-l", "-c", "echo $PATH")
+	// Use a sentinel-prefixed printf so that noisy profile scripts (nvm, welcome
+	// banners, etc.) don't corrupt the resolved value. We scan stdout line-by-line
+	// and extract only the line that starts with the sentinel.
+	cmd := exec.CommandContext(ctx, shell, "-l", "-c",
+		fmt.Sprintf("printf '%s%%s\\n' \"$PATH\"", pathSentinel))
 	cmd.Env = []string{
 		"HOME=" + os.Getenv("HOME"),
 		"USER=" + os.Getenv("USER"),
@@ -46,7 +62,15 @@ func ResolveLoginShellPATH() string {
 		return fallback
 	}
 
-	resolved := strings.TrimSpace(string(out))
+	var resolved string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, pathSentinel) {
+			resolved = strings.TrimPrefix(line, pathSentinel)
+			break
+		}
+	}
+
+	// Validate: a real PATH must be non-empty.
 	if resolved == "" {
 		slog.Warn("envpath: login shell returned empty PATH, using current PATH")
 		return fallback
