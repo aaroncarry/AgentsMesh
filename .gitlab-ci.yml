@@ -646,6 +646,30 @@ deploy:uswest-prod:uswest-relay-01:
         - ci/relay.Dockerfile
     - if: $CI_PIPELINE_SOURCE == "web"
 
+# Deploy Relay: uswest-relay-beijing-02 (Beijing accelerator for US West)
+deploy:uswest-prod:uswest-relay-beijing-02:
+  stage: deploy
+  needs:
+    - job: build-relay
+  tags:
+    - deploy
+    - linux
+  variables:
+    DEPLOY_VERSION: "${CI_COMMIT_SHORT_SHA}"
+  environment:
+    name: uswest-production
+    url: https://beijing-02.relay.agentsmesh.ai:8443
+  script:
+    - echo "Deploying uswest-relay-beijing-02 ${DEPLOY_VERSION}..."
+    - ssh aliyun-agentsmesh-us-relay-beijing-002 "cd /opt/agentsmesh && git pull origin main"
+    - ssh aliyun-agentsmesh-us-relay-beijing-002 "cd /opt/agentsmesh/relay && ./deploy.sh uswest-relay-beijing-02 --pull"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - relay/**/*
+        - ci/relay.Dockerfile
+    - if: $CI_PIPELINE_SOURCE == "web"
+
 # =============================================================================
 # Database Migration - US West Production (auto after backend deploy)
 # =============================================================================
