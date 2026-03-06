@@ -65,12 +65,7 @@ Options:
 		fmt.Println("   Re-registering will overwrite the existing configuration and certificates.")
 		fmt.Println("   The old configuration will be backed up automatically.")
 		fmt.Println()
-		if !*force {
-			if *token != "" {
-				// Token-based registration requires --force to overwrite
-				fmt.Fprintln(os.Stderr, "Use --force to overwrite existing registration in token mode.")
-				os.Exit(1)
-			}
+		if !*force && *token == "" {
 			// Interactive mode: prompt for confirmation
 			fmt.Print("Continue? [y/N]: ")
 			var answer string

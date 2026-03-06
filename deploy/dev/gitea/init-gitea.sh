@@ -143,24 +143,67 @@ create_and_push_repo() {
     success "Repository '${ORG_NAME}/${repo_name}' created and seeded"
 }
 
-# Add SSH deploy key to a repo
+# Add SSH deploy key to a repo, replacing any stale key with the same title.
+# This handles key rotation: if the private key was regenerated (e.g. on a new
+# machine or after losing the key file), the old public key is removed and the
+# new one is registered so clones continue to work.
 add_deploy_key() {
     local repo_name="$1"
     local key_file="$2"
     local key_title="runner-deploy-key"
 
-    # Check if deploy key already exists
-    local existing
-    existing=$(curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
-        "${GITEA_API}/repos/${ORG_NAME}/${repo_name}/keys" | grep -c "$key_title" || true)
+    local pub_key current_fp
+    pub_key=$(cat "$key_file")
+    current_fp=$(ssh-keygen -lf "$key_file" 2>/dev/null | awk '{print $2}')
 
-    if [[ "$existing" -gt 0 ]]; then
-        info "Deploy key already exists for '${repo_name}'"
+    # Fetch existing keys and find any with our title
+    local keys_json
+    keys_json=$(curl -s -u "${ADMIN_USER}:${ADMIN_PASS}" \
+        "${GITEA_API}/repos/${ORG_NAME}/${repo_name}/keys")
+
+    # Check if current key is already registered (compare fingerprints)
+    local registered_fp
+    registered_fp=$(echo "$keys_json" | python3 -c "
+import sys, json, subprocess, tempfile, os
+try:
+    keys = json.load(sys.stdin)
+    for k in keys:
+        if k.get('title') == '${key_title}':
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.pub', delete=False) as f:
+                f.write(k['key'] + '\n')
+                tmpf = f.name
+            r = subprocess.run(['ssh-keygen', '-lf', tmpf], capture_output=True, text=True)
+            os.unlink(tmpf)
+            if r.returncode == 0:
+                print(r.stdout.split()[1])
+            break
+except Exception:
+    pass
+" 2>/dev/null || true)
+
+    if [[ -n "$registered_fp" && "$registered_fp" == "$current_fp" ]]; then
+        info "Deploy key already up-to-date for '${repo_name}'"
         return 0
     fi
 
-    local pub_key
-    pub_key=$(cat "$key_file")
+    # Delete all stale keys with our title
+    local stale_ids
+    stale_ids=$(echo "$keys_json" | python3 -c "
+import sys, json
+try:
+    keys = json.load(sys.stdin)
+    for k in keys:
+        if k.get('title') == '${key_title}':
+            print(k['id'])
+except Exception:
+    pass
+" 2>/dev/null || true)
+
+    for key_id in $stale_ids; do
+        info "Removing stale deploy key (id: ${key_id}) from '${repo_name}'..."
+        curl -s -X DELETE -u "${ADMIN_USER}:${ADMIN_PASS}" \
+            "${GITEA_API}/repos/${ORG_NAME}/${repo_name}/keys/${key_id}" > /dev/null
+    done
 
     info "Adding deploy key to '${ORG_NAME}/${repo_name}'..."
     api POST "/repos/${ORG_NAME}/${repo_name}/keys" \

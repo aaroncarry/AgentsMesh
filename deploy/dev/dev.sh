@@ -434,6 +434,68 @@ init_gitea() {
     "$SCRIPT_DIR/gitea/init-gitea.sh" "$gitea_container" "$gitea_port"
 }
 
+# Generate the runner SSH keypair used to access Gitea repos.
+# The private key is never committed; if it's missing (first clone, new machine),
+# generate a fresh pair. init_gitea will register the new public key with Gitea.
+generate_runner_ssh_key() {
+    local ssh_dir="$SCRIPT_DIR/runner-ssh"
+    local private_key="$ssh_dir/id_ed25519"
+    local public_key="$ssh_dir/id_ed25519.pub"
+
+    if [[ -f "$private_key" ]]; then
+        info "Runner SSH key already exists"
+        return 0
+    fi
+
+    info "Generating runner SSH key (private key not committed)..."
+    ssh-keygen -t ed25519 -C "agentsmesh-dev-runner@local" -f "$private_key" -N "" > /dev/null
+    chmod 600 "$private_key"
+    success "Runner SSH key generated: $private_key"
+}
+
+# Configure ~/.ssh/config so that local runners (running on the host, outside Docker)
+# can clone git@gitea:org/repo.git URLs. Inside Docker, "gitea" resolves via Docker DNS.
+# On the host, SSH would fail with "nodename not known" — we fix this by adding a managed
+# Host block that maps "gitea" → 127.0.0.1 on the worktree-specific SSH port.
+#
+# Safe to re-run: removes the old managed block and rewrites it with the current port.
+setup_gitea_ssh_config() {
+    source "$ENV_FILE"
+    local ssh_dir="$HOME/.ssh"
+    local ssh_config="$ssh_dir/config"
+    local gitea_ssh_port="${GITEA_SSH_PORT:-2222}"
+    local identity_file="$SCRIPT_DIR/runner-ssh/id_ed25519"
+    local marker_start="# BEGIN AgentsMesh dev gitea"
+    local marker_end="# END AgentsMesh dev gitea"
+
+    mkdir -p "$ssh_dir"
+    chmod 700 "$ssh_dir"
+    [[ -f "$ssh_config" ]] || touch "$ssh_config"
+    chmod 600 "$ssh_config"
+
+    # Remove any existing managed block so we can re-append with the current port.
+    local tmp
+    tmp=$(mktemp)
+    awk "/^${marker_start}$/,/^${marker_end}$/{next} {print}" "$ssh_config" > "$tmp"
+    cat "$tmp" > "$ssh_config"
+    rm -f "$tmp"
+
+    cat >> "$ssh_config" << EOF
+
+${marker_start}
+Host gitea
+    HostName 127.0.0.1
+    Port ${gitea_ssh_port}
+    IdentityFile ${identity_file}
+    IdentitiesOnly yes
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+${marker_end}
+EOF
+
+    success "SSH config: git@gitea:... → 127.0.0.1:${gitea_ssh_port} (key: runner-ssh/id_ed25519)"
+}
+
 # Kill all stale runner-related processes and restart Docker runner/relay containers.
 # Use this when runners are in a bad state and you want a clean slate.
 reset_runners() {
@@ -585,6 +647,11 @@ show_result() {
     echo ""
     echo "  停止: ./dev.sh --clean"
     echo ""
+    echo "  Local Runner:"
+    echo "    agentsmesh-runner register --server http://localhost:$HTTP_PORT --token <TOKEN>"
+    echo "    agentsmesh-runner run"
+    echo "    (Binary auto-built from source at ~/.local/bin/agentsmesh-runner)"
+    echo ""
 }
 
 # 启动本地前端
@@ -593,17 +660,26 @@ start_frontend() {
     local web_dir="$SCRIPT_DIR/../../web"
     local web_port="${WEB_PORT:-3000}"
     local lock_file="$web_dir/.next/dev/lock"
+    local stale_lock=false
 
     # Kill any stale Next.js process holding the lock, then clear it
     if [[ -f "$lock_file" ]]; then
         warn "检测到残留的 Next.js 锁文件，清理中..."
         pkill -f "next dev --turbopack" 2>/dev/null || true
+        # Also kill anything still holding the port (port may outlive the process briefly)
+        lsof -ti :"$web_port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+        sleep 1
         rm -f "$lock_file"
-        success "锁文件已清理"
+        # A stale lock means a previous crash — clear Turbopack cache to prevent
+        # corrupted SST database errors on restart
+        rm -rf "$web_dir/.next/cache"
+        success "锁文件和 Turbopack 缓存已清理"
+        stale_lock=true
     fi
 
     # 检查是否已有前端进程在运行（端口占用）
-    if lsof -i :"$web_port" &>/dev/null; then
+    # Skip this check if we just cleaned a stale lock — always restart in that case
+    if [[ "$stale_lock" == false ]] && lsof -i :"$web_port" &>/dev/null; then
         warn "端口 $web_port 已被占用，跳过前端启动"
         return 0
     fi
@@ -629,6 +705,8 @@ start_frontend() {
             return 1
         }
         echo "$current_hash" > "$lockfile_hash_file"
+        # Clear Turbopack cache to prevent stale module resolution after package upgrades
+        rm -rf "$web_dir/.next/cache"
         success "前端依赖安装完成"
     fi
 
@@ -649,6 +727,78 @@ start_frontend() {
 
     warn "前端服务启动中，请稍后访问 http://localhost:$web_port"
     echo "  查看日志: tail -f $log_file"
+}
+
+# Build runner binary from local source and install to ~/.local/bin.
+# Uses Docker (golang:1.25-alpine) — no local Go installation required.
+# Skips build when runner/ and proto/ source is unchanged since last build.
+build_runner_local() {
+    local repo_root="$SCRIPT_DIR/../.."
+    local runner_dir="$repo_root/runner"
+    local proto_dir="$repo_root/proto"
+    local install_dir="$HOME/.local/bin"
+    local binary_path="$install_dir/agentsmesh-runner"
+    local hash_cache_file="$runner_dir/.local-build-hash"
+
+    # Compute source hash: git tree SHAs for runner/ + proto/, plus uncommitted diff
+    local tree_hash dirty_hash source_hash
+    tree_hash=$(git -C "$repo_root" rev-parse HEAD:runner HEAD:proto 2>/dev/null | tr -d '\n')
+    dirty_hash=$(git -C "$repo_root" diff HEAD -- runner/ proto/ 2>/dev/null | \
+        md5 -q 2>/dev/null || \
+        git -C "$repo_root" diff HEAD -- runner/ proto/ 2>/dev/null | md5sum | cut -d' ' -f1)
+    source_hash="${tree_hash}${dirty_hash}"
+
+    # Skip if binary exists and source unchanged
+    local cached_hash=""
+    [[ -f "$hash_cache_file" ]] && cached_hash=$(cat "$hash_cache_file")
+    if [[ "$source_hash" == "$cached_hash" && -x "$binary_path" ]]; then
+        info "Runner binary up-to-date, skipping build"
+        return 0
+    fi
+
+    info "Building runner from local source (darwin/arm64)..."
+
+    # Version info matching Makefile ldflags pattern
+    local version build_time
+    version=$(git -C "$repo_root" describe --tags --always --dirty 2>/dev/null || echo "dev")
+    build_time=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    local ldflags="-s -w -X main.version=${version} -X main.buildTime=${build_time}"
+
+    # Reuse runner's Go module cache volume (already populated by docker compose up)
+    # Note: mod cache is shared; build cache uses /root path (docker run is root user)
+    local mod_cache_vol="${COMPOSE_PROJECT_NAME}_runner-go-mod-cache"
+    local build_cache_vol="${COMPOSE_PROJECT_NAME}_runner-go-build-cache"
+
+    mkdir -p "$runner_dir/bin"
+    if ! docker run --rm \
+        -v "$(cd "$runner_dir" && pwd)":/app/runner \
+        -v "$(cd "$proto_dir" && pwd)":/app/proto \
+        -v "${mod_cache_vol}:/go/pkg/mod" \
+        -v "${build_cache_vol}:/root/.cache/go-build" \
+        -w /app/runner \
+        golang:1.25-alpine \
+        sh -c "CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+               -ldflags '${ldflags}' \
+               -o /app/runner/bin/agentsmesh-runner \
+               ./cmd/runner" 2>&1; then
+        warn "Runner build failed — using existing binary if available"
+        return 0
+    fi
+
+    mkdir -p "$install_dir"
+    cp "$runner_dir/bin/agentsmesh-runner" "$binary_path"
+    chmod +x "$binary_path"
+    echo "$source_hash" > "$hash_cache_file"
+    success "Runner built and installed: $binary_path ($version)"
+
+    # Warn if ~/.local/bin is not in PATH
+    case ":$PATH:" in
+        *":$install_dir:"*) ;;
+        *)
+            warn "$install_dir is not in PATH. Add to ~/.zshrc:"
+            echo "    export PATH=\"$install_dir:\$PATH\" && source ~/.zshrc"
+            ;;
+    esac
 }
 
 # 主流程
@@ -723,7 +873,11 @@ main() {
     init_seed "$pg_container"
 
     # Step 9.5: 初始化 Gitea Git 服务器
+    generate_runner_ssh_key
     init_gitea
+
+    # Step 9.6: Configure local SSH so git@gitea:... works outside Docker
+    setup_gitea_ssh_config
 
     # Step 10: 修复 workspace 权限 (runner 容器)
     local runner_container="${COMPOSE_PROJECT_NAME}-runner-1"
@@ -731,6 +885,9 @@ main() {
 
     # Step 11: 启动本地前端
     start_frontend
+
+    # Step 11.5: Build runner from local source
+    build_runner_local
 
     # 显示结果
     show_result
