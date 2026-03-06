@@ -28,6 +28,8 @@ func main() {
 		runWebConsole(os.Args[2:])
 	case "reactivate":
 		runReactivate(os.Args[2:])
+	case "update-endpoint":
+		runUpdateEndpoint(os.Args[2:])
 	case "update":
 		runUpdate(os.Args[2:])
 	case "version", "-v", "--version":
@@ -53,8 +55,9 @@ Commands:
   run         Start the runner in CLI mode (requires prior registration)
   webconsole  Open the web console in browser
   service     Manage runner as a system service (install/start/stop)
-  reactivate  Reactivate runner with expired certificate
-  update      Check and install updates
+  reactivate       Reactivate runner with expired certificate
+  update-endpoint  Update gRPC endpoint without re-registration
+  update           Check and install updates
   version     Show version information
   help        Show this help message
 

@@ -78,12 +78,17 @@
       "tokenWarning": "请妥善保管此令牌，它只会显示一次",
       "tokenLabel": "注册令牌",
       "usageTitle": "使用以下命令启动 Runner：",
-      "copyCommand": "复制命令",
+      "copyCommand": "复制",
       "done": "完成",
       "cancel": "取消",
       "generate": "生成令牌",
       "generating": "生成中...",
-      "generateHint": "点击下方按钮生成一次性注册令牌，用于连接新的 Runner。"
+      "generateHint": "点击下方按钮生成一次性注册令牌，用于连接新的 Runner。",
+      "installTitle": "安装 / 更新 Runner CLI",
+      "installHint": "如果尚未安装 Runner，请运行以下命令：",
+      "updateHint": "更新至最新版本：",
+      "serviceTitle": "以后台服务方式运行（推荐）",
+      "serviceHint": "将 Runner 安装为系统服务，使其自动启动并在重启后持续运行："
     },
     "configModal": {
       "title": "配置 Runner",

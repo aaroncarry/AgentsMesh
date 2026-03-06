@@ -13,8 +13,10 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/config"
 	"github.com/anthropics/agentsmesh/runner/internal/console"
+	"github.com/anthropics/agentsmesh/runner/internal/envpath"
 	"github.com/anthropics/agentsmesh/runner/internal/lifecycle"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	"github.com/anthropics/agentsmesh/runner/internal/pidfile"
 	"github.com/anthropics/agentsmesh/runner/internal/runner"
 )
 
@@ -118,27 +120,48 @@ The runner uses gRPC/mTLS for secure communication with the server.`)
 
 	log.Info("Using gRPC/mTLS connection mode", "endpoint", cfg.GRPCEndpoint)
 
-	// Pass build-time version to config for gRPC handshake
+	// Pass build-time version and config file path for auto-discovery healing
 	cfg.Version = version
+	cfg.ConfigFilePath = cfgFile
+	cfg.ResolvedPATH = envpath.ResolveLoginShellPATH()
 
-	startRunner(cfg)
+	if !startRunner(cfg) {
+		os.Exit(1)
+	}
 }
 
-func startRunner(cfg *config.Config) {
+// startRunner returns false on fatal error (already logged).
+// Using a named return ensures defer pidfile.Remove() always runs,
+// even when startRunner returns early due to an error or panic.
+func startRunner(cfg *config.Config) (ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "FATAL: Runner panic: %v\n%s\n", r, debug.Stack())
-			os.Exit(1)
+			ok = false
 		}
 	}()
 
 	log := logger.Runner()
 
+	// Clean up stale runner process from previous run
+	if err := pidfile.CleanupStaleProcess(); err != nil {
+		log.Error("Failed to clean up stale runner", "error", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return false
+	}
+
+	// Write PID file for next startup to find us
+	if err := pidfile.Write(); err != nil {
+		log.Warn("Failed to write PID file", "error", err)
+		// Non-fatal: runner works fine without it, just can't auto-cleanup next time
+	}
+	defer pidfile.Remove()
+
 	// Create runner instance
 	r, err := runner.New(cfg)
 	if err != nil {
 		log.Error("Failed to create runner", "error", err)
-		os.Exit(1)
+		return false
 	}
 
 	// Create web console (lifecycle managed by Supervisor)
@@ -166,12 +189,14 @@ func startRunner(cfg *config.Config) {
 	consoleServer.UpdateStatus(true, false, 0, 0, "")
 	consoleServer.AddLog("info", "Runner starting...")
 
-	if err := r.Run(ctx); err != nil {
+	if err := r.Run(ctx); err != nil && ctx.Err() == nil {
+		// Only treat as error if context wasn't canceled (i.e., not a graceful shutdown).
 		consoleServer.UpdateStatus(false, false, 0, 0, err.Error())
 		consoleServer.AddLog("error", fmt.Sprintf("Runner error: %v", err))
 		log.Error("Runner error", "error", err)
-		os.Exit(1)
+		return false
 	}
 
 	log.Info("Runner shutdown complete")
+	return true
 }

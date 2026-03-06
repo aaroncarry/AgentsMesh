@@ -57,6 +57,107 @@ func TestConfigUsesGRPC(t *testing.T) {
 	}
 }
 
+func TestUpdateGRPCEndpointInFile_PreservesCommentsAndOrder(t *testing.T) {
+	original := `# AgentsMesh runner config
+# Managed by: agentsmesh-runner register
+server_url: https://app.example.com
+grpc_endpoint: grpcs://old.example.com:9443
+runner_id: abc-123
+# Certificate paths
+cert_file: /home/user/.agentsmesh/certs/runner.crt
+key_file: /home/user/.agentsmesh/certs/runner.key
+ca_file: /home/user/.agentsmesh/certs/ca.crt
+`
+	tmpFile := t.TempDir() + "/config.yaml"
+	if err := os.WriteFile(tmpFile, []byte(original), 0600); err != nil {
+		t.Fatalf("failed to write temp config: %v", err)
+	}
+
+	if err := UpdateGRPCEndpointInFile(tmpFile, "grpcs://new.example.com:9443"); err != nil {
+		t.Fatalf("UpdateGRPCEndpointInFile error: %v", err)
+	}
+
+	data, err := os.ReadFile(tmpFile)
+	if err != nil {
+		t.Fatalf("failed to read updated config: %v", err)
+	}
+	content := string(data)
+
+	// New endpoint must appear.
+	if !containsLine(content, "grpc_endpoint: grpcs://new.example.com:9443") {
+		t.Errorf("new endpoint not found in file:\n%s", content)
+	}
+	// Old endpoint must be gone.
+	if containsLine(content, "grpc_endpoint: grpcs://old.example.com:9443") {
+		t.Errorf("old endpoint still present in file:\n%s", content)
+	}
+	// Comments must be preserved.
+	if !containsLine(content, "# AgentsMesh runner config") {
+		t.Errorf("top comment lost:\n%s", content)
+	}
+	if !containsLine(content, "# Certificate paths") {
+		t.Errorf("inline comment lost:\n%s", content)
+	}
+	// Key order must be preserved (server_url before runner_id before cert_file).
+	sIdx := indexOf(content, "server_url:")
+	rIdx := indexOf(content, "runner_id:")
+	cIdx := indexOf(content, "cert_file:")
+	if !(sIdx < rIdx && rIdx < cIdx) {
+		t.Errorf("key order changed: server_url=%d runner_id=%d cert_file=%d\n%s", sIdx, rIdx, cIdx, content)
+	}
+}
+
+func TestUpdateGRPCEndpointInFile_AppendsWhenMissing(t *testing.T) {
+	original := "server_url: https://app.example.com\nrunner_id: abc-123\n"
+	tmpFile := t.TempDir() + "/config.yaml"
+	if err := os.WriteFile(tmpFile, []byte(original), 0600); err != nil {
+		t.Fatalf("failed to write temp config: %v", err)
+	}
+
+	if err := UpdateGRPCEndpointInFile(tmpFile, "grpcs://new.example.com:9443"); err != nil {
+		t.Fatalf("UpdateGRPCEndpointInFile error: %v", err)
+	}
+
+	data, _ := os.ReadFile(tmpFile)
+	content := string(data)
+	if !containsLine(content, "grpc_endpoint: grpcs://new.example.com:9443") {
+		t.Errorf("appended endpoint not found:\n%s", content)
+	}
+}
+
+func containsLine(s, substr string) bool {
+	for _, line := range splitLines(s) {
+		if line == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
+}
+
+func indexOf(s, sub string) int {
+	for i := range s {
+		if len(s)-i >= len(sub) && s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
+}
+
 func TestConfigSaveAndLoadGRPCConfig(t *testing.T) {
 	tmpHome := t.TempDir()
 	originalHome := os.Getenv("HOME")

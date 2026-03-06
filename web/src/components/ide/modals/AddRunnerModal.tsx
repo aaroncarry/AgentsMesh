@@ -24,7 +24,7 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
   const serverUrl = useServerUrl();
   const [loading, setLoading] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Reset state when modal closes
@@ -32,7 +32,7 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
     if (!open) {
       setGeneratedToken(null);
       setLoading(false);
-      setCopied(false);
+      setCopiedKey(null);
       setError(null);
     }
   }, [open]);
@@ -56,22 +56,22 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
     }
   };
 
-  const copyToken = () => {
-    if (generatedToken) {
-      navigator.clipboard.writeText(generatedToken);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const copyCommand = () => {
-    if (generatedToken) {
-      const command = `agentsmesh-runner register --server ${serverUrl} --token ${generatedToken}\nagentsmesh-runner run`;
-      navigator.clipboard.writeText(command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  const CopyBtn = ({ text, id, className }: { text: string; id: string; className?: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => copyText(text, id)}
+      className={className ?? "absolute top-2 right-2 h-7 text-xs text-muted-foreground hover:text-foreground"}
+    >
+      {copiedKey === id ? <Check className="w-3 h-3 text-green-500 dark:text-green-400" /> : t("runners.addRunnerModal.copyCommand")}
+    </Button>
+  );
 
   const handleDone = () => {
     setGeneratedToken(null);
@@ -86,7 +86,7 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background border border-border rounded-lg w-full max-w-lg p-4 md:p-6">
+      <div className="bg-background border border-border rounded-lg w-full max-w-lg p-4 md:p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg md:text-xl font-semibold mb-2">
           {t("runners.addRunnerModal.title")}
         </h2>
@@ -113,8 +113,13 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
                 <code className="flex-1 p-3 bg-muted rounded text-sm break-all font-mono">
                   {generatedToken}
                 </code>
-                <Button variant="outline" size="sm" onClick={copyToken} className="flex-shrink-0">
-                  {copied ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyText(generatedToken, "token")}
+                  className="flex-shrink-0"
+                >
+                  {copiedKey === "token" ? (
                     <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
                   ) : (
                     <Copy className="w-4 h-4" />
@@ -123,7 +128,42 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
               </div>
             </div>
 
-            {/* Usage instructions */}
+            {/* Install / Update CLI section */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t("runners.addRunnerModal.installTitle")}
+              </label>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">{t("runners.addRunnerModal.installHint")}</p>
+                <div className="bg-muted rounded-lg p-3 relative">
+                  <p className="text-xs text-muted-foreground mb-1"># macOS / Linux</p>
+                  <code className="text-sm font-mono text-foreground block pr-24">
+                    {`curl -fsSL ${serverUrl}/install.sh | sh`}
+                  </code>
+                  <CopyBtn text={`curl -fsSL ${serverUrl}/install.sh | sh`} id="install-mac" />
+                </div>
+                <div className="bg-muted rounded-lg p-3 relative">
+                  <p className="text-xs text-muted-foreground mb-1"># Windows (PowerShell)</p>
+                  <code className="text-sm font-mono text-foreground block pr-24">
+                    {`irm ${serverUrl}/install.ps1 | iex`}
+                  </code>
+                  <CopyBtn text={`irm ${serverUrl}/install.ps1 | iex`} id="install-win" />
+                </div>
+                <p className="text-xs text-muted-foreground">{t("runners.addRunnerModal.updateHint")}</p>
+                <div className="bg-muted rounded-lg p-3 relative">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                    <Terminal className="w-4 h-4" />
+                    <span>Terminal</span>
+                  </div>
+                  <code className="text-green-600 dark:text-green-400 text-sm font-mono block pr-24">
+                    agentsmesh-runner update
+                  </code>
+                  <CopyBtn text="agentsmesh-runner update" id="update" />
+                </div>
+              </div>
+            </div>
+
+            {/* Register & Run */}
             <div>
               <label className="block text-sm font-medium mb-2">
                 {t("runners.addRunnerModal.usageTitle")}
@@ -133,18 +173,38 @@ export function AddRunnerModal({ open, onClose, onCreated }: AddRunnerModalProps
                   <Terminal className="w-4 h-4" />
                   <span>Terminal</span>
                 </div>
-                <code className="text-green-600 dark:text-green-400 text-sm font-mono block whitespace-pre-wrap">
+                <code className="text-green-600 dark:text-green-400 text-sm font-mono block whitespace-pre-wrap pr-24">
                   {`agentsmesh-runner register --server ${serverUrl} --token ${generatedToken.substring(0, 16)}...
 agentsmesh-runner run`}
                 </code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={copyCommand}
-                  className="absolute top-2 right-2 h-7 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {t("runners.addRunnerModal.copyCommand")}
-                </Button>
+                <CopyBtn
+                  text={`agentsmesh-runner register --server ${serverUrl} --token ${generatedToken}\nagentsmesh-runner run`}
+                  id="command"
+                />
+              </div>
+            </div>
+
+            {/* Run as Background Service */}
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t("runners.addRunnerModal.serviceTitle")}
+              </label>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">{t("runners.addRunnerModal.serviceHint")}</p>
+                <div className="bg-muted rounded-lg p-4 relative">
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
+                    <Terminal className="w-4 h-4" />
+                    <span>Terminal</span>
+                  </div>
+                  <code className="text-green-600 dark:text-green-400 text-sm font-mono block whitespace-pre-wrap pr-24">
+                    {`agentsmesh-runner service install
+agentsmesh-runner service start`}
+                  </code>
+                  <CopyBtn
+                    text={`agentsmesh-runner service install\nagentsmesh-runner service start`}
+                    id="service"
+                  />
+                </div>
               </div>
             </div>
 

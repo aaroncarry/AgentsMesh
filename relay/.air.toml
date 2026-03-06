@@ -21,21 +21,20 @@ exclude_regex = ["_test.go"]
 exclude_unchanged = false
 # Follow symlinks
 follow_symlink = false
-# Log directory
-log = "build-errors.log"
 # Send interrupt signal before killing process
 send_interrupt = true
 # Delay before restarting (milliseconds)
 delay = 1000
 # Stop running old binary when build errors occur
 stop_on_error = true
-# Kill delay
-kill_delay = "2s"
+# Kill delay: long enough for the old process to release port 8090 before the
+# new binary tries to bind it. Too short → new process crashes silently on startup.
+kill_delay = "5s"
 
 [log]
 # Show log time
-time = false
-# Only show main log
+time = true
+# Show all log types (build errors, watcher, runner) — never suppress to file
 main_only = false
 
 [color]
