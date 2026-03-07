@@ -27,9 +27,7 @@ func (c *Client) reconnectLoop() {
 	// Check if client is already stopped - no point in reconnecting
 	if c.stopped.Load() {
 		c.logger.Debug("Client stopped, skipping reconnect")
-		if c.onClose != nil {
-			c.onClose()
-		}
+		c.fireOnClose()
 		return
 	}
 
@@ -54,33 +52,39 @@ func (c *Client) reconnectLoop() {
 	case <-done:
 		// Loops exited
 	case <-time.After(2 * time.Second):
-		c.logger.Warn("Timeout waiting for loops to exit before reconnect")
+		c.logger.Warn("Timeout waiting for loops to exit before reconnect, aborting")
+		c.fireOnClose()
+		return
 	case <-c.stopCh:
 		c.logger.Info("Reconnect cancelled while waiting for loops, client stopped")
-		if c.onClose != nil {
-			c.onClose()
-		}
+		c.fireOnClose()
 		return
 	}
 
+	// Use reconnectCount to resume backoff across reconnectLoop invocations.
+	// When a connection "succeeds" but dies immediately (flap), readLoop increments
+	// reconnectCount. We use it here so the backoff doesn't reset to 500ms each time.
+	flapCount := int(c.reconnectCount.Load())
 	backoff := initialBackoff
-	const maxAttempts = 10
+	for i := 0; i < flapCount; i++ {
+		backoff = min(backoff*2, maxReconnectDelay)
+	}
+	if flapCount > 0 {
+		c.logger.Info("Applying flap-aware backoff",
+			"flap_count", flapCount, "initial_backoff", backoff)
+	}
 	tokenRefreshAttempted := false
 
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
+	for attempt := 1; ; attempt++ {
 		// Check if Stop() was called during reconnection
 		select {
 		case <-c.stopCh:
 			c.logger.Info("Reconnect cancelled, client stopped")
-			if c.onClose != nil {
-				c.onClose()
-			}
+			c.fireOnClose()
 			return
 		case <-c.ctx.Done():
 			c.logger.Info("Reconnect cancelled, context done")
-			if c.onClose != nil {
-				c.onClose()
-			}
+			c.fireOnClose()
 			return
 		case <-time.After(backoff):
 			// Wait before attempting reconnection
@@ -88,7 +92,6 @@ func (c *Client) reconnectLoop() {
 
 		c.logger.Info("Attempting to reconnect to relay",
 			"attempt", attempt,
-			"max_attempts", maxAttempts,
 			"backoff", backoff)
 
 		c.reconnectMu.Lock()
@@ -143,9 +146,7 @@ func (c *Client) reconnectLoop() {
 				c.conn = nil
 			}
 			c.connMu.Unlock()
-			if c.onClose != nil {
-				c.onClose()
-			}
+			c.fireOnClose()
 			return
 		}
 
@@ -168,12 +169,5 @@ func (c *Client) reconnectLoop() {
 			c.onReconnect()
 		}
 		return
-	}
-
-	// Failed to reconnect after max attempts - give up and call onClose
-	c.logger.Error("Failed to reconnect after max attempts",
-		"max_attempts", maxAttempts)
-	if c.onClose != nil {
-		c.onClose()
 	}
 }

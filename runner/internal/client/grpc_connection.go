@@ -79,6 +79,12 @@ type GRPCConnection struct {
 	// Stuck detection for writeLoop
 	lastSendTime atomic.Int64
 
+	// Recv liveness tracking — updated by readLoop on every successful Recv().
+	// recvWatchdog triggers reconnect when no message arrives for 3× heartbeatInterval,
+	// handling the half-dead connection case where the server closed the downstream
+	// but stream.Recv() keeps blocking on the runner side.
+	lastRecvTime atomic.Int64
+
 	// Rate limiting for terminal output (bytes per second)
 	// Default: 100KB/s to avoid overwhelming slow server connections
 	terminalRateLimiter *rate.Limiter
@@ -89,6 +95,10 @@ type GRPCConnection struct {
 	certExpiryWarningDays    int
 	certRenewalDays          int // Days before expiry to trigger renewal (default 30)
 	certUrgentDays           int // Days before expiry for urgent reconnection (default 7)
+
+	// Heartbeat monitor for upstream liveness detection.
+	// Created per-connection in runConnection(); nil before first connection.
+	heartbeatMonitor *HeartbeatMonitor
 
 	// RPCClient for MCP request-response over gRPC stream
 	rpcClient *RPCClient
@@ -103,6 +113,13 @@ type GRPCConnection struct {
 	// onEndpointChanged is called when auto-discovery detects a new gRPC endpoint.
 	// Implementations should persist the new endpoint to the config file.
 	onEndpointChanged func(newEndpoint string) error
+
+	// handlerWg tracks async handler goroutines (handleCreatePod, etc.)
+	// so Stop() can wait for in-flight handlers to finish.
+	handlerWg sync.WaitGroup
+
+	// loopWg tracks the connectionLoop goroutine for clean shutdown.
+	loopWg sync.WaitGroup
 }
 
 // NewGRPCConnection creates a new gRPC connection with mTLS.
@@ -247,7 +264,11 @@ func (c *GRPCConnection) Connect() error {
 // Start starts the connection management loop.
 func (c *GRPCConnection) Start() {
 	logger.GRPC().Info("gRPC connection manager starting", "endpoint", c.endpoint)
-	safego.Go("grpc-connection-loop", c.connectionLoop)
+	c.loopWg.Add(1)
+	safego.Go("grpc-connection-loop", func() {
+		defer c.loopWg.Done()
+		c.connectionLoop()
+	})
 }
 
 // Stop stops the connection and releases resources.
@@ -255,6 +276,13 @@ func (c *GRPCConnection) Stop() {
 	c.stopOnce.Do(func() {
 		logger.GRPC().Info("gRPC connection stopping")
 		close(c.stopCh)
+
+		// Wait for connectionLoop to exit before cleaning up resources
+		c.loopWg.Wait()
+
+		// Wait for in-flight async handlers (handleCreatePod, etc.)
+		c.handlerWg.Wait()
+
 		c.mu.Lock()
 		if c.conn != nil {
 			c.conn.Close()
@@ -320,14 +348,16 @@ func isFatalStreamError(err error) (bool, string) {
 	}
 }
 
-// LastActivityTime returns the last time a message was successfully sent.
+// LastActivityTime returns the most recent send or recv timestamp.
 // Used by the Watchdog health checker to detect stuck connections.
 func (c *GRPCConnection) LastActivityTime() time.Time {
-	ns := c.lastSendTime.Load()
-	if ns == 0 {
+	sendNs := c.lastSendTime.Load()
+	recvNs := c.lastRecvTime.Load()
+	latest := max(sendNs, recvNs)
+	if latest == 0 {
 		return time.Time{}
 	}
-	return time.Unix(0, ns)
+	return time.Unix(0, latest)
 }
 
 // Ensure GRPCConnection implements Connection interface.

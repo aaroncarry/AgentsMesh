@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -17,15 +18,19 @@ func TestControlRunner_StartControlProcess_WithLogger(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires printf on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs a valid decision with session_id
+	// Use printf instead of echo to avoid macOS /bin/sh interpreting \n as newline
 	scriptPath := filepath.Join(tmpDir, "mock_agent")
 	script := `#!/bin/sh
-echo '{"result": "TASK_COMPLETED\nAll done.", "session_id": "test-session-xyz"}'
+printf '%s\n' '{"result": "TASK_COMPLETED\nAll done.", "session_id": "test-session-xyz"}'
 `
 	err = os.WriteFile(scriptPath, []byte(script), 0755)
 	require.NoError(t, err)
@@ -59,15 +64,19 @@ func TestControlRunner_ResumeControlProcess_WithLogger(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires printf on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs a valid decision
+	// Use printf instead of echo to avoid macOS /bin/sh interpreting \n as newline
 	scriptPath := filepath.Join(tmpDir, "mock_agent")
 	script := `#!/bin/sh
-echo '{"result": "CONTINUE\nMore work needed."}'
+printf '%s\n' '{"result": "CONTINUE\nMore work needed."}'
 `
 	err = os.WriteFile(scriptPath, []byte(script), 0755)
 	require.NoError(t, err)
@@ -104,16 +113,22 @@ func TestControlRunner_StartControlProcess_LongOutputTruncation(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires shell scripts on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs >2000 chars without JSON
+	// Use POSIX-compatible while loop instead of bash-only brace expansion {1..300}
 	scriptPath := filepath.Join(tmpDir, "mock_agent")
 	script := `#!/bin/sh
-for i in {1..300}; do
+i=1
+while [ $i -le 300 ]; do
   echo "This is a very long line of output number $i that should help us exceed the 2000 character limit"
+  i=$((i + 1))
 done
 echo "TASK_COMPLETED"
 echo "Done."
@@ -149,16 +164,22 @@ func TestControlRunner_ResumeControlProcess_LongOutputTruncation(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires shell scripts on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs >2000 chars without JSON
+	// Use POSIX-compatible while loop instead of bash-only brace expansion {1..300}
 	scriptPath := filepath.Join(tmpDir, "mock_agent")
 	script := `#!/bin/sh
-for i in {1..300}; do
+i=1
+while [ $i -le 300 ]; do
   echo "This is a very long line of output number $i that should help us exceed the 2000 character limit"
+  i=$((i + 1))
 done
 echo "CONTINUE"
 echo "More work."
@@ -196,6 +217,9 @@ echo "More work."
 func TestControlRunner_StartControlProcess_ErrorWithLogger(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires shell scripts on Windows")
 	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
@@ -235,6 +259,9 @@ func TestControlRunner_StartControlProcess_ErrorWithLogger(t *testing.T) {
 func TestControlRunner_ResumeControlProcess_ErrorWithLogger(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires shell scripts on Windows")
 	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")

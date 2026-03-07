@@ -2,11 +2,12 @@ package autopilot
 
 import (
 	"os"
-	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
+	"github.com/anthropics/agentsmesh/runner/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,18 +44,16 @@ func TestAutopilotController_HandleDecision_Completed(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that returns TASK_COMPLETED
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo "TASK_COMPLETED"
-echo "All tasks done."
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		"echo TASK_COMPLETED\necho All tasks done.")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:    "Test",
@@ -107,18 +106,16 @@ func TestAutopilotController_HandleDecision_NeedHumanHelp(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that returns NEED_HUMAN_HELP
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo "NEED_HUMAN_HELP"
-echo "Need credentials."
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		"echo NEED_HUMAN_HELP\necho Need credentials.")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:    "Test",
@@ -161,18 +158,16 @@ func TestAutopilotController_HandleDecision_GiveUp(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that returns GIVE_UP
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo "GIVE_UP"
-echo "Cannot complete."
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		"echo GIVE_UP\necho Cannot complete.")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:    "Test",
@@ -225,18 +220,16 @@ func TestAutopilotController_HandleDecision_Continue(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that returns CONTINUE
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo "CONTINUE"
-echo "Working on it."
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		"echo CONTINUE\necho Working on it.")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:    "Test",
@@ -328,17 +321,15 @@ func TestAutopilotController_RunSingleDecision_ControlFailureRetry(t *testing.T)
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that fails
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-exit 1
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent", "exit 1")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:           "Test",
@@ -396,17 +387,15 @@ func TestAutopilotController_RunSingleDecision_WorkerNotWaitingAfterFailure(t *t
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping: shell-based test scripts use Unix echo semantics")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "autopilot_test")
 	require.NoError(t, err)
 
 	// Create mock agent that fails
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-exit 1
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent", "exit 1")
 
 	protoConfig := &runnerv1.AutopilotConfig{
 		InitialPrompt:           "Test",

@@ -18,8 +18,9 @@ const (
 	maxMessageSize = 4 * 1024 * 1024 // 4MB max message size (supports image paste)
 
 	// Reconnection settings
-	maxReconnectDelay = 30 * time.Second
-	initialBackoff    = 500 * time.Millisecond
+	maxReconnectDelay  = 30 * time.Second
+	initialBackoff     = 500 * time.Millisecond
+	minStableConnected = 10 * time.Second // connection must last this long to reset backoff
 )
 
 // InputHandler is called when user input is received from relay
@@ -38,10 +39,9 @@ type ImagePasteHandler func(mimeType string, data []byte)
 // Note: sessionID has been removed - channels are now identified by PodKey only
 type Client struct {
 	// Configuration
-	relayURL    string
-	fallbackURL string // Fallback relay URL if primary fails (e.g., Docker-internal URL → public URL)
-	podKey      string
-	token       string // JWT token for authentication
+	relayURL string
+	podKey   string
+	token    string // JWT token for authentication
 
 	// WebSocket connection
 	conn   *websocket.Conn
@@ -56,20 +56,22 @@ type Client struct {
 	onTokenExpired func() (newToken string) // Called when token expires, should request new token from Backend
 
 	// State
-	connected    atomic.Bool
-	connectedAt  atomic.Int64  // Unix milliseconds timestamp when connected
-	reconnecting atomic.Bool   // Prevents concurrent reconnect attempts
-	stopped      atomic.Bool   // Indicates client has been permanently stopped
-	stopCh       chan struct{} // Signals client shutdown (permanent)
-	connDoneCh   chan struct{} // Signals current connection is done (closed on disconnect)
-	stopOnce     sync.Once
-	sendCh       chan []byte
-	logger       *slog.Logger
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	wgMu         sync.Mutex // Protects wg.Add() to ensure atomicity with stopped check
-	reconnectMu  sync.Mutex
+	connected      atomic.Bool
+	connectedAt    atomic.Int64  // Unix milliseconds timestamp when connected
+	reconnecting   atomic.Bool   // Prevents concurrent reconnect attempts
+	reconnectCount atomic.Int32  // Tracks consecutive short-lived connections (flap detection)
+	stopped        atomic.Bool   // Indicates client has been permanently stopped
+	stopCh         chan struct{} // Signals client shutdown (permanent)
+	connDoneCh     chan struct{} // Signals current connection is done (closed on disconnect)
+	stopOnce       sync.Once
+	closeOnce      sync.Once // Ensures onClose callback fires at most once
+	sendCh         chan []byte
+	logger         *slog.Logger
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	wgMu           sync.Mutex // Protects wg.Add() to ensure atomicity with stopped check
+	reconnectMu    sync.Mutex
 }
 
 // NewClient creates a new Relay WebSocket client
@@ -114,6 +116,16 @@ func (c *Client) SetCloseHandler(handler CloseHandler) {
 	c.onClose = handler
 }
 
+// fireOnClose invokes the onClose callback exactly once, regardless of how many
+// code paths trigger it (readLoop defer, reconnectLoop failure branches, etc.).
+func (c *Client) fireOnClose() {
+	c.closeOnce.Do(func() {
+		if c.onClose != nil {
+			c.onClose()
+		}
+	})
+}
+
 // SetImagePasteHandler sets the handler for image paste events from browsers
 func (c *Client) SetImagePasteHandler(handler ImagePasteHandler) {
 	c.onImagePaste = handler
@@ -138,11 +150,6 @@ func (c *Client) UpdateToken(newToken string) {
 	c.token = newToken
 	c.connMu.Unlock()
 	c.logger.Info("Token updated")
-}
-
-// SetFallbackURL sets a fallback URL to try if the primary relay URL fails.
-func (c *Client) SetFallbackURL(url string) {
-	c.fallbackURL = url
 }
 
 // GetRelayURL returns the relay URL

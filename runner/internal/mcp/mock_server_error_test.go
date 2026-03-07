@@ -3,10 +3,11 @@ package mcp
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/anthropics/agentsmesh/runner/internal/testutil"
 )
 
 // mockMCPErrorServerScript returns a script that returns errors
@@ -172,15 +173,13 @@ func TestCallToolMCPErrorResponse(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
 
 	scriptPath := createErrorMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "error-test",
-		Command: "python3",
+		Command: testutil.PythonCommand(),
 		Args:    []string{scriptPath},
 	})
 
@@ -206,15 +205,13 @@ func TestCallToolIsErrorResponse(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
 
 	scriptPath := createIsErrorMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "iserror-test",
-		Command: "python3",
+		Command: testutil.PythonCommand(),
 		Args:    []string{scriptPath},
 	})
 
@@ -245,15 +242,13 @@ func TestReadResourceErrorResponse(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
 
 	scriptPath := createErrorMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "error-test",
-		Command: "python3",
+		Command: testutil.PythonCommand(),
 		Args:    []string{scriptPath},
 	})
 
@@ -279,15 +274,13 @@ func TestReadResourceEmptyContentsError(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
 
 	scriptPath := createIsErrorMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "empty-test",
-		Command: "python3",
+		Command: testutil.PythonCommand(),
 		Args:    []string{scriptPath},
 	})
 
@@ -349,9 +342,7 @@ for line in sys.stdin:
 		t.Skip("skipping integration test in short mode")
 	}
 
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
 
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "empty_iserror.py")
@@ -361,7 +352,7 @@ for line in sys.stdin:
 
 	server := NewServer(&Config{
 		Name:    "empty-iserror-test",
-		Command: "python3",
+		Command: testutil.PythonCommand(),
 		Args:    []string{scriptPath},
 	})
 

@@ -3,8 +3,11 @@ package clipboard
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/anthropics/agentsmesh/runner/internal/testutil"
 )
 
 func TestSetupShims(t *testing.T) {
@@ -14,7 +17,7 @@ func TestSetupShims(t *testing.T) {
 		t.Fatalf("SetupShims: %v", err)
 	}
 
-	// Verify shim scripts exist and are executable
+	// Verify shim scripts exist and are executable (Unix only)
 	for _, name := range []string{"xclip", "osascript"} {
 		path := filepath.Join(ShimBinDir(dir), name)
 		info, err := os.Stat(path)
@@ -22,7 +25,7 @@ func TestSetupShims(t *testing.T) {
 			t.Errorf("shim %s not found: %v", name, err)
 			continue
 		}
-		if info.Mode()&0111 == 0 {
+		if runtime.GOOS != "windows" && info.Mode()&0111 == 0 {
 			t.Errorf("shim %s not executable", name)
 		}
 	}
@@ -52,9 +55,8 @@ func TestSetupShims_Idempotent(t *testing.T) {
 }
 
 func TestSetupShims_CannotCreateBinDir(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping test when running as root")
-	}
+	testutil.SkipIfRoot(t)
+	testutil.SkipIfNoChmodSupport(t)
 	dir := t.TempDir()
 	readonlyDir := filepath.Join(dir, "readonly")
 	if err := os.Mkdir(readonlyDir, 0555); err != nil {
@@ -68,9 +70,8 @@ func TestSetupShims_CannotCreateBinDir(t *testing.T) {
 }
 
 func TestSetupShims_CannotCreateDataDir(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping test when running as root")
-	}
+	testutil.SkipIfRoot(t)
+	testutil.SkipIfNoChmodSupport(t)
 	dir := t.TempDir()
 	// Create bin dir but make parent of data dir read-only after
 	shimDir := filepath.Join(dir, shimDirName)
@@ -88,9 +89,8 @@ func TestSetupShims_CannotCreateDataDir(t *testing.T) {
 }
 
 func TestSetupShims_CannotWriteXclip(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping test when running as root")
-	}
+	testutil.SkipIfRoot(t)
+	testutil.SkipIfNoChmodSupport(t)
 	dir := t.TempDir()
 	// Pre-create directories
 	binDir := filepath.Join(dir, shimDirName, "bin")
@@ -107,6 +107,9 @@ func TestSetupShims_CannotWriteXclip(t *testing.T) {
 }
 
 func TestSetupShims_CannotWriteOsascript(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("clipboard shims are Unix-only")
+	}
 	dir := t.TempDir()
 	// Pre-create everything and write xclip successfully
 	binDir := filepath.Join(dir, shimDirName, "bin")
@@ -126,6 +129,9 @@ func TestSetupShims_CannotWriteOsascript(t *testing.T) {
 }
 
 func TestSetupShims_ScriptContent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("clipboard shims are Unix-only")
+	}
 	dir := t.TempDir()
 	if err := SetupShims(dir); err != nil {
 		t.Fatalf("SetupShims: %v", err)
@@ -208,9 +214,8 @@ func TestWriteImage_UnsupportedMimeType(t *testing.T) {
 }
 
 func TestWriteImage_CannotCreateDataDir(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping test when running as root")
-	}
+	testutil.SkipIfRoot(t)
+	testutil.SkipIfNoChmodSupport(t)
 	dir := t.TempDir()
 	readonlyDir := filepath.Join(dir, "readonly")
 	if err := os.Mkdir(readonlyDir, 0555); err != nil {
@@ -253,16 +258,18 @@ func TestWriteImage_EmptyData(t *testing.T) {
 }
 
 func TestShimBinDir(t *testing.T) {
-	got := ShimBinDir("/tmp/sandbox")
-	want := "/tmp/sandbox/.clipboard-shim/bin"
+	dir := t.TempDir()
+	got := ShimBinDir(dir)
+	want := filepath.Join(dir, ".clipboard-shim", "bin")
 	if got != want {
 		t.Errorf("ShimBinDir: got %q, want %q", got, want)
 	}
 }
 
 func TestDataDir(t *testing.T) {
-	got := dataDir("/tmp/sandbox")
-	want := "/tmp/sandbox/.clipboard-shim/data"
+	dir := t.TempDir()
+	got := dataDir(dir)
+	want := filepath.Join(dir, ".clipboard-shim", "data")
 	if got != want {
 		t.Errorf("dataDir: got %q, want %q", got, want)
 	}

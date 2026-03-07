@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
@@ -21,6 +22,7 @@ func (c *GRPCConnection) readLoop(ctx context.Context, done chan<- struct{}) {
 	for {
 		msg, err := c.stream.Recv()
 		if err != nil {
+			// Don't update lastRecvTime on error — watchdog should detect staleness
 			if err == io.EOF {
 				log.Info("Stream ended (EOF)")
 				return
@@ -36,6 +38,8 @@ func (c *GRPCConnection) readLoop(ctx context.Context, done chan<- struct{}) {
 			}
 			return
 		}
+		// Record successful recv for liveness tracking (recvWatchdog uses this)
+		c.lastRecvTime.Store(time.Now().UnixNano())
 		c.handleServerMessage(msg)
 	}
 }
@@ -49,20 +53,37 @@ func (c *GRPCConnection) handleServerMessage(msg *runnerv1.ServerMessage) {
 	case *runnerv1.ServerMessage_InitializeResult:
 		c.handleInitializeResult(payload.InitializeResult)
 
-	// Heavy operations - async dispatch to avoid blocking readLoop
+	// Heavy operations - async dispatch to avoid blocking readLoop.
+	// Tracked by handlerWg so Stop() can wait for them to finish.
 	case *runnerv1.ServerMessage_CreatePod:
-		go c.handleCreatePod(payload.CreatePod)
+		c.handlerWg.Add(1)
+		go func() {
+			defer c.handlerWg.Done()
+			c.handleCreatePod(payload.CreatePod)
+		}()
+
+	case *runnerv1.ServerMessage_TerminatePod:
+		c.handlerWg.Add(1)
+		go func() {
+			defer c.handlerWg.Done()
+			c.handleTerminatePod(payload.TerminatePod)
+		}()
 
 	case *runnerv1.ServerMessage_SubscribeTerminal:
-		go c.handleSubscribeTerminal(payload.SubscribeTerminal)
+		c.handlerWg.Add(1)
+		go func() {
+			defer c.handlerWg.Done()
+			c.handleSubscribeTerminal(payload.SubscribeTerminal)
+		}()
 
 	case *runnerv1.ServerMessage_CreateAutopilot:
-		go c.handleCreateAutopilot(payload.CreateAutopilot)
+		c.handlerWg.Add(1)
+		go func() {
+			defer c.handlerWg.Done()
+			c.handleCreateAutopilot(payload.CreateAutopilot)
+		}()
 
 	// Lightweight operations - synchronous to preserve ordering
-	case *runnerv1.ServerMessage_TerminatePod:
-		c.handleTerminatePod(payload.TerminatePod)
-
 	case *runnerv1.ServerMessage_TerminalInput:
 		c.handleTerminalInput(payload.TerminalInput)
 
@@ -89,6 +110,9 @@ func (c *GRPCConnection) handleServerMessage(msg *runnerv1.ServerMessage) {
 
 	case *runnerv1.ServerMessage_Ping:
 		c.handlePing(payload.Ping)
+
+	case *runnerv1.ServerMessage_HeartbeatAck:
+		c.handleHeartbeatAck(payload.HeartbeatAck)
 
 	default:
 		logger.GRPC().Warn("Unknown server message type")
@@ -204,7 +228,6 @@ func (c *GRPCConnection) handleSubscribeTerminal(cmd *runnerv1.SubscribeTerminal
 	req := SubscribeTerminalRequest{
 		PodKey:          cmd.PodKey,
 		RelayURL:        cmd.RelayUrl,
-		PublicRelayURL:  cmd.PublicRelayUrl,
 		RunnerToken:     cmd.RunnerToken,
 		IncludeSnapshot: cmd.IncludeSnapshot,
 		SnapshotHistory: cmd.SnapshotHistory,
@@ -287,6 +310,17 @@ func (c *GRPCConnection) handleMcpResponse(resp *runnerv1.McpResponse) {
 		return
 	}
 	c.rpcClient.HandleResponse(resp)
+}
+
+// handleHeartbeatAck handles the server's acknowledgment of our heartbeat.
+// Confirms the upstream path (Runner → Backend) is alive by resetting
+// the heartbeat monitor's missed-ack counter.
+func (c *GRPCConnection) handleHeartbeatAck(ack *runnerv1.HeartbeatAck) {
+	if c.heartbeatMonitor != nil {
+		c.heartbeatMonitor.OnAck()
+	}
+	rtt := time.Now().UnixMilli() - ack.HeartbeatTimestamp
+	logger.GRPCTrace().Trace("Heartbeat ack received", "rtt_ms", rtt)
 }
 
 // handlePing handles downstream ping from server - immediately replies with pong.

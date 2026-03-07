@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/debug"
-	"strings"
 	"sync"
 
 	"github.com/kardianos/service"
 
 	"github.com/anthropics/agentsmesh/runner/internal/config"
+	"github.com/anthropics/agentsmesh/runner/internal/envpath"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/pidfile"
 	"github.com/anthropics/agentsmesh/runner/internal/runner"
@@ -108,14 +107,16 @@ func (p *Program) Start(s service.Service) error {
 func (p *Program) Stop(s service.Service) error {
 	log.Info("Service stopping")
 
-	pidfile.Remove()
-
 	if p.cancel != nil {
 		p.cancel()
 	}
 
-	// Wait for runner to stop
+	// Wait for runner to stop before removing PID file.
+	// If we remove PID file first, another instance could start during
+	// shutdown, fail to detect the still-running process, and hit port conflicts.
 	p.wg.Wait()
+
+	pidfile.Remove()
 
 	p.sendStatus(Status{Running: false})
 	log.Info("Service stopped")
@@ -211,41 +212,17 @@ func buildServiceEnvVars() map[string]string {
 	// Start with the current shell PATH (richest source of user-installed dirs)
 	currentPath := os.Getenv("PATH")
 
-	// Ensure common user binary directories are present
-	extraDirs := userBinaryDirs()
+	// Prepend common user binary directories (only if directory actually exists)
+	extraDirs := envpath.UserBinaryDirs()
+	var existingDirs []string
 	for _, dir := range extraDirs {
-		if !strings.Contains(currentPath, dir) {
-			if _, err := os.Stat(dir); err == nil {
-				currentPath = dir + ":" + currentPath
-			}
+		if _, err := os.Stat(dir); err == nil {
+			existingDirs = append(existingDirs, dir)
 		}
 	}
+	envVars["PATH"] = envpath.PrependToPath(currentPath, existingDirs...)
 
-	envVars["PATH"] = currentPath
 	return envVars
-}
-
-// userBinaryDirs returns common directories where user-installed agent binaries live.
-func userBinaryDirs() []string {
-	home, _ := os.UserHomeDir()
-	dirs := []string{
-		filepath.Join(home, ".local", "bin"),
-	}
-
-	if runtime.GOOS == "darwin" {
-		dirs = append(dirs,
-			"/opt/homebrew/bin",
-			"/opt/homebrew/sbin",
-			"/usr/local/bin",
-		)
-	} else {
-		dirs = append(dirs,
-			"/usr/local/bin",
-			"/snap/bin",
-		)
-	}
-
-	return dirs
 }
 
 // Uninstall removes the runner system service.
@@ -382,8 +359,11 @@ func ScheduleRestartOnExit() {
 
 // RestartFunc returns a function that can be used to restart the service.
 // This is designed to be passed to the graceful updater.
-func RestartFunc() func() error {
-	return func() error {
-		return RestartForUpdate()
+// Returns pid=0 because the service manager spawns the new process and we
+// don't have its PID. GracefulUpdater.applyPendingUpdate() only runs the
+// health check when pid > 0, so this is safe.
+func RestartFunc() func() (int, error) {
+	return func() (int, error) {
+		return 0, RestartForUpdate()
 	}
 }

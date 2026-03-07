@@ -3,10 +3,11 @@ package autopilot
 import (
 	"context"
 	"os"
-	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
+	"github.com/anthropics/agentsmesh/runner/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func TestControlRunner_NewControlRunner(t *testing.T) {
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
-		WorkDir:        "/tmp",
+		WorkDir:        os.TempDir(),
 		AgentType:      "claude",
 		PromptBuilder:  pb,
 		DecisionParser: nil, // Should use default
@@ -32,7 +33,7 @@ func TestControlRunner_NewControlRunner(t *testing.T) {
 
 func TestControlRunner_DefaultAgentType(t *testing.T) {
 	cr := NewControlRunner(ControlRunnerConfig{
-		WorkDir:   "/tmp",
+		WorkDir:   os.TempDir(),
 		AgentType: "", // Should default to "claude"
 	})
 
@@ -41,7 +42,7 @@ func TestControlRunner_DefaultAgentType(t *testing.T) {
 
 func TestControlRunner_DefaultDecisionParser(t *testing.T) {
 	cr := NewControlRunner(ControlRunnerConfig{
-		WorkDir:        "/tmp",
+		WorkDir:        os.TempDir(),
 		DecisionParser: nil, // Should create default
 	})
 
@@ -50,7 +51,7 @@ func TestControlRunner_DefaultDecisionParser(t *testing.T) {
 
 func TestControlRunner_GetSetSessionID(t *testing.T) {
 	cr := NewControlRunner(ControlRunnerConfig{
-		WorkDir: "/tmp",
+		WorkDir: os.TempDir(),
 	})
 
 	// Initially empty
@@ -88,7 +89,7 @@ func TestControlRunner_RunControlProcess_Start(t *testing.T) {
 	// echo command will fail with wrong args, but we test the flow
 	if err != nil {
 		// Expected for non-existent agent type
-		assert.Contains(t, err.Error(), "control process")
+		assert.Contains(t, err.Error(), "command failed")
 	} else {
 		assert.NotNil(t, decision)
 	}
@@ -125,7 +126,7 @@ func TestControlRunner_RunControlProcess_Resume(t *testing.T) {
 	// echo command will fail with wrong args, but we test the flow
 	if err != nil {
 		// Expected for non-existent agent type
-		assert.Contains(t, err.Error(), "control process")
+		assert.Contains(t, err.Error(), "command failed")
 	} else {
 		assert.NotNil(t, decision)
 	}
@@ -135,15 +136,16 @@ func TestControlRunner_StartControlProcess_Timeout(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell")
+	}
 	// Create temp directory with a script that sleeps
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that sleeps longer than timeout
-	scriptPath := filepath.Join(tmpDir, "slow_agent")
-	err = os.WriteFile(scriptPath, []byte("#!/bin/sh\nsleep 10"), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "slow_agent", "sleep 10")
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
 		InitialPrompt: "Test task",
@@ -171,18 +173,17 @@ func TestControlRunner_StartControlProcess_Success(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires printf on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs a valid decision
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo '{"result": "TASK_COMPLETED\nAll done.", "session_id": "test-session-abc"}'
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		`printf '%s\n' '{"result": "TASK_COMPLETED\nAll done.", "session_id": "test-session-abc"}'`)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
 		InitialPrompt: "Test task",
@@ -210,18 +211,17 @@ func TestControlRunner_ResumeControlProcess_Success(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping test that requires shell execution in CI environment")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping test that requires printf on Windows")
+	}
 	// Create temp directory
 	tmpDir, err := os.MkdirTemp("", "control_runner_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// Create a script that outputs a valid decision
-	scriptPath := filepath.Join(tmpDir, "mock_agent")
-	script := `#!/bin/sh
-echo '{"result": "CONTINUE\nMore work needed."}'
-`
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
-	require.NoError(t, err)
+	scriptPath := testutil.WriteTestScript(t, tmpDir, "mock_agent",
+		`printf '%s\n' '{"result": "CONTINUE\nMore work needed."}'`)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
 		InitialPrompt:    "Test task",

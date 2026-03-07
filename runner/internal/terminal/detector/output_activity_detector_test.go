@@ -138,7 +138,7 @@ func TestOutputActivityDetector_OutputRate(t *testing.T) {
 
 	// Some output
 	d.OnOutput(100)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	rate := d.GetOutputRate()
 	// Should be roughly 100 bytes / 0.05 seconds = 2000 bytes/sec
@@ -177,15 +177,18 @@ func TestOutputActivityDetector_SetCallback(t *testing.T) {
 
 func TestOutputActivityDetector_WindowReset(t *testing.T) {
 	d := NewOutputActivityDetector(OutputActivityConfig{
-		WindowDuration: 50 * time.Millisecond,
+		WindowDuration: 100 * time.Millisecond,
 	})
 
 	// First output
 	d.OnOutput(100)
-	time.Sleep(60 * time.Millisecond) // Window expires
+	time.Sleep(150 * time.Millisecond) // Window expires
 
 	// Second output in new window
 	d.OnOutput(50)
+
+	// Small delay to ensure non-zero elapsed time for rate calculation
+	time.Sleep(10 * time.Millisecond)
 
 	// The output count should have been reset
 	// We can't directly check outputCount, but the rate calculation reflects it

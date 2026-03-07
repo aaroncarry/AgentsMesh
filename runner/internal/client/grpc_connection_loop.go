@@ -3,6 +3,10 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -80,14 +84,23 @@ func (c *GRPCConnection) connectionLoop() {
 // tryEndpointDiscovery queries the backend discovery endpoint and updates the gRPC
 // endpoint if it has changed. This allows runners to self-heal when the server's
 // gRPC port or hostname changes without requiring full re-registration.
+// Uses mTLS authentication — if the TLS config cannot be built (e.g. certificates
+// not yet provisioned), discovery is silently skipped.
 func (c *GRPCConnection) tryEndpointDiscovery() {
 	log := logger.GRPC()
 	log.Info("Trying endpoint auto-discovery", "server_url", c.serverURL, "current_endpoint", c.endpoint)
 
+	// Build mTLS config using existing cert/key/ca files
+	tlsConfig, err := buildMTLSConfig(c.certFile, c.keyFile, c.caFile)
+	if err != nil {
+		log.Warn("Cannot perform endpoint discovery (mTLS config failed, certificates may not exist yet)", "error", err)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	newEndpoint, err := DiscoverGRPCEndpoint(ctx, c.serverURL)
+	newEndpoint, err := DiscoverGRPCEndpoint(ctx, c.serverURL, tlsConfig)
 	if err != nil {
 		log.Warn("Endpoint discovery failed", "error", err)
 		return
@@ -150,6 +163,16 @@ func (c *GRPCConnection) runConnection() {
 	c.stream = stream
 	c.mu.Unlock()
 
+	// Initialize recv liveness timestamp so the watchdog doesn't fire prematurely.
+	c.lastRecvTime.Store(time.Now().UnixNano())
+
+	// Create heartbeat monitor for this connection.
+	// Triggers reconnect if 3 consecutive heartbeats go unacknowledged,
+	// detecting upstream (Runner→Backend) path failure.
+	c.heartbeatMonitor = NewHeartbeatMonitor(3, func() {
+		cancel() // Cancel stream context → triggers reconnection
+	})
+
 	logger.GRPC().Info("Bidirectional stream established")
 
 	done := make(chan struct{})
@@ -199,6 +222,16 @@ func (c *GRPCConnection) runConnection() {
 		c.certRenewalChecker(ctx, done)
 	})
 
+	// Start recv watchdog — detects half-dead connections where readLoop
+	// is stuck on Recv() after the server closed the downstream.
+	// Backend sends downstream pings every 30s; if nothing arrives for
+	// 3× heartbeatInterval the connection is dead.
+	wg.Add(1)
+	safego.Go("grpc-recv-watchdog", func() {
+		defer wg.Done()
+		c.recvWatchdog(done, cancel)
+	})
+
 	// Monitor for reconnection signal (certificate renewal)
 	wg.Add(1)
 	safego.Go("grpc-reconnect-monitor", func() {
@@ -237,4 +270,68 @@ func (c *GRPCConnection) runConnection() {
 	// This prevents goroutine accumulation across reconnections.
 	wg.Wait()
 	logger.GRPC().Debug("All child goroutines exited, runConnection returning")
+}
+
+// recvWatchdog monitors for recv liveness. If no message is received from the
+// server for 3× heartbeatInterval (90s by default, matching the backend's
+// downstream pong timeout), the connection is considered half-dead and
+// reconnection is triggered by cancelling the stream context.
+//
+// This handles the case where the backend has closed the downstream send loop
+// (e.g. pong timeout) but the runner's stream.Recv() keeps blocking because
+// the gRPC transport hasn't detected the closure.
+func (c *GRPCConnection) recvWatchdog(done <-chan struct{}, cancel context.CancelFunc) {
+	recvTimeout := 3 * c.heartbeatInterval
+	ticker := time.NewTicker(c.heartbeatInterval)
+	defer ticker.Stop()
+
+	log := logger.GRPC()
+
+	for {
+		select {
+		case <-c.stopCh:
+			return
+		case <-done:
+			return
+		case <-ticker.C:
+			lastRecvNs := c.lastRecvTime.Load()
+			if lastRecvNs == 0 {
+				continue // Not yet initialized
+			}
+			lastRecv := time.Unix(0, lastRecvNs)
+			since := time.Since(lastRecv)
+			if since > recvTimeout {
+				log.Error("Recv watchdog: no message from server, triggering reconnect",
+					"timeout", recvTimeout, "last_recv_ago", since)
+				cancel() // Cancel stream context → unblocks Recv() → readLoop exits
+				return
+			}
+		}
+	}
+}
+
+// buildMTLSConfig builds a TLS config for mTLS HTTP requests using the runner's
+// certificate, key, and CA files. Returns an error if any file cannot be loaded.
+// This follows the same pattern as RenewCertificate in grpc_registration_renewal.go.
+func buildMTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client certificate: %w", err)
+	}
+
+	caCert, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+	}
+
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to parse CA certificate")
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caPool,
+		MinVersion:   tls.VersionTLS13,
+	}, nil
 }

@@ -3,10 +3,11 @@ package mcp
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/anthropics/agentsmesh/runner/internal/testutil"
 )
 
 // mockMCPServerScript returns a bash script that simulates an MCP server
@@ -117,16 +118,14 @@ func TestServerWithMockMCP(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Check if python3 is available
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
+	pythonCmd := testutil.PythonCommand()
 
 	scriptPath := createMockMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "mock-test",
-		Command: "python3",
+		Command: pythonCmd,
 		Args:    []string{scriptPath},
 	})
 
@@ -164,16 +163,14 @@ func TestServerCallToolWithMockMCP(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Check if python3 is available
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
+	pythonCmd := testutil.PythonCommand()
 
 	scriptPath := createMockMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "mock-test",
-		Command: "python3",
+		Command: pythonCmd,
 		Args:    []string{scriptPath},
 	})
 
@@ -204,16 +201,14 @@ func TestServerReadResourceWithMockMCP(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Check if python3 is available
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
+	pythonCmd := testutil.PythonCommand()
 
 	scriptPath := createMockMCPServer(t)
 
 	server := NewServer(&Config{
 		Name:    "mock-test",
-		Command: "python3",
+		Command: pythonCmd,
 		Args:    []string{scriptPath},
 	})
 
@@ -248,17 +243,15 @@ func TestManagerWithMockMCP(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
-	// Check if python3 is available
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available")
-	}
+	testutil.SkipIfNoPython(t)
+	pythonCmd := testutil.PythonCommand()
 
 	scriptPath := createMockMCPServer(t)
 
 	manager := NewManager()
 	manager.AddServer(&Config{
 		Name:    "mock-test",
-		Command: "python3",
+		Command: pythonCmd,
 		Args:    []string{scriptPath},
 	})
 
