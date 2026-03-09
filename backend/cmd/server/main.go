@@ -121,7 +121,7 @@ func main() {
 
 	// Route OSC terminal notifications through NotificationDispatcher (preference-aware)
 	terminalRouter.SetNotifyFunc(func(ctx context.Context, orgID int64, source, entityID, title, body, link, resolver string) {
-		notifDispatcher.Dispatch(ctx, &notifDomain.NotificationRequest{
+		if err := notifDispatcher.Dispatch(ctx, &notifDomain.NotificationRequest{
 			OrganizationID:    orgID,
 			Source:            source,
 			SourceEntityID:    entityID,
@@ -129,7 +129,9 @@ func main() {
 			Body:              body,
 			Link:              link,
 			RecipientResolver: resolver,
-		})
+		}); err != nil {
+			slog.Error("failed to dispatch notification", "source", source, "error", err)
+		}
 	})
 
 	// Wire PodPromptHook (must be after terminalRouter is initialized)
