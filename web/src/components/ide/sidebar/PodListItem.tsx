@@ -85,10 +85,9 @@ export function PodListItem({ pod, isOpen, onClick, onTerminate }: PodListItemPr
             <Terminal className="w-3 h-3 text-primary flex-shrink-0" />
           )}
         </div>
-        {/* Show ticket slug as subtitle when ticket title is already in display name */}
-        {pod.ticket?.slug && (
+        {pod.created_by?.name && (
           <p className="text-xs text-muted-foreground truncate">
-            {pod.ticket.slug}
+            {pod.created_by.name}
           </p>
         )}
       </div>
