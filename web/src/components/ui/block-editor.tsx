@@ -3,7 +3,7 @@
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-import { useEffect, useMemo, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useRef, useMemo, useCallback, useSyncExternalStore } from "react";
 import { PartialBlock } from "@blocknote/core";
 import { useAuthStore } from "@/stores/auth";
 import { getApiBaseUrl } from "@/lib/env";
@@ -124,10 +124,27 @@ export function BlockEditor({
     uploadFile,
   });
 
+  // Track the last content string we sent via onChange to avoid echo loops
+  const lastEmittedRef = useRef<string | undefined>(initialContent);
+
+  // Sync external content changes (e.g., from WebSocket updates) into the editor.
+  // Compares incoming initialContent against what we last emitted to avoid
+  // resetting the editor on our own saves.
+  useEffect(() => {
+    if (!initialContent || initialContent === lastEmittedRef.current) return;
+    const newBlocks = parseInitialContent(initialContent);
+    if (newBlocks) {
+      editor.replaceBlocks(editor.document, newBlocks);
+      lastEmittedRef.current = initialContent;
+    }
+  }, [initialContent, editor]);
+
   // Handle onChange with debounce to avoid excessive updates
   const handleChange = useCallback(() => {
     if (onChange) {
-      onChange(JSON.stringify(editor.document));
+      const json = JSON.stringify(editor.document);
+      lastEmittedRef.current = json;
+      onChange(json);
     }
   }, [onChange, editor]);
 
