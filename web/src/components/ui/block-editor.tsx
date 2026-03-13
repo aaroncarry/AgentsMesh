@@ -124,26 +124,27 @@ export function BlockEditor({
     uploadFile,
   });
 
-  // Track the last content string we sent via onChange to avoid echo loops
-  const lastEmittedRef = useRef<string | undefined>(initialContent);
+  // Track the last content string we emitted (onChange) or received (external sync).
+  // Used to distinguish our own saves from external updates (e.g., WebSocket).
+  const lastContentRef = useRef<string | undefined>(initialContent);
 
   // Sync external content changes (e.g., from WebSocket updates) into the editor.
-  // Compares incoming initialContent against what we last emitted to avoid
-  // resetting the editor on our own saves.
+  // When initialContent changes to something we didn't emit, replace the editor blocks.
+  // The subsequent onChange from replaceBlocks is harmless — the debounced save will
+  // write back the same content, and the next useEffect comparison will match.
   useEffect(() => {
-    if (!initialContent || initialContent === lastEmittedRef.current) return;
+    if (!initialContent || initialContent === lastContentRef.current) return;
     const newBlocks = parseInitialContent(initialContent);
     if (newBlocks) {
       editor.replaceBlocks(editor.document, newBlocks);
-      lastEmittedRef.current = initialContent;
+      lastContentRef.current = initialContent;
     }
   }, [initialContent, editor]);
 
-  // Handle onChange with debounce to avoid excessive updates
   const handleChange = useCallback(() => {
     if (onChange) {
       const json = JSON.stringify(editor.document);
-      lastEmittedRef.current = json;
+      lastContentRef.current = json;
       onChange(json);
     }
   }, [onChange, editor]);
