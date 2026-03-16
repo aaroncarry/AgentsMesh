@@ -114,6 +114,7 @@ describe('TicketDetail Component', () => {
   }
 
   const mockFetchTicket = vi.fn().mockResolvedValue(undefined)
+  const mockSetCurrentTicket = vi.fn()
   const mockUpdateTicket = vi.fn()
   const mockUpdateTicketStatus = vi.fn()
   const mockDeleteTicket = vi.fn()
@@ -125,6 +126,7 @@ describe('TicketDetail Component', () => {
     Object.assign(mockTicketStoreState, {
       currentTicket: mockTicket,
       fetchTicket: mockFetchTicket,
+      setCurrentTicket: mockSetCurrentTicket,
       updateTicket: mockUpdateTicket,
       updateTicketStatus: mockUpdateTicketStatus,
       deleteTicket: mockDeleteTicket,
