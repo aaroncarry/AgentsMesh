@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthStore } from "@/stores/auth";
 import { useTicketStore, TicketStatus, TicketPriority } from "@/stores/ticket";
+import { ticketApi } from "@/lib/api";
 import { useTicketExtraData } from "./hooks";
 import { LabelsList, CommentsList, SubTicketsList, RelationsList, CommitsList } from "./shared";
 import { TicketDetailSidebar } from "./TicketDetailSidebar";
@@ -26,16 +27,14 @@ export function TicketDetail({ slug }: TicketDetailProps) {
   // Use individual selectors to prevent re-renders from unrelated store changes
   // (e.g., fetchTickets() triggered by WebSocket events sets shared `loading`)
   const currentTicket = useTicketStore(state => state.currentTicket);
-  const fetchTicket = useTicketStore(state => state.fetchTicket);
   const updateTicket = useTicketStore(state => state.updateTicket);
   const updateTicketStatus = useTicketStore(state => state.updateTicketStatus);
   const deleteTicket = useTicketStore(state => state.deleteTicket);
   const setCurrentTicket = useTicketStore(state => state.setCurrentTicket);
-  const error = useTicketStore(state => state.error);
 
-  // Local loading state to avoid re-renders from shared store `loading`
-  // Derived from whether we've loaded the current slug (avoids setState in effect)
+  // Local loading/error state — avoids re-renders from shared store state
   const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const initialLoading = loadedSlug !== slug;
 
   const { dialogProps, confirm } = useConfirmDialog();
@@ -52,11 +51,30 @@ export function TicketDetail({ slug }: TicketDetailProps) {
   }, []);
 
   useEffect(() => {
-    // Clear stale ticket from previous slug so the skeleton shows
-    // instead of briefly rendering old ticket data
+    // Clear stale ticket so the skeleton shows instead of previous ticket data
     setCurrentTicket(null);
-    fetchTicket(slug).finally(() => setLoadedSlug(slug));
-  }, [slug, fetchTicket, setCurrentTicket]);
+    setError(null);
+    let cancelled = false;
+
+    ticketApi.get(slug)
+      .then(ticket => {
+        if (!cancelled) {
+          setCurrentTicket(ticket);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to fetch ticket");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadedSlug(slug);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [slug, setCurrentTicket]);
 
   const handleTitleSave = useCallback(async (newTitle: string) => {
     if (!newTitle.trim()) return;
@@ -115,6 +133,15 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     }
   }, [confirm, deleteTicket, slug, router, currentOrg, t]);
 
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setLoadedSlug(null);
+    ticketApi.get(slug)
+      .then(ticket => setCurrentTicket(ticket))
+      .catch(err => setError(err instanceof Error ? err.message : "Failed to fetch ticket"))
+      .finally(() => setLoadedSlug(slug));
+  }, [slug, setCurrentTicket]);
+
   if (initialLoading && !currentTicket) {
     return <TicketDetailSkeleton />;
   }
@@ -123,7 +150,7 @@ export function TicketDetail({ slug }: TicketDetailProps) {
     return (
       <div className="text-center py-16">
         <div className="text-destructive mb-4 text-sm">{error}</div>
-        <Button variant="outline" size="sm" onClick={() => fetchTicket(slug)}>
+        <Button variant="outline" size="sm" onClick={handleRetry}>
           {t("tickets.detail.retry")}
         </Button>
       </div>
