@@ -9,6 +9,7 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/aggregator"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/vt"
@@ -48,17 +49,46 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 	// Report progress: starting PTY
 	b.sendProgress("starting_pty", 80, "Starting terminal...")
 
+	// Build PTY factory for Pod Daemon mode (session persistence across restarts)
+	var ptyFactory terminal.PTYFactory
+	if b.deps.PodDaemonManager != nil && sandboxRoot != "" {
+		mgr := b.deps.PodDaemonManager
+		opts := poddaemon.CreateOpts{
+			PodKey:         b.cmd.PodKey,
+			AgentType:      b.cmd.LaunchCommand,
+			SandboxPath:    sandboxRoot,
+			WorkDir:        workingDir,
+			RepositoryURL:  b.cmd.GetSandboxConfig().GetRepositoryUrl(),
+			Branch:         branchName,
+			TicketSlug:     b.cmd.GetSandboxConfig().GetTicketSlug(),
+			VTHistoryLimit: b.vtHistoryLimit,
+		}
+		ptyFactory = func(command string, args []string, workDir string, env []string, cols, rows int) (terminal.PtyProcess, error) {
+			opts.Command = command
+			opts.Args = args
+			opts.Env = env
+			opts.Cols = cols
+			opts.Rows = rows
+			dpty, _, err := mgr.CreateSession(opts)
+			if err != nil {
+				return nil, err
+			}
+			return dpty, nil
+		}
+	}
+
 	// Create terminal
 	term, err := terminal.New(terminal.Options{
-		Command:  b.cmd.LaunchCommand,
-		Args:     resolvedArgs,
-		WorkDir:  workingDir,
-		Env:      envVars,
-		Rows:     b.rows,
-		Cols:     b.cols,
-		Label:    b.cmd.PodKey, // For log correlation in PTY diagnostics
-		OnOutput: nil,          // Will be wired up after all components are created
-		OnExit:   nil,          // Will be set by caller (MessageHandler)
+		Command:    b.cmd.LaunchCommand,
+		Args:       resolvedArgs,
+		WorkDir:    workingDir,
+		Env:        envVars,
+		Rows:       b.rows,
+		Cols:       b.cols,
+		Label:      b.cmd.PodKey, // For log correlation in PTY diagnostics
+		PTYFactory: ptyFactory,
+		OnOutput:   nil, // Will be wired up after all components are created
+		OnExit:     nil, // Will be set by caller (MessageHandler)
 	})
 	if err != nil {
 		// Cleanup sandbox on failure
@@ -102,6 +132,9 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		AgentType:       b.cmd.LaunchCommand,
 		Branch:          branchName,
 		SandboxPath:     sandboxRoot,
+		LaunchCommand:   b.cmd.LaunchCommand,
+		LaunchArgs:      resolvedArgs,
+		WorkDir:         workingDir,
 		Terminal:        term,
 		VirtualTerminal: virtualTerm,
 		Aggregator:      agg,
@@ -110,42 +143,8 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		Status:          PodStatusInitializing,
 	}
 
-	// Wire up output handler (integrates VirtualTerminal, StateDetector, and Aggregator)
-	podKey := b.cmd.PodKey
-	term.SetOutputHandler(func(data []byte) {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Terminal().Error("PANIC in OutputHandler recovered",
-					"pod_key", podKey,
-					"panic", fmt.Sprintf("%v", r),
-					"data_len", len(data))
-			}
-		}()
-
-		var screenLines []string
-		if virtualTerm != nil {
-			startFeed := time.Now()
-			screenLines = virtualTerm.Feed(data)
-			feedTime := time.Since(startFeed)
-			if feedTime > 100*time.Millisecond {
-				logger.Terminal().Warn("VT Feed slow",
-					"pod_key", podKey,
-					"data_len", len(data),
-					"feed_time", feedTime)
-			}
-		}
-		go pod.NotifyStateDetectorWithScreen(len(data), screenLines)
-
-		startWrite := time.Now()
-		agg.Write(data)
-		writeTime := time.Since(startWrite)
-		if writeTime > 100*time.Millisecond {
-			logger.Terminal().Warn("Aggregator Write slow",
-				"pod_key", podKey,
-				"data_len", len(data),
-				"write_time", writeTime)
-		}
-	})
+	// Wire up output handler (shared implementation with circuit breaker + inline recover)
+	term.SetOutputHandler(pod.CreateOutputHandler())
 
 	logger.Pod().Info("Pod built", "pod_key", b.cmd.PodKey, "working_dir", workingDir, "cols", b.cols, "rows", b.rows)
 
