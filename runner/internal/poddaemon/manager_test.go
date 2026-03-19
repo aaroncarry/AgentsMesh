@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 
 func TestRecoverSessionsEmpty(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := NewPodDaemonManager(dir)
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
@@ -23,6 +25,7 @@ func TestRecoverSessionsEmpty(t *testing.T) {
 
 func TestRecoverSessionsFindsState(t *testing.T) {
 	dir := t.TempDir()
+	socketDir := t.TempDir()
 
 	// Create a sandbox with a state file
 	sandbox := filepath.Join(dir, "sandbox-1")
@@ -39,7 +42,7 @@ func TestRecoverSessionsFindsState(t *testing.T) {
 	}
 	require.NoError(t, SaveState(state))
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
@@ -49,7 +52,8 @@ func TestRecoverSessionsFindsState(t *testing.T) {
 }
 
 func TestRecoverSessionsNonExistentDir(t *testing.T) {
-	mgr, err := NewPodDaemonManager("/nonexistent/path")
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager("/nonexistent/path", socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
@@ -59,6 +63,7 @@ func TestRecoverSessionsNonExistentDir(t *testing.T) {
 
 func TestCleanupSession(t *testing.T) {
 	dir := t.TempDir()
+	socketDir := t.TempDir()
 
 	state := &PodDaemonState{
 		PodKey:      "cleanup-me",
@@ -66,7 +71,7 @@ func TestCleanupSession(t *testing.T) {
 	}
 	require.NoError(t, SaveState(state))
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	require.NoError(t, mgr.CleanupSession(dir))
@@ -77,16 +82,35 @@ func TestCleanupSession(t *testing.T) {
 
 func TestNewPodDaemonManager(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := NewPodDaemonManager(dir)
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 	assert.NotNil(t, mgr)
 	assert.Equal(t, dir, mgr.workspaceRoot)
+	assert.Equal(t, socketDir, mgr.socketDir)
 	assert.NotEmpty(t, mgr.runnerBinPath) // should resolve to test binary
+}
+
+func TestNewPodDaemonManagerCreatesSocketDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("EnsureSocketDir is a no-op on Windows (named pipes)")
+	}
+	dir := t.TempDir()
+	socketDir := filepath.Join(t.TempDir(), "nested", "sockets")
+	mgr, err := NewPodDaemonManager(dir, socketDir)
+	require.NoError(t, err)
+	assert.NotNil(t, mgr)
+
+	// Verify socket dir was created
+	info, err := os.Stat(socketDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
 }
 
 func TestAttachSessionSuccess(t *testing.T) {
 	dir := t.TempDir()
-	ipcPath := IPCPath(dir, "a")
+	socketDir := t.TempDir()
+	ipcPath := IPCPath(socketDir, "a")
 
 	// Start a mock daemon listener
 	listener, err := Listen(ipcPath)
@@ -115,7 +139,7 @@ func TestAttachSessionSuccess(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}()
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	state := &PodDaemonState{
@@ -135,7 +159,8 @@ func TestAttachSessionSuccess(t *testing.T) {
 
 func TestAttachSessionFailsOnBadIPC(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := NewPodDaemonManager(dir)
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	state := &PodDaemonState{
@@ -149,7 +174,8 @@ func TestAttachSessionFailsOnBadIPC(t *testing.T) {
 
 func TestCreateSessionMissingSandboxPath(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := NewPodDaemonManager(dir)
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	_, _, err = mgr.CreateSession(CreateOpts{
@@ -162,6 +188,7 @@ func TestCreateSessionMissingSandboxPath(t *testing.T) {
 
 func TestRecoverSessionsSkipsCorruptState(t *testing.T) {
 	dir := t.TempDir()
+	socketDir := t.TempDir()
 
 	// Create a sandbox with a corrupt state file
 	sandbox := filepath.Join(dir, "sandbox-corrupt")
@@ -178,7 +205,7 @@ func TestRecoverSessionsSkipsCorruptState(t *testing.T) {
 	}
 	require.NoError(t, SaveState(state))
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
@@ -189,11 +216,12 @@ func TestRecoverSessionsSkipsCorruptState(t *testing.T) {
 
 func TestRecoverSessionsSkipsFiles(t *testing.T) {
 	dir := t.TempDir()
+	socketDir := t.TempDir()
 
 	// Create a regular file (not a directory) — should be skipped
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-a-dir.txt"), []byte("hello"), 0644))
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
@@ -203,7 +231,8 @@ func TestRecoverSessionsSkipsFiles(t *testing.T) {
 
 func TestCleanupSessionNonExistent(t *testing.T) {
 	dir := t.TempDir()
-	mgr, err := NewPodDaemonManager(dir)
+	socketDir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	// Cleaning up a non-existent session should not error
@@ -215,6 +244,7 @@ func TestCleanupSessionNonExistent(t *testing.T) {
 // of valid, corrupt, missing, and empty state files plus non-directory entries.
 func TestRecoverSessionsMixedValidity(t *testing.T) {
 	dir := t.TempDir()
+	socketDir := t.TempDir()
 
 	// Valid session 1
 	sandbox1 := filepath.Join(dir, "valid-1")
@@ -241,7 +271,7 @@ func TestRecoverSessionsMixedValidity(t *testing.T) {
 	// Regular file (not a directory)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "not-a-dir.txt"), []byte("hello"), 0644))
 
-	mgr, err := NewPodDaemonManager(dir)
+	mgr, err := NewPodDaemonManager(dir, socketDir)
 	require.NoError(t, err)
 
 	sessions, err := mgr.RecoverSessions()
