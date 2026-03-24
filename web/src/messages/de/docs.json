@@ -10,6 +10,7 @@
       "introduction": "Einführung",
       "quickStart": "Schnellstart",
       "coreConcepts": "Kernkonzepte",
+      "concepts": "Konzepte",
       "features": "Funktionen",
       "agentpod": "AgentPod",
       "workspace": "Arbeitsbereich",
@@ -18,6 +19,7 @@
       "tickets": "Tickets",
       "loops": "Loops",
       "repositories": "Repositories",
+      "repositoriesGit": "Repositories & Git",
       "runners": "Runner",
       "runnerSetup": "Runner-Einrichtung",
       "mcpTools": "MCP-Tools",
@@ -34,6 +36,14 @@
       "apiLoops": "Loops API",
       "apiRunners": "Runners API",
       "apiRepositories": "Repositories API",
+      "tutorials": "Tutorials",
+      "tutorialRunnerSetup": "Runner einrichten",
+      "tutorialGitSetup": "Git-Repos verbinden",
+      "tutorialMcpSkills": "MCP & Skills",
+      "tutorialFirstPod": "Dein erster Pod",
+      "tutorialTicketWorkflow": "Aufgabenverwaltung",
+      "tutorialMultiAgent": "Multi-Agent-Zusammenarbeit",
+      "tutorialLoops": "Automatisierte Loops",
       "help": "Hilfe",
       "faq": "FAQ",
       "menu": "Menü"
@@ -46,7 +56,7 @@
     },
     "architecture": {
       "title": "Funktionsweise",
-      "description": "AgentsMesh trennt die Steuerungsebene von der Datenebene. Orchestrierungsbefehle werden über gRPC mit gegenseitigem TLS (mTLS) übertragen, während Terminal-E/A über ein global verteiltes Relay-Cluster gestreamt wird — so können Sie Agenten auf jedem Rechner, von jedem Gerät aus, sicher bedienen.",
+      "description": "AgentsMesh ermöglicht es Ihnen, KI-Agenten zu steuern, die überall laufen — auf Ihrem Laptop, einem Server oder einer Cloud-VM — direkt aus Ihrem Browser. Befehle werden sicher über verschlüsselte Verbindungen gesendet, während die Terminal-Ausgabe in Echtzeit gestreamt wird. Ihr Code verlässt nie Ihre Infrastruktur.",
       "clientLayer": "Client-Schicht",
       "clientSubtitle": "Zugriff von überall — Browser, Mobilgerät oder Tablet",
       "cloudLayer": "Cloud",
@@ -134,11 +144,90 @@
       "mcp": {
         "title": "MCP (Model Context Protocol)",
         "description": "AgentsMesh provides 26 MCP tools that AI agents can use to discover resources, communicate with other Pods, manage tickets, and control terminals. The MCP server runs on each Runner and is automatically configured for supported agents like Claude Code."
+      },
+      "repositoriesGit": {
+        "title": "Repositories & Git-Integration",
+        "description": "Verbinden Sie Ihre Git-Repositories mit AgentsMesh und konfigurieren Sie den Provider-Zugang für nahtlose KI-gestützte Entwicklungsworkflows.",
+        "overview": {
+          "title": "Übersicht",
+          "description": "Repositories verknüpfen Ihre Git-Projekte mit der Plattform. Wenn ein Pod mit einem verknüpften Repository erstellt wird, klont der Runner automatisch das Projekt und richtet einen isolierten Git-Worktree ein. AgentsMesh integriert sich mit beliebten Git-Hosting-Plattformen, um nahtlosen Repository-Zugriff für KI-Agenten zu ermöglichen."
+        },
+        "providers": {
+          "title": "Unterstützte Git-Provider",
+          "github": "GitHub",
+          "githubDesc": "Verbindung über Personal Access Token (PAT) oder OAuth (wenn Sie sich mit GitHub angemeldet haben). Unterstützt öffentliche und private Repositories.",
+          "gitlab": "GitLab",
+          "gitlabDesc": "Verbindung über Personal Access Token (PAT). Unterstützt selbst gehostete GitLab-Instanzen.",
+          "gitee": "Gitee",
+          "giteeDesc": "Verbindung über Personal Access Token. Beliebt in der chinesischen Entwickler-Community."
+        },
+        "github": {
+          "title": "GitHub verbinden",
+          "description": "Es gibt zwei Möglichkeiten, GitHub zu verbinden, je nachdem wie Sie sich angemeldet haben:",
+          "patTitle": "Option A: Personal Access Token (Empfohlen)",
+          "patDesc": "Funktioniert für alle Benutzer unabhängig von der Anmeldemethode:",
+          "step1": "Gehen Sie in GitHub zu Settings → Developer settings → Personal access tokens → Fine-grained tokens",
+          "step2": "Klicken Sie auf Generate new token und wählen Sie die Repositories aus, für die Sie Zugriff gewähren möchten",
+          "step3": "Erteilen Sie Repository-Berechtigungen: Contents (Read-only) und Metadata (Read-only) als Minimum",
+          "step4": "Gehen Sie in AgentsMesh zu Einstellungen → Persönlich → Git-Einstellungen",
+          "step5": "Klicken Sie auf GitHub-Provider hinzufügen und fügen Sie Ihr Token ein",
+          "oauthTitle": "Option B: OAuth (nur für GitHub-Anmeldung)",
+          "oauthDesc": "Wenn Sie sich bei AgentsMesh mit Ihrem GitHub-Konto registriert haben, ist eine OAuth-Verbindung verfügbar:",
+          "oauthStep1": "Gehen Sie zu Einstellungen → Persönlich → Git-Einstellungen",
+          "oauthStep2": "Klicken Sie auf GitHub verbinden — Ihr Konto ist bereits über OAuth verknüpft",
+          "oauthStep3": "Wählen Sie aus, für welche Repositories Zugriff gewährt werden soll",
+          "oauthNote": "OAuth ist nur verfügbar, wenn Sie sich mit GitHub angemeldet haben. Benutzer, die sich per E-Mail registriert haben, müssen ein Personal Access Token verwenden."
+        },
+        "gitlab": {
+          "title": "GitLab verbinden",
+          "description": "Verbinden Sie GitLab mit einem Personal Access Token:",
+          "step1": "Gehen Sie in GitLab zu Einstellungen → Zugriffstoken",
+          "step2": "Erstellen Sie ein neues Token mit den Bereichen api und read_repository",
+          "step3": "Gehen Sie in AgentsMesh zu Einstellungen → Persönlich → Git-Einstellungen",
+          "step4": "Klicken Sie auf GitLab-Provider hinzufügen und fügen Sie Ihr Token ein",
+          "step5": "Geben Sie die URL Ihrer GitLab-Instanz ein (für selbst gehostete)",
+          "selfHosted": "Selbst gehostetes GitLab: Geben Sie die vollständige URL Ihrer GitLab-Instanz ein (z. B. https://gitlab.ihrfirma.com)."
+        },
+        "gitee": {
+          "title": "Gitee verbinden",
+          "description": "Verbinden Sie Gitee mit einem Personal Access Token:",
+          "step1": "Gehen Sie in Gitee zu Einstellungen → Persönliche Zugriffstoken",
+          "step2": "Erstellen Sie ein neues Token mit dem Bereich projects",
+          "step3": "Gehen Sie in AgentsMesh zu Einstellungen → Persönlich → Git-Einstellungen",
+          "step4": "Klicken Sie auf Gitee-Provider hinzufügen und fügen Sie Ihr Token ein"
+        },
+        "sshKeys": {
+          "title": "SSH-Schlüssel-Verwaltung",
+          "description": "Stellen Sie für Repositories, auf die über SSH zugegriffen wird, sicher, dass Ihr Runner die richtigen SSH-Schlüssel konfiguriert hat:",
+          "step1": "Generieren Sie ein SSH-Schlüsselpaar auf Ihrer Runner-Maschine",
+          "step2": "Fügen Sie den öffentlichen Schlüssel zu Ihrem Git-Provider hinzu (GitHub/GitLab/Gitee)",
+          "step3": "Der Runner verwendet den SSH-Schlüssel beim Klonen von Repositories",
+          "dockerNote": "Docker-Runner: Binden Sie Ihre SSH-Schlüssel als schreibgeschütztes Volume ein: -v ~/.ssh:/root/.ssh:ro"
+        },
+        "podUsage": {
+          "title": "Repositories in Pods verwenden",
+          "description": "Sobald ein Repository verbunden ist, können Sie es mit Pods verknüpfen:",
+          "step1": "Wählen Sie beim Erstellen eines neuen Pods ein Repository aus dem Dropdown aus",
+          "step2": "Der Runner klont das Repository und erstellt einen isolierten Git-Worktree",
+          "step3": "Der KI-Agent startet im Arbeitsverzeichnis des Repositories",
+          "step4": "Alle Änderungen sind auf den Worktree des Pods isoliert"
+        },
+        "worktree": {
+          "title": "Git-Worktree-Isolation",
+          "description": "Git-Worktrees ermöglichen es mehreren Pods, gleichzeitig am selben Repository zu arbeiten. Jeder Pod arbeitet auf seinem eigenen Branch, ohne andere zu beeinflussen. Dies ist entscheidend für parallele KI-Agenten-Entwicklung, bei der mehrere Agenten dieselbe Codebasis ändern können."
+        },
+        "management": {
+          "title": "Repositories verwalten",
+          "addRepo": "Repository hinzufügen",
+          "addRepoSteps": "Gehen Sie zu Einstellungen → Repositories → Repository hinzufügen. Wählen Sie Ihren Git-Provider, authentifizieren Sie sich und wählen Sie die zu verbindenden Repositories aus.",
+          "removeRepo": "Repository entfernen",
+          "removeRepoSteps": "Das Entfernen eines Repositories trennt es von AgentsMesh. Bestehende Pods, die dieses Repository verwenden, werden nicht beeinträchtigt, aber es können keine neuen Pods damit erstellt werden."
+        }
       }
     },
     "gettingStarted": {
       "title": "Schnellstart",
-      "description": "Starten Sie AgentsMesh in sechs Schritten. Diese Anleitung führt Sie durch die Kontoerstellung, Runner-Einrichtung, Agenten-Installation und den Start Ihres ersten KI-Pods.",
+      "description": "Starten Sie AgentsMesh in sechs Schritten. Dies ist ein kurzer Überblick — jeder Schritt verlinkt auf ein ausführliches Tutorial mit Fehlerbehebung und erweiterten Optionen.",
       "step1": {
         "title": "Konto erstellen",
         "description": "Registrieren Sie sich auf der Anmeldeseite mit E-Mail, Benutzername und Passwort. Sie erhalten eine Bestätigungs-E-Mail. Falls sie nicht innerhalb weniger Minuten eintrifft, prüfen Sie Ihren Spam-Ordner.",
@@ -148,7 +237,7 @@
       },
       "step2": {
         "title": "Runner einrichten",
-        "description": "Ein Runner ist die Ausführungsumgebung, in der KI-Agenten-Pods laufen. Installieren Sie AgentsMesh Runner auf Ihrer Entwicklungsmaschine oder Ihrem Server.",
+        "description": "Ein Runner ist ein leichtgewichtiger Daemon, der auf Ihrem Rechner läuft und KI-Agenten in isolierten Arbeitsbereichen namens Pods ausführt. Installieren Sie den AgentsMesh Runner auf Ihrer Entwicklungsmaschine oder Ihrem Server.",
         "methodToken": "Mit einem Token registrieren",
         "methodLogin": "Mit Browser-Login registrieren",
         "seeSetup": "Siehe {link} für Docker-, Linux-Paket- und Kubernetes-Bereitstellungsoptionen."
@@ -168,7 +257,8 @@
         "geminiCliInstall": "npm install -g @google/gemini-cli",
         "geminiCliEnv": "export GOOGLE_API_KEY=...",
         "geminiCliHint": "API-Schlüssel erhalten von",
-        "tip": "Starten Sie nach der Installation den Runner neu oder warten Sie auf den nächsten Heartbeat. Die neu verfügbaren Agenten erscheinen im Neues-Pod-Dialog."
+        "tip": "Starten Sie nach der Installation den Runner neu oder warten Sie auf den nächsten Heartbeat. Die neu verfügbaren Agenten erscheinen im Neues-Pod-Dialog.",
+        "seeSetup": "Siehe {link} für weitere Details zu MCP-Tools und Skill-Konfiguration."
       },
       "step4": {
         "title": "Git-Anbieter verbinden",
@@ -182,23 +272,34 @@
       },
       "step5": {
         "title": "Pod starten",
-        "description": "Erstellen Sie Ihren ersten AgentPod und beginnen Sie mit KI-unterstützter Programmierung!",
+        "description": "Ein Pod (AgentPod) ist eine virtuelle Workstation, in der ein KI-Agent mit eigenem Terminal und isoliertem Code-Arbeitsbereich läuft. Erstellen Sie jetzt Ihren ersten!",
         "item1": "Navigieren Sie zum Workspace in der Seitenleiste",
         "item2": "Klicken Sie auf Neuer Pod",
         "item3": "Wählen Sie einen KI-Agenten-Typ (Claude Code, Codex CLI usw.)",
         "item4": "Wählen Sie einen Runner",
-        "item5": "Wählen Sie optional ein Repository und einen Branch",
+        "item5": "Wählen Sie optional ein Repository und einen Branch — der Agent arbeitet in einer isolierten Kopie (Git-Worktree), sodass Ihr Hauptbranch sicher bleibt",
         "item6": "Verknüpfen Sie optional ein Ticket für Kontext",
-        "item7": "Fügen Sie einen initialen Prompt hinzu, der die Aufgabe beschreibt",
-        "item8": "Klicken Sie auf Erstellen"
+        "item7": "Fügen Sie einen initialen Prompt hinzu, der die Aufgabe beschreibt (z. B. \"Eingabevalidierung zum Login-Formular hinzufügen\" oder \"Den fehlschlagenden Test in auth.test.ts beheben\")",
+        "item8": "Klicken Sie auf Erstellen",
+        "seeSetup": "Siehe {link} für eine ausführliche Anleitung mit Fehlerbehebung."
       },
       "step6": {
         "title": "Mit Ihrem Agenten interagieren",
         "description": "Nach der Erstellung öffnet sich die Terminal-Ansicht mit einer Live-Sitzung. Ihr KI-Agent beginnt mit der Ausführung des initialen Prompts oder wartet auf Eingabe, falls keiner angegeben wurde.",
         "item1": "Geben Sie Folge-Prompts oder Befehle direkt im Terminal ein",
-        "item2": "Beobachten Sie die Statusanzeige des Agenten — Leerlauf, Ausführung oder Warten",
+        "item2": "Beobachten Sie die Statusanzeige des Agenten — Leerlauf (bereit für Eingabe), Ausführung (arbeitet an Ihrer Aufgabe) oder Warten (benötigt Ihre Genehmigung)",
         "item3": "Der Agent arbeitet im Repository-Worktree, wenn einer verknüpft wurde",
         "item4": "Beenden Sie den Pod über die Symbolleiste, wenn Ihre Aufgabe abgeschlossen ist"
+      },
+      "tryIt": {
+        "title": "Ausprobieren: Dein erster Pod in 60 Sekunden",
+        "description": "Möchten Sie es sofort in Aktion sehen? Hier ist der schnellste Weg — kein Repository nötig:",
+        "item1": "Klicken Sie auf Arbeitsbereich → Neuer Pod",
+        "item2": "Wählen Sie Claude Code (oder einen anderen installierten Agenten) und Ihren Runner",
+        "item3": "Überspringen Sie die Repository- und Ticket-Felder",
+        "item4": "Setzen Sie den initialen Prompt auf: \"Sage Hallo, liste dann die Dateien im aktuellen Verzeichnis auf und erkläre, was du siehst.\"",
+        "item5": "Klicken Sie auf Erstellen und beobachten Sie, wie der Agent im Terminal antwortet",
+        "tip": "Dies erstellt einen Pod ohne Repository — der Agent läuft in einem temporären Verzeichnis. Perfekt, um Ihre Einrichtung zu testen, bevor Sie mit echtem Code arbeiten."
       },
       "nextSteps": {
         "title": "Nächste Schritte",
@@ -1537,6 +1638,494 @@
         "billingFree": {
           "question": "Is there a free tier?",
           "answer": "Yes, AgentsMesh offers a free tier with limited concurrent Pods and storage. Check the Pricing page for current plan details and limits."
+        }
+      }
+    },
+    "tutorials": {
+      "runnerSetup": {
+        "title": "Tutorial: Einen Runner einrichten",
+        "difficulty": "Anfänger — 5 Minuten",
+        "description": "Lerne Schritt für Schritt, wie du einen AgentsMesh Runner installierst, registrierst und verifizierst. Ein Runner wird benötigt, bevor du Pods erstellen kannst.",
+        "prerequisites": {
+          "title": "Voraussetzungen",
+          "description": "Stelle vor dem Start sicher, dass du Folgendes hast:",
+          "item1": "Ein AgentsMesh-Konto (registriere dich auf der Registrierungsseite)",
+          "item2": "Einen Rechner mit Linux, macOS oder Windows (WSL2 empfohlen)",
+          "item3": "Git installiert und auf dem Rechner konfiguriert",
+          "item4": "Netzwerkzugang zum AgentsMesh-Server"
+        },
+        "step1": {
+          "title": "Den Runner installieren",
+          "description": "Lade den AgentsMesh Runner herunter und installiere ihn auf deinem Rechner. Wähle die Methode, die am besten zu dir passt:",
+          "oneLine": "Ein-Zeilen-Installation (empfohlen) — Funktioniert auf Linux und macOS:",
+          "linux": "Linux-Paketmanager — Verfügbar für Debian/Ubuntu und RHEL/Fedora",
+          "docker": "Docker — Starte den Runner als Container für einfache Isolierung",
+          "tip": "Das Ein-Zeilen-Installationsskript erkennt automatisch dein Betriebssystem und deine Architektur."
+        },
+        "step2": {
+          "title": "Den Runner registrieren",
+          "description": "Registriere den Runner nach der Installation bei deiner AgentsMesh-Instanz. Du hast zwei Möglichkeiten:",
+          "methodToken": "Option A: Mit einem Token registrieren (headless Server)",
+          "methodTokenDesc": "Hole dir ein Registrierungstoken unter Einstellungen → Runner → Token erstellen in der Weboberfläche und führe dann den Registrierungsbefehl mit deinem Token aus.",
+          "methodLogin": "Option B: Mit Browser-Login registrieren (Entwicklermaschinen)",
+          "methodLoginDesc": "Führe den Login-Befehl aus — ein Browserfenster öffnet sich zur Authentifizierung. Ideal für Rechner, auf denen ein Browser verfügbar ist.",
+          "tip": "Registrierungstoken sind einmalig verwendbar. Nach der Registrierung erhält der Runner mTLS-Zertifikate für sichere Kommunikation."
+        },
+        "step3": {
+          "title": "Den Runner starten",
+          "description": "Starte nach der Registrierung den Runner-Daemon:",
+          "item1": "Führe den Startbefehl aus, um den Runner-Prozess zu starten",
+          "item2": "Der Runner verbindet sich über gRPC mit mTLS zum AgentsMesh-Backend",
+          "item3": "Er meldet verfügbare KI-Agenten-CLIs (Claude Code, Codex, Gemini usw.), die im PATH gefunden wurden",
+          "tip": "Für Produktionsumgebungen installiere den Runner als Systemdienst, damit er beim Hochfahren automatisch startet."
+        },
+        "step4": {
+          "title": "KI-Agenten-CLIs installieren",
+          "description": "Installiere die KI-Coding-Agenten, die du auf dem Runner-Rechner verwenden möchtest:",
+          "item1": "Claude Code — npm install -g @anthropic-ai/claude-code (setze ANTHROPIC_API_KEY)",
+          "item2": "Codex CLI — npm install -g @openai/codex (setze OPENAI_API_KEY)",
+          "item3": "Gemini CLI — npm install -g @google/gemini-cli (setze GOOGLE_API_KEY)",
+          "tip": "Nach der Installation starte den Runner neu oder warte auf den nächsten Heartbeat. Neu verfügbare Agenten erscheinen im Neuer-Pod-Dialog."
+        },
+        "step5": {
+          "title": "Überprüfen, ob der Runner online ist",
+          "description": "Prüfe, ob dein Runner verbunden und bereit ist:",
+          "item1": "Gehe zu Einstellungen → Runner in der Weboberfläche",
+          "item2": "Finde deinen Runner in der Liste — er sollte einen grünen Online-Status anzeigen",
+          "item3": "Überprüfe, ob die verfügbaren Agenten korrekt aufgelistet sind",
+          "item4": "Erstelle einen Test-Pod, um zu bestätigen, dass alles funktioniert"
+        },
+        "troubleshooting": {
+          "title": "Fehlerbehebung",
+          "item1": "Runner zeigt Offline — Überprüfe die Netzwerkverbindung und stelle sicher, dass Firewalls ausgehende gRPC-Verbindungen (Port 9443) erlauben",
+          "item2": "Pods starten nicht — Überprüfe, ob Git installiert ist und der Runner Zugriff zum Klonen von Repositories hat",
+          "item3": "Token ungültig Fehler — Registrierungstoken sind einmalig verwendbar. Erstelle ein neues Token unter Einstellungen → Runner"
+        },
+        "nextSteps": {
+          "title": "Wie geht es weiter?",
+          "description": "Dein Runner ist bereit. Fahre mit dem nächsten Tutorial fort:",
+          "item1": "Git-Repositories verbinden — Verknüpfe deine Code-Repositories für den Pod-Zugriff",
+          "item2": "Dein erster Pod — Erstelle und interagiere mit deinem ersten KI-Agenten"
+        }
+      },
+      "gitSetup": {
+        "title": "Tutorial: Git-Repositories verbinden",
+        "difficulty": "Anfänger — 5 Minuten",
+        "description": "Lerne, wie du deinen Git-Anbieter (GitHub, GitLab oder Gitee) mit AgentsMesh verbindest, damit deine KI-Agenten an deinen Code-Repositories arbeiten können.",
+        "prerequisites": {
+          "title": "Voraussetzungen",
+          "description": "Stelle vor dem Start sicher, dass du Folgendes hast:",
+          "item1": "Ein AgentsMesh-Konto mit einem verbundenen Runner (siehe Tutorial Runner einrichten)",
+          "item2": "Ein GitHub-, GitLab- oder Gitee-Konto mit Repositories, die du verwenden möchtest"
+        },
+        "step1": {
+          "title": "Git-Einstellungen öffnen",
+          "description": "Navigiere zu Einstellungen → Persönlich → Git-Einstellungen. Hier verwaltest du alle deine Git-Anbieter-Verbindungen."
+        },
+        "step2": {
+          "title": "GitHub verbinden",
+          "description": "Für GitHub kannst du ein Personal Access Token (funktioniert für alle) oder OAuth (nur bei GitHub-Anmeldung) verwenden:",
+          "item1": "Personal Access Token: Gehe in GitHub zu Settings → Developer settings → Personal access tokens → Fine-grained tokens",
+          "item2": "Generiere ein Token mit den Berechtigungen Contents (Read-only) und Metadata (Read-only) für deine Repositories",
+          "item3": "Klicke in AgentsMesh auf GitHub-Provider hinzufügen und füge dein Token ein",
+          "item4": "Deine Repositories erscheinen unter Einstellungen → Repositories",
+          "tip": "Wenn du dich bei AgentsMesh mit deinem GitHub-Konto angemeldet hast, kannst du auch die Schaltfläche GitHub verbinden für OAuth verwenden — dein Konto ist bereits verknüpft. Benutzer mit E-Mail-Anmeldung müssen ein Personal Access Token verwenden."
+        },
+        "step3": {
+          "title": "GitLab verbinden (Personal Access Token)",
+          "description": "Für GitLab verwende ein Personal Access Token:",
+          "item1": "Gehe in GitLab zu Einstellungen → Access Tokens",
+          "item2": "Erstelle ein neues Token mit den Bereichen api und read_repository",
+          "item3": "Zurück in AgentsMesh, klicke auf GitLab-Anbieter hinzufügen",
+          "item4": "Füge dein Token ein und gib deine GitLab-URL an",
+          "tip": "Selbst gehostetes GitLab wird vollständig unterstützt. Gib die vollständige URL deiner Instanz ein (z. B. https://gitlab.deinefirma.com)."
+        },
+        "step4": {
+          "title": "Gitee verbinden (Personal Access Token)",
+          "description": "Für Gitee verwende ein Personal Access Token:",
+          "item1": "Gehe in Gitee zu Einstellungen → Personal Access Tokens",
+          "item2": "Erstelle ein neues Token mit dem Bereich projects",
+          "item3": "Zurück in AgentsMesh, klicke auf Gitee-Anbieter hinzufügen und füge dein Token ein"
+        },
+        "step5": {
+          "title": "Repositories importieren",
+          "description": "Nach dem Verbinden eines Anbieters importiere die benötigten Repositories:",
+          "item1": "Gehe zu Einstellungen → Repositories",
+          "item2": "Klicke auf Repository hinzufügen und wähle deinen Anbieter",
+          "item3": "Durchsuche oder suche nach Repositories zum Importieren",
+          "item4": "Ausgewählte Repositories werden beim Erstellen von Pods verfügbar"
+        },
+        "step6": {
+          "title": "SSH-Schlüssel konfigurieren (optional)",
+          "description": "Wenn deine Repositories SSH-Zugriff verwenden, konfiguriere SSH-Schlüssel auf dem Runner:",
+          "item1": "Generiere ein SSH-Schlüsselpaar auf deinem Runner-Rechner",
+          "item2": "Füge den öffentlichen Schlüssel bei deinem Git-Anbieter hinzu",
+          "item3": "Der Runner verwendet den SSH-Schlüssel beim Klonen von Repositories",
+          "tip": "Docker-Runner: Binde deine SSH-Schlüssel als schreibgeschütztes Volume ein: -v ~/.ssh:/root/.ssh:ro"
+        },
+        "step7": {
+          "title": "Durch Erstellen eines Pods verifizieren",
+          "description": "Teste deine Einrichtung, indem du einen Pod mit einem verknüpften Repository erstellst:",
+          "item1": "Gehe zum Arbeitsbereich und klicke auf Neuer Pod",
+          "item2": "Wähle einen KI-Agenten und deinen Runner",
+          "item3": "Wähle eines deiner importierten Repositories",
+          "item4": "Der Pod sollte mit dem in einen Worktree geklonten Repository starten",
+          "tip": "Jeder Pod erhält seinen eigenen Git-Worktree, sodass mehrere Pods ohne Konflikte am selben Repository arbeiten können."
+        },
+        "nextSteps": {
+          "title": "Wie geht es weiter?",
+          "description": "Deine Repositories sind verbunden. Entdecke weitere Möglichkeiten:",
+          "item1": "Dein erster Pod — Vollständige Anleitung zum Erstellen und Interagieren mit einem Pod",
+          "item2": "Aufgabenverwaltung — Verknüpfe Tickets mit Pods für strukturierte Arbeitsabläufe"
+        }
+      },
+      "mcpSkills": {
+        "title": "Tutorial: MCP-Tools & Skills",
+        "difficulty": "Anfänger — 10 Minuten",
+        "description": "Erfahre, wie du deine KI-Agenten mit MCP-Servern (Model Context Protocol) und Skills erweitern kannst. MCP-Tools ermöglichen Agenten die Zusammenarbeit, Ticketverwaltung und Interaktion mit externen Diensten. Skills fügen deinen Agenten wiederverwendbare Arbeitsabläufe hinzu.",
+        "whatIsMcp": {
+          "title": "Was sind MCP-Tools?",
+          "description": "MCP-Tools (Model Context Protocol) sind Fähigkeiten, die KI-Agenten während der Arbeit in einem Pod nutzen können. AgentsMesh bietet 26 integrierte MCP-Tools in 7 Kategorien:",
+          "item1": "Erkennung — Verfügbare Pods, Runner und Repositories auflisten",
+          "item2": "Terminal — Terminals anderer Pods beobachten und steuern",
+          "item3": "Bindung — Pod-zu-Pod-Verbindungen anfordern und verwalten",
+          "item4": "Kanal — Kanäle erstellen, Nachrichten senden, Dokumente teilen",
+          "item5": "Ticket — Tickets suchen, erstellen und aktualisieren",
+          "item6": "Pod — Neue Pods erstellen, Snapshots abrufen, Eingaben senden",
+          "item7": "Loop — Automatisierte Loops auflisten und auslösen",
+          "autoNote": "Diese integrierten Tools stehen jedem Pod automatisch zur Verfügung — keine Konfiguration erforderlich."
+        },
+        "step1": {
+          "title": "Integrierte vs. benutzerdefinierte MCP-Server verstehen",
+          "description": "Es gibt zwei Arten von MCP-Tools, die deinen Agenten zur Verfügung stehen:",
+          "builtinTitle": "Integrierter AgentsMesh-MCP-Server",
+          "builtinDesc": "Wird automatisch für jeden Pod konfiguriert. Bietet die 26 Kollaborationstools (Kanäle, Tickets, Bindungen usw.). Keine Einrichtung erforderlich.",
+          "customTitle": "Benutzerdefinierte MCP-Server",
+          "customDesc": "Zusätzliche MCP-Server, die du für bestimmte Fähigkeiten installierst — z. B. ein Datenbank-MCP-Server, eine Slack-Integration oder ein benutzerdefinierter API-Connector. Diese werden pro Organisation oder pro Benutzer konfiguriert."
+        },
+        "step2": {
+          "title": "Einen benutzerdefinierten MCP-Server installieren",
+          "description": "Füge einen benutzerdefinierten MCP-Server hinzu, um die Fähigkeiten deiner Agenten zu erweitern:",
+          "item1": "Gehe zu Einstellungen → Erweiterungen → MCP-Server",
+          "item2": "Klicke auf MCP-Server hinzufügen",
+          "item3": "Wähle den Transporttyp: stdio (Kommandozeilentool), HTTP oder SSE (Server-Sent Events)",
+          "item4": "Für stdio: Gib den Befehl und die Argumente ein (z. B. npx -y @modelcontextprotocol/server-filesystem /pfad)",
+          "item5": "Für HTTP/SSE: Gib die Server-URL und erforderliche Header ein",
+          "item6": "Füge bei Bedarf Umgebungsvariablen hinzu (z. B. API-Schlüssel)",
+          "item7": "Lege den Geltungsbereich fest: Organisation (mit allen Mitgliedern geteilt) oder Persönlich (nur deine Pods)",
+          "tip": "MCP-Server werden automatisch gestartet, wenn ein Pod startet. Claude Code-Agenten erhalten die Konfiguration über .mcp.json."
+        },
+        "step3": {
+          "title": "MCP-Tools in einem Pod überprüfen",
+          "description": "Überprüfe nach der Konfiguration der MCP-Server, ob sie funktionieren:",
+          "item1": "Erstelle einen neuen Pod mit Claude Code",
+          "item2": "Frage den Agenten im Terminal: \u201EWelche MCP-Tools hast du verfügbar?\u201C",
+          "item3": "Der Agent sollte sowohl integrierte AgentsMesh-Tools als auch benutzerdefinierte MCP-Server auflisten",
+          "item4": "Probiere ein Tool aus \u2014 z. B. \u201EListe alle verf\u00FCgbaren Pods auf\u201C oder \u201ESuche nach Tickets\u201C"
+        },
+        "whatAreSkills": {
+          "title": "Was sind Skills?",
+          "description": "Skills sind wiederverwendbare Agenten-Arbeitsabläufe, die als Markdown-Dateien mit Anweisungen definiert sind. Nach der Installation werden sie in den Kontext deines Agenten eingefügt, sodass er sie bei Bedarf ausführen kann. AgentsMesh bietet zwei integrierte Skills:",
+          "item1": "am-channel — Ermöglicht Agenten, Nachrichten abzurufen, den Aufgabenstatus zu synchronisieren und Informationen mit anderen Agenten über Kanäle auszutauschen",
+          "item2": "am-delegate — Ermöglicht Agenten, Aufgaben an andere Pods zu delegieren, Sub-Pods für parallele Arbeit zu erstellen und Folge-Agenten auszulösen"
+        },
+        "step4": {
+          "title": "Integrierte Skills verstehen",
+          "description": "Integrierte Skills stehen Claude Code-Agenten in jedem Pod zur Verfügung:",
+          "channelTitle": "am-channel Skill",
+          "channelDesc": "Prüft automatisch vor dem Start von Aufgaben auf neue Nachrichten, synchronisiert Statusaktualisierungen in Kanäle und tauscht Informationen mit zusammenarbeitenden Agenten aus. Verwende diesen Skill, wenn Agenten sich koordinieren müssen.",
+          "delegateTitle": "am-delegate Skill",
+          "delegateDesc": "Ermöglicht einem Agenten, Teilaufgaben an andere Pods oder Umgebungen zu delegieren. Der Agent kann untergeordnete Pods erstellen, Arbeit zuweisen und auf Ergebnisse warten. Verwende diesen Skill für komplexe Aufgaben, die von paralleler Ausführung profitieren."
+        },
+        "step5": {
+          "title": "Benutzerdefinierte Skills installieren",
+          "description": "Du kannst zusätzliche Skills aus dem Marketplace installieren oder eigene erstellen:",
+          "item1": "Gehe zu Einstellungen → Erweiterungen → Skills",
+          "item2": "Durchsuche verfügbare Skills oder klicke auf Skill hinzufügen, um von einer URL zu installieren",
+          "item3": "Skills können auf deine Organisation oder dein persönliches Konto beschränkt werden",
+          "item4": "Installierte Skills werden automatisch in neue Pods eingefügt",
+          "tip": "Benutzerdefinierte Skills sind Markdown-Dateien mit YAML-Frontmatter. Du kannst eigene erstellen, indem du definierst, wann der Skill ausgelöst werden soll und welche Anweisungen der Agent befolgen soll."
+        },
+        "step6": {
+          "title": "MCP-Server pro Repository konfigurieren",
+          "description": "Für repository-spezifische Tools kannst du MCP-Server bestimmten Repositories zuordnen:",
+          "item1": "Beim Hinzufügen eines MCP-Servers kannst du ihn optional mit bestimmten Repositories verknüpfen",
+          "item2": "Der MCP-Server ist nur in Pods verfügbar, die diese Repositories verwenden",
+          "item3": "Dies ist nützlich für projektspezifische Integrationen (z. B. ein Datenbank-Tool für ein bestimmtes Projekt)",
+          "tip": "Organisationsbezogene MCP-Server stehen allen Mitgliedern zur Verfügung. Benutzerbezogene Server stehen nur deinen eigenen Pods zur Verfügung."
+        },
+        "nextSteps": {
+          "title": "Wie geht es weiter?",
+          "description": "Deine Agenten sind jetzt mit MCP-Tools und Skills erweitert. Entdecke weitere Möglichkeiten:",
+          "item1": "Dein erster Pod — Erstelle einen Pod und erlebe MCP-Tools in Aktion",
+          "item2": "Multi-Agent-Zusammenarbeit — Verwende Kanal- und Bindungstools für die Agentenkoordination"
+        }
+      },
+      "firstPod": {
+        "title": "Tutorial: Dein erster Pod",
+        "difficulty": "Anfänger — 5 Minuten",
+        "description": "Lerne Schritt für Schritt, wie du deinen ersten AgentPod erstellst und damit interagierst. Am Ende dieses Tutorials wirst du einen KI-Coding-Agenten gestartet, ihn mit einem Repository verbunden und eine Aufgabe abgeschlossen haben.",
+        "prerequisites": {
+          "title": "Voraussetzungen",
+          "description": "Stelle vor dem Start sicher, dass du Folgendes hast:",
+          "item1": "Ein AgentsMesh-Konto (registriere dich auf der Anmeldeseite)",
+          "item2": "Einen installierten und verbundenen Runner (siehe Schnellstart → Schritt 2)",
+          "item3": "Mindestens eine KI-Agenten-CLI auf deinem Runner installiert (z. B. Claude Code)",
+          "item4": "Ein verbundenes Git-Repository (optional, aber empfohlen)"
+        },
+        "step1": {
+          "title": "Arbeitsbereich öffnen",
+          "description": "Klicke in der linken Seitenleiste auf Arbeitsbereich. Hier befinden sich alle deine Pods. Beim ersten Mal siehst du einen leeren Arbeitsbereich."
+        },
+        "step2": {
+          "title": "Einen neuen Pod erstellen",
+          "description": "Klicke oben rechts auf die Schaltfläche Neuer Pod. Der Pod-Erstellungsdialog öffnet sich mit mehreren Konfigurationsoptionen.",
+          "fields": "Fülle die folgenden Felder aus:",
+          "field1": "Agententyp — Wähle den KI-Agenten, den du verwenden möchtest (z. B. Claude Code)",
+          "field2": "Runner — Wähle, welcher Runner diesen Pod hosten soll",
+          "field3": "Repository — Wähle ein Repository, an dem der Agent arbeiten soll (optional)",
+          "field4": "Branch — Wähle den Branch zum Auschecken (standardmäßig der Hauptbranch)",
+          "field5": "Initiale Eingabe — Schreibe eine Aufgabenbeschreibung für den Agenten, z. B. „Eingabevalidierung zum Anmeldeformular hinzufügen“"
+        },
+        "step3": {
+          "title": "Die Pod-Initialisierung beobachten",
+          "description": "Nach dem Klick auf Erstellen geht der Pod in den Status Initialisierung über. Der Runner wird:",
+          "item1": "Einen isolierten Git-Worktree erstellen (falls ein Repository verknüpft wurde)",
+          "item2": "Eine PTY-Terminal-Sitzung starten",
+          "item3": "Den KI-Agenten mit deiner initialen Eingabe starten",
+          "tip": "Die Terminal-Ansicht öffnet sich automatisch. Du kannst dem Agenten in Echtzeit bei der Arbeit zusehen."
+        },
+        "step4": {
+          "title": "Mit deinem Agenten interagieren",
+          "description": "Sobald der Pod läuft, kannst du über das Web-Terminal mit dem KI-Agenten interagieren:",
+          "item1": "Gib Folgeanweisungen direkt in die Terminal-Eingabe ein",
+          "item2": "Beobachte die Agentenstatus-Anzeige — sie zeigt Leerlauf, Ausführung oder Wartend an",
+          "item3": "Der Agent arbeitet innerhalb des isolierten Git-Worktrees, sodass dein Hauptbranch nie betroffen ist",
+          "item4": "Nutze die Vollbild-Schaltfläche für eine ablenkungsfreie Ansicht"
+        },
+        "step5": {
+          "title": "Überprüfen und abschließen",
+          "description": "Wenn der Agent deine Aufgabe abgeschlossen hat:",
+          "item1": "Überprüfe die Änderungen des Agenten in der Terminal-Ausgabe",
+          "item2": "Der Agent hat möglicherweise Commits auf einem Worktree-Branch erstellt — überprüfe das Git-Log",
+          "item3": "Klicke auf Beenden in der Pod-Symbolleiste, um den Pod zu stoppen und den Worktree aufzuräumen",
+          "item4": "Der Pod-Status wechselt zu Beendet und die Ressourcen werden freigegeben"
+        },
+        "troubleshooting": {
+          "title": "Fehlerbehebung",
+          "noRunners": "Keine Runner im Dropdown",
+          "noRunnersDesc": "Dein Runner ist möglicherweise offline. Gehe zu Einstellungen → Runner und überprüfe den Status. Wenn er Offline anzeigt, starte den Runner-Prozess neu und stelle sicher, dass er den AgentsMesh-Server erreichen kann.",
+          "stuckInit": "Pod hängt in der Initialisierung",
+          "stuckInitDesc": "Das bedeutet normalerweise, dass das Repository groß ist und noch geklont wird. Warte einige Minuten. Falls es sich nicht löst, überprüfe die Runner-Logs auf Klon-Fehler. Versuche, einen Pod ohne Repository zu erstellen, um die grundlegende Funktionalität zu testen.",
+          "agentNotResponding": "Agent antwortet nicht",
+          "agentNotRespondingDesc": "Überprüfe, ob die KI-Agenten-CLI auf dem Runner installiert ist (z. B. 'claude --version' auf dem Runner-Rechner ausführen). Stelle sicher, dass die API-Key-Umgebungsvariable korrekt gesetzt ist. Der Agent wartet möglicherweise auch auf eine Genehmigung — achte auf eine Berechtigungsabfrage im Terminal.",
+          "terminated": "Pod wird sofort beendet",
+          "terminatedDesc": "Dies bedeutet oft, dass die Agenten-CLI beim Start abgestürzt ist. Überprüfe, ob dein API-Key gültig und nicht abgelaufen ist. Versuche, die Agenten-CLI manuell auf dem Runner auszuführen, um die Fehlermeldung zu sehen."
+        },
+        "nextSteps": {
+          "title": "Was soll ich als Nächstes tun?",
+          "description": "Glückwunsch! Du hast einen funktionierenden Pod. Dein nächster Schritt hängt davon ab, was du erreichen möchtest:",
+          "item1": "Ich möchte Aufgaben verfolgen → Aufgabenverwaltung — Verwende Tickets und ein Kanban-Board",
+          "item2": "Ich möchte mehrere Agenten zusammenarbeiten lassen → Multi-Agent-Zusammenarbeit",
+          "item3": "Ich möchte wiederkehrende Aufgaben automatisieren → Automatisierte Loops"
+        }
+      },
+      "ticketWorkflow": {
+        "title": "Tutorial: Aufgaben mit Tickets verwalten",
+        "difficulty": "Anfänger — 10 Minuten",
+        "description": "Lerne, wie du das Ticket-System von AgentsMesh nutzt, um Arbeit zu organisieren, den Fortschritt auf einem Kanban-Board zu verfolgen und Tickets mit AgentPods zu verbinden, um automatisch Kontext einzuspeisen.",
+        "step1": {
+          "title": "Zum Ticket-Board navigieren",
+          "description": "Klicke in der linken Seitenleiste auf Tickets. Du siehst ein Kanban-Board mit Spalten für jeden Status: Backlog, Zu erledigen, In Bearbeitung, In Überprüfung und Erledigt."
+        },
+        "step2": {
+          "title": "Ein Ticket erstellen",
+          "description": "Klicke auf die +-Schaltfläche oben in einer beliebigen Spalte (typischerweise Backlog oder Zu erledigen), um ein neues Ticket zu erstellen.",
+          "fields": "Fülle die Ticket-Details aus:",
+          "field1": "Titel — Eine klare, prägnante Beschreibung der Aufgabe (z. B. „Paginierungs-Bug in der Benutzerliste beheben“)",
+          "field2": "Beschreibung — Detaillierte Anforderungen, Akzeptanzkriterien oder Kontext in Markdown",
+          "field3": "Priorität — Lege die Dringlichkeit fest: Dringend, Hoch, Mittel, Niedrig oder Keine",
+          "field4": "Story Points — Schätze den Aufwand mit Fibonacci-Zahlen (1, 2, 3, 5, 8, 13, 21)",
+          "field5": "Verantwortlicher — Weise das Ticket optional einem Teammitglied zu"
+        },
+        "step3": {
+          "title": "Ein Ticket mit einem Pod verknüpfen",
+          "description": "Die wahre Stärke von Tickets liegt in ihrer Integration mit AgentPods. Wenn du einen neuen Pod erstellst:",
+          "item1": "Wähle im Neuer-Pod-Dialog dein Ticket aus dem Ticket-Dropdown aus",
+          "item2": "Titel und Beschreibung des Tickets werden automatisch als Kontext für den KI-Agenten eingefügt",
+          "item3": "Der Ticket-Status wechselt automatisch zu In Bearbeitung, wenn der Pod startet",
+          "tip": "Du kannst ein Ticket auch über das Detailpanel eines bestehenden Pods verknüpfen."
+        },
+        "step4": {
+          "title": "Fortschritt verfolgen",
+          "description": "Während dein KI-Agent an der Aufgabe arbeitet, kannst du den Fortschritt auf verschiedene Weisen verfolgen:",
+          "item1": "Kanban-Board — Die Ticket-Karte zeigt an, welcher Pod daran arbeitet und den aktuellen Agentenstatus",
+          "item2": "Ticket-Detail — Klicke auf das Ticket, um alle verknüpften Pods, Kommentare und Git-Aktivitäten zu sehen",
+          "item3": "Git-Aktivität — Commits und Merge Requests des Pods werden automatisch mit dem Ticket verknüpft",
+          "item4": "Kommentare — Füge Notizen oder Feedback direkt zum Ticket hinzu"
+        },
+        "step5": {
+          "title": "Durch den Workflow navigieren",
+          "description": "Ziehe Tickets zwischen Spalten, um ihren Status zu aktualisieren, oder verwende das Status-Dropdown in der Ticket-Detailansicht:",
+          "item1": "Backlog → Zu erledigen — Die Aufgabe ist bereit zur Bearbeitung",
+          "item2": "Zu erledigen → In Bearbeitung — Ein Agenten-Pod arbeitet daran (wird automatisch aktualisiert, wenn ein Pod verknüpft ist)",
+          "item3": "In Bearbeitung → In Überprüfung — Der Agent hat die Aufgabe abgeschlossen und sie muss überprüft werden",
+          "item4": "In Überprüfung → Erledigt — Die Aufgabe wurde überprüft und akzeptiert"
+        },
+        "step6": {
+          "title": "Git-Aktivität überprüfen",
+          "description": "Jedes Ticket verfolgt alle Git-Aktivitäten seiner verknüpften Pods:",
+          "item1": "Sieh dir die Commits des KI-Agenten auf der Ticket-Detailseite an",
+          "item2": "Sieh Merge/Pull Requests, die vom Worktree-Branch des Pods erstellt wurden",
+          "item3": "Nutze diese Informationen, um die Arbeit des Agenten zu überprüfen und in deinen Hauptbranch zu mergen"
+        },
+        "nextSteps": {
+          "title": "Wie geht es weiter?",
+          "description": "Du weißt jetzt, wie du Aufgaben mit Tickets verwaltest. Erkunde weitere Möglichkeiten:",
+          "item1": "Multi-Agent-Zusammenarbeit — Weise mehreren Agenten verwandte Tickets zu",
+          "item2": "Automatisierte Loops — Erstelle automatisch Pods für wiederkehrende Aufgaben"
+        }
+      },
+      "multiAgent": {
+        "title": "Tutorial: Multi-Agent-Zusammenarbeit",
+        "difficulty": "Fortgeschritten — 15 Minuten",
+        "description": "Lerne, wie du mehrere KI-Agenten einrichtest, die über Channels kommunizieren und zusammenarbeiten. Dieses Tutorial führt dich durch ein praxisnahes Szenario, in dem ein Frontend-Agent und ein Backend-Agent gemeinsam an einem Feature arbeiten.",
+        "scenario": {
+          "title": "Szenarioübersicht",
+          "description": "Du baust eine neue Benutzerprofilseite. Du wirst zwei Pods erstellen — einen für das Frontend (React) und einen für das Backend (API) — und sie über einen gemeinsamen Channel koordinieren lassen.",
+          "frontend": "Frontend-Pod — Erstellt die React-UI-Komponenten",
+          "backend": "Backend-Pod — Implementiert die API-Endpunkte"
+        },
+        "step1": {
+          "title": "Einen Channel erstellen",
+          "description": "Channels sind der Kommunikationsknotenpunkt für Multi-Agent-Workflows. Navigiere in der Seitenleiste zu Channels und klicke auf Neuer Channel.",
+          "fields": "Konfiguriere den Channel:",
+          "field1": "Name — Gib ihm einen beschreibenden Namen, z. B. „benutzer-profil-feature“",
+          "field2": "Beschreibung — Erkläre den Zweck: „Koordinations-Channel für die Benutzerprofilseite“",
+          "field3": "Ticket — Verknüpfe optional ein Ticket für den Kontext"
+        },
+        "step2": {
+          "title": "Den Backend-Pod starten",
+          "description": "Erstelle den ersten Pod für die Backend-Arbeit:",
+          "item1": "Klicke auf Neuer Pod und wähle deinen Agenten aus (z. B. Claude Code)",
+          "item2": "Wähle das Backend-Repository aus",
+          "item3": "Setze die initiale Eingabe: „Implementiere REST-API-Endpunkte für das Benutzerprofil: GET /api/users/:id/profile und PUT /api/users/:id/profile. Poste deinen API-Vertrag in den Channel, wenn du fertig bist.“",
+          "tip": "Der Agent hat automatisch Zugriff auf die Channel-MCP-Tools zum Senden von Nachrichten."
+        },
+        "step3": {
+          "title": "Den Frontend-Pod starten",
+          "description": "Erstelle den zweiten Pod für die Frontend-Arbeit:",
+          "item1": "Klicke auf Neuer Pod und wähle deinen Agenten aus",
+          "item2": "Wähle das Frontend-Repository aus",
+          "item3": "Setze die initiale Eingabe: „Erstelle eine React-Benutzerprofilseiten-Komponente. Überprüfe den Channel auf den API-Vertrag des Backend-Agenten und implementiere dann die Benutzeroberfläche entsprechend.“"
+        },
+        "step4": {
+          "title": "Beide Pods mit dem Channel verbinden",
+          "description": "Verbinde beide Pods mit dem Channel, damit sie kommunizieren können:",
+          "item1": "Öffne das Detailpanel jedes Pods",
+          "item2": "Wähle unter Channel-Verknüpfungen den Channel „benutzer-profil-feature“ aus",
+          "item3": "Beide Pods können jetzt Nachrichten über den Channel senden und empfangen",
+          "tip": "Pods können auch während der Erstellung mit Channels verknüpft werden, wenn der Channel bereits existiert."
+        },
+        "step5": {
+          "title": "Agenten-Kommunikation überwachen",
+          "description": "Öffne die Channel-Ansicht, um die Zusammenarbeit der Agenten zu beobachten:",
+          "item1": "Der Backend-Agent postet den API-Vertrag (Endpunkte, Request-/Response-Schemas)",
+          "item2": "Der Frontend-Agent liest den Vertrag und implementiert passende API-Aufrufe",
+          "item3": "Agenten können @Erwähnungen nutzen, um Nachrichten an bestimmte Pods zu richten",
+          "item4": "Die gemeinsame Dokument-Funktion ermöglicht es Agenten, ein lebendes Designdokument zu pflegen"
+        },
+        "step6": {
+          "title": "Das Gesamtergebnis überprüfen",
+          "description": "Sobald beide Agenten fertig sind:",
+          "item1": "Überprüfe den Git-Worktree jedes Pods auf die erstellten Commits",
+          "item2": "Sieh dir den Channel-Nachrichtenverlauf für eine Zeitleiste der Entscheidungen an",
+          "item3": "Das gemeinsame Dokument enthält den endgültigen vereinbarten API-Vertrag",
+          "item4": "Merge beide Branches in deinen Hauptbranch für das vollständige Feature"
+        },
+        "bestPractices": {
+          "title": "Best Practices",
+          "tip1": "Verwende klare initiale Eingaben, die jedem Agenten seine Rolle und die Art der Koordination erklären",
+          "tip2": "Erstelle ein gemeinsames Dokument im Channel für Spezifikationen, die beide Agenten benötigen",
+          "tip3": "Nutze @Erwähnungen, wenn ein Agent eine bestimmte Antwort von einem anderen benötigt",
+          "tip4": "Starte den Backend-/Infrastruktur-Agenten zuerst, damit er Verträge für Konsumenten posten kann",
+          "tip5": "Halte Channel-Beschreibungen spezifisch, damit Agenten den Kollaborationskontext verstehen"
+        }
+      },
+      "loops": {
+        "title": "Tutorial: Automatisierung mit Loops",
+        "difficulty": "Fortgeschritten — 10 Minuten",
+        "description": "Lerne, wie du automatisierte Loops einrichtest, die Pods nach einem Zeitplan erstellen. Loops eignen sich perfekt für wiederkehrende Aufgaben wie Code-Reviews, Abhängigkeitsaktualisierungen, Testläufe und Monitoring.",
+        "whatAreLoops": {
+          "title": "Was sind Loops?",
+          "description": "Ein Loop ist eine geplante Automatisierung, die regelmäßig einen AgentPod mit einer vordefinierten Konfiguration erstellt. Stell dir das wie einen Cron-Job für KI-Agenten vor — er führt deine Eingabe nach Zeitplan aus und erstellt jedes Mal einen neuen Pod.",
+          "item1": "Wiederkehrende Code-Reviews — Jeden Morgen auf Code-Qualitätsprobleme prüfen",
+          "item2": "Abhängigkeitsaktualisierungen — Wöchentlich veraltete Pakete scannen und aktualisieren",
+          "item3": "Test-Monitoring — Testsuiten täglich ausführen und Fehler melden",
+          "item4": "Dokumentation — Dokumentation generieren oder aktualisieren, wenn sich Code ändert"
+        },
+        "step1": {
+          "title": "Zu Loops navigieren",
+          "description": "Klicke in der linken Seitenleiste auf Loops. Du siehst eine Liste deiner bestehenden Loops (leer beim ersten Mal) und eine Schaltfläche zum Erstellen eines neuen."
+        },
+        "step2": {
+          "title": "Einen neuen Loop erstellen",
+          "description": "Klicke auf Neuer Loop und konfiguriere die Automatisierung:",
+          "fields": "Fülle die Loop-Einstellungen aus:",
+          "field1": "Name — Ein beschreibender Name, z. B. „Tägliches Code-Review“",
+          "field2": "Agententyp — Der zu verwendende KI-Agent (z. B. Claude Code)",
+          "field3": "Runner — Welcher Runner den Loop ausführen soll",
+          "field4": "Repository — Das Repository, an dem der Agent arbeiten soll",
+          "field5": "Branch — Der auszucheckende Branch (standardmäßig main)",
+          "field6": "Eingabe — Die Aufgabe für den Agenten, z. B. „Überprüfe die letzten Commits auf Code-Qualitätsprobleme. Prüfe auf Sicherheitslücken, Leistungsprobleme und Stil-Inkonsistenzen. Poste eine Zusammenfassung in den Channel.“",
+          "field7": "Zeitplan — Lege den Cron-Zeitplan fest (z. B. jeden Tag um 9 Uhr, jeden Montag)"
+        },
+        "step3": {
+          "title": "Den Zeitplan konfigurieren",
+          "description": "Loops verwenden Cron-Ausdrücke für die Zeitplanung. Hier sind gängige Muster:",
+          "pattern1": "Jeden Tag um 9 Uhr — 0 9 * * *",
+          "pattern2": "Jeden Montag um 8 Uhr — 0 8 * * 1",
+          "pattern3": "Alle 6 Stunden — 0 */6 * * *",
+          "pattern4": "Werktags um 10 Uhr — 0 10 * * 1-5",
+          "tip": "Das Loop-Dashboard zeigt die nächste geplante Ausführungszeit an, damit du deinen Cron-Ausdruck überprüfen kannst."
+        },
+        "step4": {
+          "title": "Loop-Ausführungen überwachen",
+          "description": "Nach dem Erstellen eines Loops kannst du seine Aktivität überwachen:",
+          "item1": "Loop-Dashboard — Sieh alle Loops mit ihrem Status, der letzten Ausführungszeit und dem nächsten geplanten Lauf",
+          "item2": "Ausführungshistorie — Klicke auf einen Loop, um die Historie der erstellten Pods zu sehen",
+          "item3": "Pod-Ergebnisse — Jede Ausführung erstellt einen Pod, den du auf Terminal-Ausgabe und Git-Änderungen überprüfen kannst",
+          "item4": "Benachrichtigungen — Richte Channel-Verknüpfungen ein, um Loop-Ergebnisse in einem Channel zu erhalten"
+        },
+        "step5": {
+          "title": "Deine Loops verwalten",
+          "description": "Du kannst Loops über das Loops-Dashboard verwalten:",
+          "item1": "Pausieren — Einen Loop vorübergehend stoppen, ohne ihn zu löschen",
+          "item2": "Fortsetzen — Einen pausierten Loop neu starten",
+          "item3": "Bearbeiten — Eingabe, Zeitplan oder Konfiguration aktualisieren",
+          "item4": "Jetzt ausführen — Eine sofortige Ausführung auslösen, ohne auf den nächsten Zeitplan zu warten",
+          "item5": "Löschen — Einen Loop dauerhaft entfernen"
+        },
+        "commonPatterns": {
+          "title": "Gängige Loop-Muster",
+          "pattern1": {
+            "title": "Morgendliches Code-Review",
+            "description": "Läuft täglich um 9 Uhr, um die Commits des Vortags zu überprüfen. Der Agent prüft auf Code-Qualität, Sicherheitsprobleme und postet eine Zusammenfassung in den Team-Channel."
+          },
+          "pattern2": {
+            "title": "Wöchentliche Abhängigkeitsprüfung",
+            "description": "Läuft jeden Montag, um nach veralteten oder anfälligen Abhängigkeiten zu scannen. Der Agent erstellt einen PR mit sicheren Updates."
+          },
+          "pattern3": {
+            "title": "Kontinuierliches Test-Monitoring",
+            "description": "Läuft alle 6 Stunden, um die Testsuite auszuführen. Der Agent meldet alle Fehler oder Regressionen an den Monitoring-Channel."
+          }
+        },
+        "nextSteps": {
+          "title": "Wie geht es weiter?",
+          "description": "Du hast deinen ersten automatisierten Loop eingerichtet. Erkunde weitere Möglichkeiten:",
+          "item1": "Multi-Agent-Zusammenarbeit — Kombiniere Loops mit Channels für automatisierte Multi-Agent-Pipelines",
+          "item2": "Aufgabenverwaltung — Verwende Tickets, um von Loops gefundene Probleme zu verfolgen"
         }
       }
     }

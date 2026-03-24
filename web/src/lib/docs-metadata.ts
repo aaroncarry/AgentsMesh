@@ -26,6 +26,21 @@ const docsMetadataMap: Record<string, DocsMeta> = {
     description:
       "Frequently asked questions about AgentsMesh — troubleshooting Runners, Pods, API keys, Git integration, and billing.",
   },
+  "/docs/tutorials/runner-setup": {
+    title: "Tutorial: Runner Setup",
+    description:
+      "Step-by-step guide to installing, registering, and verifying an AgentsMesh Runner for AI agent execution.",
+  },
+  "/docs/tutorials/mcp-and-skills": {
+    title: "Tutorial: MCP Tools & Skills",
+    description:
+      "Extend AI agents with MCP servers and skills — install custom tools, configure built-in collaboration features, and add reusable workflows.",
+  },
+  "/docs/tutorials/git-setup": {
+    title: "Tutorial: Connect Git Repositories",
+    description:
+      "Connect GitHub, GitLab, or Gitee to AgentsMesh and import repositories for AI agent workflows.",
+  },
   "/docs/features/agentpod": {
     title: "AgentPod",
     description:
@@ -51,6 +66,11 @@ const docsMetadataMap: Record<string, DocsMeta> = {
     description:
       "Connect Git providers (GitHub, GitLab) and manage repository access for your AI agents with OAuth integration.",
   },
+  "/docs/concepts/repositories-git": {
+    title: "Repositories & Git Integration",
+    description:
+      "Connect Git providers, manage repository access, configure SSH keys, and use Git worktree isolation with AI agents.",
+  },
   "/docs/features/tickets": {
     title: "Tickets",
     description:
@@ -60,6 +80,26 @@ const docsMetadataMap: Record<string, DocsMeta> = {
     title: "Workspace",
     description:
       "Git worktree-based workspace isolation ensuring each agent operates on its own branch without conflicts.",
+  },
+  "/docs/tutorials/first-pod": {
+    title: "Tutorial: Your First Pod",
+    description:
+      "Step-by-step guide to creating and interacting with your first AgentPod — from setup to task completion.",
+  },
+  "/docs/tutorials/ticket-workflow": {
+    title: "Tutorial: Task Management with Tickets",
+    description:
+      "Learn how to use tickets and the Kanban board to organize work and track AI agent progress.",
+  },
+  "/docs/tutorials/multi-agent-collaboration": {
+    title: "Tutorial: Multi-Agent Collaboration",
+    description:
+      "Set up multiple AI agents that communicate through channels to collaboratively build features.",
+  },
+  "/docs/tutorials/automated-loops": {
+    title: "Tutorial: Automated Loops",
+    description:
+      "Configure scheduled loops to automate recurring AI agent tasks like code reviews and dependency audits.",
   },
   "/docs/runners/setup": {
     title: "Runner Setup",
