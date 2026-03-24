@@ -25,12 +25,33 @@ export const docsNavSections: DocNavSection[] = [
     items: [
       { titleKey: "docs.nav.introduction", href: "/docs" },
       { titleKey: "docs.nav.quickStart", href: "/docs/getting-started" },
-      { titleKey: "docs.nav.coreConcepts", href: "/docs/concepts" },
     ],
   },
   {
-    titleKey: "docs.nav.features",
+    titleKey: "docs.nav.tutorials",
     items: [
+      {
+        titleKey: "docs.nav.tutorialFirstPod",
+        href: "/docs/tutorials/first-pod",
+      },
+      {
+        titleKey: "docs.nav.tutorialTicketWorkflow",
+        href: "/docs/tutorials/ticket-workflow",
+      },
+      {
+        titleKey: "docs.nav.tutorialMultiAgent",
+        href: "/docs/tutorials/multi-agent-collaboration",
+      },
+      {
+        titleKey: "docs.nav.tutorialLoops",
+        href: "/docs/tutorials/automated-loops",
+      },
+    ],
+  },
+  {
+    titleKey: "docs.nav.concepts",
+    items: [
+      { titleKey: "docs.nav.coreConcepts", href: "/docs/concepts" },
       { titleKey: "docs.nav.agentpod", href: "/docs/features/agentpod" },
       { titleKey: "docs.nav.workspace", href: "/docs/features/workspace" },
       { titleKey: "docs.nav.channels", href: "/docs/features/channels" },
@@ -38,8 +59,8 @@ export const docsNavSections: DocNavSection[] = [
       { titleKey: "docs.nav.tickets", href: "/docs/features/tickets" },
       { titleKey: "docs.nav.loops", href: "/docs/features/loops" },
       {
-        titleKey: "docs.nav.repositories",
-        href: "/docs/features/repositories",
+        titleKey: "docs.nav.repositoriesGit",
+        href: "/docs/concepts/repositories-git",
       },
     ],
   },
@@ -54,16 +75,8 @@ export const docsNavSections: DocNavSection[] = [
     titleKey: "docs.nav.guides",
     items: [
       {
-        titleKey: "docs.nav.gitIntegration",
-        href: "/docs/guides/git-integration",
-      },
-      {
         titleKey: "docs.nav.teamManagement",
         href: "/docs/guides/team-management",
-      },
-      {
-        titleKey: "docs.nav.multiAgentWorkflows",
-        href: "/docs/guides/multi-agent-workflows",
       },
     ],
   },

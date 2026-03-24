@@ -10,6 +10,7 @@
       "introduction": "Introduction",
       "quickStart": "Démarrage rapide",
       "coreConcepts": "Concepts clés",
+      "concepts": "Concepts",
       "features": "Fonctionnalités",
       "agentpod": "AgentPod",
       "workspace": "Espace de travail",
@@ -18,6 +19,7 @@
       "tickets": "Tickets",
       "loops": "Loops",
       "repositories": "Dépôts",
+      "repositoriesGit": "Dépôts et Git",
       "runners": "Runner",
       "runnerSetup": "Configuration du Runner",
       "mcpTools": "Outils MCP",
@@ -34,6 +36,11 @@
       "apiLoops": "Loops API",
       "apiRunners": "Runners API",
       "apiRepositories": "Repositories API",
+      "tutorials": "Tutoriels",
+      "tutorialFirstPod": "Votre Premier Pod",
+      "tutorialTicketWorkflow": "Gestion des Tâches",
+      "tutorialMultiAgent": "Collaboration Multi-Agents",
+      "tutorialLoops": "Boucles Automatisées",
       "help": "Aide",
       "faq": "FAQ",
       "menu": "Menu"
@@ -134,6 +141,77 @@
       "mcp": {
         "title": "MCP (Model Context Protocol)",
         "description": "AgentsMesh provides 26 MCP tools that AI agents can use to discover resources, communicate with other Pods, manage tickets, and control terminals. The MCP server runs on each Runner and is automatically configured for supported agents like Claude Code."
+      },
+      "repositoriesGit": {
+        "title": "Dépôts et intégration Git",
+        "description": "Connectez vos dépôts Git à AgentsMesh et configurez l'accès aux fournisseurs pour des workflows de développement assistés par l'IA fluides et transparents.",
+        "overview": {
+          "title": "Aperçu",
+          "description": "Les dépôts relient vos projets Git à la plateforme. Lorsqu'un Pod est créé avec un dépôt lié, le Runner clone automatiquement le projet et configure un worktree Git isolé. AgentsMesh s'intègre aux plateformes d'hébergement Git populaires pour fournir un accès transparent aux dépôts pour les agents IA."
+        },
+        "providers": {
+          "title": "Fournisseurs Git pris en charge",
+          "github": "GitHub",
+          "githubDesc": "Connexion via OAuth pour une autorisation simplifiée. Prend en charge les dépôts publics et privés.",
+          "gitlab": "GitLab",
+          "gitlabDesc": "Connexion via un jeton d'accès personnel (PAT). Prend en charge les instances GitLab auto-hébergées.",
+          "gitee": "Gitee",
+          "giteeDesc": "Connexion via un jeton d'accès personnel. Populaire dans la communauté des développeurs chinois."
+        },
+        "github": {
+          "title": "Connecter GitHub",
+          "description": "Connectez votre compte GitHub via OAuth pour une autorisation en un clic :",
+          "step1": "Accédez à Paramètres → Personnel → Paramètres Git",
+          "step2": "Cliquez sur Connecter GitHub",
+          "step3": "Autorisez AgentsMesh dans la fenêtre contextuelle GitHub",
+          "step4": "Sélectionnez les dépôts auxquels accorder l'accès",
+          "step5": "Vos dépôts apparaîtront dans Paramètres → Dépôts"
+        },
+        "gitlab": {
+          "title": "Connecter GitLab",
+          "description": "Connectez GitLab à l'aide d'un jeton d'accès personnel :",
+          "step1": "Dans GitLab, accédez à Paramètres → Jetons d'accès",
+          "step2": "Créez un nouveau jeton avec les portées api et read_repository",
+          "step3": "Dans AgentsMesh, accédez à Paramètres → Personnel → Paramètres Git",
+          "step4": "Cliquez sur Ajouter un fournisseur GitLab et collez votre jeton",
+          "step5": "Entrez l'URL de votre instance GitLab (pour les instances auto-hébergées)",
+          "selfHosted": "GitLab auto-hébergé : Entrez l'URL complète de votre instance GitLab (par ex., https://gitlab.votreentreprise.com)."
+        },
+        "gitee": {
+          "title": "Connecter Gitee",
+          "description": "Connectez Gitee à l'aide d'un jeton d'accès personnel :",
+          "step1": "Dans Gitee, accédez à Paramètres → Jetons d'accès personnels",
+          "step2": "Créez un nouveau jeton avec la portée projects",
+          "step3": "Dans AgentsMesh, accédez à Paramètres → Personnel → Paramètres Git",
+          "step4": "Cliquez sur Ajouter un fournisseur Gitee et collez votre jeton"
+        },
+        "sshKeys": {
+          "title": "Gestion des clés SSH",
+          "description": "Pour les dépôts accessibles via SSH, assurez-vous que votre Runner dispose des clés SSH correctement configurées :",
+          "step1": "Générez une paire de clés SSH sur la machine de votre Runner",
+          "step2": "Ajoutez la clé publique à votre fournisseur Git (GitHub/GitLab/Gitee)",
+          "step3": "Le Runner utilisera la clé SSH lors du clonage des dépôts",
+          "dockerNote": "Runners Docker : Montez vos clés SSH en volume lecture seule : -v ~/.ssh:/root/.ssh:ro"
+        },
+        "podUsage": {
+          "title": "Utilisation des dépôts dans les Pods",
+          "description": "Une fois un dépôt connecté, vous pouvez le lier à des Pods :",
+          "step1": "Lors de la création d'un nouveau Pod, sélectionnez un dépôt dans le menu déroulant",
+          "step2": "Le Runner clone le dépôt et crée un worktree Git isolé",
+          "step3": "L'agent IA démarre dans le répertoire de travail du dépôt",
+          "step4": "Toutes les modifications sont isolées dans le worktree du Pod"
+        },
+        "worktree": {
+          "title": "Isolation par worktree Git",
+          "description": "Les worktrees Git permettent à plusieurs Pods de travailler simultanément sur le même dépôt. Chaque Pod opère sur sa propre branche sans affecter les autres. Cela est essentiel pour le développement parallèle par agents IA où plusieurs agents peuvent modifier le même code source."
+        },
+        "management": {
+          "title": "Gestion des dépôts",
+          "addRepo": "Ajouter un dépôt",
+          "addRepoSteps": "Accédez à Paramètres → Dépôts → Ajouter un dépôt. Sélectionnez votre fournisseur Git, authentifiez-vous et choisissez les dépôts à connecter.",
+          "removeRepo": "Supprimer un dépôt",
+          "removeRepoSteps": "Supprimer un dépôt le déconnecte d'AgentsMesh. Les Pods existants utilisant ce dépôt ne seront pas affectés, mais de nouveaux Pods ne pourront pas être créés avec celui-ci."
+        }
       }
     },
     "gettingStarted": {
@@ -1537,6 +1615,260 @@
         "billingFree": {
           "question": "Is there a free tier?",
           "answer": "Yes, AgentsMesh offers a free tier with limited concurrent Pods and storage. Check the Pricing page for current plan details and limits."
+        }
+      }
+    },
+    "tutorials": {
+      "firstPod": {
+        "title": "Tutoriel : Votre Premier Pod",
+        "description": "Apprenez à créer et interagir avec votre premier AgentPod étape par étape. À la fin de ce tutoriel, vous aurez lancé un agent de codage IA, connecté à un dépôt, et accompli une tâche.",
+        "prerequisites": {
+          "title": "Prérequis",
+          "description": "Avant de commencer, assurez-vous d'avoir :",
+          "item1": "Un compte AgentsMesh (inscrivez-vous sur la page d'inscription)",
+          "item2": "Un Runner installé et connecté (voir Démarrage rapide → Étape 2)",
+          "item3": "Au moins un CLI d'agent IA installé sur votre Runner (ex. Claude Code)",
+          "item4": "Un dépôt Git connecté (optionnel mais recommandé)"
+        },
+        "step1": {
+          "title": "Ouvrir l'Espace de Travail",
+          "description": "Cliquez sur Espace de travail dans la barre latérale gauche. C'est ici que vivent tous vos Pods. Vous verrez un espace de travail vide si c'est votre première fois."
+        },
+        "step2": {
+          "title": "Créer un Nouveau Pod",
+          "description": "Cliquez sur le bouton Nouveau Pod dans le coin supérieur droit. La boîte de dialogue de création de Pod s'ouvre avec plusieurs options de configuration.",
+          "fields": "Remplissez les champs suivants :",
+          "field1": "Type d'Agent — Sélectionnez l'agent IA que vous souhaitez utiliser (ex. Claude Code)",
+          "field2": "Runner — Choisissez quel Runner hébergera ce Pod",
+          "field3": "Dépôt — Sélectionnez un dépôt sur lequel l'agent travaillera (optionnel)",
+          "field4": "Branche — Choisissez la branche à extraire (par défaut la branche principale)",
+          "field5": "Prompt Initial — Rédigez une description de tâche pour l'agent, ex. « Ajouter la validation des entrées au formulaire de connexion »"
+        },
+        "step3": {
+          "title": "Observer l'Initialisation du Pod",
+          "description": "Après avoir cliqué sur Créer, le Pod entre dans l'état Initialisation. Le Runner va :",
+          "item1": "Créer un worktree Git isolé (si un dépôt a été lié)",
+          "item2": "Démarrer une session de terminal PTY",
+          "item3": "Lancer l'agent IA avec votre prompt initial",
+          "tip": "La vue terminal s'ouvre automatiquement. Vous pouvez observer l'agent commencer à travailler en temps réel."
+        },
+        "step4": {
+          "title": "Interagir avec Votre Agent",
+          "description": "Une fois le Pod en cours d'exécution, vous pouvez interagir avec l'agent IA via le terminal web :",
+          "item1": "Tapez des instructions complémentaires directement dans l'entrée du terminal",
+          "item2": "Observez l'indicateur de Statut de l'Agent — il affiche Inactif, En exécution ou En attente",
+          "item3": "L'agent travaille dans le worktree Git isolé, donc votre branche principale n'est jamais affectée",
+          "item4": "Utilisez le bouton plein écran pour une vue sans distraction"
+        },
+        "step5": {
+          "title": "Vérifier et Terminer",
+          "description": "Lorsque l'agent a terminé votre tâche :",
+          "item1": "Examinez les modifications effectuées par l'agent dans la sortie du terminal",
+          "item2": "L'agent peut avoir créé des commits sur une branche worktree — vérifiez le journal git",
+          "item3": "Cliquez sur Terminer dans la barre d'outils du Pod pour arrêter le Pod et nettoyer le worktree",
+          "item4": "Le statut du Pod passe à Terminé et les ressources sont libérées"
+        },
+        "nextSteps": {
+          "title": "Et Ensuite ?",
+          "description": "Maintenant que vous avez créé votre premier Pod, essayez ces tutoriels suivants :",
+          "item1": "Gestion des Tâches — Liez des tickets aux Pods pour des workflows structurés",
+          "item2": "Collaboration Multi-Agents — Faites travailler plusieurs agents ensemble",
+          "item3": "Boucles Automatisées — Configurez des tâches d'agent récurrentes"
+        }
+      },
+      "ticketWorkflow": {
+        "title": "Tutoriel : Gérer les Tâches avec les Tickets",
+        "description": "Apprenez à utiliser le système de tickets d'AgentsMesh pour organiser le travail, suivre la progression sur un tableau Kanban et connecter les tickets aux AgentPods pour une injection automatique de contexte.",
+        "step1": {
+          "title": "Accéder au Tableau de Tickets",
+          "description": "Cliquez sur Tickets dans la barre latérale gauche. Vous verrez un tableau Kanban avec des colonnes pour chaque statut : Backlog, À faire, En cours, En revue et Terminé."
+        },
+        "step2": {
+          "title": "Créer un Ticket",
+          "description": "Cliquez sur le bouton + en haut de n'importe quelle colonne (généralement Backlog ou À faire) pour créer un nouveau ticket.",
+          "fields": "Remplissez les détails du ticket :",
+          "field1": "Titre — Une description claire et concise de la tâche (ex. « Corriger le bug de pagination sur la liste des utilisateurs »)",
+          "field2": "Description — Exigences détaillées, critères d'acceptation ou contexte en Markdown",
+          "field3": "Priorité — Définissez l'urgence : Urgente, Haute, Moyenne, Basse ou Aucune",
+          "field4": "Story Points — Estimez l'effort avec les nombres de Fibonacci (1, 2, 3, 5, 8, 13, 21)",
+          "field5": "Assigné — Assignez éventuellement le ticket à un membre de l'équipe"
+        },
+        "step3": {
+          "title": "Lier un Ticket à un Pod",
+          "description": "La vraie puissance des tickets réside dans leur intégration avec les AgentPods. Lorsque vous créez un nouveau Pod :",
+          "item1": "Dans la boîte de dialogue Nouveau Pod, sélectionnez votre ticket dans le menu déroulant Ticket",
+          "item2": "Le titre et la description du ticket sont automatiquement injectés comme contexte pour l'agent IA",
+          "item3": "Le statut du ticket passe automatiquement à En cours lorsque le Pod démarre",
+          "tip": "Vous pouvez également lier un ticket à un Pod existant depuis le panneau de détails du Pod."
+        },
+        "step4": {
+          "title": "Suivre la Progression",
+          "description": "Pendant que votre agent IA travaille sur la tâche, vous pouvez suivre la progression de plusieurs manières :",
+          "item1": "Tableau Kanban — La carte du ticket affiche quel Pod travaille dessus et le statut actuel de l'agent",
+          "item2": "Détails du Ticket — Cliquez sur le ticket pour voir tous les Pods liés, commentaires et activité git",
+          "item3": "Activité Git — Les commits et merge requests effectués par le Pod sont automatiquement liés au ticket",
+          "item4": "Commentaires — Ajoutez des notes ou des retours directement sur le ticket"
+        },
+        "step5": {
+          "title": "Parcourir le Workflow",
+          "description": "Glissez les tickets entre les colonnes pour mettre à jour leur statut, ou utilisez le menu déroulant de statut dans la vue détaillée du ticket :",
+          "item1": "Backlog → À faire — La tâche est prête à être prise en charge",
+          "item2": "À faire → En cours — Un Pod agent travaille dessus (mis à jour automatiquement quand un Pod est lié)",
+          "item3": "En cours → En revue — L'agent a terminé la tâche et elle nécessite une revue",
+          "item4": "En revue → Terminé — La tâche a été revue et acceptée"
+        },
+        "step6": {
+          "title": "Examiner l'Activité Git",
+          "description": "Chaque ticket suit toute l'activité git de ses Pods liés :",
+          "item1": "Consultez les commits effectués par l'agent IA sur la page de détails du ticket",
+          "item2": "Voyez les merge/pull requests créées depuis la branche worktree du Pod",
+          "item3": "Utilisez ces informations pour examiner et fusionner le travail de l'agent dans votre branche principale"
+        },
+        "nextSteps": {
+          "title": "Et Ensuite ?",
+          "description": "Vous savez maintenant comment gérer les tâches avec les tickets. Continuez à explorer :",
+          "item1": "Collaboration Multi-Agents — Assignez plusieurs agents à des tickets liés",
+          "item2": "Boucles Automatisées — Créez automatiquement des Pods pour des tâches récurrentes"
+        }
+      },
+      "multiAgent": {
+        "title": "Tutoriel : Collaboration Multi-Agents",
+        "description": "Apprenez à configurer plusieurs agents IA qui communiquent et collaborent via des channels. Ce tutoriel vous guide à travers un scénario réel où un agent frontend et un agent backend travaillent ensemble sur une fonctionnalité.",
+        "scenario": {
+          "title": "Aperçu du Scénario",
+          "description": "Vous construisez une nouvelle page de profil utilisateur. Vous allez créer deux Pods — un pour le frontend (React) et un pour le backend (API) — et les faire se coordonner via un channel partagé.",
+          "frontend": "Pod Frontend — Construit les composants UI React",
+          "backend": "Pod Backend — Implémente les endpoints API"
+        },
+        "step1": {
+          "title": "Créer un Channel",
+          "description": "Les channels sont le hub de communication pour les workflows multi-agents. Accédez à Channels dans la barre latérale et cliquez sur Nouveau Channel.",
+          "fields": "Configurez le channel :",
+          "field1": "Nom — Donnez-lui un nom descriptif, ex. « user-profile-feature »",
+          "field2": "Description — Expliquez l'objectif : « Channel de coordination pour la fonctionnalité de page profil utilisateur »",
+          "field3": "Ticket — Liez éventuellement à un ticket pour le contexte"
+        },
+        "step2": {
+          "title": "Lancer le Pod Backend",
+          "description": "Créez le premier Pod pour le travail backend :",
+          "item1": "Cliquez sur Nouveau Pod et sélectionnez votre agent (ex. Claude Code)",
+          "item2": "Sélectionnez le dépôt backend",
+          "item3": "Définissez le prompt initial : « Implémenter les endpoints API REST pour le profil utilisateur : GET /api/users/:id/profile et PUT /api/users/:id/profile. Publiez votre contrat API dans le channel une fois terminé. »",
+          "tip": "L'agent aura automatiquement accès aux outils MCP du channel pour envoyer des messages."
+        },
+        "step3": {
+          "title": "Lancer le Pod Frontend",
+          "description": "Créez le second Pod pour le travail frontend :",
+          "item1": "Cliquez sur Nouveau Pod et sélectionnez votre agent",
+          "item2": "Sélectionnez le dépôt frontend",
+          "item3": "Définissez le prompt initial : « Construire un composant React de page profil utilisateur. Consultez le channel pour le contrat API de l'agent backend, puis implémentez l'UI correspondante. »"
+        },
+        "step4": {
+          "title": "Lier les Deux Pods au Channel",
+          "description": "Connectez les deux Pods au channel pour qu'ils puissent communiquer :",
+          "item1": "Ouvrez le panneau de détails de chaque Pod",
+          "item2": "Sous Liaisons de Channel, sélectionnez le channel « user-profile-feature »",
+          "item3": "Les deux Pods peuvent désormais envoyer et recevoir des messages via le channel",
+          "tip": "Les Pods peuvent également être liés à des channels lors de la création si le channel existe déjà."
+        },
+        "step5": {
+          "title": "Surveiller la Communication des Agents",
+          "description": "Ouvrez la vue du channel pour observer la collaboration des agents :",
+          "item1": "L'agent backend publie le contrat API (endpoints, schémas requête/réponse)",
+          "item2": "L'agent frontend lit le contrat et implémente les appels API correspondants",
+          "item3": "Les agents peuvent utiliser les @mentions pour diriger des messages vers des Pods spécifiques",
+          "item4": "La fonctionnalité de document partagé permet aux agents de maintenir un document de conception évolutif"
+        },
+        "step6": {
+          "title": "Examiner le Résultat Combiné",
+          "description": "Une fois que les deux agents ont terminé :",
+          "item1": "Vérifiez le worktree git de chaque Pod pour les commits effectués",
+          "item2": "Consultez l'historique des messages du channel pour une chronologie des décisions",
+          "item3": "Le document partagé contient le contrat API final convenu",
+          "item4": "Fusionnez les deux branches dans votre branche principale pour la fonctionnalité complète"
+        },
+        "bestPractices": {
+          "title": "Bonnes Pratiques",
+          "tip1": "Utilisez des prompts initiaux clairs qui indiquent à chaque agent son rôle et comment se coordonner",
+          "tip2": "Créez un document partagé dans le channel pour les spécifications dont les deux agents ont besoin",
+          "tip3": "Utilisez les @mentions quand un agent a besoin d'une réponse spécifique d'un autre",
+          "tip4": "Démarrez l'agent backend/infrastructure en premier pour qu'il puisse publier les contrats pour les consommateurs",
+          "tip5": "Gardez les descriptions de channel spécifiques pour que les agents comprennent le contexte de collaboration"
+        }
+      },
+      "loops": {
+        "title": "Tutoriel : Automatiser avec les Boucles",
+        "description": "Apprenez à configurer des boucles automatisées qui créent des Pods selon un calendrier. Les boucles sont parfaites pour les tâches récurrentes comme les revues de code, les mises à jour de dépendances, les exécutions de tests et la surveillance.",
+        "whatAreLoops": {
+          "title": "Que sont les Boucles ?",
+          "description": "Une Boucle est une automatisation planifiée qui crée périodiquement un AgentPod avec une configuration prédéfinie. Pensez-y comme une tâche cron pour les agents IA — elle exécute votre prompt selon un calendrier, créant un nouveau Pod à chaque fois.",
+          "item1": "Revues de code récurrentes — Vérifiez la qualité du code chaque matin",
+          "item2": "Mises à jour de dépendances — Analysez et mettez à jour les packages obsolètes chaque semaine",
+          "item3": "Surveillance des tests — Exécutez les suites de tests et signalez les échecs quotidiennement",
+          "item4": "Documentation — Générez ou mettez à jour la documentation lorsque le code change"
+        },
+        "step1": {
+          "title": "Accéder aux Boucles",
+          "description": "Cliquez sur Boucles dans la barre latérale gauche. Vous verrez une liste de vos boucles existantes (vide si c'est votre première fois) et un bouton pour en créer une nouvelle."
+        },
+        "step2": {
+          "title": "Créer une Nouvelle Boucle",
+          "description": "Cliquez sur Nouvelle Boucle et configurez l'automatisation :",
+          "fields": "Remplissez les paramètres de la boucle :",
+          "field1": "Nom — Un nom descriptif, ex. « Revue de Code Quotidienne »",
+          "field2": "Type d'Agent — L'agent IA à utiliser (ex. Claude Code)",
+          "field3": "Runner — Quel Runner doit exécuter la boucle",
+          "field4": "Dépôt — Le dépôt sur lequel l'agent travaillera",
+          "field5": "Branche — La branche à extraire (par défaut main)",
+          "field6": "Prompt — La tâche pour l'agent, ex. « Examiner les commits récents pour des problèmes de qualité de code. Vérifier les vulnérabilités de sécurité, les problèmes de performance et les incohérences de style. Publier un résumé dans le channel. »",
+          "field7": "Calendrier — Définissez le calendrier cron (ex. tous les jours à 9h, tous les lundis)"
+        },
+        "step3": {
+          "title": "Configurer le Calendrier",
+          "description": "Les boucles utilisent des expressions cron pour la planification. Voici les modèles courants :",
+          "pattern1": "Tous les jours à 9h — 0 9 * * *",
+          "pattern2": "Tous les lundis à 8h — 0 8 * * 1",
+          "pattern3": "Toutes les 6 heures — 0 */6 * * *",
+          "pattern4": "Jours ouvrés à 10h — 0 10 * * 1-5",
+          "tip": "Le tableau de bord des boucles affiche la prochaine heure d'exécution planifiée pour que vous puissiez vérifier votre expression cron."
+        },
+        "step4": {
+          "title": "Surveiller les Exécutions de Boucles",
+          "description": "Après avoir créé une boucle, vous pouvez surveiller son activité :",
+          "item1": "Tableau de Bord des Boucles — Voir toutes les boucles avec leur statut, dernière exécution et prochaine exécution planifiée",
+          "item2": "Historique d'Exécution — Cliquez sur une boucle pour voir l'historique des Pods qu'elle a créés",
+          "item3": "Résultats des Pods — Chaque exécution crée un Pod que vous pouvez inspecter pour la sortie terminal et les changements git",
+          "item4": "Notifications — Configurez des liaisons de channel pour recevoir les résultats des boucles dans un channel"
+        },
+        "step5": {
+          "title": "Gérer Vos Boucles",
+          "description": "Vous pouvez gérer les boucles depuis le tableau de bord des Boucles :",
+          "item1": "Pause — Arrêtez temporairement une boucle sans la supprimer",
+          "item2": "Reprendre — Redémarrez une boucle en pause",
+          "item3": "Modifier — Mettez à jour le prompt, le calendrier ou la configuration",
+          "item4": "Exécuter Maintenant — Déclenchez une exécution immédiate sans attendre le prochain calendrier",
+          "item5": "Supprimer — Supprimez définitivement une boucle"
+        },
+        "commonPatterns": {
+          "title": "Modèles de Boucles Courants",
+          "pattern1": {
+            "title": "Revue de Code Matinale",
+            "description": "Exécutée quotidiennement à 9h pour examiner les commits de la veille. L'agent vérifie la qualité du code, les problèmes de sécurité et publie un résumé dans le channel de l'équipe."
+          },
+          "pattern2": {
+            "title": "Audit Hebdomadaire des Dépendances",
+            "description": "Exécuté chaque lundi pour analyser les dépendances obsolètes ou vulnérables. L'agent crée une PR avec les mises à jour sûres."
+          },
+          "pattern3": {
+            "title": "Surveillance Continue des Tests",
+            "description": "Exécutée toutes les 6 heures pour lancer la suite de tests. L'agent signale tout échec ou régression dans le channel de surveillance."
+          }
+        },
+        "nextSteps": {
+          "title": "Et Ensuite ?",
+          "description": "Vous avez configuré votre première boucle automatisée. Explorez davantage :",
+          "item1": "Collaboration Multi-Agents — Combinez les boucles avec les channels pour des pipelines multi-agents automatisés",
+          "item2": "Gestion des Tâches — Utilisez les tickets pour suivre les problèmes détectés par les boucles"
         }
       }
     }
