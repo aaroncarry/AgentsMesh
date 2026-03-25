@@ -2,6 +2,7 @@ package poddaemon
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -240,8 +241,6 @@ func TestCleanupSessionNonExistent(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestRecoverSessionsMixedValidity verifies RecoverSessions handles a mix
-// of valid, corrupt, missing, and empty state files plus non-directory entries.
 func TestRecoverSessionsMixedValidity(t *testing.T) {
 	dir := t.TempDir()
 	socketDir := t.TempDir()
@@ -284,4 +283,75 @@ func TestRecoverSessionsMixedValidity(t *testing.T) {
 	}
 	assert.True(t, keys["pod-1"])
 	assert.True(t, keys["pod-2"])
+}
+
+func TestWaitForDaemonFailsFastOnDeadProcess(t *testing.T) {
+	socketDir := t.TempDir()
+	dir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
+	require.NoError(t, err)
+
+	ipcPath := IPCPath(socketDir, "dead-daemon")
+
+	// Use a PID that definitely doesn't exist (max PID)
+	deadPID := 999999999
+
+	start := time.Now()
+	_, err = mgr.waitForDaemon(ipcPath, deadPID)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exited before IPC ready")
+	// Should fail much faster than the full 5s timeout
+	assert.Less(t, elapsed, 3*time.Second, "should fail fast when daemon is dead")
+}
+
+func TestWaitForDaemonZeroPIDSkipsAliveCheck(t *testing.T) {
+	socketDir := t.TempDir()
+	dir := t.TempDir()
+	mgr, err := NewPodDaemonManager(dir, socketDir)
+	require.NoError(t, err)
+
+	ipcPath := IPCPath(socketDir, "no-pid")
+
+	start := time.Now()
+	_, err = mgr.waitForDaemon(ipcPath, 0)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "did not become ready")
+	// With pid=0, alive check is skipped so it waits the full timeout
+	assert.GreaterOrEqual(t, elapsed, 4*time.Second)
+}
+
+func TestCaptureDaemonLogEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, daemonLogFile)
+	require.NoError(t, os.WriteFile(logPath, []byte{}, 0644))
+
+	// Should log "empty" diagnostic without panic
+	captureDaemonLog(slog.Default(), dir, "test-pod")
+}
+
+func TestCaptureDaemonLogMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	// No log file — should log "unavailable" diagnostic without panic
+	captureDaemonLog(slog.Default(), dir, "test-pod")
+}
+
+func TestCaptureDaemonLogWithContent(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, daemonLogFile)
+	content := "FATAL: pod daemon panic: runtime error: nil pointer\ngoroutine 1 [running]:\nmain.main()\n"
+	require.NoError(t, os.WriteFile(logPath, []byte(content), 0644))
+
+	// Should capture and log content without panic
+	captureDaemonLog(slog.Default(), dir, "test-pod")
+}
+
+func TestDaemonProcessStatus(t *testing.T) {
+	assert.Equal(t, "unknown", daemonProcessStatus(0))
+	assert.Equal(t, "unknown", daemonProcessStatus(-1))
+	assert.Equal(t, "alive", daemonProcessStatus(os.Getpid()))
+	assert.Equal(t, "dead", daemonProcessStatus(999999999))
 }

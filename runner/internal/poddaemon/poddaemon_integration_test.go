@@ -5,6 +5,7 @@ package poddaemon
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func TestCreateSessionAndIO(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "io")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace, // use workspace as socket dir in tests
 		runnerBinPath: binPath,
 	}
@@ -105,7 +106,7 @@ func TestCreateSessionExitCode(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "ex")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -144,7 +145,7 @@ func TestCreateSessionGracefulStop(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "gs")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -186,7 +187,7 @@ func TestRecoverSessionsIntegration(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "rc")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -380,7 +381,7 @@ func TestWaitForDaemonRetry(t *testing.T) {
 	ipcPath := IPCPath(socketDir, "w")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: t.TempDir(),
+		sandboxesDir: t.TempDir(),
 		socketDir:     socketDir,
 		runnerBinPath: "unused",
 	}
@@ -408,7 +409,7 @@ func TestWaitForDaemonRetry(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}()
 
-	dpty, err := mgr.waitForDaemon(ipcPath)
+	dpty, err := mgr.waitForDaemon(ipcPath, 0)
 	require.NoError(t, err)
 	defer dpty.Close()
 	assert.Equal(t, 999, dpty.Pid())
@@ -421,12 +422,64 @@ func TestWaitForDaemonTimeout(t *testing.T) {
 	}
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: t.TempDir(),
+		sandboxesDir: t.TempDir(),
 		socketDir:     t.TempDir(),
 		runnerBinPath: "unused",
 	}
 
-	_, err := mgr.waitForDaemon("/nonexistent/socket.sock")
+	_, err := mgr.waitForDaemon("/nonexistent/socket.sock", 0)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "did not become ready")
+}
+
+// TestDaemonPanicRecoveryWritesStackTrace verifies that when the daemon process
+// panics, the main.go defer recover captures the stack trace into pod_daemon.log.
+// This is the top-level safety net for daemon crash diagnostics.
+func TestDaemonPanicRecoveryWritesStackTrace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	binPath := buildTestRunner(t)
+
+	sandbox, err := os.MkdirTemp("/tmp", "pd-panic-")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(sandbox) })
+
+	// Create a minimal valid state file (daemon needs it to get past LoadState)
+	state := &PodDaemonState{
+		PodKey:      "panic-test",
+		IPCPath:     IPCPath(sandbox, "panic-test"),
+		SandboxPath: sandbox,
+		WorkDir:     sandbox,
+		Command:     "echo",
+		Args:        []string{"should-not-reach"},
+		Cols:        80,
+		Rows:        24,
+	}
+	require.NoError(t, SaveState(state))
+
+	// Start daemon with _AGENTSMESH_DAEMON_TEST_PANIC to trigger deliberate panic.
+	// startDaemon passes env vars to the daemon subprocess.
+	panicMsg := "deliberate test panic for stack trace verification"
+	env := append(os.Environ(), "_AGENTSMESH_DAEMON_TEST_PANIC="+panicMsg)
+
+	pid, err := startDaemon(binPath, StatePath(sandbox), sandbox, env)
+	require.NoError(t, err)
+	t.Logf("daemon started with PID %d (will panic)", pid)
+
+	// Wait for daemon to crash and write its log
+	time.Sleep(2 * time.Second)
+
+	// Read pod_daemon.log — should contain the panic stack trace
+	logPath := filepath.Join(sandbox, "pod_daemon.log")
+	data, err := os.ReadFile(logPath)
+	require.NoError(t, err, "pod_daemon.log should exist")
+
+	logContent := string(data)
+	t.Logf("pod_daemon.log content:\n%s", logContent)
+
+	assert.Contains(t, logContent, "FATAL: pod daemon panic")
+	assert.Contains(t, logContent, panicMsg)
+	assert.Contains(t, logContent, "goroutine") // stack trace should be present
 }

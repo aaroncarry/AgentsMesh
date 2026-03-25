@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/anthropics/agentsmesh/runner/internal/process"
 )
 
 // PodDaemonManager manages the lifecycle of pod daemon sessions.
@@ -101,19 +103,23 @@ func (m *PodDaemonManager) CreateSession(opts CreateOpts) (*daemonPTY, *PodDaemo
 	log.Info("daemon started, waiting for IPC", "pid", pid, "ipc", ipcPath)
 
 	// Wait for daemon to start listening on IPC
-	dpty, err := m.waitForDaemon(ipcPath)
+	dpty, err := m.waitForDaemon(ipcPath, pid)
 	if err != nil {
+		status := daemonProcessStatus(pid)
+		log.Error("daemon failed to become ready",
+			"pod_key", opts.PodKey, "pid", pid, "process_status", status, "error", err)
 		captureDaemonLog(log, opts.SandboxPath, opts.PodKey)
 		_ = os.Remove(ipcPath) // Clean up socket file if daemon died before Listen()
 		_ = DeleteState(opts.SandboxPath)
-		return nil, nil, fmt.Errorf("connect to daemon: %w", err)
+		return nil, nil, fmt.Errorf("connect to daemon (pid %d, %s): %w", pid, status, err)
 	}
 
 	return dpty, state, nil
 }
 
 // waitForDaemon polls the IPC path until the daemon is ready.
-func (m *PodDaemonManager) waitForDaemon(ipcPath string) (*daemonPTY, error) {
+// It also checks if the daemon process is still alive to fail fast.
+func (m *PodDaemonManager) waitForDaemon(ipcPath string, pid int) (*daemonPTY, error) {
 	const maxAttempts = 50
 	const retryDelay = 100 * time.Millisecond
 
@@ -124,6 +130,12 @@ func (m *PodDaemonManager) waitForDaemon(ipcPath string) (*daemonPTY, error) {
 			return dpty, nil
 		}
 		lastErr = err
+
+		// Fail fast if daemon process is no longer alive
+		if pid > 0 && process.IsAlive(pid) != nil {
+			return nil, fmt.Errorf("daemon process (pid %d) exited before IPC ready: %w", pid, lastErr)
+		}
+
 		time.Sleep(retryDelay)
 	}
 	return nil, fmt.Errorf("daemon did not become ready within %v: %w", time.Duration(maxAttempts)*retryDelay, lastErr)
@@ -173,8 +185,16 @@ const daemonLogFile = "pod_daemon.log"
 // captureDaemonLog reads the daemon log and outputs to runner log for diagnostics.
 // Called when daemon fails to become ready, before sandbox cleanup destroys the log.
 func captureDaemonLog(log *slog.Logger, sandboxPath, podKey string) {
-	data, err := os.ReadFile(filepath.Join(sandboxPath, daemonLogFile))
-	if err != nil || len(data) == 0 {
+	logPath := filepath.Join(sandboxPath, daemonLogFile)
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		log.Error("pod daemon log unavailable",
+			"pod_key", podKey, "path", logPath, "error", err)
+		return
+	}
+	if len(data) == 0 {
+		log.Error("pod daemon log is empty (daemon likely crashed before any Go code executed)",
+			"pod_key", podKey, "path", logPath)
 		return
 	}
 	const maxLen = 2048
@@ -183,4 +203,15 @@ func captureDaemonLog(log *slog.Logger, sandboxPath, podKey string) {
 	}
 	log.Error("pod daemon log (process exited before IPC ready)",
 		"pod_key", podKey, "log", strings.TrimSpace(string(data)))
+}
+
+// daemonProcessStatus returns a human-readable status of the daemon process.
+func daemonProcessStatus(pid int) string {
+	if pid <= 0 {
+		return "unknown"
+	}
+	if process.IsAlive(pid) == nil {
+		return "alive"
+	}
+	return "dead"
 }

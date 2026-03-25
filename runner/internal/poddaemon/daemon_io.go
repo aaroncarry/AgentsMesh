@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net"
+
+	"github.com/anthropics/agentsmesh/runner/internal/safego"
 )
 
 // acceptLoop accepts IPC connections and handles them in goroutines.
@@ -15,7 +17,7 @@ func (d *daemonServer) acceptLoop() {
 			d.log.Debug("accept error (listener closed?)", "error", err)
 			return
 		}
-		go d.handleClient(conn)
+		safego.Go("daemon-handle-client", func() { d.handleClient(conn) })
 	}
 }
 

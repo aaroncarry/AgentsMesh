@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/runner/internal/envfilter"
+	"github.com/anthropics/agentsmesh/runner/internal/safego"
 )
 
 // RunDaemon is the main entry point for the daemon process.
@@ -19,6 +20,11 @@ import (
 func RunDaemon(configPath string) {
 	log := slog.Default()
 	log.Info("pod daemon starting", "config", configPath)
+
+	// Test-only: deliberate panic to verify the main.go panic recovery captures stack traces.
+	if msg := os.Getenv("_AGENTSMESH_DAEMON_TEST_PANIC"); msg != "" {
+		panic(msg)
+	}
 
 	// configPath is the full path; LoadState expects the sandbox directory
 	sandboxPath := filepath.Dir(configPath)
@@ -77,7 +83,7 @@ func RunDaemon(configPath string) {
 	}
 
 	// Wait for child process exit in background
-	go func() {
+	safego.Go("daemon-proc-wait", func() {
 		code, err := proc.Wait()
 		if err != nil {
 			log.Error("process wait error", "error", err)
@@ -85,7 +91,7 @@ func RunDaemon(configPath string) {
 		log.Info("child process exited", "exit_code", code)
 		d.exitCode = code
 		close(d.exitDone) // broadcast to all listeners
-	}()
+	})
 
 	d.run()
 }
@@ -117,14 +123,14 @@ type daemonServer struct {
 }
 
 func (d *daemonServer) run() {
-	// PTY reader goroutine: reads from PTY and forwards to current client
-	go d.ptyReader()
+	// PTY reader: must keep running, auto-restart on panic (otherwise terminal freezes)
+	safego.GoLoop("daemon-pty-reader", d.ptyReader, 0)
 
-	// Accept connections until child exits
-	go d.acceptLoop()
+	// Accept loop: must keep running, auto-restart on panic (otherwise Runner can't reconnect)
+	safego.GoLoop("daemon-accept-loop", d.acceptLoop, 0)
 
-	// Orphan protection: exit if state file is deleted (Runner cleanup)
-	go d.orphanChecker()
+	// Orphan protection: must keep running, auto-restart on panic (otherwise daemon leaks)
+	safego.GoLoop("daemon-orphan-checker", d.orphanChecker, 0)
 
 	// Wait for child exit or orphan signal
 	select {

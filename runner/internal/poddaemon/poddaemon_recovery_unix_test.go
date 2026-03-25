@@ -49,7 +49,7 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "survive")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -109,7 +109,7 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 
 	// Phase 4: Fresh manager recovers sessions (simulates Runner B starting)
 	mgr2 := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -154,7 +154,7 @@ func TestDaemonSurvivesMultipleReattachCycles(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "multi")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -231,7 +231,7 @@ func TestRecoveredSessionResize(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "rsz")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -292,7 +292,7 @@ func TestRecoveredSessionGracefulStop(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "gstop")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}
@@ -353,7 +353,7 @@ func TestOrphanCleanupAfterRecovery(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "orph")
 
 	mgr := &PodDaemonManager{
-		workspaceRoot: workspace,
+		sandboxesDir: workspace,
 		socketDir:     workspace,
 		runnerBinPath: binPath,
 	}

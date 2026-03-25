@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 )
@@ -18,6 +19,14 @@ func main() {
 	// main loop instead of the normal CLI. The daemon holds the PTY fd and
 	// accepts IPC connections from the Runner for I/O forwarding.
 	if configPath := os.Getenv("_AGENTSMESH_POD_DAEMON"); configPath != "" {
+		defer func() {
+			if r := recover(); r != nil {
+				// stderr is redirected to pod_daemon.log by startDaemon,
+				// so this panic trace will be captured for diagnostics.
+				fmt.Fprintf(os.Stderr, "FATAL: pod daemon panic: %v\n%s\n", r, debug.Stack())
+				os.Exit(2)
+			}
+		}()
 		poddaemon.RunDaemon(configPath)
 		return
 	}
