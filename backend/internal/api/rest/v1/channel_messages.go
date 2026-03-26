@@ -42,27 +42,28 @@ func (h *ChannelHandler) ListMessages(c *gin.Context) {
 
 	// Cursor-based pagination: before_id takes precedence over time-based before
 	var messages []*channelDomain.Message
+	var hasMore bool
 	if beforeIDStr := c.Query("before_id"); beforeIDStr != "" {
 		beforeID, err := strconv.ParseInt(beforeIDStr, 10, 64)
 		if err != nil {
 			apierr.InvalidInput(c, "Invalid before_id")
 			return
 		}
-		messages, err = h.channelService.GetMessagesByCursor(c.Request.Context(), channelID, beforeID, limit)
+		messages, hasMore, err = h.channelService.GetMessagesByCursor(c.Request.Context(), channelID, beforeID, limit)
 		if err != nil {
 			apierr.InternalError(c, "Failed to list messages")
 			return
 		}
 	} else {
 		var fetchErr error
-		messages, fetchErr = h.channelService.GetMessages(c.Request.Context(), channelID, nil, limit)
+		messages, hasMore, fetchErr = h.channelService.GetMessages(c.Request.Context(), channelID, nil, limit)
 		if fetchErr != nil {
 			apierr.InternalError(c, "Failed to list messages")
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"messages": messages})
+	c.JSON(http.StatusOK, gin.H{"messages": messages, "has_more": hasMore})
 }
 
 // SendMessageRequest represents message send request

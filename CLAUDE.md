@@ -347,4 +347,5 @@ Or use an existing admin to grant privileges via the Admin Console UI.
 
 
 ## Principles
-* Architecture must conform to SOLID, GRASP, and YAGNI; files should stay under 200 lines; balance cohesion and SRP — split by reason to change, not by line count. 
+* Architecture must conform to SOLID, GRASP, and YAGNI.
+* **Hard limit: every file must stay under 200 lines** (excluding test files, which should stay under 400 lines). When a file approaches this limit, proactively split it by SRP — extract types, helpers, hooks, or sub-components into separate files. A 210-line file is acceptable if splitting would break cohesion; a 300+ line file is never acceptable and must be split before committing. 

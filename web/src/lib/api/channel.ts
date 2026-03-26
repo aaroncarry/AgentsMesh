@@ -108,7 +108,7 @@ export const channelApi = {
     if (limit) params.append("limit", String(limit));
     if (beforeId) params.append("before_id", String(beforeId));
     const query = params.toString() ? `?${params.toString()}` : "";
-    return request<{ messages: ChannelMessage[] }>(`${orgPath("/channels")}/${id}/messages${query}`);
+    return request<{ messages: ChannelMessage[]; has_more: boolean }>(`${orgPath("/channels")}/${id}/messages${query}`);
   },
 
   // Send a message to a channel

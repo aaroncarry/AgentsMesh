@@ -1,56 +1,46 @@
 import { create } from "zustand";
-import { channelApi, ChannelMessage } from "@/lib/api";
-import type { MentionPayload } from "@/lib/api";
+import { channelApi } from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
 import { useAuthStore } from "./auth";
-import { useChannelStore } from "./channelStore";
+import { getCache, updateCache } from "./channelMessageTypes";
+import type { ChannelMessageState } from "./channelMessageTypes";
 
-interface ChannelMessageState {
-  // State
-  messages: ChannelMessage[];
-  messagesLoading: boolean;
-  unreadCounts: Record<number, number>;
-
-  // Message CRUD
-  fetchMessages: (channelId: number, limit?: number, beforeId?: number) => Promise<void>;
-  sendMessage: (
-    channelId: number,
-    content: string,
-    podKey?: string,
-    mentions?: MentionPayload[]
-  ) => Promise<ChannelMessage>;
-  addMessage: (message: ChannelMessage) => void;
-  editMessage: (channelId: number, messageId: number, content: string) => Promise<void>;
-  deleteMessage: (channelId: number, messageId: number) => Promise<void>;
-  updateMessage: (data: { id: number; content: string; edited_at: string }) => void;
-  removeMessage: (messageId: number) => void;
-
-  // Unread / read state
-  fetchUnreadCounts: () => Promise<void>;
-  markRead: (channelId: number, messageId: number) => Promise<void>;
-  muteChannel: (channelId: number, muted: boolean) => Promise<void>;
-  incrementUnread: (channelId: number) => void;
-}
+export { EMPTY_CACHE, type ChannelMessageCache } from "./channelMessageTypes";
 
 export const useChannelMessageStore = create<ChannelMessageState>((set, get) => ({
-  messages: [],
-  messagesLoading: false,
+  cache: {},
   unreadCounts: {},
 
   fetchMessages: async (channelId, limit = 50, beforeId) => {
-    set({ messagesLoading: true });
+    const isLoadMore = beforeId !== undefined;
+    const current = getCache(get(), channelId);
+    if (isLoadMore ? current.loadingMore : current.loading) return; // dedup guard
+
+    set((state) =>
+      updateCache(state, channelId, isLoadMore ? { loadingMore: true } : { loading: true, error: null })
+    );
+
     try {
       const response = await channelApi.getMessages(channelId, limit, beforeId);
-      set((state) => ({
-        messages:
-          beforeId === undefined
-            ? response.messages || []
-            : [...(response.messages || []), ...state.messages],
-        messagesLoading: false,
-      }));
+      const newMessages = response.messages || [];
+      const hasMore = response.has_more ?? false;
+
+      set((state) => {
+        const existing = getCache(state, channelId);
+        return updateCache(state, channelId, {
+          messages: isLoadMore ? [...newMessages, ...existing.messages] : newMessages,
+          hasMore,
+          loading: false,
+          loadingMore: false,
+          error: null,
+        });
+      });
     } catch (error: unknown) {
-      console.error("Failed to fetch messages:", getErrorMessage(error, "Unknown error"));
-      set({ messagesLoading: false });
+      const msg = getErrorMessage(error, "Unknown error");
+      console.error("Failed to fetch messages:", msg);
+      set((state) => updateCache(state, channelId, {
+        loading: false, loadingMore: false, error: isLoadMore ? null : msg,
+      }));
     }
   },
 
@@ -73,13 +63,15 @@ export const useChannelMessageStore = create<ChannelMessageState>((set, get) => 
       }
 
       set((state) => {
-        const idx = state.messages.findIndex((m) => m.id === msg.id);
+        const existing = getCache(state, channelId);
+        const idx = existing.messages.findIndex((m) => m.id === msg.id);
+        // WebSocket event may arrive before POST response — dedup by replacing
         if (idx >= 0) {
-          const updated = [...state.messages];
+          const updated = [...existing.messages];
           updated[idx] = msg;
-          return { messages: updated };
+          return updateCache(state, channelId, { messages: updated });
         }
-        return { messages: [...state.messages, msg] };
+        return updateCache(state, channelId, { messages: [...existing.messages, msg] });
       });
       return msg;
     } catch (error: unknown) {
@@ -88,76 +80,75 @@ export const useChannelMessageStore = create<ChannelMessageState>((set, get) => 
     }
   },
 
-  addMessage: (message) => {
+  addMessage: (channelId, message) => {
     set((state) => {
-      const idx = state.messages.findIndex((m) => m.id === message.id);
+      const existing = getCache(state, channelId);
+      const idx = existing.messages.findIndex((m) => m.id === message.id);
       if (idx >= 0) {
-        // Merge: prefer the version with richer sender info
-        const existing = state.messages[idx];
-        if (!existing.sender_user && message.sender_user) {
-          const updated = [...state.messages];
+        const prev = existing.messages[idx];
+        if (!prev.sender_user && message.sender_user) {
+          const updated = [...existing.messages];
           updated[idx] = message;
-          return { messages: updated };
+          return updateCache(state, channelId, { messages: updated });
         }
-        return {}; // Already have complete data, skip
+        return {};
       }
-      return { messages: [...state.messages, message] };
+      return updateCache(state, channelId, { messages: [...existing.messages, message] });
     });
-    // Auto mark-as-read for current channel when new message is added
-    const currentChannel = useChannelStore.getState().currentChannel;
-    if (currentChannel && currentChannel.id === message.channel_id) {
-      channelApi.markRead(message.channel_id, message.id).catch(() => {});
-    }
   },
-
   editMessage: async (channelId, messageId, content) => {
     try {
       const response = await channelApi.editMessage(channelId, messageId, content);
-      set((state) => ({
-        messages: state.messages.map((m) =>
-          m.id === messageId
-            ? { ...m, content: response.message.content, edited_at: response.message.edited_at }
-            : m
-        ),
-      }));
+      set((state) => {
+        const existing = getCache(state, channelId);
+        return updateCache(state, channelId, {
+          messages: existing.messages.map((m) =>
+            m.id === messageId
+              ? { ...m, content: response.message.content, edited_at: response.message.edited_at }
+              : m
+          ),
+        });
+      });
     } catch (error: unknown) {
       console.error("Failed to edit message:", getErrorMessage(error, "Unknown error"));
       throw error;
     }
   },
-
   deleteMessage: async (channelId, messageId) => {
     try {
       await channelApi.deleteMessage(channelId, messageId);
-      set((state) => ({
-        messages: state.messages.filter((m) => m.id !== messageId),
-      }));
+      set((state) => {
+        const existing = getCache(state, channelId);
+        return updateCache(state, channelId, {
+          messages: existing.messages.filter((m) => m.id !== messageId),
+        });
+      });
     } catch (error: unknown) {
       console.error("Failed to delete message:", getErrorMessage(error, "Unknown error"));
       throw error;
     }
   },
-
-  updateMessage: (data) => {
-    set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === data.id
-          ? { ...m, content: data.content, edited_at: data.edited_at }
-          : m
-      ),
-    }));
+  updateMessage: (channelId, data) => {
+    set((state) => {
+      const existing = getCache(state, channelId);
+      return updateCache(state, channelId, {
+        messages: existing.messages.map((m) =>
+          m.id === data.id ? { ...m, content: data.content, edited_at: data.edited_at } : m
+        ),
+      });
+    });
   },
-
-  removeMessage: (messageId) => {
-    set((state) => ({
-      messages: state.messages.filter((m) => m.id !== messageId),
-    }));
+  removeMessage: (channelId, messageId) => {
+    set((state) => {
+      const existing = getCache(state, channelId);
+      return updateCache(state, channelId, {
+        messages: existing.messages.filter((m) => m.id !== messageId),
+      });
+    });
   },
-
   fetchUnreadCounts: async () => {
     try {
       const response = await channelApi.getUnreadCounts();
-      // Backend returns { unread: { "42": 3, "55": 17 } } with string keys
       const counts: Record<number, number> = {};
       for (const [key, value] of Object.entries(response.unread || {})) {
         counts[Number(key)] = value;
@@ -167,7 +158,6 @@ export const useChannelMessageStore = create<ChannelMessageState>((set, get) => 
       console.error("Failed to fetch unread counts:", getErrorMessage(error, "Unknown error"));
     }
   },
-
   markRead: async (channelId, messageId) => {
     try {
       await channelApi.markRead(channelId, messageId);
@@ -197,5 +187,14 @@ export const useChannelMessageStore = create<ChannelMessageState>((set, get) => 
         [channelId]: (state.unreadCounts[channelId] || 0) + 1,
       },
     }));
+  },
+
+  clearChannelUnread: (channelId) => {
+    set((state) => {
+      if (!(channelId in state.unreadCounts)) return {};
+      const counts = { ...state.unreadCounts };
+      delete counts[channelId];
+      return { unreadCounts: counts };
+    });
   },
 }));

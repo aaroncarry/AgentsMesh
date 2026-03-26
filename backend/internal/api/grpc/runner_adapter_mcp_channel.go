@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	channelDomain "github.com/anthropics/agentsmesh/backend/internal/domain/channel"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -11,7 +10,6 @@ import (
 )
 
 // mcpChannelResponse wraps channel.Channel to add resolved slug fields for MCP responses.
-// The runner expects ticket_slug (string) instead of ticket_id (int64).
 type mcpChannelResponse struct {
 	*channelDomain.Channel
 	TicketSlug string `json:"ticket_slug,omitempty"`
@@ -29,7 +27,17 @@ func (a *GRPCRunnerAdapter) enrichChannelForMCP(ctx context.Context, orgID int64
 	return resp
 }
 
-// ==================== Channel MCP Methods ====================
+// validateChannelAccess fetches a channel and checks organization-level access.
+func (a *GRPCRunnerAdapter) validateChannelAccess(ctx context.Context, tc *middleware.TenantContext, channelID int64) (*channelDomain.Channel, *mcpError) {
+	ch, err := a.channelService.GetChannel(ctx, channelID)
+	if err != nil {
+		return nil, newMcpError(404, "channel not found")
+	}
+	if ch.OrganizationID != tc.OrganizationID {
+		return nil, newMcpError(403, "access denied")
+	}
+	return ch, nil
+}
 
 // mcpSearchChannels handles the "search_channels" MCP method.
 func (a *GRPCRunnerAdapter) mcpSearchChannels(ctx context.Context, tc *middleware.TenantContext, podKey string, payload []byte) (interface{}, *mcpError) {
@@ -49,13 +57,11 @@ func (a *GRPCRunnerAdapter) mcpSearchChannels(ctx context.Context, tc *middlewar
 	if params.IsArchived != nil {
 		includeArchived = *params.IsArchived
 	}
-
 	limit := params.Limit
 	if limit <= 0 {
 		limit = 50
 	}
 
-	// Resolve ticket slug to ID for filtering
 	var ticketID *int64
 	if params.TicketSlug != nil && *params.TicketSlug != "" {
 		t, err := a.ticketService.GetTicketByIDOrSlug(ctx, tc.OrganizationID, *params.TicketSlug)
@@ -65,22 +71,17 @@ func (a *GRPCRunnerAdapter) mcpSearchChannels(ctx context.Context, tc *middlewar
 	}
 
 	channels, _, mcpErr := a.channelService.ListChannels(ctx, tc.OrganizationID, &channel.ListChannelsFilter{
-		IncludeArchived: includeArchived,
-		RepositoryID:    params.RepositoryID,
-		TicketID:        ticketID,
-		Limit:           limit,
-		Offset:          params.Offset,
+		IncludeArchived: includeArchived, RepositoryID: params.RepositoryID,
+		TicketID: ticketID, Limit: limit, Offset: params.Offset,
 	})
 	if mcpErr != nil {
 		return nil, newMcpError(500, "failed to list channels")
 	}
 
-	// Enrich channels with ticket slugs for MCP response
 	enriched := make([]*mcpChannelResponse, len(channels))
 	for i, ch := range channels {
 		enriched[i] = a.enrichChannelForMCP(ctx, tc.OrganizationID, ch)
 	}
-
 	return map[string]interface{}{"channels": enriched}, nil
 }
 
@@ -95,7 +96,6 @@ func (a *GRPCRunnerAdapter) mcpCreateChannel(ctx context.Context, tc *middleware
 	if err := unmarshalPayload(payload, &params); err != nil {
 		return nil, err
 	}
-
 	if params.Name == "" {
 		return nil, newMcpError(400, "name is required")
 	}
@@ -104,8 +104,6 @@ func (a *GRPCRunnerAdapter) mcpCreateChannel(ctx context.Context, tc *middleware
 	if params.Description != "" {
 		desc = &params.Description
 	}
-
-	// Resolve ticket slug to ID
 	var ticketID *int64
 	if params.TicketSlug != nil && *params.TicketSlug != "" {
 		t, err := a.ticketService.GetTicketByIDOrSlug(ctx, tc.OrganizationID, *params.TicketSlug)
@@ -116,13 +114,9 @@ func (a *GRPCRunnerAdapter) mcpCreateChannel(ctx context.Context, tc *middleware
 	}
 
 	ch, err := a.channelService.CreateChannel(ctx, &channel.CreateChannelRequest{
-		OrganizationID:  tc.OrganizationID,
-		Name:            params.Name,
-		Description:     desc,
-		RepositoryID:    params.RepositoryID,
-		TicketID:        ticketID,
-		CreatedByPod:    &podKey,
-		CreatedByUserID: &tc.UserID,
+		OrganizationID: tc.OrganizationID, Name: params.Name, Description: desc,
+		RepositoryID: params.RepositoryID, TicketID: ticketID,
+		CreatedByPod: &podKey, CreatedByUserID: &tc.UserID,
 	})
 	if err != nil {
 		if err == channel.ErrDuplicateName {
@@ -130,10 +124,7 @@ func (a *GRPCRunnerAdapter) mcpCreateChannel(ctx context.Context, tc *middleware
 		}
 		return nil, newMcpError(500, "failed to create channel")
 	}
-
-	// Auto-join the creating pod to the channel
 	_ = a.channelService.JoinChannel(ctx, ch.ID, podKey)
-
 	return map[string]interface{}{"channel": a.enrichChannelForMCP(ctx, tc.OrganizationID, ch)}, nil
 }
 
@@ -145,169 +136,13 @@ func (a *GRPCRunnerAdapter) mcpGetChannel(ctx context.Context, tc *middleware.Te
 	if err := unmarshalPayload(payload, &params); err != nil {
 		return nil, err
 	}
-
 	if params.ChannelID == 0 {
 		return nil, newMcpError(400, "channel_id is required")
 	}
 
-	ch, err := a.channelService.GetChannel(ctx, params.ChannelID)
-	if err != nil {
-		return nil, newMcpError(404, "channel not found")
+	ch, mcpErr := a.validateChannelAccess(ctx, tc, params.ChannelID)
+	if mcpErr != nil {
+		return nil, mcpErr
 	}
-
-	if ch.OrganizationID != tc.OrganizationID {
-		return nil, newMcpError(403, "access denied")
-	}
-
 	return map[string]interface{}{"channel": a.enrichChannelForMCP(ctx, tc.OrganizationID, ch)}, nil
-}
-
-// mcpSendMessage handles the "send_message" MCP method.
-func (a *GRPCRunnerAdapter) mcpSendMessage(ctx context.Context, tc *middleware.TenantContext, podKey string, payload []byte) (interface{}, *mcpError) {
-	var params struct {
-		ChannelID   int64    `json:"channel_id"`
-		Content     string   `json:"content"`
-		MessageType string   `json:"message_type"`
-		Mentions    []string `json:"mentions"`
-		ReplyTo     *int     `json:"reply_to"`
-	}
-	if err := unmarshalPayload(payload, &params); err != nil {
-		return nil, err
-	}
-
-	if params.ChannelID == 0 {
-		return nil, newMcpError(400, "channel_id is required")
-	}
-	if params.Content == "" {
-		return nil, newMcpError(400, "content is required")
-	}
-
-	ch, err := a.channelService.GetChannel(ctx, params.ChannelID)
-	if err != nil {
-		return nil, newMcpError(404, "channel not found")
-	}
-	if ch.OrganizationID != tc.OrganizationID {
-		return nil, newMcpError(403, "access denied")
-	}
-	if ch.IsArchived {
-		return nil, newMcpError(400, "cannot send messages to archived channel")
-	}
-
-	msgType := params.MessageType
-	if msgType == "" {
-		msgType = "text"
-	}
-
-	// Parse structured mentions from MCP params (format: "user:123", "pod:my-pod-key")
-	var mentions []channel.MentionInput
-	for _, m := range params.Mentions {
-		parts := strings.SplitN(m, ":", 2)
-		if len(parts) == 2 {
-			mentions = append(mentions, channel.MentionInput{Type: parts[0], ID: parts[1]})
-		}
-	}
-
-	msg, err := a.channelService.SendMessage(ctx, params.ChannelID, &podKey, &tc.UserID, msgType, params.Content, nil, mentions)
-	if err != nil {
-		return nil, newMcpError(500, "failed to send message")
-	}
-
-	return map[string]interface{}{"message": msg}, nil
-}
-
-// mcpGetMessages handles the "get_messages" MCP method.
-func (a *GRPCRunnerAdapter) mcpGetMessages(ctx context.Context, tc *middleware.TenantContext, payload []byte) (interface{}, *mcpError) {
-	var params struct {
-		ChannelID    int64   `json:"channel_id"`
-		BeforeTime   *string `json:"before_time"`
-		AfterTime    *string `json:"after_time"`
-		MentionedPod *string `json:"mentioned_pod"`
-		Limit        int     `json:"limit"`
-	}
-	if err := unmarshalPayload(payload, &params); err != nil {
-		return nil, err
-	}
-
-	if params.ChannelID == 0 {
-		return nil, newMcpError(400, "channel_id is required")
-	}
-
-	ch, err := a.channelService.GetChannel(ctx, params.ChannelID)
-	if err != nil {
-		return nil, newMcpError(404, "channel not found")
-	}
-	if ch.OrganizationID != tc.OrganizationID {
-		return nil, newMcpError(403, "access denied")
-	}
-
-	limit := params.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-
-	messages, err := a.channelService.GetMessages(ctx, params.ChannelID, nil, limit)
-	if err != nil {
-		return nil, newMcpError(500, "failed to get messages")
-	}
-
-	return map[string]interface{}{"messages": messages}, nil
-}
-
-// mcpGetDocument handles the "get_document" MCP method.
-func (a *GRPCRunnerAdapter) mcpGetDocument(ctx context.Context, tc *middleware.TenantContext, payload []byte) (interface{}, *mcpError) {
-	var params struct {
-		ChannelID int64 `json:"channel_id"`
-	}
-	if err := unmarshalPayload(payload, &params); err != nil {
-		return nil, err
-	}
-
-	if params.ChannelID == 0 {
-		return nil, newMcpError(400, "channel_id is required")
-	}
-
-	ch, err := a.channelService.GetChannel(ctx, params.ChannelID)
-	if err != nil {
-		return nil, newMcpError(404, "channel not found")
-	}
-	if ch.OrganizationID != tc.OrganizationID {
-		return nil, newMcpError(403, "access denied")
-	}
-
-	document := ""
-	if ch.Document != nil {
-		document = *ch.Document
-	}
-
-	return map[string]interface{}{"document": document}, nil
-}
-
-// mcpUpdateDocument handles the "update_document" MCP method.
-func (a *GRPCRunnerAdapter) mcpUpdateDocument(ctx context.Context, tc *middleware.TenantContext, payload []byte) (interface{}, *mcpError) {
-	var params struct {
-		ChannelID int64  `json:"channel_id"`
-		Document  string `json:"document"`
-	}
-	if err := unmarshalPayload(payload, &params); err != nil {
-		return nil, err
-	}
-
-	if params.ChannelID == 0 {
-		return nil, newMcpError(400, "channel_id is required")
-	}
-
-	ch, err := a.channelService.GetChannel(ctx, params.ChannelID)
-	if err != nil {
-		return nil, newMcpError(404, "channel not found")
-	}
-	if ch.OrganizationID != tc.OrganizationID {
-		return nil, newMcpError(403, "access denied")
-	}
-
-	_, err = a.channelService.UpdateChannel(ctx, params.ChannelID, nil, nil, &params.Document)
-	if err != nil {
-		return nil, newMcpError(500, "failed to update document")
-	}
-
-	return map[string]interface{}{"document": params.Document}, nil
 }

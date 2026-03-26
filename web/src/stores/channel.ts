@@ -6,4 +6,5 @@
  * - channelMessageStore: messages, unread counts, read state
  */
 export { useChannelStore, type Channel } from "./channelStore";
-export { useChannelMessageStore } from "./channelMessageStore";
+export { useChannelMessageStore, EMPTY_CACHE, type ChannelMessageCache } from "./channelMessageStore";
+export type { ChannelMessageState } from "./channelMessageTypes";
