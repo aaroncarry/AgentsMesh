@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,16 +149,23 @@ func (r *Runner) runGitCommand(dir string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-// getDirSize calculates the total size of a directory
-// This can be slow for large directories, use with caution
+// getDirSize calculates the total size of a directory.
+// Symlinks are skipped to avoid double-counting and infinite loops.
+// This can be slow for large directories, use with caution.
 func (r *Runner) getDirSize(path string) int64 {
 	var size int64
-	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip files we can't access
 		}
-		if !info.IsDir() {
-			size += info.Size()
+		// Skip symlinks to avoid following into unexpected locations
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+		if !d.IsDir() {
+			if info, infoErr := d.Info(); infoErr == nil {
+				size += info.Size()
+			}
 		}
 		return nil
 	})

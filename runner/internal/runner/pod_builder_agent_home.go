@@ -61,20 +61,24 @@ func (b *PodBuilder) prepareAgentHome(sandboxRoot, workDir string) error {
 
 	// Find config.toml entry in FilesToCreate and merge it with existing config
 	configTomlPath := filepath.Join(codexHome, "config.toml")
+	mergeIdx := -1
 	for i, f := range b.cmd.FilesToCreate {
 		resolvedPath := b.resolvePath(f.Path, sandboxRoot, workDir)
 		if resolvedPath == configTomlPath && !f.IsDirectory {
-			// Merge platform MCP config into existing config.toml
-			if err := mergeTomlMcpServers(configTomlPath, f.Content); err != nil {
-				log.Warn("Failed to merge TOML MCP config, writing fresh",
-					"path", configTomlPath, "error", err)
-				// Fall through to let createFiles write it
-				break
-			}
-			// Remove from FilesToCreate to prevent createFiles from overwriting
-			b.cmd.FilesToCreate = append(b.cmd.FilesToCreate[:i], b.cmd.FilesToCreate[i+1:]...)
-			log.Info("Merged MCP config into existing config.toml", "path", configTomlPath)
+			mergeIdx = i
 			break
+		}
+	}
+	if mergeIdx >= 0 {
+		f := b.cmd.FilesToCreate[mergeIdx]
+		if err := mergeTomlMcpServers(configTomlPath, f.Content); err != nil {
+			log.Warn("Failed to merge TOML MCP config, writing fresh",
+				"path", configTomlPath, "error", err)
+			// Fall through to let createFiles write it
+		} else {
+			// Remove from FilesToCreate to prevent createFiles from overwriting
+			b.cmd.FilesToCreate = append(b.cmd.FilesToCreate[:mergeIdx], b.cmd.FilesToCreate[mergeIdx+1:]...)
+			log.Info("Merged MCP config into existing config.toml", "path", configTomlPath)
 		}
 	}
 
@@ -146,7 +150,12 @@ func dirExists(path string) bool {
 
 // copyDirSelective copies a directory recursively, skipping large/transient
 // subdirectories (sessions, cache) that are not needed per-pod.
+// Symlinks are preserved as symlinks rather than dereferenced.
+// Special files (sockets, pipes, devices) are silently skipped.
+// Individual file errors are logged and skipped rather than aborting the entire copy.
 func copyDirSelective(src, dst string) error {
+	log := logger.Pod()
+
 	skipDirs := map[string]bool{
 		"sessions": true, // Session logs can be large
 		"cache":    true, // Cache is transient
@@ -154,12 +163,25 @@ func copyDirSelective(src, dst string) error {
 
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// Permission denied on a subdirectory — skip it, don't abort
+			log.Debug("Skipping inaccessible path during copy", "path", path, "error", err)
+			return nil
 		}
 
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
+		}
+
+		destPath := filepath.Join(dst, relPath)
+
+		// Handle symlinks before directory checks, since WalkDir does not
+		// follow symlinks and d.IsDir() returns false for symlink-to-dir.
+		if d.Type()&fs.ModeSymlink != 0 {
+			if symlinkErr := copySymlink(path, destPath); symlinkErr != nil {
+				log.Debug("Skipping uncopiable symlink", "path", path, "error", symlinkErr)
+			}
+			return nil
 		}
 
 		// Skip transient directories
@@ -168,25 +190,55 @@ func copyDirSelective(src, dst string) error {
 			if len(parts) > 0 && skipDirs[parts[0]] {
 				return filepath.SkipDir
 			}
+			if mkErr := os.MkdirAll(destPath, 0755); mkErr != nil {
+				log.Debug("Skipping uncreatable directory", "path", destPath, "error", mkErr)
+			}
+			return nil
 		}
 
-		destPath := filepath.Join(dst, relPath)
-
-		if d.IsDir() {
-			return os.MkdirAll(destPath, 0755)
+		// Skip special files: sockets, pipes, devices.
+		// Only copy regular files (d.Type() == 0 means regular file).
+		if !d.Type().IsRegular() {
+			return nil
 		}
 
-		// Copy file
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
+		// Skip files larger than 10 MiB to avoid OOM on large binaries/databases
 		info, err := d.Info()
 		if err != nil {
-			return err
+			return nil
+		}
+		const maxFileSize = 10 << 20 // 10 MiB
+		if info.Size() > maxFileSize {
+			log.Debug("Skipping oversized file during copy", "path", path, "size", info.Size())
+			return nil
 		}
 
-		return os.WriteFile(destPath, data, info.Mode())
+		// Copy regular file — skip on error to preserve partial results
+		data, err := os.ReadFile(path)
+		if err != nil {
+			log.Debug("Skipping unreadable file during copy", "path", path, "error", err)
+			return nil
+		}
+
+		if writeErr := os.WriteFile(destPath, data, info.Mode()); writeErr != nil {
+			log.Debug("Skipping unwritable file during copy", "dest", destPath, "error", writeErr)
+		}
+		return nil
 	})
+}
+
+// copySymlink recreates a symlink at dst pointing to the same target as src.
+// Dangling symlinks are silently skipped.
+func copySymlink(src, dst string) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return err
+	}
+
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
+	return os.Symlink(target, dst)
 }

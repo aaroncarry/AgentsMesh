@@ -298,3 +298,30 @@ func TestGetDirSize_WithSubdirectories(t *testing.T) {
 		t.Errorf("Size = %d, want 18", size)
 	}
 }
+
+func TestGetDirSize_SkipsSymlinks(t *testing.T) {
+	tempDir := t.TempDir()
+	r := &Runner{
+		cfg: &config.Config{
+			WorkspaceRoot: tempDir,
+		},
+	}
+
+	// Create a real file (5 bytes)
+	os.WriteFile(filepath.Join(tempDir, "real.txt"), []byte("hello"), 0644)
+
+	// Create a symlink to a large external file — should not be counted
+	externalDir := t.TempDir()
+	os.WriteFile(filepath.Join(externalDir, "big.bin"), make([]byte, 1000), 0644)
+	os.Symlink(filepath.Join(externalDir, "big.bin"), filepath.Join(tempDir, "link-to-big"))
+
+	// Create a symlink to a directory — should not be followed
+	os.Symlink(externalDir, filepath.Join(tempDir, "link-to-dir"))
+
+	size := r.getDirSize(tempDir)
+
+	// Only the real file should be counted
+	if size != 5 {
+		t.Errorf("Size = %d, want 5 (symlinks should be skipped)", size)
+	}
+}
