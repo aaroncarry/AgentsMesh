@@ -202,8 +202,8 @@ func (b *PodBuilder) createFiles(sandboxRoot, workDir string) error {
 		if absPath != absSandbox && !strings.HasPrefix(absPath, absSandbox+string(os.PathSeparator)) {
 			return &client.PodError{
 				Code:    client.ErrCodeFileCreate,
-				Message: fmt.Sprintf("path %q escapes sandbox root", f.Path),
-				Details: map[string]string{"path": f.Path},
+				Message: fmt.Sprintf("path %q escapes sandbox root %q (resolved: %q)", f.Path, absSandbox, absPath),
+				Details: map[string]string{"path": f.Path, "sandbox_root": absSandbox, "resolved_path": absPath},
 			}
 		}
 

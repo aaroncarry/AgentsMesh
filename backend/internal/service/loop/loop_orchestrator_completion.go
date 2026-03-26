@@ -106,15 +106,27 @@ func (o *LoopOrchestrator) HandleRunCompleted(ctx context.Context, run *loopDoma
 	}
 
 	// 2. Update runtime state for persistent sandbox resume.
-	// Only update last_pod_key on successful completion — failed/cancelled runs
-	// must NOT pollute the resume chain, otherwise the next run would attempt
-	// to resume from a broken state and likely fail again (or degrade to fresh,
-	// losing the entire accumulated session context).
 	loop, _ := o.loopService.GetByID(ctx, run.LoopID)
-	if run.PodKey != nil && loop != nil && loop.IsPersistent() && effectiveStatus == loopDomain.RunStatusCompleted {
-		if err := o.loopService.UpdateRuntimeState(ctx, run.LoopID, nil, run.PodKey); err != nil {
-			o.logger.Error("failed to update loop runtime state",
-				"loop_id", run.LoopID, "error", err)
+	if run.PodKey != nil && loop != nil && loop.IsPersistent() {
+		switch effectiveStatus {
+		case loopDomain.RunStatusCompleted:
+			// Successful completion: advance the resume chain to this run's pod.
+			if err := o.loopService.UpdateRuntimeState(ctx, run.LoopID, nil, run.PodKey); err != nil {
+				o.logger.Error("failed to update loop runtime state",
+					"loop_id", run.LoopID, "error", err)
+			}
+		case loopDomain.RunStatusFailed:
+			// Failed run: clear the resume chain to break the death spiral.
+			// Without this, async runner errors (e.g., "mcp.json escapes sandbox root")
+			// cause every subsequent run to retry the same broken resume, since the
+			// degradation logic in StartRun only catches synchronous CreatePod errors.
+			// Clearing last_pod_key forces the next run to start fresh.
+			if err := o.loopService.ClearRuntimeState(ctx, run.LoopID); err != nil {
+				o.logger.Error("failed to clear loop runtime state after failure",
+					"loop_id", run.LoopID, "error", err)
+			}
+			o.logger.Info("cleared persistent sandbox resume chain after run failure",
+				"loop_id", run.LoopID, "run_id", run.ID, "pod_key", *run.PodKey)
 		}
 	}
 
