@@ -131,17 +131,26 @@ func (r *channelRepository) TouchChannel(ctx context.Context, channelID int64) e
 		Update("updated_at", time.Now()).Error
 }
 
-func (r *channelRepository) GetMessages(ctx context.Context, channelID int64, before *time.Time, limit int) ([]*channel.Message, error) {
+func (r *channelRepository) GetMessages(ctx context.Context, channelID int64, before *time.Time, after *time.Time, limit int) ([]*channel.Message, error) {
 	query := r.db.WithContext(ctx).Where("channel_id = ? AND is_deleted = FALSE", channelID)
 	if before != nil {
 		query = query.Where("created_at < ?", *before)
+	}
+	if after != nil {
+		query = query.Where("created_at > ?", *after)
+	}
+	// After-only: return oldest-first so hasMore means "newer messages exist beyond the limit".
+	// All other cases: newest-first so hasMore means "older messages exist" (load-more / scroll-up).
+	order := "created_at DESC"
+	if after != nil && before == nil {
+		order = "created_at ASC"
 	}
 	var messages []*channel.Message
 	if err := query.
 		Preload("SenderUser").
 		Preload("SenderPodInfo").
 		Preload("SenderPodInfo.AgentType").
-		Order("created_at DESC").
+		Order(order).
 		Limit(limit).
 		Find(&messages).Error; err != nil {
 		return nil, err
@@ -149,22 +158,28 @@ func (r *channelRepository) GetMessages(ctx context.Context, channelID int64, be
 	return messages, nil
 }
 
-func (r *channelRepository) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, error) {
+func (r *channelRepository) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, bool, error) {
 	var messages []*channel.Message
-	// Structured mentions: search for podKey in metadata JSON.
-	// CAST(metadata AS TEXT) works in both PostgreSQL (JSONB→text) and SQLite (TEXT no-op).
+	// Require BOTH "mentioned_pods" key AND exact pod key value in metadata.
+	// Using two LIKE conditions scopes the match to the mentioned_pods field, avoiding false
+	// positives from pod keys appearing elsewhere in the JSON (e.g. reply_to, sender context).
+	// Works cross-database (PostgreSQL JSONB cast to text and SQLite text no-op).
 	// Text LIKE fallback: matches legacy "@podKey" mentions in content.
-	metaPattern := `%"` + podKey + `"%`
+	podValuePattern := `%"` + podKey + `"%`
 	textPattern := "%@" + podKey + "%"
 	if err := r.db.WithContext(ctx).
-		Where("channel_id = ? AND is_deleted = FALSE AND (CAST(metadata AS TEXT) LIKE ? OR content LIKE ?)",
-			channelID, metaPattern, textPattern).
+		Where(`channel_id = ? AND is_deleted = FALSE AND ((CAST(metadata AS TEXT) LIKE '%mentioned_pods%' AND CAST(metadata AS TEXT) LIKE ?) OR content LIKE ?)`,
+			channelID, podValuePattern, textPattern).
 		Order("created_at DESC").
-		Limit(limit).
+		Limit(limit + 1).
 		Find(&messages).Error; err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return messages, nil
+	hasMore := len(messages) > limit
+	if hasMore {
+		messages = messages[:limit]
+	}
+	return messages, hasMore, nil
 }
 
 func (r *channelRepository) GetRecentMessages(ctx context.Context, channelID int64, limit int) ([]*channel.Message, error) {
