@@ -23,6 +23,12 @@
   <a href="https://hub.docker.com/u/agentsmesh"><img src="https://img.shields.io/badge/docker-hub-blue?logo=docker" alt="Docker Hub" /></a>
 </p>
 
+<p align="center">
+  <a href="https://youtu.be/VaXImaly3dM">
+    <img src="https://img.youtube.com/vi/VaXImaly3dM/maxresdefault.jpg" alt="AgentsMesh Demo Video" width="720" />
+  </a>
+</p>
+
 ---
 
 ## What is AgentsMesh?
