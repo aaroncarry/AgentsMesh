@@ -47,15 +47,15 @@
         "resp3": "Develop and optimize sandbox infrastructure for reproducible agent operations"
       },
       "producer": {
-        "title": "Producer",
-        "description": "Producers turn infrastructure into products that users love. You'll bridge the gap between technical capabilities and user needs, shaping every interaction with AgentsMesh into an intuitive and powerful experience.",
+        "title": "Builder",
+        "description": "Builders turn infrastructure into products that users love. You'll bridge the gap between technical capabilities and user needs, shaping every interaction with AgentsMesh into an intuitive and powerful experience.",
         "resp1": "Translate user needs into product requirements and features",
         "resp2": "Shape platform capabilities into polished, user-facing products",
         "resp3": "Gather feedback and iterate to deliver exceptional user experiences"
       },
       "growthHacker": {
-        "title": "Growth Hacker",
-        "description": "Growth Hackers take our product to market with creative, data-driven strategies. You'll help developers discover AgentsMesh, run rapid experiments, and turn early adopters into passionate advocates.",
+        "title": "GTM (Go to Market)",
+        "description": "GTM specialists take our product to market with creative, data-driven strategies. You'll help developers discover AgentsMesh, run rapid experiments, and turn early adopters into passionate advocates.",
         "resp1": "Design and execute data-driven growth experiments",
         "resp2": "Build relationships with developer communities and drive adoption",
         "resp3": "Optimize acquisition funnels and drive user retention"
