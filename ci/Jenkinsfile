@@ -42,13 +42,7 @@ pipeline {
         
         // Git configuration
         GIT_REPO = 'git@git.ringcentral.com:ai-testing/AgentsMesh.git'
-        GIT_BRANCH = "${params.NODE}"
-        
-        // Docker build configuration
-        REGISTRY_PREFIX = ''
-        GO_VERSION = '1.25'
-        GOPROXY = 'https://proxy.golang.org,direct'
-        NPM_REGISTRY = ''
+        GIT_BRANCH = "${params.BRANCH}"
         
         // Image tags
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
