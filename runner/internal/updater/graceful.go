@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"os"
 	"sync"
 	"time"
 )
@@ -67,6 +68,7 @@ type GracefulUpdater struct {
 	restartFunc   RestartFunc
 	healthChecker HealthChecker
 	healthTimeout time.Duration
+	exitFunc      func(code int) // defaults to os.Exit; override in tests
 
 	// State
 	mu          sync.RWMutex
@@ -132,6 +134,7 @@ func NewGracefulUpdater(updater *Updater, podCounter PodCounter, opts ...Gracefu
 		maxWaitTime:   30 * time.Minute, // Default: 30 minutes
 		pollInterval:  5 * time.Second,  // Default: check every 5 seconds
 		healthTimeout: 30 * time.Second, // Default: 30 seconds for health check
+		exitFunc:      os.Exit,
 		state:         StateIdle,
 	}
 
