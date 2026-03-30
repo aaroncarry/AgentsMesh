@@ -108,12 +108,21 @@ pipeline {
                 script {
                     echo "=== Fetching from Upstream ==="
                     sh """
-                        # Configure Git to use insteadOf for HTTPS URLs (avoid authentication prompt)
-                        # This allows fetching from public repos without credentials
-                        git config --global url."https://github.com/".insteadOf git@github.com:
+                        # For public GitHub repos, we need to disable credential helper
+                        # to prevent authentication prompts
+                        export GIT_TERMINAL_PROMPT=0
+                        export GIT_ASKPASS=true
 
-                        # Fetch with depth limit for efficiency (optional: remove --depth if you need full history)
-                        GIT_TERMINAL_PROMPT=0 git fetch upstream
+                        # Temporarily disable credential helper for this fetch
+                        git config --global credential.helper ""
+
+                        # Fetch from upstream
+                        git fetch upstream || {
+                            echo "❌ Direct fetch failed, trying with explicit HTTPS URL..."
+                            # If upstream remote is configured with git@github.com,
+                            # fetch directly from HTTPS URL instead
+                            git fetch ${GIT_UPSTREAM_URL}
+                        }
 
                         echo "✅ Successfully fetched from upstream"
                     """
