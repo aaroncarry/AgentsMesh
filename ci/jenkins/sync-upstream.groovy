@@ -133,9 +133,13 @@ pipeline {
         stage('Checkout Local Branch') {
             steps {
                 script {
-                    echo "=== Checking out origin/${GIT_LOCAL_BRANCH} ==="
+                    echo "=== Checking out local ${GIT_LOCAL_BRANCH} branch ==="
                     sh """
-                        git checkout origin/${GIT_LOCAL_BRANCH}
+                        # Ensure we're on the local branch, not detached HEAD
+                        git checkout -B ${GIT_LOCAL_BRANCH} origin/${GIT_LOCAL_BRANCH}
+
+                        # Verify we're on the correct branch
+                        git branch --show-current
                         git status
                     """
                 }
@@ -147,7 +151,7 @@ pipeline {
                 script {
                     echo "=== Merging upstream/${GIT_UPSTREAM_BRANCH} into ${GIT_LOCAL_BRANCH} ==="
                     sh """
-                        git merge upstream/${GIT_UPSTREAM_BRANCH}
+                        git merge upstream/${GIT_UPSTREAM_BRANCH} --no-edit
                         echo "✅ Successfully merged upstream/${GIT_UPSTREAM_BRANCH}"
                     """
                 }
