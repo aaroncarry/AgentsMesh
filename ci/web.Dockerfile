@@ -7,8 +7,8 @@ FROM ${REGISTRY_PREFIX}node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+# Copy package files from web subdirectory
+COPY web/package.json web/package-lock.json* web/yarn.lock* web/pnpm-lock.yaml* ./
 
 # Install dependencies
 RUN \
@@ -26,7 +26,8 @@ WORKDIR /app
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy web source code
+COPY web/ .
 
 # Build-time environment variables for Next.js
 # Use placeholders that will be replaced at runtime by docker-entrypoint.sh
@@ -69,8 +70,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
+# Copy entrypoint script from web subdirectory
+COPY --chown=nextjs:nodejs web/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user

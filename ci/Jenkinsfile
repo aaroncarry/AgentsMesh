@@ -1,0 +1,202 @@
+#!/usr/bin/env groovy
+
+/**
+ * Jenkins Pipeline for AgentsMesh Docker Image Build & Push
+ * 
+ * This pipeline:
+ * 1. Clones the repository from GitLab
+ * 2. Builds Docker images for backend, relay, web, and web-admin
+ * 3. Pushes images to Harbor registry (harbor-xmn.int.rclabenv.com/agentsmesh)
+ * 
+ * Required Jenkins Credentials:
+ * - 'harbor-credentials': Username/Password credential for Harbor registry
+ * 
+ * Environment Variables:
+ * - HARBOR_REGISTRY: Harbor registry URL (default: harbor-xmn.int.rclabenv.com)
+ * - HARBOR_PROJECT: Harbor project name (default: agentsmesh)
+ * - GIT_REPO: Git repository URL
+ * - GIT_BRANCH: Git branch to build (default: main)
+ */
+
+String getBuildUser() {
+  def cause = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')
+  if (cause && cause.userId) {
+    return cause.userId[0]
+  }
+  return "unknown"
+}
+
+currentBuild.setDescription("triggered by " + getBuildUser())
+
+pipeline {
+    agent {
+        node {
+            label "${params.NODE}"
+        }
+    }
+    
+    environment {
+        // Registry configuration
+        HARBOR_REGISTRY = 'harbor-xmn.int.rclabenv.com'
+        HARBOR_PROJECT = 'agentsmesh'
+        
+        // Git configuration
+        GIT_REPO = 'git@git.ringcentral.com:ai-testing/AgentsMesh.git'
+        GIT_BRANCH = "${params.NODE}"
+        
+        // Docker build configuration
+        REGISTRY_PREFIX = ''
+        GO_VERSION = '1.25'
+        GOPROXY = 'https://proxy.golang.org,direct'
+        NPM_REGISTRY = ''
+        
+        // Image tags
+        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
+    }
+    
+    stages {
+        // stage('Checkout') {
+        //     steps {
+        //         script {
+        //             echo "=== Cloning repository from ${GIT_REPO} (branch: ${GIT_BRANCH}) ==="
+        //             checkout([
+        //                 $class: 'GitSCM',
+        //                 branches: [[name: "*/${GIT_BRANCH}"]],
+        //                 userRemoteConfigs: [[url: GIT_REPO]]
+        //             ])
+                    
+        //             // Update GIT_COMMIT_SHORT after checkout
+        //             env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        //             env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                    
+        //             echo "Image tag will be: ${IMAGE_TAG}"
+        //         }
+        //     }
+        // }
+        
+        stage('Docker Login') {
+            steps {
+                script {
+                    echo "=== Logging in to Harbor registry ==="
+                    withCredentials([usernamePassword(
+                        credentialsId: 'harbor-credentials',
+                        usernameVariable: 'HARBOR_USER',
+                        passwordVariable: 'HARBOR_PASS'
+                    )]) {
+                        sh """
+                            echo "\${HARBOR_PASS}" | docker login -u "\${HARBOR_USER}" --password-stdin ${HARBOR_REGISTRY}
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Build & Push Backend') {
+            steps {
+                script {
+                    echo "=== Building Backend image ==="
+                    buildAndPushImage('backend', 'ci/backend.Dockerfile')
+                }
+            }
+        }
+
+        stage('Build & Push Relay') {
+            steps {
+                script {
+                    echo "=== Building Relay image ==="
+                    buildAndPushImage('relay', 'ci/relay.Dockerfile')
+                }
+            }
+        }
+
+        stage('Build & Push Web') {
+            steps {
+                script {
+                    echo "=== Building Web image ==="
+                    buildAndPushImage('web', 'ci/web.Dockerfile')
+                }
+            }
+        }
+
+        stage('Build & Push Web-Admin') {
+            steps {
+                script {
+                    echo "=== Building Web-Admin image ==="
+                    buildAndPushImage('web-admin', 'ci/web-admin.Dockerfile')
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo """
+=== ✅ Build Successful ===
+All images have been built and pushed to Harbor:
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:${IMAGE_TAG}
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:latest
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:${IMAGE_TAG}
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:latest
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:${IMAGE_TAG}
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:latest
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:${IMAGE_TAG}
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:latest
+"""
+        }
+        failure {
+            echo "=== ❌ Build Failed ==="
+        }
+        always {
+            script {
+                echo "=== Cleaning up ==="
+                sh "docker logout ${HARBOR_REGISTRY} || true"
+            }
+        }
+    }
+}
+
+/**
+ * Build and push Docker image
+ * @param component Component name (backend, relay, web, web-admin)
+ * @param dockerfile Dockerfile path relative to project root
+ */
+def buildAndPushImage(String component, String dockerfile) {
+    def imageName = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${component}"
+    def buildContext = '.'
+
+    try {
+        // Build image with version tag
+        echo "Building ${component} image..."
+        sh """
+            docker build \
+                -f ${dockerfile} \
+                -t ${imageName}:${IMAGE_TAG} \
+                ${buildContext}
+        """
+
+        // Tag with 'latest'
+        echo "Tagging ${component} image as latest..."
+        sh "docker tag ${imageName}:${IMAGE_TAG} ${imageName}:latest"
+
+        // Push version tag
+        echo "Pushing ${component}:${IMAGE_TAG} to Harbor..."
+        sh "docker push ${imageName}:${IMAGE_TAG}"
+
+        // Push latest tag
+        echo "Pushing ${component}:latest to Harbor..."
+        sh "docker push ${imageName}:latest"
+
+        echo "✅ ${component} image successfully built and pushed"
+
+    } catch (Exception e) {
+        echo "❌ Failed to build/push ${component} image: ${e.message}"
+        throw e
+    } finally {
+        // Clean up local images to save disk space
+        sh """
+            docker rmi ${imageName}:${IMAGE_TAG} || true
+            docker rmi ${imageName}:latest || true
+        """
+    }
+}

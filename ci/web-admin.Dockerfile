@@ -7,8 +7,8 @@ FROM ${REGISTRY_PREFIX}node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy package files from web-admin subdirectory
+COPY web-admin/package.json web-admin/pnpm-lock.yaml ./
 
 # NPM registry (override via --build-arg for faster downloads in specific regions)
 ARG NPM_REGISTRY=
@@ -24,7 +24,8 @@ WORKDIR /app
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy web-admin source code
+COPY web-admin/ .
 
 # Build-time environment variables for Next.js
 # Use placeholders that will be replaced at runtime by docker-entrypoint.sh
@@ -59,8 +60,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/docker-entrypoint.sh
+# Copy entrypoint script from web-admin subdirectory
+COPY --chown=nextjs:nodejs web-admin/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user
