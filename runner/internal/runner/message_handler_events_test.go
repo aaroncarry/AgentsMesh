@@ -55,7 +55,7 @@ func TestSendPodTerminated(t *testing.T) {
 
 	// Production code calls h.conn.SendPodTerminated directly (with exitCode and earlyOutput).
 	// Test the same path used by createExitHandler and OnTerminatePod.
-	if err := handler.conn.SendPodTerminated("pod-1", 0, ""); err != nil {
+	if err := handler.conn.SendPodTerminated("pod-1", 0, "", "completed"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -175,7 +175,7 @@ func TestCreatePTYErrorHandler(t *testing.T) {
 	pod := &Pod{
 		ID:         "pty-error-pod",
 		Status:     PodStatusRunning,
-		Aggregator: aggregator.NewSmartAggregator(nil, nil),
+		Aggregator: aggregator.NewSmartAggregator(nil),
 	}
 
 	ptyErrorHandler := handler.createPTYErrorHandler("pty-error-pod", pod)
@@ -292,7 +292,7 @@ func TestCreateExitHandler_EarlyOutputTakesPriority(t *testing.T) {
 	pod := &Pod{
 		ID:         "priority-pod",
 		Status:     PodStatusRunning,
-		Aggregator: aggregator.NewSmartAggregator(nil, nil),
+		Aggregator: aggregator.NewSmartAggregator(nil),
 	}
 	pod.SetPTYError("PTY read error: something")
 	store.Put("priority-pod", pod)
@@ -300,9 +300,7 @@ func TestCreateExitHandler_EarlyOutputTakesPriority(t *testing.T) {
 	exitHandler := handler.createExitHandler("priority-pod")
 	exitHandler(1)
 
-	// When early output is empty (relay was connected), PTY error should be used.
-	// The aggregator's DrainEarlyBuffer returns empty because relay was "connected"
-	// (no early buffer data), so PTY error should be the fallback.
+	// When there is no early output, PTY error should be used as the fallback.
 	events := mockConn.GetEvents()
 	for _, e := range events {
 		if e.Type == client.MsgTypePodTerminated {

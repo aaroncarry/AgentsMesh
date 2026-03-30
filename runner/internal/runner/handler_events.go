@@ -106,7 +106,8 @@ func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 			h.runner.RemoveAutopilot(ac.Key())
 		}
 
-		var earlyOutput string
+		var errorMsg string
+		var podStatus string
 
 		pod.SetStatus(PodStatusStopped)
 
@@ -119,27 +120,26 @@ func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 		// when closed, causing silent data loss).
 		if pod.Aggregator != nil {
 			pod.Aggregator.Stop()
-
-			// Retrieve any early output that was buffered before the relay connected.
-			// This captures error messages from fast-exiting processes.
-			// Must be outside PTYLogger check — PTYLogger is nil in most
-			// production environments, but early output must still be captured.
-			if buf := pod.Aggregator.DrainEarlyBuffer(); len(buf) > 0 {
-				earlyOutput = string(buf)
-				log.Info("Captured early output from fast-exiting process",
-					"pod_key", podKey, "bytes", len(buf))
-			}
 		}
 		if pod.PTYLogger != nil {
 			pod.PTYLogger.Close()
 		}
 
-		// If a PTY error was recorded (e.g., disk full causing I/O error),
-		// use it as the error message so the backend sets error status.
-		if ptyErr := pod.GetPTYError(); ptyErr != "" && earlyOutput == "" {
-			earlyOutput = ptyErr
-			log.Info("Using stored PTY error as termination reason",
-				"pod_key", podKey, "error", ptyErr)
+		// Runner owns the status decision.
+		// Exit code conventions (Unix):
+		//   0       = success → completed
+		//   1-127   = process-reported error → error
+		//   >= 128  = killed by signal (128 + signal number) → completed
+		podStatus = "completed"
+		if exitCode > 0 && exitCode < 128 {
+			podStatus = "error"
+			errorMsg = fmt.Sprintf("process exited with code %d", exitCode)
+		}
+
+		// PTY error takes precedence (e.g., disk full causing I/O error).
+		if ptyErr := pod.GetPTYError(); ptyErr != "" {
+			podStatus = "error"
+			errorMsg = ptyErr
 		}
 
 		pod.DisconnectRelay()
@@ -160,10 +160,9 @@ func (h *RunnerMessageHandler) createExitHandler(podKey string) func(int) {
 			agentMon.UnregisterPod(podKey)
 		}
 
-		// Include early output or PTY error in the termination event so the
-		// backend can display why the process failed and set error status.
+		// Send termination event with Runner-decided status.
 		if h.conn != nil {
-			if err := h.conn.SendPodTerminated(podKey, int32(exitCode), earlyOutput); err != nil {
+			if err := h.conn.SendPodTerminated(podKey, int32(exitCode), errorMsg, podStatus); err != nil {
 				log.Error("Failed to send pod terminated event", "error", err)
 			}
 		}

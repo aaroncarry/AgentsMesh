@@ -273,17 +273,8 @@ func (h *RunnerMessageHandler) OnTerminatePod(req client.TerminatePodRequest) er
 	// Stop aggregator BEFORE disconnecting relay, so the final flush
 	// can still be sent through the relay (matches createExitHandler order).
 	// Close PTYLogger AFTER Aggregator.Stop() to avoid silent data loss.
-	var earlyOutput string
 	if pod.Aggregator != nil {
 		pod.Aggregator.Stop()
-
-		// Drain early output buffered before relay connected (matches createExitHandler).
-		// Without this, error messages from fast-exiting processes are silently lost.
-		if buf := pod.Aggregator.DrainEarlyBuffer(); len(buf) > 0 {
-			earlyOutput = string(buf)
-			log.Info("Drained early output on terminate",
-				"pod_key", req.PodKey, "bytes", len(buf))
-		}
 	}
 	if pod.PTYLogger != nil {
 		pod.PTYLogger.Close()
@@ -305,10 +296,16 @@ func (h *RunnerMessageHandler) OnTerminatePod(req client.TerminatePodRequest) er
 		agentMon.UnregisterPod(req.PodKey)
 	}
 
-	// Include early output in the termination event so the backend can
-	// display why the process failed (matches createExitHandler behavior).
+	// Server-initiated termination: Runner decides final status.
+	// Default is completed, unless a PTY error was recorded during runtime.
+	var errorMsg string
+	podStatus := "completed"
+	if ptyErr := pod.GetPTYError(); ptyErr != "" {
+		podStatus = "error"
+		errorMsg = ptyErr
+	}
 	if h.conn != nil {
-		if err := h.conn.SendPodTerminated(req.PodKey, 0, earlyOutput); err != nil {
+		if err := h.conn.SendPodTerminated(req.PodKey, 0, errorMsg, podStatus); err != nil {
 			log.Error("Failed to send pod terminated event", "error", err)
 		}
 	}

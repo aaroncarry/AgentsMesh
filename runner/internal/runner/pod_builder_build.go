@@ -108,7 +108,7 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 	}
 
 	// Create SmartAggregator for adaptive frame rate output
-	agg := aggregator.NewSmartAggregator(nil, nil,
+	agg := aggregator.NewSmartAggregator(nil,
 		aggregator.WithFullRedrawThrottling(),
 	)
 

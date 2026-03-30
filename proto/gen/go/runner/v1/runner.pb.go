@@ -1020,7 +1020,8 @@ type PodTerminatedEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PodKey        string                 `protobuf:"bytes,1,opt,name=pod_key,json=podKey,proto3" json:"pod_key,omitempty"`
 	ExitCode      int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"` // Diagnostic info for display (not used for status decision)
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`                                 // "completed" or "error" — decided by Runner
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1072,6 +1073,13 @@ func (x *PodTerminatedEvent) GetExitCode() int32 {
 func (x *PodTerminatedEvent) GetErrorMessage() string {
 	if x != nil {
 		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *PodTerminatedEvent) GetStatus() string {
+	if x != nil {
+		return x.Status
 	}
 	return ""
 }
@@ -5494,11 +5502,12 @@ const file_runner_v1_runner_proto_rawDesc = "" +
 	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12!\n" +
 	"\fsandbox_path\x18\x03 \x01(\tR\vsandboxPath\x12\x1f\n" +
 	"\vbranch_name\x18\x04 \x01(\tR\n" +
-	"branchName\"o\n" +
+	"branchName\"\x87\x01\n" +
 	"\x12PodTerminatedEvent\x12\x17\n" +
 	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12#\n" +
-	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\"B\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"B\n" +
 	"\x13TerminalOutputEvent\x12\x17\n" +
 	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\"C\n" +
