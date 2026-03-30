@@ -56,8 +56,8 @@ pipeline {
             description: 'Local branch to sync to'
         )
         string(
-            name: 'GIT_CREDENTIAL_ID', // GitLab API Key(gitjenkins.xiamen)
-            defaultValue: '1ad0dc7d-224c-4d49-b987-5f03fe68355c',
+            name: 'GIT_CREDENTIAL_ID',
+            defaultValue: 'gitjenkins.xiamen',
             description: 'Jenkins SSH credential ID for Git push'
         )
     }
