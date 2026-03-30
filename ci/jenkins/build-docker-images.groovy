@@ -2,15 +2,15 @@
 
 /**
  * Jenkins Pipeline for AgentsMesh Docker Image Build & Push
- * 
+ *
  * This pipeline:
  * 1. Clones the repository from GitLab
- * 2. Builds Docker images for backend, relay, web, and web-admin
+ * 2. Builds Docker images for backend, relay, web, web-admin, and rc-runner
  * 3. Pushes images to Harbor registry (harbor-xmn.int.rclabenv.com/agentsmesh)
- * 
+ *
  * Required Jenkins Credentials:
  * - 'harbor-credentials': Username/Password credential for Harbor registry
- * 
+ *
  * Environment Variables:
  * - HARBOR_REGISTRY: Harbor registry URL (default: harbor-xmn.int.rclabenv.com)
  * - HARBOR_PROJECT: Harbor project name (default: agentsmesh)
@@ -110,6 +110,15 @@ pipeline {
                 }
             }
         }
+
+        stage('Build & Push RC-Runner') {
+            steps {
+                script {
+                    echo "=== Building RC-Runner image ==="
+                    buildAndPushImage('rc-runner', 'ci/rc-runner.Dockerfile')
+                }
+            }
+        }
     }
     
     post {
@@ -125,6 +134,8 @@ All images have been built and pushed to Harbor:
   - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:latest
   - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:${IMAGE_TAG}
   - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:latest
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:${IMAGE_TAG}
+  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:latest
 """
         }
         failure {
@@ -141,7 +152,7 @@ All images have been built and pushed to Harbor:
 
 /**
  * Build and push Docker image
- * @param component Component name (backend, relay, web, web-admin)
+ * @param component Component name (backend, relay, web, web-admin, rc-runner)
  * @param dockerfile Dockerfile path relative to project root
  */
 def buildAndPushImage(String component, String dockerfile) {
