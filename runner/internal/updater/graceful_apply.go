@@ -51,12 +51,15 @@ func (g *GracefulUpdater) executeUpdate(ctx context.Context) error {
 	if g.restartFunc != nil {
 		pid, err := g.restartFunc()
 		if err != nil {
-			log.Printf("[updater] Restart failed, attempting rollback: %v", err)
-			if rbErr := g.rollbackUpdate(backupPath); rbErr != nil {
-				log.Printf("[updater] Rollback also failed: %v", rbErr)
-			}
-			g.setState(StateIdle)
-			return fmt.Errorf("restart failed: %w", err)
+			// The binary on disk is already updated. If we can't restart
+			// in-process (e.g., /proc/self/exe points to a deleted .old file),
+			// exit so the service manager (systemd) restarts us with the new
+			// binary. Rolling back here would leave the old version running
+			// permanently since subsequent upgrade attempts also fail once
+			// /proc/self/exe is stale.
+			log.Printf("[updater] Restart failed after successful update: %v", err)
+			log.Printf("[updater] Exiting so the service manager restarts with the new binary")
+			g.exitFunc(0)
 		}
 
 		// Health check if configured
