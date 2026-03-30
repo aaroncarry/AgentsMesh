@@ -47,10 +47,11 @@ func TestGracefulUpdater_ApplyUpdate_WithMock_RestartError_ExitsForServiceManage
 	g.pendingInfo = &UpdateInfo{LatestVersion: "v2.0.0", CurrentVersion: "v1.0.0"}
 	g.mu.Unlock()
 
-	// executeUpdate should call exitFunc(0) after successful update + failed restart.
+	// executeUpdate should call exitFunc(1) after successful update + failed restart.
+	// Non-zero exit code ensures systemd Restart=on-failure triggers a restart.
 	_ = g.executeUpdate(context.Background())
 	assert.True(t, exited, "expected process to exit after restart failure")
-	assert.Equal(t, 0, exitCode, "expected clean exit (code 0) so service manager restarts")
+	assert.Equal(t, 1, exitCode, "expected non-zero exit so service manager restarts")
 }
 
 func TestGracefulUpdater_ApplyUpdate_WithMock_BackupFails(t *testing.T) {
