@@ -133,9 +133,9 @@ pipeline {
         stage('Checkout Local Branch') {
             steps {
                 script {
-                    echo "=== Checking out ${GIT_LOCAL_BRANCH} ==="
+                    echo "=== Checking out origin/${GIT_LOCAL_BRANCH} ==="
                     sh """
-                        git checkout ${GIT_LOCAL_BRANCH}
+                        git checkout origin/${GIT_LOCAL_BRANCH}
                         git status
                     """
                 }
