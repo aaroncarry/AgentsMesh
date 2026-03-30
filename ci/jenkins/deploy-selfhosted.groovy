@@ -42,9 +42,9 @@ pipeline {
     }
 
     parameters {
-        string(
+        choice(
             name: 'NODE',
-            defaultValue: 'aqa01-i01-jpt44.int.rclabenv.com',
+            choices: ['aqa01-i01-jpt44.int.rclabenv.com', 'aqa01-i01-xta01.int.rclabenv.com'],
             description: 'Jenkins node label to run the pipeline'
         )
         string(
