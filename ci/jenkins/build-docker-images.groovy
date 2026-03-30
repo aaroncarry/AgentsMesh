@@ -48,27 +48,16 @@ pipeline {
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         IMAGE_TAG = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
     }
+
+    parameters {
+        string(
+            name: 'NODE',
+            defaultValue: 'aqa01-i01-jpt44.int.rclabenv.com',
+            description: 'Jenkins node label to run the pipeline'
+        )
+    }
     
     stages {
-        // stage('Checkout') {
-        //     steps {
-        //         script {
-        //             echo "=== Cloning repository from ${GIT_REPO} (branch: ${GIT_BRANCH}) ==="
-        //             checkout([
-        //                 $class: 'GitSCM',
-        //                 branches: [[name: "*/${GIT_BRANCH}"]],
-        //                 userRemoteConfigs: [[url: GIT_REPO]]
-        //             ])
-                    
-        //             // Update GIT_COMMIT_SHORT after checkout
-        //             env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-        //             env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
-                    
-        //             echo "Image tag will be: ${IMAGE_TAG}"
-        //         }
-        //     }
-        // }
-        
         stage('Docker Login') {
             steps {
                 script {
