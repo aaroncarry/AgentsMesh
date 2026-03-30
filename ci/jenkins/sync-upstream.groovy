@@ -42,7 +42,7 @@ pipeline {
         )
         string(
             name: 'UPSTREAM_URL',
-            defaultValue: 'https://github.com/AgentMesh/AgentsMesh.git',
+            defaultValue: 'https://github.com/AgentsMesh/AgentsMesh.git',
             description: 'Upstream repository URL'
         )
         string(
