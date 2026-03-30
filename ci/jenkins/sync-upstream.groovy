@@ -159,7 +159,7 @@ pipeline {
                 script {
                     echo "=== Pushing ${GIT_LOCAL_BRANCH} to origin ==="
                     sh """
-                        git push origin ${GIT_LOCAL_BRANCH}
+                        git push origin origin/${GIT_LOCAL_BRANCH}
                         echo "✅ Successfully pushed to origin/${GIT_LOCAL_BRANCH}"
                     """
                 }
