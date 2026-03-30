@@ -77,6 +77,8 @@ pipeline {
 
                     // Display current remotes
                     sh '''
+                        echo "Current Git user:"
+                        git config user.name
                         echo "Current Git remotes:"
                         git remote -v || true
                     '''
