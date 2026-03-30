@@ -55,6 +55,11 @@ pipeline {
             defaultValue: 'main',
             description: 'Local branch to sync to'
         )
+        string(
+            name: 'GIT_CREDENTIAL_ID', // GitLab API Key(gitjenkins.xiamen)
+            defaultValue: '1ad0dc7d-224c-4d49-b987-5f03fe68355c',
+            description: 'Jenkins SSH credential ID for Git push'
+        )
     }
 
     environment {
@@ -164,10 +169,20 @@ pipeline {
             steps {
                 script {
                     echo "=== Pushing ${GIT_LOCAL_BRANCH} to origin ==="
-                    sh """
-                        git push origin ${GIT_LOCAL_BRANCH}
-                        echo "✅ Successfully pushed to origin/${GIT_LOCAL_BRANCH}"
-                    """
+                    // Use sshagent to provide SSH credentials for git push
+                    sshagent(credentials: ["${params.GIT_CREDENTIAL_ID}"]) {
+                        sh """
+                            # Verify SSH key is loaded
+                            ssh-add -l || echo "Warning: No SSH keys found"
+
+                            # Ensure origin remote uses SSH URL
+                            git remote set-url origin ${GIT_REPO}
+
+                            # Push to origin
+                            git push origin ${GIT_LOCAL_BRANCH}
+                            echo "✅ Successfully pushed to origin/${GIT_LOCAL_BRANCH}"
+                        """
+                    }
                 }
             }
         }
