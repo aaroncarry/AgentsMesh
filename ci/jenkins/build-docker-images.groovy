@@ -66,7 +66,7 @@ pipeline {
         )
         string(
             name: 'BRANCH',
-            defaultValue: 'main',
+            defaultValue: 'rc',
             description: 'Git branch to build'
         )
         booleanParam(
