@@ -88,7 +88,7 @@ services:
     environment:
       # Domain Configuration
       - PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
-      - USE_HTTPS=false
+      - USE_HTTPS=true
       # Database
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -154,7 +154,7 @@ services:
     environment:
       - NODE_ENV=production
       - PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
-      - USE_HTTPS=false
+      - USE_HTTPS=true
       - POSTHOG_KEY=${POSTHOG_KEY:-}
       - POSTHOG_HOST=${POSTHOG_HOST:-}
     ports:
@@ -178,7 +178,7 @@ services:
     environment:
       - NODE_ENV=production
       - PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
-      - USE_HTTPS=false
+      - USE_HTTPS=true
     ports:
       - 3001:3001
     healthcheck:
@@ -208,7 +208,7 @@ services:
       - RELAY_REGION=local
       - RELAY_CAPACITY=1000
       - PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
-      - USE_HTTPS=false
+      - USE_HTTPS=true
       - SESSION_KEEP_ALIVE_DURATION=30s
       - DEBUG=false
     ports:
