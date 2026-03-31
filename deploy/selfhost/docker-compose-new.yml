@@ -1,9 +1,8 @@
 # =============================================================================
-# AgentsMesh Self-Hosted Docker Compose (with Nginx Frontend)
+# AgentsMesh Self-Hosted Docker Compose (Nginx Version)
 # =============================================================================
 #
-# Self-hosted deployment using Docker Hub images with Nginx as frontend proxy.
-# Architecture: Client -> Nginx -> Traefik -> Backend Services
+# Self-hosted deployment using Docker Hub images with Nginx reverse proxy.
 #
 # Quick Start:
 #   ./scripts/install.sh --host 192.168.1.100
@@ -209,23 +208,7 @@ services:
       start_period: 10s
 
   # ===========================================================================
-  # Traefik Reverse Proxy (Internal Router)
-  # ===========================================================================
-  traefik:
-    image: traefik:v3.2
-    restart: unless-stopped
-    volumes:
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/dynamic:/etc/traefik/dynamic:ro
-    # Note: Ports are NOT exposed externally, only to nginx
-    expose:
-      - "8088"   # HTTP (accessed by nginx)
-      - "9443"   # gRPC (accessed by nginx)
-    depends_on:
-      - backend
-
-  # ===========================================================================
-  # Nginx Frontend Proxy
+  # Nginx Reverse Proxy
   # ===========================================================================
   nginx:
     image: nginx:1.27-alpine
@@ -233,14 +216,17 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      # HTTP entrypoint (external access)
+      # HTTP entrypoint
       - "${HTTP_PORT:-80}:80"
-      # gRPC + mTLS port for Runner connections (external access)
+      # gRPC + mTLS port for Runner connections
       - "${GRPC_PORT:-9443}:9443"
     depends_on:
-      - traefik
+      - backend
+      - web
+      - web-admin
+      - relay
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/nginx-health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 3s
       retries: 3
