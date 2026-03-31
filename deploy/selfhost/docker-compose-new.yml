@@ -26,6 +26,8 @@ services:
       POSTGRES_DB: agentsmesh
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      5432:5432
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U agentsmesh"]
       interval: 10s
@@ -41,6 +43,8 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    ports:
+      - 6379:6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -128,6 +132,9 @@ services:
       - ADMIN_ENABLED=true
     volumes:
       - ./ssl:/app/ssl:ro
+    ports:
+      - 8080:8080
+      - 9090:9090
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -150,6 +157,8 @@ services:
       - USE_HTTPS=false
       - POSTHOG_KEY=${POSTHOG_KEY:-}
       - POSTHOG_HOST=${POSTHOG_HOST:-}
+    ports:
+      - 3000:3000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 30s
@@ -170,6 +179,8 @@ services:
       - NODE_ENV=production
       - PRIMARY_DOMAIN=${PRIMARY_DOMAIN}
       - USE_HTTPS=false
+    ports:
+      - 3001:3001
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/admin"]
       interval: 30s
@@ -200,6 +211,8 @@ services:
       - USE_HTTPS=false
       - SESSION_KEEP_ALIVE_DURATION=30s
       - DEBUG=false
+    ports:
+      - 8090:8090
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
       interval: 30s
