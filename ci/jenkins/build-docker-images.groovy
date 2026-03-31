@@ -5,17 +5,26 @@
  *
  * This pipeline:
  * 1. Clones the repository from GitLab
- * 2. Builds Docker images for backend, relay, web, web-admin, and rc-runner
+ * 2. Builds Docker images for backend, relay, web, web-admin, and rc-runner (selectable)
  * 3. Pushes images to Harbor registry (harbor-xmn.int.rclabenv.com/agentsmesh)
  *
  * Required Jenkins Credentials:
  * - 'harbor-credentials': Username/Password credential for Harbor registry
  *
+ * Parameters:
+ * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
+ * - BRANCH: Git branch to build (default: main)
+ * - BUILD_BACKEND: Whether to build Backend image (default: true)
+ * - BUILD_RELAY: Whether to build Relay image (default: true)
+ * - BUILD_WEB: Whether to build Web image (default: true)
+ * - BUILD_WEB_ADMIN: Whether to build Web-Admin image (default: true)
+ * - BUILD_RC_RUNNER: Whether to build RC-Runner image (default: true)
+ *
  * Environment Variables:
  * - HARBOR_REGISTRY: Harbor registry URL (default: harbor-xmn.int.rclabenv.com)
  * - HARBOR_PROJECT: Harbor project name (default: agentsmesh)
  * - GIT_REPO: Git repository URL
- * - GIT_BRANCH: Git branch to build (default: main)
+ * - GIT_BRANCH: Git branch to build (from BRANCH parameter)
  */
 
 String getBuildUser() {
@@ -55,6 +64,36 @@ pipeline {
             defaultValue: 'aqa01-i01-jpt44.int.rclabenv.com',
             description: 'Jenkins node label to run the pipeline'
         )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'main',
+            description: 'Git branch to build'
+        )
+        booleanParam(
+            name: 'BUILD_BACKEND',
+            defaultValue: true,
+            description: 'Build Backend image'
+        )
+        booleanParam(
+            name: 'BUILD_RELAY',
+            defaultValue: true,
+            description: 'Build Relay image'
+        )
+        booleanParam(
+            name: 'BUILD_WEB',
+            defaultValue: true,
+            description: 'Build Web image'
+        )
+        booleanParam(
+            name: 'BUILD_WEB_ADMIN',
+            defaultValue: true,
+            description: 'Build Web-Admin image'
+        )
+        booleanParam(
+            name: 'BUILD_RC_RUNNER',
+            defaultValue: true,
+            description: 'Build RC-Runner image'
+        )
     }
     
     stages {
@@ -76,6 +115,9 @@ pipeline {
         }
         
         stage('Build & Push Backend') {
+            when {
+                expression { params.BUILD_BACKEND == true }
+            }
             steps {
                 script {
                     echo "=== Building Backend image ==="
@@ -85,6 +127,9 @@ pipeline {
         }
 
         stage('Build & Push Relay') {
+            when {
+                expression { params.BUILD_RELAY == true }
+            }
             steps {
                 script {
                     echo "=== Building Relay image ==="
@@ -94,6 +139,9 @@ pipeline {
         }
 
         stage('Build & Push Web') {
+            when {
+                expression { params.BUILD_WEB == true }
+            }
             steps {
                 script {
                     echo "=== Building Web image ==="
@@ -103,6 +151,9 @@ pipeline {
         }
 
         stage('Build & Push Web-Admin') {
+            when {
+                expression { params.BUILD_WEB_ADMIN == true }
+            }
             steps {
                 script {
                     echo "=== Building Web-Admin image ==="
@@ -112,6 +163,9 @@ pipeline {
         }
 
         stage('Build & Push RC-Runner') {
+            when {
+                expression { params.BUILD_RC_RUNNER == true }
+            }
             steps {
                 script {
                     echo "=== Building RC-Runner image ==="
@@ -123,20 +177,36 @@ pipeline {
     
     post {
         success {
-            echo """
+            script {
+                def builtImages = []
+                if (params.BUILD_BACKEND) {
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:${IMAGE_TAG}"
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:latest"
+                }
+                if (params.BUILD_RELAY) {
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:${IMAGE_TAG}"
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:latest"
+                }
+                if (params.BUILD_WEB) {
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:${IMAGE_TAG}"
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:latest"
+                }
+                if (params.BUILD_WEB_ADMIN) {
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:${IMAGE_TAG}"
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:latest"
+                }
+                if (params.BUILD_RC_RUNNER) {
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:${IMAGE_TAG}"
+                    builtImages << "  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:latest"
+                }
+
+                def message = """
 === ✅ Build Successful ===
-All images have been built and pushed to Harbor:
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:${IMAGE_TAG}
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/backend:latest
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:${IMAGE_TAG}
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/relay:latest
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:${IMAGE_TAG}
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web:latest
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:${IMAGE_TAG}
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/web-admin:latest
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:${IMAGE_TAG}
-  - ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/rc-runner:latest
+The following images have been built and pushed to Harbor:
+${builtImages.join('\n')}
 """
+                echo message
+            }
         }
         failure {
             echo "=== ❌ Build Failed ==="
