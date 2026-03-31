@@ -234,6 +234,7 @@ def buildAndPushImage(String component, String dockerfile) {
         echo "Building ${component} image..."
         sh """
             docker build \
+                --no-cache \
                 -f ${dockerfile} \
                 -t ${imageName}:${IMAGE_TAG} \
                 ${buildContext}
