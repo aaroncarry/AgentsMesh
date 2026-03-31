@@ -8,7 +8,7 @@ api:
 
 entryPoints:
   web:
-    address: ":80"
+    address: ":8088"
   grpc:
     address: ":9443"
 

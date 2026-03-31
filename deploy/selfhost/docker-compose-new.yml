@@ -219,7 +219,7 @@ services:
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
     # Note: Ports are NOT exposed externally, only to nginx
     expose:
-      - "80"   # HTTP (accessed by nginx)
+      - "8088"   # HTTP (accessed by nginx)
       - "9443"   # gRPC (accessed by nginx)
     depends_on:
       - backend
