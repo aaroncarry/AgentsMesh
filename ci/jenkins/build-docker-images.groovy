@@ -13,12 +13,13 @@
  *
  * Parameters:
  * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
- * - BRANCH: Git branch to build (default: main)
+ * - BRANCH: Git branch to build (default: rc)
  * - BUILD_BACKEND: Whether to build Backend image (default: true)
  * - BUILD_RELAY: Whether to build Relay image (default: true)
  * - BUILD_WEB: Whether to build Web image (default: true)
  * - BUILD_WEB_ADMIN: Whether to build Web-Admin image (default: true)
  * - BUILD_RC_RUNNER: Whether to build RC-Runner image (default: true)
+ * - NO_CACHE: Build without using Docker cache (default: true)
  *
  * Environment Variables:
  * - HARBOR_REGISTRY: Harbor registry URL (default: harbor-xmn.int.rclabenv.com)
@@ -93,6 +94,11 @@ pipeline {
             name: 'BUILD_RC_RUNNER',
             defaultValue: true,
             description: 'Build RC-Runner image'
+        )
+        booleanParam(
+            name: 'NO_CACHE',
+            defaultValue: true,
+            description: 'Build without using Docker cache (--no-cache)'
         )
     }
     
@@ -228,13 +234,14 @@ ${builtImages.join('\n')}
 def buildAndPushImage(String component, String dockerfile) {
     def imageName = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${component}"
     def buildContext = '.'
+    def noCacheFlag = params.NO_CACHE ? '--no-cache' : ''
 
     try {
         // Build image with version tag
         echo "Building ${component} image..."
         sh """
             docker build \
-                --no-cache \
+                ${noCacheFlag} \
                 -f ${dockerfile} \
                 -t ${imageName}:${IMAGE_TAG} \
                 ${buildContext}
