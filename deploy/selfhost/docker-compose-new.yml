@@ -228,6 +228,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs/:/etc/nginx/certs/:ro
     ports:
       # HTTP entrypoint
       - "${HTTP_PORT:-80}:80"
