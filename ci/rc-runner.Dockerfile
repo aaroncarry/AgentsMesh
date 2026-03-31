@@ -7,7 +7,7 @@ ENV HOME=/home/node
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     build-essential \
-    python3 python3-pip python3-dev python-is-python3\
+    python3 python3-pip python3-dev python-is-python3 \
     git curl bash netcat-openbsd \
     openssh-client \
     chromium \
@@ -16,6 +16,14 @@ RUN apt-get update && apt-get install -y \
     libnss3 \
     libfreetype6 \
     libharfbuzz0b \
+    libvulkan1 \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Install Google Chrome ──────────────────────────────────────
+RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb \
+    && apt-get install -y /tmp/chrome.deb \
+    && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
 # ============================================
@@ -76,6 +84,9 @@ RUN set -eux; \
 
 USER node
 WORKDIR /workspace
+
+# ── Install Playwright Chromium (as node user) ─────────────────
+RUN npx playwright install chromium
 
 # Keep container running for exec-based CLI usage
 CMD ["sleep", "infinity"]
