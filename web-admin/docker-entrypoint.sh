@@ -15,7 +15,7 @@ set -e
 echo "Injecting runtime environment variables..."
 
 # Find and replace in .next directory
-find /app/.next -type f -name "*.js" -exec sed -i \
+find /app/.next -type f -name "*.json" -exec sed -i \
   -e "s|__PRIMARY_DOMAIN__|${PRIMARY_DOMAIN:-}|g" \
   -e "s|__USE_HTTPS__|${USE_HTTPS:-false}|g" \
   {} \;
