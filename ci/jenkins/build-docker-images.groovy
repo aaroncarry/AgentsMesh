@@ -70,6 +70,13 @@ pipeline {
             defaultValue: 'rc',
             description: 'Git branch to build'
         )
+        extendedChoice(
+            name: '',
+            description: '------------------------------ Docker Images To Build ------------------------------',
+            type: 'PT_SINGLE_SELECT',
+            value: '',
+            visibleItemCount: 1
+        )
         booleanParam(
             name: 'BUILD_BACKEND',
             defaultValue: true,
@@ -94,6 +101,13 @@ pipeline {
             name: 'BUILD_RC_RUNNER',
             defaultValue: true,
             description: 'Build RC-Runner image'
+        )
+        extendedChoice(
+            name: '',
+            description: '------------------------------ Docker Image Build Options ------------------------------',
+            type: 'PT_SINGLE_SELECT',
+            value: '',
+            visibleItemCount: 1
         )
         booleanParam(
             name: 'NO_CACHE',
