@@ -73,9 +73,6 @@ pipeline {
         extendedChoice(
             name: '',
             description: '------------------------------ Docker Images To Build ------------------------------',
-            type: 'PT_SINGLE_SELECT',
-            value: '',
-            visibleItemCount: 1
         )
         booleanParam(
             name: 'BUILD_BACKEND',
@@ -105,9 +102,6 @@ pipeline {
         extendedChoice(
             name: '',
             description: '------------------------------ Docker Image Build Options ------------------------------',
-            type: 'PT_SINGLE_SELECT',
-            value: '',
-            visibleItemCount: 1
         )
         booleanParam(
             name: 'NO_CACHE',
