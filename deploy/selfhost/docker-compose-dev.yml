@@ -78,7 +78,7 @@ services:
   # Backend API Server
   # ===========================================================================
   backend:
-    image: agentsmesh/backend:${VERSION:-latest}
+    image: harbor-xmn.int.rclabenv.com/agentsmesh/backend:${BACKEND_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -146,7 +146,7 @@ services:
   # Web Frontend
   # ===========================================================================
   web:
-    image: agentsmesh/web:${VERSION:-latest}
+    image: harbor-xmn.int.rclabenv.com/agentsmesh/web:${WEB_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       backend:
@@ -170,7 +170,7 @@ services:
   # Web Admin Console
   # ===========================================================================
   web-admin:
-    image: agentsmesh/web-admin:${VERSION:-latest}
+    image: harbor-xmn.int.rclabenv.com/agentsmesh/web-admin:${WEB_ADMIN_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       backend:
@@ -192,7 +192,7 @@ services:
   # Relay Server (Terminal Streaming)
   # ===========================================================================
   relay:
-    image: agentsmesh/relay:${VERSION:-latest}
+    image: harbor-xmn.int.rclabenv.com/agentsmesh/relay:${RELAY_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       backend:
