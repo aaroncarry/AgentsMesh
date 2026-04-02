@@ -14,8 +14,9 @@ type PodHandler struct {
 	runnerService  *runner.Service                 // Runner management
 	runnerConnMgr  *runner.RunnerConnectionManager // Runner gRPC connections
 	podCoordinator *runner.PodCoordinator          // Pod coordination (TerminatePod, terminal routing)
-	orchestrator         *agentpod.PodOrchestrator       // Unified Pod creation logic
-	eventBus             *eventbus.EventBus              // Event bus for real-time events
+	terminalRouter PodTerminalRouter               // Terminal routing for prompt delivery
+	orchestrator   *agentpod.PodOrchestrator       // Unified Pod creation logic
+	eventBus       *eventbus.EventBus              // Event bus for real-time events
 }
 
 // PodHandlerOption is a functional option for configuring PodHandler
@@ -32,6 +33,13 @@ func WithRunnerConnectionManager(cm *runner.RunnerConnectionManager) PodHandlerO
 func WithPodCoordinator(pc *runner.PodCoordinator) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.podCoordinator = pc
+	}
+}
+
+// WithTerminalRouter sets the terminal router used to deliver prompt input to pods.
+func WithTerminalRouter(tr PodTerminalRouter) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.terminalRouter = tr
 	}
 }
 

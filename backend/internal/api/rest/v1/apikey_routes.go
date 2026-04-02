@@ -32,6 +32,9 @@ func RegisterExtRoutes(rg *gin.RouterGroup, svc *Services) {
 	if svc.PodCoordinator != nil {
 		podOpts = append(podOpts, WithPodCoordinator(svc.PodCoordinator))
 	}
+	if svc.TerminalRouter != nil {
+		podOpts = append(podOpts, WithTerminalRouter(svc.TerminalRouter))
+	}
 	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.PodOrchestrator, podOpts...)
 
 	podsRead := rg.Group("/pods")
@@ -44,6 +47,7 @@ func RegisterExtRoutes(rg *gin.RouterGroup, svc *Services) {
 	podsWrite.Use(middleware.RequireScope("pods:write"))
 	{
 		podsWrite.POST("", podHandler.CreatePod)
+		podsWrite.POST("/:key/prompt", podHandler.SendPrompt)
 		podsWrite.POST("/:key/terminate", podHandler.TerminatePod)
 	}
 

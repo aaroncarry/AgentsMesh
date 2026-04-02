@@ -304,6 +304,7 @@ func main() {
 		NotificationPrefStore: services.notifPrefStore,
 		TokenUsage:            services.tokenUsage,
 	}
+	svc.TerminalRouter = terminalRouter
 
 	// Initialize router
 	router := rest.NewRouter(cfg, svc, db, appLogger.Logger, redisClient)
