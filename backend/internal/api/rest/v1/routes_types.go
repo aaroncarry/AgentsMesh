@@ -51,6 +51,7 @@ type Services struct {
 	Runner             *runner.Service
 	RunnerConnMgr      *runner.RunnerConnectionManager // Runner gRPC connection manager
 	PodCoordinator     *runner.PodCoordinator          // Pod lifecycle coordinator
+	TerminalRouter     *runner.TerminalRouter          // Terminal input routing for active pods
 	Pod                *agentpod.PodService
 	PodOrchestrator    *agentpod.PodOrchestrator            // Unified Pod creation orchestrator
 	Autopilot          *agentpod.AutopilotControllerService // AutopilotController automation service
