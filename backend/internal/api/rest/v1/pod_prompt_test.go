@@ -104,7 +104,7 @@ func TestSendPrompt(t *testing.T) {
 			withRouter: true,
 			wantCode:   http.StatusOK,
 			wantBody:   "Prompt sent",
-			wantInputs: []string{"pod-123:Continue with the fix\r"},
+			wantInputs: []string{"pod-123:Continue with the fix", "pod-123:\r"},
 		},
 		{
 			name:     "empty prompt",
@@ -185,17 +185,17 @@ func TestSendPrompt(t *testing.T) {
 			wantBody:   "Runner for pod is not connected",
 		},
 		{
-			name:       "send prompt error",
+			name:       "submit prompt error on enter",
 			pod:        activePod,
-			routerErrs: []error{errors.New("write failed")},
+			routerErrs: []error{nil, errors.New("write failed")},
 			body:       `{"prompt":"Continue"}`,
 			orgID:      42,
 			userID:     100,
 			userRole:   "member",
 			withRouter: true,
 			wantCode:   http.StatusInternalServerError,
-			wantBody:   "Failed to send prompt to pod",
-			wantInputs: []string{"pod-123:Continue\r"},
+			wantBody:   "Failed to submit prompt to pod",
+			wantInputs: []string{"pod-123:Continue", "pod-123:\r"},
 		},
 	}
 

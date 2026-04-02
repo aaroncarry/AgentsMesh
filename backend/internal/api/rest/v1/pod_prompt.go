@@ -60,7 +60,7 @@ func (h *PodHandler) SendPrompt(c *gin.Context) {
 		return
 	}
 
-	if err := h.terminalRouter.RouteInput(podKey, []byte(req.Prompt+"\r")); err != nil {
+	if err := h.terminalRouter.RouteInput(podKey, []byte(req.Prompt)); err != nil {
 		switch {
 		case errors.Is(err, runnersvc.ErrRunnerNotConnected):
 			apierr.ServiceUnavailable(c, apierr.SERVICE_UNAVAILABLE, "Runner for pod is not connected")
@@ -68,6 +68,18 @@ func (h *PodHandler) SendPrompt(c *gin.Context) {
 			apierr.ServiceUnavailable(c, apierr.SERVICE_UNAVAILABLE, "Terminal input service is not available")
 		default:
 			apierr.InternalError(c, "Failed to send prompt to pod")
+		}
+		return
+	}
+
+	if err := h.terminalRouter.RouteInput(podKey, []byte("\r")); err != nil {
+		switch {
+		case errors.Is(err, runnersvc.ErrRunnerNotConnected):
+			apierr.ServiceUnavailable(c, apierr.SERVICE_UNAVAILABLE, "Runner for pod is not connected")
+		case errors.Is(err, runnersvc.ErrCommandSenderNotSet):
+			apierr.ServiceUnavailable(c, apierr.SERVICE_UNAVAILABLE, "Terminal input service is not available")
+		default:
+			apierr.InternalError(c, "Failed to submit prompt to pod")
 		}
 		return
 	}
