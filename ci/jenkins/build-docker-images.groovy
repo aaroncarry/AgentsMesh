@@ -56,7 +56,7 @@ pipeline {
         
         // Image tags
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-        IMAGE_TAG = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
+        IMAGE_TAG = "${env.BUILD_NUMBER}-${GIT_BRANCH}-${GIT_COMMIT_SHORT}"
     }
 
     parameters {
@@ -69,6 +69,11 @@ pipeline {
             name: 'BRANCH',
             defaultValue: 'rc',
             description: 'Git branch to build'
+        )
+        string(
+            name: 'GIT_CREDENTIAL_ID',
+            defaultValue: 'gitjenkins.xiamen',
+            description: 'Jenkins SSH credential ID for Git operations'
         )
         extendedChoice(
             name: '',
@@ -111,6 +116,33 @@ pipeline {
     }
     
     stages {
+        stage('Checkout Branch') {
+            steps {
+                script {
+                    echo "=== Checking out branch: ${params.BRANCH} ==="
+                    sshagent(credentials: ["${params.GIT_CREDENTIAL_ID}"]) {
+                        sh """
+                            # Verify SSH key is loaded
+                            ssh-add -l || echo "Warning: No SSH keys found"
+
+                            # Ensure origin remote uses SSH URL
+                            git remote set-url origin ${GIT_REPO}
+
+                            # Fetch latest changes
+                            git fetch origin
+
+                            # Checkout and pull the specified branch
+                            git checkout ${params.BRANCH}
+                            git pull origin ${params.BRANCH}
+
+                            echo "Current branch: \$(git branch --show-current)"
+                            echo "Current commit: \$(git rev-parse HEAD)"
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Docker Login') {
             steps {
                 script {
