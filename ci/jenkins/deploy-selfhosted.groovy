@@ -52,6 +52,26 @@ pipeline {
             defaultValue: '~/workspace/AgentsMesh/deploy/selfhost',
             description: 'AgentsMesh deployment directory'
         )
+        string(
+            name: 'BACKEND_VERSION',
+            defaultValue: '',
+            description: 'Backend Docker image version (leave empty to keep current version in .env)'
+        )
+        string(
+            name: 'WEB_VERSION',
+            defaultValue: '',
+            description: 'Web Docker image version (leave empty to keep current version in .env)'
+        )
+        string(
+            name: 'WEB_ADMIN_VERSION',
+            defaultValue: '',
+            description: 'Web-Admin Docker image version (leave empty to keep current version in .env)'
+        )
+        string(
+            name: 'RELAY_VERSION',
+            defaultValue: '',
+            description: 'Relay Docker image version (leave empty to keep current version in .env)'
+        )
     }
 
     stages {
@@ -85,8 +105,8 @@ pipeline {
                     echo "=== Stopping AgentsMesh services ==="
                     sh """
                         cd ${DEPLOY_DIR}
-                        echo "Running: docker compose down"
-                        docker compose down || true
+                        echo "Running: docker compose -f docker-compose-rc.yml down"
+                        docker compose -f docker-compose-rc.yml down || true
                         echo "Services stopped ✅"
                     """
                 }
@@ -135,14 +155,79 @@ pipeline {
             }
         }
 
+        stage('Update Version Configuration') {
+            steps {
+                script {
+                    echo "=== Updating version configuration in .env file ==="
+                    sh """
+                        cd ${DEPLOY_DIR}
+
+                        # Update BACKEND_VERSION if provided
+                        if [ -n "${params.BACKEND_VERSION}" ]; then
+                            echo "Updating BACKEND_VERSION to: ${params.BACKEND_VERSION}"
+                            if grep -q "^BACKEND_VERSION=" .env; then
+                                sed -i.bak "s|^BACKEND_VERSION=.*|BACKEND_VERSION=${params.BACKEND_VERSION}|" .env
+                            else
+                                echo "BACKEND_VERSION=${params.BACKEND_VERSION}" >> .env
+                            fi
+                        else
+                            echo "BACKEND_VERSION not provided, keeping current value"
+                        fi
+
+                        # Update WEB_VERSION if provided
+                        if [ -n "${params.WEB_VERSION}" ]; then
+                            echo "Updating WEB_VERSION to: ${params.WEB_VERSION}"
+                            if grep -q "^WEB_VERSION=" .env; then
+                                sed -i.bak "s|^WEB_VERSION=.*|WEB_VERSION=${params.WEB_VERSION}|" .env
+                            else
+                                echo "WEB_VERSION=${params.WEB_VERSION}" >> .env
+                            fi
+                        else
+                            echo "WEB_VERSION not provided, keeping current value"
+                        fi
+
+                        # Update WEB_ADMIN_VERSION if provided
+                        if [ -n "${params.WEB_ADMIN_VERSION}" ]; then
+                            echo "Updating WEB_ADMIN_VERSION to: ${params.WEB_ADMIN_VERSION}"
+                            if grep -q "^WEB_ADMIN_VERSION=" .env; then
+                                sed -i.bak "s|^WEB_ADMIN_VERSION=.*|WEB_ADMIN_VERSION=${params.WEB_ADMIN_VERSION}|" .env
+                            else
+                                echo "WEB_ADMIN_VERSION=${params.WEB_ADMIN_VERSION}" >> .env
+                            fi
+                        else
+                            echo "WEB_ADMIN_VERSION not provided, keeping current value"
+                        fi
+
+                        # Update RELAY_VERSION if provided
+                        if [ -n "${params.RELAY_VERSION}" ]; then
+                            echo "Updating RELAY_VERSION to: ${params.RELAY_VERSION}"
+                            if grep -q "^RELAY_VERSION=" .env; then
+                                sed -i.bak "s|^RELAY_VERSION=.*|RELAY_VERSION=${params.RELAY_VERSION}|" .env
+                            else
+                                echo "RELAY_VERSION=${params.RELAY_VERSION}" >> .env
+                            fi
+                        else
+                            echo "RELAY_VERSION not provided, keeping current value"
+                        fi
+
+                        echo ""
+                        echo "Current version configuration:"
+                        grep -E "^(BACKEND_VERSION|WEB_VERSION|WEB_ADMIN_VERSION|RELAY_VERSION)=" .env || echo "No version variables found in .env"
+                        echo ""
+                        echo "Version configuration updated ✅"
+                    """
+                }
+            }
+        }
+
         stage('Start Services') {
             steps {
                 script {
                     echo "=== Starting AgentsMesh services ==="
                     sh """
                         cd ${DEPLOY_DIR}
-                        echo "Running: docker compose up -d"
-                        docker compose up -d
+                        echo "Running: docker compose -f docker-compose-rc.yml up -d"
+                        docker compose -f docker-compose-rc.yml up -d
 
                         echo "Waiting for services to start..."
                         sleep 10
