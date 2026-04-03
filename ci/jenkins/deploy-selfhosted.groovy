@@ -29,8 +29,8 @@ String getBuildUser() {
 
 String getNodeLabel(String env) {
     def envMap = [
-        'Test': 'aqa01-i01-jpt44.int.rclabenv.com',
-        'Dev': 'aqa01-i01-xta01.int.rclabenv.com'
+        'Dev': 'aqa01-i01-jpt44.int.rclabenv.com',
+        'Test': 'aqa01-i01-xta01.int.rclabenv.com'
     ]
     return envMap[env] ?: envMap['Dev']
 }
