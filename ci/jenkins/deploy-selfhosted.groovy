@@ -121,29 +121,6 @@ pipeline {
             }
         }
 
-        stage('Remove Old Images') {
-            steps {
-                script {
-                    echo "=== Removing old Docker images ==="
-                    sh """
-                        echo "Removing agentsmesh/backend..."
-                        docker rmi agentsmesh/backend || echo "Image agentsmesh/backend not found (skipped)"
-
-                        echo "Removing agentsmesh/web..."
-                        docker rmi agentsmesh/web || echo "Image agentsmesh/web not found (skipped)"
-
-                        echo "Removing agentsmesh/relay..."
-                        docker rmi agentsmesh/relay || echo "Image agentsmesh/relay not found (skipped)"
-
-                        echo "Removing agentsmesh/web-admin..."
-                        docker rmi agentsmesh/web-admin || echo "Image agentsmesh/web-admin not found (skipped)"
-
-                        echo "Old images removed ✅"
-                    """
-                }
-            }
-        }
-
         stage('Read Configuration') {
             steps {
                 script {
