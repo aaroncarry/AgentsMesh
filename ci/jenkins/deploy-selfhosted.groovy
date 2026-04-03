@@ -27,12 +27,20 @@ String getBuildUser() {
     return "unknown"
 }
 
+String getNodeLabel(String env) {
+    def envMap = [
+        'Test': 'aqa01-i01-jpt44.int.rclabenv.com',
+        'Dev': 'aqa01-i01-xta01.int.rclabenv.com'
+    ]
+    return envMap[env] ?: envMap['Dev']
+}
+
 currentBuild.setDescription("triggered by " + getBuildUser())
 
 pipeline {
     agent {
         node {
-            label "${params.NODE}"
+            label getNodeLabel(params.ENV ?: 'Dev')
         }
     }
 
@@ -43,9 +51,9 @@ pipeline {
 
     parameters {
         choice(
-            name: 'NODE',
-            choices: ['aqa01-i01-jpt44.int.rclabenv.com', 'aqa01-i01-xta01.int.rclabenv.com'],
-            description: 'Jenkins node label to run the pipeline'
+            name: 'ENV',
+            choices: ['Dev', 'Test'],
+            description: 'Target deployment environment'
         )
         string(
             name: 'DEPLOY_DIR',
