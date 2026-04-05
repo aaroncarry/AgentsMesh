@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/infra"
 )
@@ -96,6 +97,101 @@ func TestAuthenticateInactiveUser(t *testing.T) {
 	if err != ErrUserInactive {
 		t.Errorf("expected ErrUserInactive, got %v", err)
 	}
+}
+
+func TestAuthenticateUpdatesLastLoginAt(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(infra.NewUserRepository(db))
+	ctx := context.Background()
+
+	req := &CreateRequest{
+		Email:    "login@example.com",
+		Username: "loginuser",
+		Password: "password123",
+	}
+	created, _ := service.Create(ctx, req)
+
+	// Verify last_login_at is nil before first login
+	u, _ := service.GetByID(ctx, created.ID)
+	if u.LastLoginAt != nil {
+		t.Error("expected LastLoginAt to be nil before first login")
+	}
+
+	before := time.Now()
+	_, err := service.Authenticate(ctx, "login@example.com", "password123")
+	if err != nil {
+		t.Fatalf("failed to authenticate: %v", err)
+	}
+
+	// Re-fetch user to verify last_login_at was updated
+	u, _ = service.GetByID(ctx, created.ID)
+	if u.LastLoginAt == nil {
+		t.Fatal("expected LastLoginAt to be set after login")
+	}
+	if u.LastLoginAt.Before(before) {
+		t.Error("expected LastLoginAt to be >= time before authentication")
+	}
+}
+
+func TestRecordLogin(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(infra.NewUserRepository(db))
+	ctx := context.Background()
+
+	created, _ := service.Create(ctx, &CreateRequest{
+		Email:    "record@example.com",
+		Username: "recorduser",
+		Password: "password123",
+	})
+
+	before := time.Now()
+	service.RecordLogin(ctx, created.ID)
+
+	u, _ := service.GetByID(ctx, created.ID)
+	if u.LastLoginAt == nil {
+		t.Fatal("expected LastLoginAt to be set after RecordLogin")
+	}
+	if u.LastLoginAt.Before(before) {
+		t.Error("expected LastLoginAt to be >= time before RecordLogin")
+	}
+}
+
+func TestRecordLoginMultipleCalls(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(infra.NewUserRepository(db))
+	ctx := context.Background()
+
+	created, _ := service.Create(ctx, &CreateRequest{
+		Email:    "multi@example.com",
+		Username: "multiuser",
+		Password: "password123",
+	})
+
+	// First login
+	service.RecordLogin(ctx, created.ID)
+	u1, _ := service.GetByID(ctx, created.ID)
+	first := *u1.LastLoginAt
+
+	// Small delay to ensure different timestamp
+	time.Sleep(10 * time.Millisecond)
+
+	// Second login
+	service.RecordLogin(ctx, created.ID)
+	u2, _ := service.GetByID(ctx, created.ID)
+	second := *u2.LastLoginAt
+
+	if !second.After(first) {
+		t.Errorf("expected second login time %v to be after first %v", second, first)
+	}
+}
+
+func TestRecordLoginNonExistentUser(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(infra.NewUserRepository(db))
+	ctx := context.Background()
+
+	// Should not panic — errors are logged, not returned
+	service.RecordLogin(ctx, 99999)
 }
 
 func TestUpdatePassword(t *testing.T) {

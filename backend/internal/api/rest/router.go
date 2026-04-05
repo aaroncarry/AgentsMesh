@@ -85,7 +85,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 
 		// SSO authentication routes (public, under /auth/sso)
 		if svc.SSO != nil {
-			ssoAuthHandler := v1.NewSSOAuthHandler(svc.SSO, svc.Auth, svc.User, cfg)
+			ssoAuthHandler := v1.NewSSOAuthHandler(svc.SSO, svc.Auth, cfg)
 			ssoAuthHandler.RegisterRoutes(authGroup.Group("/sso"))
 		}
 

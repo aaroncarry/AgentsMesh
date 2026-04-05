@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -13,7 +12,6 @@ import (
 	userDomain "github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	ssoservice "github.com/anthropics/agentsmesh/backend/internal/service/sso"
-	"github.com/anthropics/agentsmesh/backend/internal/service/user"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	ssoprovider "github.com/anthropics/agentsmesh/backend/pkg/auth/sso"
 	"github.com/gin-gonic/gin"
@@ -26,16 +24,14 @@ var domainRegexp = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\
 type SSOAuthHandler struct {
 	ssoService  *ssoservice.Service
 	authService *auth.Service
-	userService *user.Service
 	config      *config.Config
 }
 
 // NewSSOAuthHandler creates a new SSO auth handler
-func NewSSOAuthHandler(ssoSvc *ssoservice.Service, authSvc *auth.Service, userSvc *user.Service, cfg *config.Config) *SSOAuthHandler {
+func NewSSOAuthHandler(ssoSvc *ssoservice.Service, authSvc *auth.Service, cfg *config.Config) *SSOAuthHandler {
 	return &SSOAuthHandler{
 		ssoService:  ssoSvc,
 		authService: authSvc,
-		userService: userSvc,
 		config:      cfg,
 	}
 }
@@ -81,26 +77,20 @@ func (h *SSOAuthHandler) Discover(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"configs": result})
 }
 
-// errAccountDisabled is returned by authenticateSSO when the user account is deactivated.
-var errAccountDisabled = fmt.Errorf("account is disabled")
-
 // authenticateSSO creates/gets the user from SSO identity, checks if active, and generates tokens.
 // It does NOT write HTTP responses — callers decide how to handle errors (JSON vs redirect).
 func (h *SSOAuthHandler) authenticateSSO(c *gin.Context, protocol sso.Protocol, configID int64, userInfo *ssoprovider.UserInfo) (*userDomain.User, *auth.TokenPair, error) {
 	providerName := ssoservice.SSOProviderName(protocol, configID)
-	u, _, err := h.userService.GetOrCreateByOAuth(c.Request.Context(), providerName, userInfo.ExternalID, userInfo.Username, userInfo.Email, userInfo.Name, userInfo.AvatarURL)
+	u, tokens, err := h.authService.SSOLogin(c.Request.Context(), &auth.SSOLoginRequest{
+		ProviderName: providerName,
+		ExternalID:   userInfo.ExternalID,
+		Username:     userInfo.Username,
+		Email:        userInfo.Email,
+		Name:         userInfo.Name,
+		AvatarURL:    userInfo.AvatarURL,
+	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create/get user: %w", err)
-	}
-
-	// Reject disabled users — admin may have deactivated them after SSO identity was created
-	if !u.IsActive {
-		return nil, nil, errAccountDisabled
-	}
-
-	tokens, err := h.authService.GenerateTokenPair(u, 0, "")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate tokens: %w", err)
+		return nil, nil, err
 	}
 
 	return u, tokens, nil

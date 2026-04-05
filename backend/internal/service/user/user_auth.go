@@ -32,12 +32,19 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (*us
 		return nil, ErrInvalidCredentials
 	}
 
-	// Update last login
-	now := time.Now()
-	_ = s.repo.UpdateUserField(ctx, u.ID, "last_login_at", now)
+	s.RecordLogin(ctx, u.ID)
 
 	slog.Info("user authenticated", "user_id", u.ID, "email", email)
 	return u, nil
+}
+
+// RecordLogin updates the user's last login timestamp.
+// Errors are logged but not returned since login should not fail due to timestamp update.
+func (s *Service) RecordLogin(ctx context.Context, userID int64) {
+	now := time.Now()
+	if err := s.repo.UpdateUserField(ctx, userID, "last_login_at", now); err != nil {
+		slog.Warn("failed to update last_login_at", "user_id", userID, "error", err)
+	}
 }
 
 // SetEmailVerificationToken generates and sets a verification token for the user

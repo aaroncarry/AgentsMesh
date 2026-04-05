@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/sso"
+	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	ssoservice "github.com/anthropics/agentsmesh/backend/internal/service/sso"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-gonic/gin"
@@ -42,7 +43,7 @@ func (h *SSOAuthHandler) LDAPAuth(c *gin.Context) {
 	// Authenticate, create/get user, and generate tokens
 	u, tokens, err := h.authenticateSSO(c, sso.ProtocolLDAP, configID, userInfo)
 	if err != nil {
-		if errors.Is(err, errAccountDisabled) {
+		if errors.Is(err, auth.ErrUserDisabled) {
 			apierr.Forbidden(c, apierr.ACCOUNT_DISABLED, "Account is disabled")
 		} else {
 			apierr.InternalError(c, "Failed to process authentication")
