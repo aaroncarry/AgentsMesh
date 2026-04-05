@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Server, Key, Star, Check, Edit2, Trash2, Plus } from "lucide-react";
 import type { CredentialsSectionProps } from "./types";
+import { getCredentialFieldLabel } from "../credentialFieldLabel";
 
 /**
  * CredentialsSection - Displays and manages credential profiles
@@ -82,7 +83,7 @@ export function CredentialsSection({
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {profile.configured_fields?.length
-                    ? `${t("settings.agentCredentials.configured")}: ${profile.configured_fields.join(", ")}`
+                    ? `${t("settings.agentCredentials.configured")}: ${profile.configured_fields.map((f) => getCredentialFieldLabel(f, t)).join(", ")}`
                     : t("settings.agentCredentials.notConfigured")}
                 </div>
               </div>
