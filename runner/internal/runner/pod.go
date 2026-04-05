@@ -6,49 +6,59 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/relay"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/aggregator"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/vt"
 )
 
-// Pod represents an active terminal pod
+// Pod represents an active execution environment (PTY or ACP).
+// Mode-specific components live inside PodIO and PodRelay implementations;
+// Pod itself only holds mode-agnostic state.
 type Pod struct {
-	ID               string
-	PodKey           string
-	AgentType        string
-	RepositoryURL    string
-	Branch           string
-	SandboxPath      string
+	ID            string
+	PodKey        string
+	Agent         string
+	RepositoryURL string
+	Branch        string
+	SandboxPath   string
+
+	// Interaction mode: "pty" (default) or "acp"
+	InteractionMode string
+
+	// Unified I/O interface — all consumers should use this.
+	IO PodIO
+
+	// Mode-specific relay behavior (OCP: eliminates IsACPMode branches in relay layer)
+	Relay PodRelay
 
 	// Launch configuration (used by session recovery after Runner restart)
 	LaunchCommand string
 	LaunchArgs    []string
 	WorkDir       string
-	Terminal         *terminal.Terminal
-	VirtualTerminal  *vt.VirtualTerminal        // Virtual terminal for state management and snapshots
-	Aggregator       *aggregator.SmartAggregator // Output aggregator for adaptive frame rate
-	RelayClient      relay.RelayClient          // WebSocket client for Relay connection (interface for testability)
-	relayMu          sync.RWMutex               // Protects RelayClient field
-	StartedAt        time.Time
-	Status           string              // Pod status - use statusMu for thread-safe access
-	statusMu         sync.RWMutex        // Protects Status field
-	TicketSlug       string              // Ticket slug for worktree-based pods (e.g., "TBD-123")
-	PTYLogger        *aggregator.PTYLogger // PTY logger for debugging (optional)
+	LaunchEnv     []string // Full environment slice for subprocess
+
+	// Relay client (mode-agnostic, protected by relayMu)
+	RelayClient relay.RelayClient
+	relayMu     sync.RWMutex
+
+	StartedAt  time.Time
+	Status     string       // Pod status - use statusMu for thread-safe access
+	statusMu   sync.RWMutex // Protects Status field
+	TicketSlug string       // Ticket slug for worktree-based pods (e.g., "TBD-123")
 
 	// StateDetector for multi-signal state detection.
-	// This is a foundational service that can be used by Autopilot, Monitor, or other components.
 	stateDetector   *ManagedStateDetector
 	stateDetectorMu sync.RWMutex
 
-	// Token refresh channel - used when relay token expires and needs to be refreshed
-	tokenRefreshCh   chan string
-	tokenRefreshMu   sync.Mutex
+	// vtProvider returns the VirtualTerminal for lazy StateDetector creation.
+	// Injected by the build path (PTY only); nil for ACP pods.
+	vtProvider func() *vt.VirtualTerminal
+
+	// Token refresh channel - used when relay token expires
+	tokenRefreshCh chan string
+	tokenRefreshMu sync.Mutex
 
 	// PTY error message stored when a fatal PTY read error occurs.
-	// Used by the exit handler to include the error reason in the termination event.
-	ptyErrorMsg   string
-	ptyErrorMu    sync.Mutex
+	ptyErrorMsg string
+	ptyErrorMu  sync.Mutex
 }
 
 // PodStatus constants
@@ -58,6 +68,17 @@ const (
 	PodStatusStopped      = "stopped"
 	PodStatusFailed       = "failed"
 )
+
+// Interaction mode constants
+const (
+	InteractionModePTY = "pty"
+	InteractionModeACP = "acp"
+)
+
+// IsACPMode returns true if the pod uses ACP interaction mode.
+func (p *Pod) IsACPMode() bool {
+	return p.InteractionMode == InteractionModeACP
+}
 
 // SetPTYError stores a PTY error message for the exit handler to pick up.
 func (p *Pod) SetPTYError(msg string) {
@@ -79,7 +100,6 @@ func (p *Pod) SetStatus(status string) {
 	oldStatus := p.Status
 	p.Status = status
 	p.statusMu.Unlock()
-
 	if oldStatus != status {
 		logger.Pod().Debug("Pod status changed", "pod_key", p.PodKey, "from", oldStatus, "to", status)
 	}
@@ -106,8 +126,7 @@ func (p *Pod) GetRelayClient() relay.RelayClient {
 	return p.RelayClient
 }
 
-// LockRelay acquires the relay write lock for atomic check-and-set operations
-// (e.g., OnSubscribeTerminal). Caller must call UnlockRelay when done.
+// LockRelay acquires the relay write lock for atomic check-and-set operations.
 func (p *Pod) LockRelay()   { p.relayMu.Lock() }
 func (p *Pod) UnlockRelay() { p.relayMu.Unlock() }
 
@@ -119,9 +138,6 @@ func (p *Pod) HasRelayClient() bool {
 }
 
 // DisconnectRelay disconnects and clears the relay client.
-// Lock strategy: relayMu is held ONLY for the pointer swap.
-// Stop() and SetRelayClient() are called outside the lock to avoid
-// deadlocking with relay callbacks (e.g., fireOnClose → SetRelayClient → relayMu).
 func (p *Pod) DisconnectRelay() {
 	p.relayMu.Lock()
 	rc := p.RelayClient
@@ -129,175 +145,11 @@ func (p *Pod) DisconnectRelay() {
 		p.RelayClient = nil
 	}
 	p.relayMu.Unlock()
-
 	if rc != nil {
 		logger.Pod().Debug("Disconnecting relay client", "pod_key", p.PodKey)
 		rc.Stop()
 	}
-	// Clear aggregator relay client - will fall back to gRPC
-	if p.Aggregator != nil {
-		p.Aggregator.SetRelayClient(nil)
-	}
-}
-
-// GetOrCreateStateDetector returns the state detector for this pod, creating one if needed.
-// Returns the detector.StateDetector interface for use by any component.
-// Delegates to getOrCreateStateDetectorInternal to avoid duplicating DCL logic.
-func (p *Pod) GetOrCreateStateDetector() detector.StateDetector {
-	d := p.getOrCreateStateDetectorInternal()
-	if d == nil {
-		return nil // Explicit nil to avoid non-nil interface wrapping nil pointer
-	}
-	return d
-}
-
-// SubscribeStateChange subscribes to state change events.
-// This is the preferred way to receive state updates (event-driven, single-direction data flow).
-// The subscriber ID must be unique; duplicate IDs will replace existing subscriptions.
-// Returns false if VirtualTerminal is not available.
-func (p *Pod) SubscribeStateChange(id string, cb func(detector.StateChangeEvent)) bool {
-	d := p.getOrCreateStateDetectorInternal()
-	if d == nil {
-		return false
-	}
-	d.Subscribe(id, cb)
-	return true
-}
-
-// SubscribeAgentStatusBridge subscribes to state detection events and bridges them
-// to the backend via the provided sendStatus function. It maps detector states to
-// backend status strings ("executing"/"waiting"/"idle") with deduplication.
-//
-// This is used by both OnCreatePod and session recovery to wire VT state changes
-// to gRPC SendAgentStatus. The sendStatus function receives (podKey, status) and
-// should return any send error.
-func (p *Pod) SubscribeAgentStatusBridge(sendStatus func(podKey, status string) error) {
-	if p.VirtualTerminal == nil {
-		return
-	}
-
-	var statusMu sync.Mutex
-	lastSentStatus := ""
-	podKey := p.PodKey
-
-	p.SubscribeStateChange("grpc-agent-status", func(event detector.StateChangeEvent) {
-		var backendStatus string
-		switch event.NewState {
-		case detector.StateExecuting:
-			backendStatus = "executing"
-		case detector.StateWaiting:
-			backendStatus = "waiting"
-		case detector.StateNotRunning:
-			backendStatus = "idle"
-		default:
-			return
-		}
-		statusMu.Lock()
-		if backendStatus == lastSentStatus {
-			statusMu.Unlock()
-			return // Deduplicate
-		}
-		lastSentStatus = backendStatus
-		statusMu.Unlock()
-		if err := sendStatus(podKey, backendStatus); err != nil {
-			logger.Pod().Error("Failed to send agent status",
-				"pod_key", podKey, "status", backendStatus, "error", err)
-		}
-	})
-}
-
-// UnsubscribeStateChange removes a state change subscription by ID.
-func (p *Pod) UnsubscribeStateChange(id string) {
-	p.stateDetectorMu.RLock()
-	d := p.stateDetector
-	p.stateDetectorMu.RUnlock()
-
-	if d != nil {
-		d.Unsubscribe(id)
-	}
-}
-
-// getOrCreateStateDetectorInternal returns the internal ManagedStateDetector, creating one if needed.
-// This is an internal method that returns the concrete type.
-func (p *Pod) getOrCreateStateDetectorInternal() *ManagedStateDetector {
-	p.stateDetectorMu.RLock()
-	if p.stateDetector != nil {
-		defer p.stateDetectorMu.RUnlock()
-		return p.stateDetector
-	}
-	p.stateDetectorMu.RUnlock()
-
-	// Need to create - acquire write lock
-	p.stateDetectorMu.Lock()
-	defer p.stateDetectorMu.Unlock()
-
-	// Double check after acquiring write lock
-	if p.stateDetector != nil {
-		return p.stateDetector
-	}
-
-	// Create new detector if VirtualTerminal is available
-	if p.VirtualTerminal != nil {
-		p.stateDetector = NewManagedStateDetector(p.VirtualTerminal)
-	}
-	return p.stateDetector
-}
-
-// NotifyStateDetectorWithScreen notifies the state detector about new output
-// and provides the current screen lines for state analysis.
-func (p *Pod) NotifyStateDetectorWithScreen(bytes int, screenLines []string) {
-	p.stateDetectorMu.RLock()
-	detector := p.stateDetector
-	p.stateDetectorMu.RUnlock()
-
-	if detector != nil {
-		detector.OnOutput(bytes)
-		if screenLines != nil {
-			detector.OnScreenUpdate(screenLines)
-		}
-	}
-}
-
-// StopStateDetector stops the state detector if running.
-func (p *Pod) StopStateDetector() {
-	p.stateDetectorMu.Lock()
-	defer p.stateDetectorMu.Unlock()
-
-	if p.stateDetector != nil {
-		p.stateDetector.Stop()
-		p.stateDetector = nil
-	}
-}
-
-// WaitForNewToken waits for a new token to be delivered via tokenRefreshCh.
-func (p *Pod) WaitForNewToken(timeout time.Duration) string {
-	p.tokenRefreshMu.Lock()
-	if p.tokenRefreshCh == nil {
-		p.tokenRefreshCh = make(chan string, 1)
-	}
-	ch := p.tokenRefreshCh
-	p.tokenRefreshMu.Unlock()
-
-	select {
-	case token := <-ch:
-		return token
-	case <-time.After(timeout):
-		return ""
-	}
-}
-
-// DeliverNewToken delivers a new token to the waiting goroutine.
-func (p *Pod) DeliverNewToken(token string) {
-	p.tokenRefreshMu.Lock()
-	defer p.tokenRefreshMu.Unlock()
-
-	if p.tokenRefreshCh == nil {
-		p.tokenRefreshCh = make(chan string, 1)
-	}
-
-	// Non-blocking send
-	select {
-	case p.tokenRefreshCh <- token:
-	default:
+	if p.Relay != nil {
+		p.Relay.OnRelayDisconnected()
 	}
 }

@@ -28,7 +28,7 @@ function deriveModelField(models: unknown): ConfigField | null {
 
 /**
  * Hook to manage agent config options and configuration
- * Loads config schema from Backend when agent type is selected
+ * Loads config schema from Backend when agent is selected
  *
  * Configuration priority (high to low):
  * 1. User overrides in the form
@@ -40,22 +40,20 @@ function deriveModelField(models: unknown): ConfigField | null {
  */
 export function useConfigOptions(
   runnerId: number | null,
-  agentSlug: string,
-  agentTypeId?: number | null
+  agentSlug?: string | null
 ): ConfigOptionsState {
   const [fields, setFields] = useState<ConfigField[]>([]);
   const [loading, setLoading] = useState(false);
   const [config, setConfig] = useState<Record<string, unknown>>({});
 
-  // Load config schema when agent type changes
+  // Load config schema when agent changes
   useEffect(() => {
     let cancelled = false;
 
-    console.log("[useConfigOptions] agentTypeId:", agentTypeId, "agentSlug:", agentSlug);
+    
 
     const loadOptions = async () => {
-      if (!agentTypeId) {
-        console.log("[useConfigOptions] Skipping - missing agentTypeId");
+      if (!agentSlug) {
         setFields([]);
         setConfig({});
         return;
@@ -64,7 +62,7 @@ export function useConfigOptions(
       setLoading(true);
       try {
         // Load config schema from Backend
-        const schemaResponse = await agentApi.getConfigSchema(agentTypeId);
+        const schemaResponse = await agentApi.getConfigSchema(agentSlug);
 
         if (cancelled) return;
 
@@ -81,23 +79,19 @@ export function useConfigOptions(
 
         // Step 2: Load user personal config and merge (higher priority)
         try {
-          const userConfigResponse = await userAgentConfigApi.get(agentTypeId);
+          const userConfigResponse = await userAgentConfigApi.get(agentSlug);
           if (!cancelled && userConfigResponse.config?.config_values) {
             const userConfig = userConfigResponse.config.config_values;
-            console.log("[useConfigOptions] User personal config:", userConfig);
 
             // Merge user config into mergedConfig
             for (const field of baseFields) {
               if (userConfig[field.name] !== undefined) {
-                console.log("[useConfigOptions] Merging user config:", field.name, "=", userConfig[field.name]);
                 mergedConfig[field.name] = userConfig[field.name];
               }
             }
-            console.log("[useConfigOptions] Final merged config:", mergedConfig);
           }
         } catch (err) {
           // User config not found or error - use ConfigSchema defaults only
-          console.log("[useConfigOptions] No user personal config found, using ConfigSchema defaults", err);
         }
 
         if (!cancelled) {
@@ -127,7 +121,7 @@ export function useConfigOptions(
     return () => {
       cancelled = true;
     };
-  }, [agentTypeId, agentSlug]);
+  }, [agentSlug]);
 
   // Update a single config field
   const updateConfig = useCallback(

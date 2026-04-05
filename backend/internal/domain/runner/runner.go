@@ -16,9 +16,14 @@ func (hi *HostInfo) Scan(value interface{}) error {
 		*hi = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("unsupported type for HostInfo Scan")
 	}
 	return json.Unmarshal(bytes, hi)
 }
@@ -40,9 +45,14 @@ func (s *StringSlice) Scan(value interface{}) error {
 		*s = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("unsupported type for StringSlice Scan")
 	}
 	return json.Unmarshal(bytes, s)
 }
@@ -71,9 +81,14 @@ func (s *AgentVersionSlice) Scan(value interface{}) error {
 		*s = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("unsupported type for AgentVersionSlice Scan")
 	}
 	return json.Unmarshal(bytes, s)
 }
@@ -123,7 +138,7 @@ type Runner struct {
 	RunnerVersion     *string    `gorm:"size:50" json:"runner_version,omitempty"`
 	IsEnabled         bool       `gorm:"not null;default:true" json:"is_enabled"`
 
-	// AvailableAgents is the list of agent type slugs available on this runner
+	// AvailableAgents is the list of agent slugs available on this runner
 	// Populated during initialization handshake
 	AvailableAgents StringSlice `gorm:"type:jsonb" json:"available_agents,omitempty"`
 
@@ -159,7 +174,7 @@ func (r *Runner) CanAcceptPod() bool {
 	return r.IsEnabled && r.IsOnline() && r.CurrentPods < r.MaxConcurrentPods
 }
 
-// SupportsAgent returns true if runner supports the given agent type slug
+// SupportsAgent returns true if runner supports the given agent slug
 func (r *Runner) SupportsAgent(agentSlug string) bool {
 	for _, slug := range r.AvailableAgents {
 		if slug == agentSlug {
@@ -169,7 +184,7 @@ func (r *Runner) SupportsAgent(agentSlug string) bool {
 	return false
 }
 
-// CanAcceptPodForAgent returns true if runner can accept a pod for the given agent type
+// CanAcceptPodForAgent returns true if runner can accept a pod for the given agent
 func (r *Runner) CanAcceptPodForAgent(agentSlug string) bool {
 	return r.CanAcceptPod() && r.SupportsAgent(agentSlug)
 }

@@ -25,8 +25,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		ticket_id INTEGER,
 		repository_id INTEGER,
 		runner_id INTEGER,
-		agent_type_id INTEGER,
-		custom_agent_type_id INTEGER,
+		agent_slug INTEGER,
+		custom_agent_slug INTEGER,
 		created_by_id INTEGER NOT NULL,
 		pty_pid INTEGER,
 		status TEXT NOT NULL DEFAULT 'pending',
@@ -50,6 +50,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		source_pod_key TEXT,
 		credential_profile_id INTEGER,
 		config_overrides TEXT DEFAULT '{}',
+		interaction_mode TEXT NOT NULL DEFAULT 'pty',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)

@@ -21,14 +21,14 @@ type PodDaemonManager struct {
 
 // CreateOpts holds options for creating a new daemon session.
 type CreateOpts struct {
-	PodKey    string
-	AgentType string
-	Command   string
-	Args      []string
-	WorkDir   string
-	Env       []string
-	Cols      int
-	Rows      int
+	PodKey  string
+	Agent   string
+	Command string
+	Args    []string
+	WorkDir string
+	Env     []string
+	Cols    int
+	Rows    int
 
 	SandboxPath    string
 	RepositoryURL  string
@@ -78,7 +78,7 @@ func (m *PodDaemonManager) CreateSession(opts CreateOpts) (*daemonPTY, *PodDaemo
 
 	state := &PodDaemonState{
 		PodKey:         opts.PodKey,
-		AgentType:      opts.AgentType,
+		Agent:          opts.Agent,
 		AuthToken:      authToken,
 		SandboxPath:    opts.SandboxPath,
 		WorkDir:        opts.WorkDir,

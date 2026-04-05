@@ -38,7 +38,6 @@ func TestRunnerMessageHandlerOnListPods(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		
 	}
 
 	mockConn := client.NewMockConnection()
@@ -89,7 +88,7 @@ func TestRunnerRunWithGRPCConnection(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		
+
 		stopChan: make(chan struct{}),
 	}
 
@@ -127,7 +126,7 @@ func TestRunnerRunStopAllPods(t *testing.T) {
 	r := &Runner{
 		cfg:      cfg,
 		podStore: store,
-		
+
 		stopChan: make(chan struct{}),
 	}
 
@@ -146,9 +145,9 @@ func TestRunnerRunStopAllPods(t *testing.T) {
 	}
 }
 
-// --- Test initEnhancedComponents ---
+// --- Test initSidecarServices ---
 
-func TestNewEnhancedComponentsWithMCPConfig(t *testing.T) {
+func TestNewSidecarServicesWithMCPConfig(t *testing.T) {
 	cfg := &config.Config{
 		WorkspaceRoot: t.TempDir(),
 		MCPConfigPath: "/nonexistent/mcp.json", // Non-existent file - should log warning but not fail
@@ -157,24 +156,24 @@ func TestNewEnhancedComponentsWithMCPConfig(t *testing.T) {
 	mockConn := client.NewMockConnection()
 
 	// Should not panic
-	c := NewEnhancedComponents(cfg, mockConn)
+	c := NewSidecarServices(cfg, mockConn)
 
-	// Components should still be initialized (mcpManager is internal, verify via MCPServer)
+	// Services should still be initialized (mcpManager is internal, verify via MCPServer)
 	if c.MCPServer() == nil {
 		t.Error("MCPServer should be initialized")
 	}
 }
 
-func TestNewEnhancedComponentsDefaultShell(t *testing.T) {
+func TestNewSidecarServicesDefaultShell(t *testing.T) {
 	cfg := &config.Config{
 		WorkspaceRoot: t.TempDir(),
 		DefaultShell:  "", // Empty - should default to /bin/sh
 	}
 
 	mockConn := client.NewMockConnection()
-	c := NewEnhancedComponents(cfg, mockConn)
+	c := NewSidecarServices(cfg, mockConn)
 
-	// Verify that enhanced components are initialized
+	// Verify that sidecar services are initialized
 	if c.AgentMonitor() == nil {
 		t.Error("agentMonitor should be initialized")
 	}
@@ -185,14 +184,12 @@ func TestNewEnhancedComponentsDefaultShell(t *testing.T) {
 func TestStopAllPodsWithTerminals(t *testing.T) {
 	store := NewInMemoryPodStore()
 	store.Put("pod-1", &Pod{
-		ID:       "pod-1",
-		PodKey:   "pod-1",
-		Terminal: nil,
+		ID:     "pod-1",
+		PodKey: "pod-1",
 	})
 	store.Put("pod-2", &Pod{
-		ID:       "pod-2",
-		PodKey:   "pod-2",
-		Terminal: nil,
+		ID:     "pod-2",
+		PodKey: "pod-2",
 	})
 
 	r := &Runner{
@@ -228,6 +225,7 @@ func TestMockConnectionSimulateCreatePod(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "mock-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	err := mockConn.SimulateCreatePod(cmd)
@@ -237,8 +235,8 @@ func TestMockConnectionSimulateCreatePod(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("mock-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok && pod.IO != nil {
+		pod.IO.Stop()
 	}
 }
 
@@ -251,9 +249,8 @@ func TestMockConnectionSimulateTerminatePod(t *testing.T) {
 	}
 
 	store.Put("terminate-mock", &Pod{
-		ID:       "terminate-mock",
-		PodKey:   "terminate-mock",
-		Terminal: nil,
+		ID:     "terminate-mock",
+		PodKey: "terminate-mock",
 	})
 
 	handler := NewRunnerMessageHandler(r, store, mockConn)

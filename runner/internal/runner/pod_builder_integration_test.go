@@ -26,11 +26,12 @@ func TestPodBuilderBuildSuccess(t *testing.T) {
 		PodKey:        "pod-build-test",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"hello"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(100, 30). // (cols, rows)
+		WithPtySize(100, 30). // (cols, rows)
 		Build(context.Background())
 
 	if err != nil {
@@ -50,8 +51,8 @@ func TestPodBuilderBuildSuccess(t *testing.T) {
 	}
 
 	// Clean up terminal if created
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+		comps.Terminal.Stop()
 	}
 }
 
@@ -66,6 +67,7 @@ func TestPodBuilderBuildWithMinimalConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "minimal-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	pod, err := NewPodBuilderFromRunner(runner).
@@ -81,8 +83,8 @@ func TestPodBuilderBuildWithMinimalConfig(t *testing.T) {
 	}
 
 	// Clean up
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+		comps.Terminal.Stop()
 	}
 }
 
@@ -107,6 +109,7 @@ func TestPodBuilderSetupWithWorkspaceManager(t *testing.T) {
 		PodKey:        "test-sandbox",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			// Empty sandbox config - creates empty workspace
 		},
@@ -120,8 +123,8 @@ func TestPodBuilderSetupWithWorkspaceManager(t *testing.T) {
 		t.Fatalf("Build failed: %v", err)
 	}
 
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+		comps.Terminal.Stop()
 	}
 }
 
@@ -138,6 +141,7 @@ func TestPodBuilderSetupLocalPath(t *testing.T) {
 		PodKey:        "test-local",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			LocalPath: tempDir,
 		},
@@ -151,8 +155,8 @@ func TestPodBuilderSetupLocalPath(t *testing.T) {
 		t.Fatalf("Build failed: %v", err)
 	}
 
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+		comps.Terminal.Stop()
 	}
 }
 
@@ -168,6 +172,7 @@ func TestPodBuilderSetupLocalPathNotExist(t *testing.T) {
 		PodKey:        "test-local-notexist",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			LocalPath: "/nonexistent/path/that/does/not/exist",
 		},
@@ -195,6 +200,7 @@ func TestPodBuilderSetupWorktreeNoManager(t *testing.T) {
 		PodKey:        "test-worktree-nomanager",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			RepositoryUrl:  "https://github.com/test/repo",
 			SourceBranch:   "main",
@@ -223,12 +229,13 @@ func TestPodBuilderMergeEnvVarsEmptyBoth(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		// No EnvVars
 	}
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if len(result) != 0 {
 		t.Errorf("result length = %d, want 0", len(result))
@@ -248,12 +255,13 @@ func TestPodBuilderMergeEnvVarsOnlyConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		// No EnvVars
 	}
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if result["VAR1"] != "value1" {
 		t.Errorf("VAR1 = %v, want value1", result["VAR1"])
@@ -273,6 +281,7 @@ func TestPodBuilderMergeEnvVarsOnlyCommand(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"CMD_VAR": "cmd_value",
 		},
@@ -280,7 +289,7 @@ func TestPodBuilderMergeEnvVarsOnlyCommand(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if result["CMD_VAR"] != "cmd_value" {
 		t.Errorf("CMD_VAR = %v, want cmd_value", result["CMD_VAR"])
@@ -317,14 +326,17 @@ func BenchmarkPodBuilderBuild(b *testing.B) {
 			PodKey:        "benchmark-pod",
 			LaunchCommand: "echo",
 			LaunchArgs:    []string{"test"},
+			AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		}
 
 		pod, _ := NewPodBuilderFromRunner(runner).
 			WithCommand(cmd).
 			Build(ctx)
 
-		if pod != nil && pod.Terminal != nil {
-			pod.Terminal.Stop()
+		if pod != nil {
+			if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+				comps.Terminal.Stop()
+			}
 		}
 	}
 }

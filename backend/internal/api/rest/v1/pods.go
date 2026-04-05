@@ -14,9 +14,9 @@ type PodHandler struct {
 	runnerService  *runner.Service                 // Runner management
 	runnerConnMgr  *runner.RunnerConnectionManager // Runner gRPC connections
 	podCoordinator *runner.PodCoordinator          // Pod coordination (TerminatePod, terminal routing)
-	terminalRouter PodTerminalRouter               // Terminal routing for prompt delivery
-	orchestrator   *agentpod.PodOrchestrator       // Unified Pod creation logic
-	eventBus       *eventbus.EventBus              // Event bus for real-time events
+	orchestrator         *agentpod.PodOrchestrator       // Unified Pod creation logic
+	eventBus             *eventbus.EventBus              // Event bus for real-time events
+	commandSender        runner.RunnerCommandSender      // Unified command sender (PTY + ACP)
 }
 
 // PodHandlerOption is a functional option for configuring PodHandler
@@ -36,13 +36,6 @@ func WithPodCoordinator(pc *runner.PodCoordinator) PodHandlerOption {
 	}
 }
 
-// WithTerminalRouter sets the terminal router used to deliver prompt input to pods.
-func WithTerminalRouter(tr PodTerminalRouter) PodHandlerOption {
-	return func(h *PodHandler) {
-		h.terminalRouter = tr
-	}
-}
-
 // WithPodService sets the pod service (for testing with mock implementations)
 func WithPodService(ps PodServiceForHandler) PodHandlerOption {
 	return func(h *PodHandler) {
@@ -54,6 +47,13 @@ func WithPodService(ps PodServiceForHandler) PodHandlerOption {
 func WithEventBus(eb *eventbus.EventBus) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.eventBus = eb
+	}
+}
+
+// WithCommandSender sets the unified command sender for PTY and ACP commands
+func WithCommandSender(sender runner.RunnerCommandSender) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.commandSender = sender
 	}
 }
 

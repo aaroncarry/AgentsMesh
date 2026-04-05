@@ -58,7 +58,7 @@ type GRPCPodTerminatedEvent struct {
 	ErrorMessage string `json:"error_message"`
 }
 
-// NOTE: GRPCTerminalOutputEvent removed - output is exclusively streamed via Relay
+// NOTE: GRPCPtyOutputEvent removed - output is exclusively streamed via Relay
 
 // GRPCAgentStatusEvent represents an agent status change.
 type GRPCAgentStatusEvent struct {
@@ -88,8 +88,8 @@ type GRPCServerInfo struct {
 	Version string `json:"version"`
 }
 
-// GRPCAgentTypeInfo represents agent type information.
-type GRPCAgentTypeInfo struct {
+// GRPCAgentInfo represents agent information.
+type GRPCAgentInfo struct {
 	Slug        string   `json:"slug"`
 	Name        string   `json:"name"`
 	Command     string   `json:"command"`
@@ -98,10 +98,10 @@ type GRPCAgentTypeInfo struct {
 
 // GRPCInitializeResult represents the initialization result from server.
 type GRPCInitializeResult struct {
-	ProtocolVersion int32                `json:"protocol_version"`
-	ServerInfo      *GRPCServerInfo      `json:"server_info"`
-	AgentTypes      []*GRPCAgentTypeInfo `json:"agent_types"`
-	Features        []string             `json:"features"`
+	ProtocolVersion int32            `json:"protocol_version"`
+	ServerInfo      *GRPCServerInfo  `json:"server_info"`
+	Agents          []*GRPCAgentInfo `json:"agents"`
+	Features        []string         `json:"features"`
 }
 
 // GRPCFileToCreate represents a file to create in the sandbox.
@@ -136,14 +136,14 @@ type GRPCTerminatePodCommand struct {
 	Force  bool   `json:"force"`
 }
 
-// GRPCTerminalInputCommand represents terminal input from server.
-type GRPCTerminalInputCommand struct {
+// GRPCPtyInputCommand represents terminal input from server.
+type GRPCPtyInputCommand struct {
 	PodKey string `json:"pod_key"`
 	Data   []byte `json:"data"`
 }
 
-// GRPCTerminalResizeCommand represents a terminal resize command.
-type GRPCTerminalResizeCommand struct {
+// GRPCPtyResizeCommand represents a terminal resize command.
+type GRPCPtyResizeCommand struct {
 	PodKey string `json:"pod_key"`
 	Cols   int32  `json:"cols"`
 	Rows   int32  `json:"rows"`

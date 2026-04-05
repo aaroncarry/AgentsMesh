@@ -20,6 +20,8 @@
       "loops": "循环任务",
       "repositories": "仓库管理",
       "repositoriesGit": "仓库与 Git 集成",
+      "agentfile": "AgentFile",
+      "agentfileLayer": "AgentFile Layer",
       "runners": "运行节点",
       "runnerSetup": "Runner 配置",
       "mcpTools": "MCP 工具",
@@ -223,6 +225,98 @@
           "removeRepo": "移除仓库",
           "removeRepoSteps": "移除仓库会断开其与 AgentsMesh 的连接。已使用该仓库的现有 Pod 不受影响，但无法再使用该仓库创建新 Pod。"
         }
+      },
+      "agentfile": {
+        "title": "AgentFile 语法参考",
+        "description": "AgentFile 完整参考 — 用于定义 AI 智能体执行环境配置的领域特定语言 (DSL)。",
+        "whatIs": {
+          "title": "什么是 AgentFile？",
+          "description": "AgentFile 是一种声明式 DSL，用于配置 AI 智能体的执行环境，类似于 Dockerfile 定义容器构建。AgentsMesh 中的每个智能体都有一个 AgentFile，指定启动智能体所需的 CLI 命令、环境变量、配置选项和构建逻辑。"
+        },
+        "structure": {
+          "title": "结构",
+          "description": "AgentFile 由两种语句组成：声明和构建逻辑。",
+          "declarationsTitle": "声明（大写）",
+          "declarationsDesc": "顶层关键字，定义智能体的身份、配置模式、环境和集成。例如：AGENT、CONFIG、ENV、MODE、MCP。",
+          "buildLogicTitle": "构建逻辑（小写）",
+          "buildLogicDesc": "命令式语句，用于在构建时拼接 CLI 参数、写入文件和应用条件逻辑。例如：arg、file、mkdir、if/else、for/in。"
+        },
+        "declarations": {
+          "title": "声明关键字",
+          "description": "声明用于定义智能体的配置模式和运行时环境，使用大写字母编写。",
+          "agentDesc": "用于启动智能体的 CLI 命令。接受带引号的字符串，包含命令和可选的默认参数。",
+          "executableDesc": "可执行文件的名称。Runner 使用它来验证智能体是否已安装。",
+          "configDesc": "定义用户可配置的选项。类型：BOOL、STRING、NUMBER、SECRET、SELECT(\"opt1\",\"opt2\")。可使用 = 设置默认值。",
+          "envDesc": "声明环境变量。SECRET 用于敏感值，TEXT 用于纯文本，OPTIONAL 标记为非必需。使用 = \"value\" 设置静态值。",
+          "modeDesc": "设置执行模式。'pty' 在 PTY 终端中运行智能体。'acp' 使用智能体通信协议，可带可选参数。",
+          "credentialDesc": "指定使用哪个凭据配置文件。使用带引号的配置文件名或 'runner_host' 来使用 Runner 机器的凭据。",
+          "promptDesc": "设置发送给智能体的初始提示。PROMPT_POSITION 控制提示注入位置：prepend（用户提示之前）、append（之后）或 none（禁用）。",
+          "repoDesc": "REPO 通过 slug 或 URL 设置仓库。BRANCH 设置分支名称。GIT_CREDENTIAL 选择 Git 认证方式：http、ssh 或 token。",
+          "mcpDesc": "启用或禁用 MCP 工具集成。启用时可选 FORMAT 指定协议格式（如 streamable-http）。",
+          "skillsDesc": "将可复用的技能定义附加到智能体。技能通过 slug 引用，以逗号分隔。",
+          "setupDesc": "在智能体启动前运行的 Shell 脚本。使用 heredoc 语法（<<LABEL...LABEL）。可选 timeout= 参数设置最大执行时间（秒）。",
+          "removeDesc": "移除先前定义的项目。可以移除 ENV 变量、SKILLS、CLI 参数（arg）或文件（file）。"
+        },
+        "buildLogic": {
+          "title": "构建逻辑",
+          "description": "构建逻辑语句使用小写字母，在 AgentFile 求值阶段执行。它们用于拼接 CLI 参数、写入文件和应用条件逻辑。"
+        },
+        "expressions": {
+          "title": "表达式",
+          "description": "AgentFile 支持多种表达式类型，可在构建逻辑和声明中使用。",
+          "typeHeader": "类型",
+          "exampleHeader": "示例"
+        },
+        "builtinVars": {
+          "title": "内置变量",
+          "description": "这些变量在 AgentFile 求值期间自动可用，提供对配置值和运行时上下文的访问。",
+          "variableHeader": "变量",
+          "descHeader": "描述",
+          "configDesc": "用户通过 CONFIG 声明提供的配置值",
+          "sandboxRoot": "沙箱环境的根目录",
+          "sandboxWorkDir": "沙箱内的工作目录（克隆仓库时可能与根目录不同）",
+          "mcpEnabled": "布尔值，表示 MCP 是否启用",
+          "mcpServers": "MCP 服务器配置路径列表",
+          "mcpFormat": "MCP 协议格式字符串",
+          "modeDesc": "当前执行模式（'pty' 或 'acp'）"
+        },
+        "escaping": {
+          "title": "字符串转义",
+          "description": "AgentFile 字符串在双引号内支持标准转义序列："
+        },
+        "fullExample": {
+          "title": "完整示例",
+          "description": "以下是 Claude Code 的完整 AgentFile，展示了声明、配置、构建逻辑和设置脚本："
+        }
+      },
+      "agentfileLayer": {
+        "title": "AgentFile Layer",
+        "description": "AgentFile Layer 允许你在每个 Pod 的基础上覆盖智能体配置，无需修改基础 AgentFile。",
+        "whatIs": {
+          "title": "什么是 AgentFile Layer？",
+          "description": "AgentFile Layer 是用户提供的覆盖层，在创建 Pod 时合并到基础 AgentFile 之上。AgentsMesh 使用三层合并模型：基础 AgentFile（智能体默认值）与用户偏好设置（保存的设置）合并，然后应用 Layer（每个 Pod 的运行时覆盖）。Layer 具有最高优先级。"
+        },
+        "supported": {
+          "title": "支持的声明",
+          "description": "Layer 中只能使用 AgentFile 声明的子集。这些是在运行时覆盖有意义的声明："
+        },
+        "apiUsage": {
+          "title": "API 使用",
+          "description": "通过 REST API 创建 Pod 时，在请求体中将 Layer 作为 agentfile_layer 字段传递。Layer 是包含 AgentFile 语法的字符串："
+        },
+        "editor": {
+          "title": "前端编辑器",
+          "description": "在 Pod 创建表单中，切换源码模式即可使用内置的 CodeMirror 编辑器直接编辑 AgentFile Layer，支持语法高亮和自动补全。表单字段（模型、提示、仓库等）会与 Layer 内容自动同步。"
+        },
+        "examples": {
+          "title": "常用示例",
+          "description": "以下是自定义 Pod 行为的常用 Layer 模式：",
+          "overrideModel": "覆盖模型",
+          "permissionMode": "设置权限模式",
+          "addPrompt": "添加初始提示",
+          "selectRepo": "选择仓库和分支",
+          "switchMode": "切换到 ACP 模式"
+        }
       }
     },
     "gettingStarted": {
@@ -275,7 +369,7 @@
         "description": "Pod（AgentPod）是一个虚拟工作站，AI 智能体在其中运行，拥有自己的终端和隔离的代码工作空间。现在创建你的第一个 Pod！",
         "item1": "在侧边栏中导航到工作空间",
         "item2": "点击 新建 Pod",
-        "item3": "选择 AI 智能体类型（Claude Code、Codex CLI 等）",
+        "item3": "选择 AI 智能体（Claude Code、Codex CLI 等）",
         "item4": "选择一个 Runner",
         "item5": "可选地选择仓库和分支——智能体将在隔离副本（Git worktree）中工作，你的主分支保持安全",
         "item6": "可选地关联任务以提供上下文",
@@ -376,8 +470,8 @@
           "description": "创建 Pod 时可以配置：",
           "optionHeader": "选项",
           "descriptionHeader": "说明",
-          "agentType": "智能体类型",
-          "agentTypeDesc": "Claude Code、Codex CLI、Gemini CLI、Aider 或自定义",
+          "agent": "智能体",
+          "agentDesc": "Claude Code、Codex CLI、Gemini CLI、Aider 或自定义",
           "model": "模型",
           "modelDesc": "opus、sonnet 或 haiku（适用于 Claude）",
           "permissionMode": "权限模式",
@@ -409,7 +503,7 @@
         },
         "podList": {
           "title": "Pod 管理",
-          "description": "Pod 列表侧边栏显示所有 Pod 及其实时状态指示器。按状态、智能体类型或仓库筛选，快速找到所需内容。",
+          "description": "Pod 列表侧边栏显示所有 Pod 及其实时状态指示器。按状态、智能体或仓库筛选，快速找到所需内容。",
           "statusFilters": "状态筛选",
           "statusFiltersDesc": "按运行中、已暂停、已完成或错误状态筛选 Pod。",
           "quickActions": "快捷操作",
@@ -419,7 +513,7 @@
         },
         "quickCreate": {
           "title": "快速创建",
-          "description": "使用快速创建对话框从工作空间快速启动新 Pod。选择智能体类型，选择 Runner，可选地关联仓库——只需几步点击。",
+          "description": "使用快速创建对话框从工作空间快速启动新 Pod。选择智能体，选择 Runner，可选地关联仓库——只需几步点击。",
           "steps": "步骤：选择智能体 → 选择 Runner →（可选）关联仓库 → 创建"
         },
         "realTime": {
@@ -673,8 +767,8 @@
         },
         "promptTemplates": {
           "title": "Prompt 模板",
-          "description": "在 Prompt 中使用 '{{variable}}' 占位符。创建 Loop 时定义默认值，触发时可以覆盖。示例：",
-          "example": "审查 '{{branch}}' 分支自上次审查以来的所有变更文件。重点关注 '{{focus_area}}' 方面的问题。"
+          "description": "在 Prompt 中使用 {{variable}} 占位符。创建 Loop 时定义默认值，触发时可以覆盖。示例：",
+          "example": "审查 {{branch}} 分支自上次审查以来的所有变更文件。重点关注 {{focus_area}} 方面的问题。"
         },
         "webhookCallbacks": {
           "title": "Webhook 回调",
@@ -907,7 +1001,7 @@
           "paramsHeader": "参数",
           "createPod": "create_pod",
           "createPodDesc": "创建新的 AgentPod",
-          "createPodParams": "agent_type_id（必需）, runner_id?, ticket_slug?, initial_prompt?, model?",
+          "createPodParams": "agent_slug（必需）, runner_id?, ticket_slug?, initial_prompt?, model?",
           "description": "用于创建、观察和控制 Pod 的工具。观察和输入工具需要具有适当范围的活跃绑定。",
           "getPodSnapshot": "get_pod_snapshot",
           "getPodSnapshotDesc": "获取另一个 Pod 的终端输出快照（需要 pod:read）",
@@ -1201,7 +1295,7 @@
             "description": "在指定 Runner 上创建新的 AgentPod。Pod 将使用给定配置初始化并开始执行。",
             "fields": {
               "runner_id": "创建 Pod 的 Runner ID",
-              "agent_type_id": "智能体类型标识符（如 claude-code、aider）",
+              "agent_slug": "智能体标识符（如 claude-code、aider）",
               "initial_prompt": "给智能体的初始提示或任务",
               "repository_id": "关联到 Pod 的仓库",
               "branch": "要操作的 Git 分支",
@@ -1354,9 +1448,9 @@
             "fields": {
               "name": "循环任务名称（必填，1-255 字符）",
               "description": "可选描述",
-              "agent_type_id": "使用的内置 Agent 类型 ID",
-              "custom_agent_type_id": "自定义 Agent 类型 ID（与 agent_type_id 二选一）",
-              "prompt_template": "任务 Prompt，支持 '{{variable}}' 占位符（必填）",
+              "agent_slug": "使用的内置 Agent 类型 ID",
+              "custom_agent_slug": "自定义 Agent 类型 ID（与 agent_slug 二选一）",
+              "prompt_template": "任务 Prompt，支持 {{variable}} 占位符（必填）",
               "prompt_variables": "Prompt 变量的默认值（JSON 对象）",
               "repository_id": "要克隆到沙箱的仓库",
               "runner_id": "首选运行节点",
@@ -1881,7 +1975,7 @@
           "title": "创建新 Pod",
           "description": "点击右上角的新建 Pod 按钮。Pod 创建对话框将打开，其中包含多个配置选项。",
           "fields": "填写以下字段：",
-          "field1": "智能体类型 - 选择你要使用的 AI 智能体（例如 Claude Code）",
+          "field1": "智能体 - 选择你要使用的 AI 智能体（例如 Claude Code）",
           "field2": "Runner - 选择托管此 Pod 的 Runner",
           "field3": "仓库 - 选择智能体要处理的仓库（可选）",
           "field4": "分支 - 选择要检出的分支（默认为主分支）",
@@ -2073,7 +2167,7 @@
           "description": "点击新建循环并配置自动化：",
           "fields": "填写循环设置：",
           "field1": "名称 - 描述性名称，例如「每日代码审查」",
-          "field2": "智能体类型 - 要使用的 AI 智能体（例如 Claude Code）",
+          "field2": "智能体 - 要使用的 AI 智能体（例如 Claude Code）",
           "field3": "Runner - 执行循环的 Runner",
           "field4": "仓库 - 智能体要处理的仓库",
           "field5": "分支 - 要检出的分支（默认为 main）",

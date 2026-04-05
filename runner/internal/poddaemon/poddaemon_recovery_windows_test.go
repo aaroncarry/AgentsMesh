@@ -28,13 +28,13 @@ func TestDaemonSurvivesParentDeathWindows(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "survive")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "persist",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cmd.exe",
 		Args:        []string{"/q"},
 		WorkDir:     sandbox,
@@ -89,7 +89,7 @@ func TestDaemonSurvivesParentDeathWindows(t *testing.T) {
 
 	// Phase 4: Fresh manager recovers sessions
 	mgr2 := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
@@ -137,13 +137,13 @@ func TestDaemonSurvivesMultipleReattachCyclesWindows(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "multi")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "multi",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cmd.exe",
 		Args:        []string{"/q"},
 		WorkDir:     sandbox,
@@ -211,13 +211,13 @@ func TestRecoveredSessionResizeWindows(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "rsz")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "rsz",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cmd.exe",
 		Args:        []string{"/q"},
 		WorkDir:     sandbox,
@@ -269,13 +269,13 @@ func TestRecoveredSessionKillWindows(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "kill")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "kill",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cmd.exe",
 		Args:        []string{"/c", "timeout /t 300"},
 		WorkDir:     sandbox,

@@ -35,14 +35,14 @@ type LocalPodProvider interface {
 // HTTPServer provides an MCP server over HTTP for agent collaboration.
 // This server exposes collaboration tools to Claude Code via the MCP protocol.
 type HTTPServer struct {
-	rpcClient        *client.RPCClient
-	port             int
-	pods             map[string]*PodInfo
-	mu               sync.RWMutex
-	httpServer       *http.Server
-	tools            []*MCPTool
-	statusProvider   PodStatusProvider
-	podProvider      LocalPodProvider
+	rpcClient      *client.RPCClient
+	port           int
+	pods           map[string]*PodInfo
+	mu             sync.RWMutex
+	httpServer     *http.Server
+	tools          []*MCPTool
+	statusProvider PodStatusProvider
+	podProvider    LocalPodProvider
 }
 
 // PodInfo holds information about a registered pod.
@@ -51,7 +51,7 @@ type PodInfo struct {
 	OrgSlug      string
 	TicketID     *int
 	ProjectID    *int
-	AgentType    string
+	Agent        string
 	RegisteredAt time.Time
 	Client       tools.CollaborationClient
 }
@@ -153,7 +153,7 @@ func (s *HTTPServer) Stop() error {
 }
 
 // RegisterPod registers a pod with the MCP server.
-func (s *HTTPServer) RegisterPod(podKey, orgSlug string, ticketID, projectID *int, agentType string) {
+func (s *HTTPServer) RegisterPod(podKey, orgSlug string, ticketID, projectID *int, agent string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -162,7 +162,7 @@ func (s *HTTPServer) RegisterPod(podKey, orgSlug string, ticketID, projectID *in
 		OrgSlug:      orgSlug,
 		TicketID:     ticketID,
 		ProjectID:    projectID,
-		AgentType:    agentType,
+		Agent:        agent,
 		RegisteredAt: time.Now(),
 		Client:       NewGRPCCollaborationClient(s.rpcClient, podKey),
 	}
@@ -214,68 +214,4 @@ func (s *HTTPServer) PodCount() int {
 // Port returns the server port.
 func (s *HTTPServer) Port() int {
 	return s.port
-}
-
-// GenerateMCPConfig generates the MCP configuration JSON for Claude Code.
-func (s *HTTPServer) GenerateMCPConfig(podKey string) map[string]interface{} {
-	return map[string]interface{}{
-		"mcpServers": map[string]interface{}{
-			"agentsmesh-collaboration": map[string]interface{}{
-				"command": "curl",
-				"args": []string{
-					"-X", "POST",
-					"-H", "Content-Type: application/json",
-					"-H", fmt.Sprintf("X-Pod-Key: %s", podKey),
-					fmt.Sprintf("http://localhost:%d/mcp", s.port),
-					"-d", "@-",
-				},
-			},
-		},
-	}
-}
-
-// registerTools registers all collaboration tools.
-func (s *HTTPServer) registerTools() {
-	s.tools = []*MCPTool{
-		// Pod interaction tools
-		s.createGetPodSnapshotTool(),
-		s.createSendPodInputTool(),
-		s.createGetPodStatusTool(),
-
-		// Discovery tools
-		s.createListAvailablePodsTool(),
-		s.createListRunnersTool(),
-		s.createListRepositoriesTool(),
-
-		// Binding tools
-		s.createBindPodTool(),
-		s.createAcceptBindingTool(),
-		s.createRejectBindingTool(),
-		s.createUnbindPodTool(),
-		s.createGetBindingsTool(),
-		s.createGetBoundPodsTool(),
-
-		// Channel tools
-		s.createSearchChannelsTool(),
-		s.createCreateChannelTool(),
-		s.createGetChannelTool(),
-		s.createSendChannelMessageTool(),
-		s.createGetChannelMessagesTool(),
-		s.createGetChannelDocumentTool(),
-		s.createUpdateChannelDocumentTool(),
-
-		// Ticket tools
-		s.createSearchTicketsTool(),
-		s.createGetTicketTool(),
-		s.createCreateTicketTool(),
-		s.createUpdateTicketTool(),
-		s.createPostCommentTool(),
-
-		// Pod tools
-		s.createCreatePodTool(),
-
-		// Loop tools
-		s.createListLoopsTool(),
-		s.createTriggerLoopTool(),
-	}
 }

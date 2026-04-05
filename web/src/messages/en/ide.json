@@ -44,7 +44,7 @@
       "infoTab": {
         "notFound": "Pod information not available",
         "podKey": "Pod Key",
-        "agentType": "Agent",
+        "agent": "Agent",
         "agentStatus": "Agent Status",
         "runner": "Runner",
         "repository": "Repository",
@@ -65,7 +65,7 @@
       "noRunnersAvailable": "No runners available",
       "selectAgent": "Select Agent",
       "selectAgentPlaceholder": "Choose an agent...",
-      "noAgentsForRunner": "This runner does not support any agent types",
+      "noAgentsForRunner": "This runner does not support any agents",
       "selectCredential": "API Credentials",
       "runnerHostDescription": "use Runner's local config",
       "runnerHostHint": "Using Runner's local environment configuration. No credentials will be injected.",
@@ -83,11 +83,16 @@
       "autoCleanup": "Auto cleanup on completion",
       "loadingPlugins": "Loading plugin options...",
       "pluginConfig": "Plugin Configuration",
+      "agentfileLayer": "AgentFile Layer",
+      "sourceMode": "Source Mode",
       "create": "Create Pod",
       "creating": "Creating...",
       "cancel": "Cancel",
       "alias": "Alias",
-      "aliasPlaceholder": "Enter a display name for this pod..."
+      "aliasPlaceholder": "Enter a display name for this pod...",
+      "interactionMode": "Interaction Mode",
+      "modePty": "Terminal (PTY)",
+      "modeAcp": "Conversational (ACP)"
     },
     "sidebar": {
       "settings": {
@@ -102,7 +107,7 @@
           "members": "Members",
           "membersDesc": "Team members and roles",
           "agents": "Agents",
-          "agentsDesc": "AI agent types",
+          "agentsDesc": "AI agents",
           "runners": "Runners",
           "runnersDesc": "Runner management",
           "gitProviders": "Git Providers",

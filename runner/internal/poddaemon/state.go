@@ -3,6 +3,7 @@ package poddaemon
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,7 +14,7 @@ const stateFileName = "pod_daemon.json"
 // PodDaemonState holds the persistent state of a pod daemon process.
 type PodDaemonState struct {
 	PodKey         string    `json:"pod_key"`
-	AgentType      string    `json:"agent_type"`
+	Agent          string    `json:"agent"`
 	IPCAddr        string    `json:"ipc_addr"`   // TCP loopback address (e.g. "127.0.0.1:12345")
 	AuthToken      string    `json:"auth_token"` // hex-encoded 32-byte random token for IPC authentication
 	DaemonPID      int       `json:"daemon_pid"`
@@ -34,6 +35,7 @@ type PodDaemonState struct {
 func SaveState(state *PodDaemonState) error {
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
+		slog.Error("Failed to marshal pod daemon state", "pod_key", state.PodKey, "error", err)
 		return fmt.Errorf("marshal state: %w", err)
 	}
 
@@ -41,10 +43,12 @@ func SaveState(state *PodDaemonState) error {
 	tmpPath := path + ".tmp"
 
 	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		slog.Error("Failed to write temp pod daemon state", "path", tmpPath, "error", err)
 		return fmt.Errorf("write temp state: %w", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		os.Remove(tmpPath)
+		slog.Error("Failed to rename pod daemon state file", "path", path, "error", err)
 		return fmt.Errorf("rename state file: %w", err)
 	}
 	return nil
@@ -54,11 +58,13 @@ func SaveState(state *PodDaemonState) error {
 func LoadState(sandboxPath string) (*PodDaemonState, error) {
 	data, err := os.ReadFile(StatePath(sandboxPath))
 	if err != nil {
+		slog.Error("Failed to read pod daemon state", "sandbox", sandboxPath, "error", err)
 		return nil, fmt.Errorf("read state: %w", err)
 	}
 
 	var state PodDaemonState
 	if err := json.Unmarshal(data, &state); err != nil {
+		slog.Error("Failed to unmarshal pod daemon state", "sandbox", sandboxPath, "error", err)
 		return nil, fmt.Errorf("unmarshal state: %w", err)
 	}
 	return &state, nil

@@ -3,16 +3,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock external dependencies before importing the hook
 const mockCreate = vi.fn();
-const mockListForAgentType = vi.fn();
+const mockListForAgent = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   podApi: { create: (...args: unknown[]) => mockCreate(...args) },
-  userAgentCredentialApi: { listForAgentType: (...args: unknown[]) => mockListForAgentType(...args) },
+  userAgentCredentialApi: { listForAgent: (...args: unknown[]) => mockListForAgent(...args) },
 }));
 
 vi.mock("@/stores/podCreation", () => ({
   usePodCreationStore: () => ({
-    lastAgentTypeId: null,
+    lastAgentSlug: null,
     lastRepositoryId: null,
     lastCredentialProfileId: null,
     lastBranchName: null,
@@ -25,50 +25,60 @@ vi.mock("@/stores/podCreation", () => ({
 
 import { useCreatePodForm, RUNNER_HOST_PROFILE_ID } from "../useCreatePodForm";
 
-const mockAgentTypes = [
-  { id: 1, name: "Claude Code", slug: "claude-code", is_builtin: true, is_active: true },
+const mockAgents = [
+  { name: "Claude Code", slug: "claude-code", is_builtin: true, is_active: true },
 ];
 
-describe("useCreatePodForm - credential_profile_id submission", () => {
+describe("useCreatePodForm - credential via agentfile_layer (SSOT)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockListForAgentType.mockResolvedValue({ profiles: [], runner_host: { available: true } });
+    mockListForAgent.mockResolvedValue({ profiles: [], runner_host: { available: true } });
   });
 
-  it("should send credential_profile_id=0 when RunnerHost is selected", async () => {
+  it("should omit CREDENTIAL from agentfile_layer when RunnerHost is selected", async () => {
     mockCreate.mockResolvedValue({ pod: { pod_key: "test-pod", id: 1, status: "initializing", agent_status: "idle" } });
 
-    const { result } = renderHook(() => useCreatePodForm(mockAgentTypes, []));
+    const { result } = renderHook(() => useCreatePodForm(mockAgents, []));
 
-    // Select agent to pass validation
     act(() => {
-      result.current.setSelectedAgent(1);
+      result.current.setSelectedAgent("claude-code");
     });
 
     // Verify default is RunnerHost (0)
     expect(result.current.selectedCredentialProfile).toBe(RUNNER_HOST_PROFILE_ID);
     expect(result.current.selectedCredentialProfile).toBe(0);
 
-    // Submit form
     await act(async () => {
       await result.current.submit(1, {}, { cols: 80, rows: 24 });
     });
 
-    // Verify podApi.create was called with credential_profile_id: 0 (not undefined)
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const createArg = mockCreate.mock.calls[0][0];
-    expect(createArg).toHaveProperty("credential_profile_id", 0);
-    // Explicitly verify it's NOT undefined
-    expect(createArg.credential_profile_id).not.toBeUndefined();
+    // credential_profile_id no longer sent; credential goes through agentfile_layer
+    expect(createArg).not.toHaveProperty("credential_profile_id");
+    // RunnerHost means no CREDENTIAL declaration in AgentFile Layer
+    const layer = createArg.agentfile_layer ?? "";
+    expect(layer).not.toContain("CREDENTIAL");
   });
 
-  it("should send credential_profile_id with positive ID when custom profile selected", async () => {
+  it("should include CREDENTIAL in agentfile_layer when custom profile selected", async () => {
+    const customProfile = { id: 42, name: "My API Key", is_default: false, is_active: true };
+    mockListForAgent.mockResolvedValue({
+      profiles: [customProfile],
+      runner_host: { available: true },
+    });
     mockCreate.mockResolvedValue({ pod: { pod_key: "test-pod", id: 1, status: "initializing", agent_status: "idle" } });
 
-    const { result } = renderHook(() => useCreatePodForm(mockAgentTypes, []));
+    const { result } = renderHook(() => useCreatePodForm(mockAgents, []));
+
+    // Select agent — triggers credential loading
+    act(() => {
+      result.current.setSelectedAgent("claude-code");
+    });
+    // Wait for credential profiles to load
+    await act(async () => {});
 
     act(() => {
-      result.current.setSelectedAgent(1);
       result.current.setSelectedCredentialProfile(42);
     });
 
@@ -78,24 +88,34 @@ describe("useCreatePodForm - credential_profile_id submission", () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const createArg = mockCreate.mock.calls[0][0];
-    expect(createArg).toHaveProperty("credential_profile_id", 42);
+    // credential_profile_id no longer sent as separate field
+    expect(createArg).not.toHaveProperty("credential_profile_id");
+    // Custom profile name should appear in agentfile_layer
+    expect(createArg.agentfile_layer).toContain('CREDENTIAL "My API Key"');
   });
 
-  it("should always include credential_profile_id in API call regardless of value", async () => {
+  it("should always send agentfile_layer via API (SSOT)", async () => {
     mockCreate.mockResolvedValue({ pod: { pod_key: "test-pod", id: 1, status: "initializing", agent_status: "idle" } });
 
-    const { result } = renderHook(() => useCreatePodForm(mockAgentTypes, []));
+    const { result } = renderHook(() => useCreatePodForm(mockAgents, []));
 
     act(() => {
-      result.current.setSelectedAgent(1);
+      result.current.setSelectedAgent("claude-code");
     });
 
     await act(async () => {
       await result.current.submit(1, {}, { cols: 80, rows: 24 });
     });
 
-    // The key assertion: credential_profile_id must be an OWN property of the call arg
     const createArg = mockCreate.mock.calls[0][0];
-    expect(Object.prototype.hasOwnProperty.call(createArg, "credential_profile_id")).toBe(true);
+    // The SSOT field: agent_slug and agentfile_layer are the core parameters
+    expect(createArg).toHaveProperty("agent_slug", "claude-code");
+    // Old scattered fields should not be present
+    expect(createArg).not.toHaveProperty("credential_profile_id");
+    expect(createArg).not.toHaveProperty("repository_id");
+    expect(createArg).not.toHaveProperty("interaction_mode");
+    expect(createArg).not.toHaveProperty("branch_name");
+    expect(createArg).not.toHaveProperty("initial_prompt");
+    expect(createArg).not.toHaveProperty("config_overrides");
   });
 });

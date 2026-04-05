@@ -7,22 +7,18 @@ import (
 )
 
 // AgentConfigProvider provides agent configuration data for ConfigBuilder
-// This interface allows for dependency injection and easier testing
 type AgentConfigProvider interface {
-	// GetAgentType returns an agent type by ID
-	GetAgentType(ctx context.Context, id int64) (*agent.AgentType, error)
-	// GetUserEffectiveConfig returns the effective config by merging defaults and user config
-	GetUserEffectiveConfig(ctx context.Context, userID, agentTypeID int64, overrides agent.ConfigValues) agent.ConfigValues
+	// GetAgent returns an agent by slug
+	GetAgent(ctx context.Context, slug string) (*agent.Agent, error)
 	// GetEffectiveCredentialsForPod returns credentials for pod injection
-	GetEffectiveCredentialsForPod(ctx context.Context, userID, agentTypeID int64, profileID *int64) (agent.EncryptedCredentials, bool, error)
+	GetEffectiveCredentialsForPod(ctx context.Context, userID int64, agentSlug string, profileID *int64) (agent.EncryptedCredentials, bool, error)
+	// ResolveCredentialsByName resolves credentials by profile name from AgentFile CREDENTIAL declaration
+	ResolveCredentialsByName(ctx context.Context, userID int64, agentSlug, profileName string) (agent.EncryptedCredentials, bool, error)
 }
-
-// Note: AgentConfigProvider is implemented by compositeProvider in API handlers
-// that combine the three sub-services (AgentTypeService, CredentialProfileService, UserConfigService)
 
 // ConfigBuildRequest contains all the information needed to build a pod config
 type ConfigBuildRequest struct {
-	AgentTypeID         int64
+	AgentSlug           string
 	OrganizationID      int64
 	UserID              int64
 	CredentialProfileID *int64
@@ -52,13 +48,10 @@ type ConfigBuildRequest struct {
 	PreparationScript  string
 	PreparationTimeout int
 
-	// Local path mode (reserved for future)
+	// Local path mode (resume from existing sandbox)
 	LocalPath string
 
-	// User-provided config overrides
-	ConfigOverrides map[string]interface{}
-
-	// Initial prompt (prepended to LaunchArgs)
+	// Initial prompt (from AgentFile PROMPT declaration)
 	InitialPrompt string
 
 	// Runtime info (provided by Runner during handshake)
@@ -73,6 +66,16 @@ type ConfigBuildRequest struct {
 	// Populated from Runner.AgentVersions during pod creation.
 	// Empty map or nil means Runner did not report version info (old Runner).
 	RunnerAgentVersions map[string]string
+
+	// MergedAgentfileSource is the merged AgentFile source (base + user layer, serialized).
+	// Populated by orchestrator's extractFromAgentfileLayer when AgentfileLayer is provided.
+	// When empty (resume mode or no layer): buildFromAgentfile falls back to agent's base AgentFile.
+	MergedAgentfileSource string
+
+	// CredentialProfile is the CREDENTIAL declaration value extracted from merged AgentFile.
+	// Pre-extracted by orchestrator to avoid re-parsing AgentFile in ConfigBuilder.
+	// When non-empty, overrides CredentialProfileID for credential resolution.
+	CredentialProfile string
 }
 
 // ConfigSchemaResponse is the config schema returned to frontend
@@ -83,13 +86,10 @@ type ConfigSchemaResponse struct {
 
 // ConfigFieldResponse is a config field returned to frontend
 type ConfigFieldResponse struct {
-	Name       string                `json:"name"`
-	Type       string                `json:"type"`
-	Default    interface{}           `json:"default,omitempty"`
-	Required   bool                  `json:"required,omitempty"`
-	Options    []FieldOptionResponse `json:"options,omitempty"`
-	Validation *agent.Validation     `json:"validation,omitempty"`
-	ShowWhen   *agent.Condition      `json:"show_when,omitempty"`
+	Name    string                `json:"name"`
+	Type    string                `json:"type"`
+	Default interface{}           `json:"default,omitempty"`
+	Options []FieldOptionResponse `json:"options,omitempty"`
 }
 
 // FieldOptionResponse is a field option returned to frontend

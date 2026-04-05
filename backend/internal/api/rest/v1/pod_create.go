@@ -11,35 +11,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CreatePodRequest represents pod creation request
+// CreatePodRequest represents pod creation request.
+// Pod configuration (MODE, CONFIG, REPO, BRANCH, CREDENTIAL, PROMPT) is conveyed via AgentfileLayer (SSOT).
 type CreatePodRequest struct {
-	RunnerID          int64   `json:"runner_id"`     // Required for new pods, optional when resuming (inherited from source)
-	AgentTypeID       *int64  `json:"agent_type_id"` // Required unless resuming (then inherited from source pod)
-	CustomAgentTypeID *int64  `json:"custom_agent_type_id"`
-	RepositoryID      *int64  `json:"repository_id"`
-	RepositoryURL     *string `json:"repository_url"`    // Direct repository URL (takes precedence over repository_id)
-	TicketSlug        *string `json:"ticket_slug"`       // Ticket slug (e.g., "AM-123")
-	InitialPrompt     string  `json:"initial_prompt"`
-	Alias             *string `json:"alias"` // User-defined display name (max 100 chars)
-	BranchName        *string `json:"branch_name"`
-	PermissionMode    *string `json:"permission_mode"` // "plan", "default", or "bypassPermissions"
+	AgentSlug    string  `json:"agent_slug"`    // Required: determines base AgentFile
+	RunnerID     int64   `json:"runner_id"`     // Optional: auto-select if omitted
+	TicketSlug   *string `json:"ticket_slug"`   // Optional: associate with ticket
+	Alias        *string `json:"alias"`         // Optional: display name (max 100 chars)
 
-	// CredentialProfileID specifies which credential profile to use
-	// - nil (field absent): use user's default profile, fallback to RunnerHost if no default
-	// - 0: explicit RunnerHost mode (use Runner's local environment, no credentials injected)
-	// - >0: use specified credential profile ID
-	CredentialProfileID *int64 `json:"credential_profile_id"`
+	// AgentFile Layer — SSOT for all pod configuration (MODE, CONFIG, REPO, BRANCH, CREDENTIAL, PROMPT)
+	AgentfileLayer *string `json:"agentfile_layer"`
 
-	// ConfigOverrides allows users to override agent type default configuration
-	ConfigOverrides map[string]interface{} `json:"config_overrides"`
+	// Platform-level ID references (cannot be expressed as AgentFile declarations)
+	RepositoryID        *int64 `json:"repository_id,omitempty"`
+	CredentialProfileID *int64 `json:"credential_profile_id,omitempty"`
 
 	// Terminal size (from browser xterm.js)
-	Cols int32 `json:"cols"` // Terminal columns (width)
-	Rows int32 `json:"rows"` // Terminal rows (height)
+	Cols int32 `json:"cols"`
+	Rows int32 `json:"rows"`
 
 	// Resume related fields
-	SourcePodKey       string `json:"source_pod_key"`       // Pod key to resume from (enables resume mode)
-	ResumeAgentSession *bool  `json:"resume_agent_session"` // Whether to restore agent session (default: true when resuming)
+	SourcePodKey       string `json:"source_pod_key"`
+	ResumeAgentSession *bool  `json:"resume_agent_session"`
 }
 
 // CreatePod creates a new pod
@@ -72,17 +65,12 @@ func (h *PodHandler) CreatePod(c *gin.Context) {
 		OrganizationID:      tenant.OrganizationID,
 		UserID:              tenant.UserID,
 		RunnerID:            req.RunnerID,
-		AgentTypeID:         req.AgentTypeID,
-		CustomAgentTypeID:   req.CustomAgentTypeID,
+		AgentSlug:           req.AgentSlug,
 		RepositoryID:        req.RepositoryID,
-		RepositoryURL:       req.RepositoryURL,
 		TicketSlug:          req.TicketSlug,
-		InitialPrompt:       req.InitialPrompt,
 		Alias:               req.Alias,
-		BranchName:          req.BranchName,
-		PermissionMode:      req.PermissionMode,
 		CredentialProfileID: req.CredentialProfileID,
-		ConfigOverrides:     req.ConfigOverrides,
+		AgentfileLayer:      req.AgentfileLayer,
 		Cols:                req.Cols,
 		Rows:                req.Rows,
 		SourcePodKey:        req.SourcePodKey,
@@ -113,12 +101,16 @@ func mapOrchestratorErrorToHTTP(c *gin.Context, err error) {
 	// Validation errors → 400
 	case errors.Is(err, agentpod.ErrMissingRunnerID):
 		apierr.BadRequest(c, apierr.MISSING_RUNNER_ID, err.Error())
-	case errors.Is(err, agentpod.ErrMissingAgentTypeID):
-		apierr.BadRequest(c, apierr.MISSING_AGENT_TYPE_ID, err.Error())
+	case errors.Is(err, agentpod.ErrMissingAgentSlug):
+		apierr.BadRequest(c, apierr.MISSING_AGENT_SLUG, err.Error())
 	case errors.Is(err, agentpod.ErrSourcePodNotTerminated):
 		apierr.BadRequest(c, apierr.SOURCE_POD_NOT_TERMINATED, "Can only resume from terminated, completed, or orphaned pods")
 	case errors.Is(err, agentpod.ErrResumeRunnerMismatch):
 		apierr.BadRequest(c, apierr.RESUME_RUNNER_MISMATCH, "Resume requires same runner as source pod (Sandbox is local to runner)")
+	case errors.Is(err, agentpod.ErrUnsupportedInteractionMode):
+		apierr.BadRequest(c, apierr.UNSUPPORTED_INTERACTION_MODE, err.Error())
+	case errors.Is(err, agentpod.ErrInvalidAgentfileLayer):
+		apierr.BadRequest(c, apierr.VALIDATION_FAILED, err.Error())
 
 	// Billing errors → 402
 	case errors.Is(err, ErrQuotaExceeded):
@@ -142,7 +134,7 @@ func mapOrchestratorErrorToHTTP(c *gin.Context, err error) {
 
 	// No available runner → 503
 	case errors.Is(err, agentpod.ErrNoAvailableRunner):
-		apierr.ServiceUnavailable(c, apierr.NO_AVAILABLE_RUNNER, "No available runner supports the requested agent type")
+		apierr.ServiceUnavailable(c, apierr.NO_AVAILABLE_RUNNER, "No available runner supports the requested agent")
 
 	// Runner dispatch failure → 502
 	case errors.Is(err, agentpod.ErrRunnerDispatchFailed):

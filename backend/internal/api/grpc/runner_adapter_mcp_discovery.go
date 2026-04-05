@@ -6,6 +6,8 @@ import (
 	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
+	"github.com/anthropics/agentsmesh/agentfile/extract"
+	"github.com/anthropics/agentsmesh/agentfile/parser"
 )
 
 // ==================== Discovery MCP Methods ====================
@@ -41,26 +43,26 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 		return nil, newMcpError(500, "failed to list runners")
 	}
 
-	// Get agent types for enrichment
-	builtinTypes, _ := a.agentTypeSvc.ListBuiltinAgentTypes(ctx)
-	customTypes, _ := a.agentTypeSvc.ListCustomAgentTypes(ctx, tc.OrganizationID)
+	// Get agents for enrichment
+	builtinTypes, _ := a.agentSvc.ListBuiltinAgents(ctx)
+	customTypes, _ := a.agentSvc.ListCustomAgents(ctx, tc.OrganizationID)
 
-	// Build slug -> AgentType map
-	agentMap := make(map[string]*agentDomain.AgentType)
+	// Build slug -> Agent map
+	agentMap := make(map[string]*agentDomain.Agent)
 	for _, at := range builtinTypes {
 		agentMap[at.Slug] = at
 	}
 
-	customAgentMap := make(map[string]*agentDomain.CustomAgentType)
+	customAgentMap := make(map[string]*agentDomain.CustomAgent)
 	for _, cat := range customTypes {
 		customAgentMap[cat.Slug] = cat
 	}
 
 	// Get user's agent configs
 	userConfigs, _ := a.userConfigSvc.ListUserAgentConfigs(ctx, tc.UserID)
-	userConfigMap := make(map[int64]agentDomain.ConfigValues)
+	userConfigMap := make(map[string]agentDomain.ConfigValues)
 	for _, cfg := range userConfigs {
-		userConfigMap[cfg.AgentTypeID] = cfg.ConfigValues
+		userConfigMap[cfg.AgentSlug] = cfg.ConfigValues
 	}
 
 	// Build result
@@ -72,8 +74,7 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 		Required bool        `json:"required,omitempty"`
 	}
 
-	type agentTypeSummary struct {
-		ID          int64                  `json:"id"`
+	type agentSummary struct {
 		Slug        string                 `json:"slug"`
 		Name        string                 `json:"name"`
 		Description string                 `json:"description,omitempty"`
@@ -88,7 +89,7 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 		Status            string             `json:"status"`
 		CurrentPods       int                `json:"current_pods"`
 		MaxConcurrentPods int                `json:"max_concurrent_pods"`
-		AvailableAgents   []agentTypeSummary `json:"available_agents"`
+		AvailableAgents   []agentSummary `json:"available_agents"`
 	}
 
 	result := make([]runnerSummary, 0, len(runners))
@@ -100,7 +101,7 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 			Status:            r.Status,
 			CurrentPods:       r.CurrentPods,
 			MaxConcurrentPods: r.MaxConcurrentPods,
-			AvailableAgents:   make([]agentTypeSummary, 0),
+			AvailableAgents:   make([]agentSummary, 0),
 		}
 
 		for _, slug := range r.AvailableAgents {
@@ -110,27 +111,29 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 					desc = *at.Description
 				}
 
-				configFields := make([]configFieldSummary, 0, len(at.ConfigSchema.Fields))
-				for _, f := range at.ConfigSchema.Fields {
-					field := configFieldSummary{
-						Name:     f.Name,
-						Type:     f.Type,
-						Default:  f.Default,
-						Required: f.Required,
+				configFields := make([]configFieldSummary, 0)
+				if at.AgentfileSource != nil && *at.AgentfileSource != "" {
+					prog, errs := parser.Parse(*at.AgentfileSource)
+					if len(errs) == 0 && prog != nil {
+						spec := extract.Extract(prog)
+						for _, cfg := range spec.Config {
+							field := configFieldSummary{
+								Name:    cfg.Name,
+								Type:    cfg.Type,
+								Default: cfg.Default,
+							}
+							field.Options = cfg.Options
+							configFields = append(configFields, field)
+						}
 					}
-					for _, opt := range f.Options {
-						field.Options = append(field.Options, opt.Value)
-					}
-					configFields = append(configFields, field)
 				}
 
-				userCfg := userConfigMap[at.ID]
+				userCfg := userConfigMap[at.Slug]
 				if userCfg == nil {
 					userCfg = make(map[string]interface{})
 				}
 
-				summary.AvailableAgents = append(summary.AvailableAgents, agentTypeSummary{
-					ID:          at.ID,
+				summary.AvailableAgents = append(summary.AvailableAgents, agentSummary{
 					Slug:        at.Slug,
 					Name:        at.Name,
 					Description: desc,
@@ -145,8 +148,7 @@ func (a *GRPCRunnerAdapter) mcpListRunners(ctx context.Context, tc *middleware.T
 				if cat.Description != nil {
 					desc = *cat.Description
 				}
-				summary.AvailableAgents = append(summary.AvailableAgents, agentTypeSummary{
-					ID:          cat.ID,
+				summary.AvailableAgents = append(summary.AvailableAgents, agentSummary{
 					Slug:        cat.Slug,
 					Name:        cat.Name,
 					Description: desc,

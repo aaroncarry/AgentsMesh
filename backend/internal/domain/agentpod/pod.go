@@ -36,6 +36,12 @@ const (
 	PermissionModeBypass  = "bypassPermissions"
 )
 
+// Interaction mode constants
+const (
+	InteractionModePTY = "pty"
+	InteractionModeACP = "acp"
+)
+
 // Pod represents an AI coding pod (AgentPod instance)
 type Pod struct {
 	ID             int64 `gorm:"primaryKey" json:"id"`
@@ -44,14 +50,13 @@ type Pod struct {
 	PodKey   string `gorm:"size:100;not null;uniqueIndex" json:"pod_key"`
 	RunnerID int64  `gorm:"not null;index" json:"runner_id"`
 
-	AgentTypeID       *int64 `json:"agent_type_id,omitempty"`
-	CustomAgentTypeID *int64 `json:"custom_agent_type_id,omitempty"`
+	AgentSlug string `gorm:"size:100;column:agent_slug" json:"agent_slug,omitempty"`
 
 	RepositoryID *int64 `json:"repository_id,omitempty"`
 	TicketID     *int64 `json:"ticket_id,omitempty"`
 	CreatedByID  int64  `gorm:"not null" json:"created_by_id"`
 
-	PtyPID      *int   `gorm:"column:pty_pid" json:"pty_pid,omitempty"`
+	TerminalPID *int   `gorm:"column:pty_pid" json:"pty_pid,omitempty"`
 	Status      string `gorm:"size:50;not null;default:'initializing';index" json:"status"`
 	AgentStatus string `gorm:"size:50;not null;default:'idle'" json:"agent_status"`
 	AgentPID    *int   `gorm:"column:agent_pid" json:"agent_pid,omitempty"` // Claude/Agent process PID
@@ -67,8 +72,9 @@ type Pod struct {
 	SandboxPath   *string `gorm:"column:sandbox_path;size:500" json:"sandbox_path,omitempty"`
 
 	// Agent configuration used for this pod
-	Model          *string `gorm:"size:50" json:"model,omitempty"`           // opus/sonnet/haiku
-	PermissionMode *string `gorm:"size:50" json:"permission_mode,omitempty"` // plan/default/bypassPermissions
+	Model           *string `gorm:"size:50" json:"model,omitempty"`           // opus/sonnet/haiku
+	PermissionMode  *string `gorm:"size:50" json:"permission_mode,omitempty"` // plan/default/bypassPermissions
+	InteractionMode string  `gorm:"column:interaction_mode;type:varchar(10);default:pty;not null" json:"interaction_mode"`
 	// Error details from Runner (e.g., git clone auth failure)
 	ErrorCode    *string `gorm:"size:100" json:"error_code,omitempty"`
 	ErrorMessage *string `gorm:"type:text" json:"error_message,omitempty"`
@@ -100,12 +106,11 @@ type Pod struct {
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 
 	// Associations
-	Runner          *runner.Runner             `gorm:"foreignKey:RunnerID" json:"runner,omitempty"`
-	AgentType       *agent.AgentType           `gorm:"foreignKey:AgentTypeID" json:"agent_type,omitempty"`
-	CustomAgentType *agent.CustomAgentType     `gorm:"foreignKey:CustomAgentTypeID" json:"custom_agent_type,omitempty"`
-	Repository      *gitprovider.Repository     `gorm:"foreignKey:RepositoryID" json:"repository,omitempty"`
-	Ticket          *ticket.Ticket             `gorm:"foreignKey:TicketID" json:"ticket,omitempty"`
-	CreatedBy       *user.User                 `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
+	Runner     *runner.Runner         `gorm:"foreignKey:RunnerID" json:"runner,omitempty"`
+	Agent      *agent.Agent           `gorm:"foreignKey:AgentSlug;references:Slug" json:"agent,omitempty"`
+	Repository *gitprovider.Repository `gorm:"foreignKey:RepositoryID" json:"repository,omitempty"`
+	Ticket     *ticket.Ticket         `gorm:"foreignKey:TicketID" json:"ticket,omitempty"`
+	CreatedBy  *user.User             `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
 
 	// Virtual field: populated by service layer via loop_runs join, not a DB column
 	Loop *PodLoopInfo `gorm:"-" json:"loop,omitempty"`
@@ -120,41 +125,6 @@ type PodLoopInfo struct {
 
 func (Pod) TableName() string {
 	return "pods"
-}
-
-// ActiveStatuses returns the list of Pod statuses considered active.
-// Use this for SQL IN clauses to avoid hardcoding status strings.
-func ActiveStatuses() []string {
-	return []string{StatusInitializing, StatusRunning, StatusPaused, StatusDisconnected}
-}
-
-// TerminalStatuses returns the list of Pod statuses considered terminal (non-recoverable).
-// Does NOT include StatusCompleted (graceful completion is not "terminal").
-func TerminalStatuses() []string {
-	return []string{StatusTerminated, StatusOrphaned, StatusError}
-}
-
-// IsPodStatusActive returns true if the given Pod status string represents an active state.
-// Use this instead of comparing against individual status constants when you don't have a Pod instance.
-func IsPodStatusActive(status string) bool {
-	return status == StatusRunning ||
-		status == StatusInitializing ||
-		status == StatusPaused ||
-		status == StatusDisconnected
-}
-
-// IsPodStatusTerminal returns true if the given Pod status string represents a terminal (non-recoverable) state.
-// Note: StatusCompleted is NOT terminal — it represents graceful completion.
-// Use IsPodStatusFinished for "done in any way" checks.
-func IsPodStatusTerminal(status string) bool {
-	return status == StatusTerminated ||
-		status == StatusOrphaned ||
-		status == StatusError
-}
-
-// IsPodStatusFinished returns true if the Pod execution is done (either gracefully completed or terminal).
-func IsPodStatusFinished(status string) bool {
-	return status == StatusCompleted || IsPodStatusTerminal(status)
 }
 
 // IsActive returns true if pod is active
@@ -172,6 +142,11 @@ func (p *Pod) CanReconnect() bool {
 	return p.Status == StatusDisconnected
 }
 
+// IsACPMode returns true if the pod uses ACP interaction mode.
+func (p *Pod) IsACPMode() bool {
+	return p.InteractionMode == InteractionModeACP
+}
+
 // GetOrganizationID returns the organization ID (implements middleware.PodGetter)
 func (p *Pod) GetOrganizationID() int64 {
 	return p.OrganizationID
@@ -180,27 +155,4 @@ func (p *Pod) GetOrganizationID() int64 {
 // GetPodKey returns the pod key (implements middleware.PodGetter)
 func (p *Pod) GetPodKey() string {
 	return p.PodKey
-}
-
-// PreparationConfig holds the preparation script configuration
-type PreparationConfig struct {
-	Script  string `json:"script,omitempty"`
-	Timeout int    `json:"timeout,omitempty"` // in seconds
-}
-
-// CreatePodCommand represents a command to create a pod on a runner
-type CreatePodCommand struct {
-	PodKey            string             `json:"pod_id"` // Use pod_id for compatibility with runner
-	InitialCommand    string             `json:"initial_command,omitempty"`
-	InitialPrompt     string             `json:"initial_prompt,omitempty"`
-	PermissionMode    string             `json:"permission_mode,omitempty"`
-	TicketSlug        string             `json:"ticket_slug,omitempty"`
-	PodSuffix         string             `json:"pod_suffix,omitempty"`
-	EnvVars           map[string]string  `json:"env_vars,omitempty"`
-	PreparationConfig *PreparationConfig `json:"preparation_config,omitempty"`
-}
-
-// TerminatePodCommand represents a command to terminate a pod
-type TerminatePodCommand struct {
-	PodKey string `json:"pod_id"`
 }

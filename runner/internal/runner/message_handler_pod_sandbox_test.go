@@ -28,6 +28,7 @@ func TestOnCreatePodWithSandboxConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "sandbox-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{},
 	}
 
@@ -38,8 +39,10 @@ func TestOnCreatePodWithSandboxConfig(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("sandbox-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
 
@@ -60,6 +63,7 @@ func TestOnCreatePodWithFilesToCreate(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "files-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		FilesToCreate: []*runnerv1.FileToCreate{
 			{
 				Path:    "{{.sandbox.root_path}}/test.txt",
@@ -76,8 +80,10 @@ func TestOnCreatePodWithFilesToCreate(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("files-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
 
@@ -98,6 +104,7 @@ func TestOnCreatePodWithLocalPath(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "local-path-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			LocalPath: tempDir,
 		},
@@ -110,7 +117,9 @@ func TestOnCreatePodWithLocalPath(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("local-path-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }

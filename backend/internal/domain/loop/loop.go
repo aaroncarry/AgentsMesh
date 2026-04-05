@@ -57,9 +57,8 @@ type Loop struct {
 	Description *string `gorm:"type:text" json:"description,omitempty"`
 
 	// Agent configuration
-	AgentTypeID       *int64 `json:"agent_type_id,omitempty"`
-	CustomAgentTypeID *int64 `json:"custom_agent_type_id,omitempty"`
-	PermissionMode    string `gorm:"size:50;not null;default:'bypassPermissions'" json:"permission_mode"`
+	AgentSlug      string `gorm:"size:100;column:agent_slug" json:"agent_slug,omitempty"`
+	PermissionMode string `gorm:"size:50;not null;default:'bypassPermissions'" json:"permission_mode"`
 
 	// Prompt
 	PromptTemplate string `gorm:"type:text;not null" json:"prompt_template"`
@@ -71,7 +70,7 @@ type Loop struct {
 	TicketID            *int64 `json:"ticket_id,omitempty"`
 	CredentialProfileID *int64 `json:"credential_profile_id,omitempty"`
 
-	// Agent config overrides (dynamic configuration from ConfigSchema)
+	// Agent config overrides (dynamic configuration from AgentFile CONFIG declarations)
 	ConfigOverrides json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"config_overrides"`
 
 	// Prompt variables: default values for {{var}} placeholders in PromptTemplate
@@ -194,22 +193,3 @@ func (l *Loop) SuccessRate() float64 {
 	return float64(l.SuccessfulRuns) / float64(l.TotalRuns) * 100
 }
 
-// AutopilotConfigValues is the typed representation of Loop.AutopilotConfig JSON.
-// All fields are optional — zero values mean "use domain defaults" (applied by agentpod.ApplyDefaults).
-type AutopilotConfigValues struct {
-	MaxIterations       int32 `json:"max_iterations,omitempty"`
-	IterationTimeoutSec int32 `json:"iteration_timeout_sec,omitempty"`
-	NoProgressThreshold int32 `json:"no_progress_threshold,omitempty"`
-	SameErrorThreshold  int32 `json:"same_error_threshold,omitempty"`
-	ApprovalTimeoutMin  int32 `json:"approval_timeout_min,omitempty"`
-}
-
-// ParseAutopilotConfig deserializes the AutopilotConfig JSON into a typed struct.
-// Returns zero-value struct if AutopilotConfig is nil or invalid (all zeros → domain defaults apply).
-func (l *Loop) ParseAutopilotConfig() AutopilotConfigValues {
-	var cfg AutopilotConfigValues
-	if l.AutopilotConfig != nil {
-		_ = json.Unmarshal(l.AutopilotConfig, &cfg)
-	}
-	return cfg
-}

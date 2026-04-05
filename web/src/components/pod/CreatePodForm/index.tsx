@@ -1,22 +1,18 @@
 "use client";
 
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Spinner, CenteredSpinner } from "@/components/ui/spinner";
-import { ConfigForm } from "@/components/ide/ConfigForm";
+import { CenteredSpinner } from "@/components/ui/spinner";
 import { usePodCreationData, useCreatePodForm } from "../hooks";
 import { useConfigOptions } from "@/components/ide/hooks";
 import { CreatePodFormProps } from "./types";
 import { mergeConfig } from "./presets";
-import { RunnerSelect } from "./RunnerSelect";
 import { AgentSelect } from "./AgentSelect";
-import { CredentialSelect } from "./CredentialSelect";
-import { RepositorySelect, BranchInput } from "./RepositorySelect";
 import { PromptInput } from "./PromptInput";
-import { AdvancedOptions } from "./AdvancedOptions";
-import { Input } from "@/components/ui/input";
-import { estimateWorkspaceTerminalSize } from "@/lib/terminal-size";
+import { InteractionModeToggle } from "./InteractionModeToggle";
+import { AdvancedFormSection } from "./AdvancedFormSection";
+import { useCreatePodSubmitHandler } from "./useCreatePodSubmitHandler";
 
 /**
  * Shared Pod creation form component
@@ -37,6 +33,9 @@ export function CreatePodForm({
 
   const { context, promptGenerator, onSuccess, onError, onCancel } = mergedConfig;
 
+  // Track selected agent at parent level so both hooks can consume it
+  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string | null>(null);
+
   // Load base data (runners, agents, repositories)
   const {
     runners,
@@ -44,13 +43,11 @@ export function CreatePodForm({
     loading: loadingData,
     selectedRunner,
     setSelectedRunnerId,
-    availableAgentTypes,
+    availableAgents,
   } = usePodCreationData(enabled);
 
-  // Form state management
-  const form = useCreatePodForm(availableAgentTypes, repositories, onSuccess);
-
   // Config options management (loads from Backend ConfigSchema)
+  // Placed before useCreatePodForm so configValues is available
   const {
     fields: configFields,
     loading: loadingConfig,
@@ -59,9 +56,16 @@ export function CreatePodForm({
     resetConfig: resetConfig,
   } = useConfigOptions(
     selectedRunner?.id || null,
-    form.selectedAgentSlug,
-    form.selectedAgent
+    selectedAgentSlug
   );
+
+  // Form state management (receives configValues for AgentFile Layer generation)
+  const form = useCreatePodForm(availableAgents, repositories, onSuccess, configValues);
+
+  // Sync selected agent from form to local state for useConfigOptions
+  useEffect(() => {
+    setSelectedAgentSlug(form.selectedAgent);
+  }, [form.selectedAgent]);
 
   // Reset form when enabled changes from true to false (e.g., modal closes)
   useEffect(() => {
@@ -69,6 +73,7 @@ export function CreatePodForm({
       form.reset();
       resetConfig();
       setSelectedRunnerId(null);
+      setSelectedAgentSlug(null);
       promptInitializedRef.current = false;
       repoInitializedRef.current = false;
     }
@@ -109,26 +114,9 @@ export function CreatePodForm({
   }, [enabled, defaultPrompt, form.prompt, form.setPrompt]);
 
   // Handle form submission
-  // runner_id is optional - when not manually selected, backend auto-selects
-  const handleCreate = async () => {
-    if (!form.selectedAgent) return;
-
-    try {
-      // Estimate terminal size based on current window/device dimensions
-      const { cols, rows } = estimateWorkspaceTerminalSize();
-
-      // Pass runner as null/undefined when not manually selected (backend auto-selects)
-      await form.submit(selectedRunner?.id ?? null, configValues, {
-        ticketSlug: context?.ticket?.slug,
-        initialPrompt: form.prompt,
-        cols,
-        rows,
-      });
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error("Unknown error");
-      onError?.(error);
-    }
-  };
+  const handleCreate = useCreatePodSubmitHandler(
+    form, selectedRunner, configValues, context, onError,
+  );
 
   return (
     <div className={className}>
@@ -136,14 +124,23 @@ export function CreatePodForm({
         <CenteredSpinner className="py-8" />
       ) : (
         <div className="space-y-4">
-          {/* Agent Type Select (shown first) */}
+          {/* Agent Select (shown first) */}
           <AgentSelect
-            agents={availableAgentTypes}
-            selectedAgentId={form.selectedAgent}
+            agents={availableAgents}
+            selectedAgentSlug={form.selectedAgent}
             onSelect={form.setSelectedAgent}
             error={form.validationErrors.agent}
             t={t}
           />
+
+          {/* Interaction Mode Toggle (only when agent supports multiple modes and source mode is off) */}
+          {form.selectedAgent && !form.rawLayerMode && (
+            <InteractionModeToggle
+              supportedModes={form.supportedModes}
+              interactionMode={form.interactionMode}
+              onModeChange={form.setInteractionMode}
+            />
+          )}
 
           {/* Initial Prompt (visible at top level) */}
           {form.selectedAgent && (
@@ -157,81 +154,17 @@ export function CreatePodForm({
 
           {/* Advanced Options (collapsed by default) */}
           {form.selectedAgent && (
-            <AdvancedOptions t={t}>
-              {/* Pod Alias (optional display name) */}
-              <div>
-                <label htmlFor="pod-alias" className="block text-sm font-medium mb-1">
-                  {t("ide.createPod.alias")}
-                </label>
-                <Input
-                  id="pod-alias"
-                  value={form.alias}
-                  onChange={(e) => form.setAlias(e.target.value)}
-                  placeholder={t("ide.createPod.aliasPlaceholder")}
-                  maxLength={100}
-                />
-              </div>
-
-              {/* Runner Select (manual override, optional) */}
-              <RunnerSelect
-                runners={runners}
-                selectedRunnerId={selectedRunner?.id ?? null}
-                onSelect={setSelectedRunnerId}
-                error={form.validationErrors.runner}
-                t={t}
-              />
-
-              {/* Credential Profile Select */}
-              <CredentialSelect
-                profiles={form.credentialProfiles}
-                selectedProfileId={form.selectedCredentialProfile}
-                onSelect={form.setSelectedCredentialProfile}
-                loading={form.loadingCredentials}
-                t={t}
-              />
-
-              {/* Repository Select */}
-              <RepositorySelect
-                repositories={repositories}
-                selectedRepositoryId={form.selectedRepository}
-                onSelect={form.setSelectedRepository}
-                t={t}
-              />
-
-              {/* Branch Input */}
-              {form.selectedRepository && (
-                <BranchInput
-                  value={form.selectedBranch}
-                  onChange={form.setSelectedBranch}
-                  error={form.validationErrors.branch}
-                  t={t}
-                />
-              )}
-
-              {/* Agent Configuration Section */}
-              {loadingConfig ? (
-                <div className="flex items-center justify-center py-4">
-                  <Spinner size="sm" className="mr-2" />
-                  <span className="text-sm text-muted-foreground">
-                    {t("ide.createPod.loadingPlugins")}
-                  </span>
-                </div>
-              ) : (
-                configFields.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      {t("ide.createPod.pluginConfig")}
-                    </label>
-                    <ConfigForm
-                      fields={configFields.filter((f) => f.type !== "model_list")}
-                      values={configValues}
-                      onChange={handleConfigChange}
-                      agentSlug={form.selectedAgentSlug}
-                    />
-                  </div>
-                )
-              )}
-            </AdvancedOptions>
+            <AdvancedFormSection
+              form={form}
+              runners={runners}
+              repositories={repositories}
+              selectedRunner={selectedRunner}
+              setSelectedRunnerId={setSelectedRunnerId}
+              configFields={configFields}
+              loadingConfig={loadingConfig}
+              configValues={configValues}
+              handleConfigChange={handleConfigChange}
+            />
           )}
 
           {/* Error Display */}

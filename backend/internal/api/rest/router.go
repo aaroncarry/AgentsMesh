@@ -130,7 +130,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
 			// User-level routes (no tenant context required)
-			v1.RegisterUserRoutes(protected.Group("/users"), svc.User, svc.Org, svc.AgentType, svc.CredentialProfile, svc.UserConfig, svc.AgentPodSettings, svc.AgentPodAIProvider)
+			v1.RegisterUserRoutes(protected.Group("/users"), svc.User, svc.Org, svc.AgentSvc, svc.CredentialProfile, svc.UserConfig, svc.AgentPodSettings, svc.AgentPodAIProvider)
 
 			// Organization routes (authenticated, some require org context)
 			// Path changed: /organizations → /orgs
@@ -153,7 +153,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 
 				// WebSocket endpoints for real-time events
 				// Note: Terminal WebSocket has been moved to Relay architecture
-				// Use GET /pods/:key/terminal/connect to get Relay URL and token
+				// Use GET /pods/:key/relay/connect to get Relay URL and token
 				wsGroup := orgScoped.Group("/ws")
 				{
 					eventHandler := ws.NewEventsHandler(svc.Hub)

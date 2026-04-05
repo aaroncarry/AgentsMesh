@@ -17,6 +17,7 @@ func TestPodBuilderStruct(t *testing.T) {
 		LaunchCommand: "claude",
 		LaunchArgs:    []string{"--headless"},
 		EnvVars:       map[string]string{"KEY": "VALUE"},
+		AgentfileSource: "AGENT claude\nPROMPT_POSITION prepend\n",
 		FilesToCreate: []*runnerv1.FileToCreate{
 			{Path: "{{.sandbox.root_path}}/test.txt", Content: "test"},
 		},
@@ -27,7 +28,7 @@ func TestPodBuilderStruct(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(80, 24) // (cols, rows)
+		WithPtySize(80, 24) // (cols, rows)
 
 	if builder.cmd.PodKey != "pod-1" {
 		t.Errorf("podKey: got %v, want pod-1", builder.cmd.PodKey)
@@ -47,6 +48,7 @@ func TestPodBuilderFluentAPI(t *testing.T) {
 		PodKey:        "pod-1",
 		LaunchCommand: "claude",
 		LaunchArgs:    []string{"--headless"},
+		AgentfileSource: "AGENT claude\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"KEY1": "VALUE1",
 			"KEY2": "VALUE2",
@@ -64,7 +66,7 @@ func TestPodBuilderFluentAPI(t *testing.T) {
 	builder := NewPodBuilderFromRunner(runner)
 	result := builder.
 		WithCommand(cmd).
-		WithTerminalSize(120, 40) // (cols, rows)
+		WithPtySize(120, 40) // (cols, rows)
 
 	// Verify it returns the same builder
 	if result != builder {
@@ -121,12 +123,12 @@ func TestPodBuilderDefaultValues(t *testing.T) {
 	}
 }
 
-func TestPodBuilderTerminalSizeValidation(t *testing.T) {
+func TestPodBuilderPtySizeValidation(t *testing.T) {
 	runner := &Runner{}
 	builder := NewPodBuilderFromRunner(runner)
 
 	// Test with invalid values (should use defaults)
-	builder.WithTerminalSize(0, 0)
+	builder.WithPtySize(0, 0)
 
 	if builder.rows != 24 {
 		t.Errorf("rows with zero: got %v, want 24 (default)", builder.rows)
@@ -137,7 +139,7 @@ func TestPodBuilderTerminalSizeValidation(t *testing.T) {
 	}
 
 	// Test with negative values (should use defaults)
-	builder.WithTerminalSize(-1, -1)
+	builder.WithPtySize(-1, -1)
 
 	if builder.rows != 24 {
 		t.Errorf("rows with negative: got %v, want 24 (default)", builder.rows)

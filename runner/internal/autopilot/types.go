@@ -2,10 +2,10 @@
 package autopilot
 
 import (
+	"context"
 	"time"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // Phase represents the current phase of an AutopilotController.
@@ -45,9 +45,10 @@ type EventReporter interface {
 }
 
 // TargetPodController provides methods to interact with the controlled Pod.
-// This interface is implemented by runner.PodControllerImpl.
+// All methods are mode-agnostic — they work identically for PTY and ACP pods
+// because PodControllerImpl delegates to PodIO.
 type TargetPodController interface {
-	// SendInput sends text to the pod's terminal.
+	// SendInput sends text to the pod.
 	SendInput(text string) error
 	// GetWorkDir returns the pod's working directory.
 	GetWorkDir() string
@@ -55,9 +56,24 @@ type TargetPodController interface {
 	GetPodKey() string
 	// GetAgentStatus returns the pod's agent status (executing/waiting/idle).
 	GetAgentStatus() string
-	// GetStateDetector returns a StateDetector for the pod.
-	// Returns nil if state detection is not available.
-	// The StateDetector interface is defined in terminal/detector package,
-	// which is a foundational service independent of Autopilot.
-	GetStateDetector() detector.StateDetector
+	// SubscribeStateChange registers a callback for agent state changes.
+	// The callback receives the new status string ("executing", "waiting", "idle").
+	SubscribeStateChange(id string, cb func(newStatus string))
+	// UnsubscribeStateChange removes a state change subscription.
+	UnsubscribeStateChange(id string)
+}
+
+// ControlProcess executes the control agent to make decisions.
+// Two implementations:
+//   - ExecControlProcess: launches a new CLI process per iteration (os/exec)
+//   - AcpControlProcess: maintains a long-lived ACP session (stream-json)
+type ControlProcess interface {
+	// RunControlProcess executes a single decision cycle.
+	RunControlProcess(ctx context.Context, iteration int) (*ControlDecision, error)
+	// SetSessionID sets the session ID for resumption (exec mode).
+	SetSessionID(id string)
+	// GetSessionID returns the current session ID.
+	GetSessionID() string
+	// Stop gracefully shuts down the control process.
+	Stop()
 }

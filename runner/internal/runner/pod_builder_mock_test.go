@@ -41,6 +41,7 @@ func TestPodBuilderWithCommand(t *testing.T) {
 		PodKey:        "test-key",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"hello"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"VAR1": "value1",
 		},
@@ -65,9 +66,9 @@ func TestPodBuilderWithCommand(t *testing.T) {
 	}
 }
 
-func TestPodBuilderWithTerminalSize(t *testing.T) {
+func TestPodBuilderWithPtySize(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
-	builder := NewPodBuilderFromRunner(runner).WithTerminalSize(160, 48) // (cols, rows)
+	builder := NewPodBuilderFromRunner(runner).WithPtySize(160, 48) // (cols, rows)
 
 	if builder.cols != 160 {
 		t.Errorf("cols = %d, want 160", builder.cols)
@@ -78,9 +79,9 @@ func TestPodBuilderWithTerminalSize(t *testing.T) {
 	}
 }
 
-func TestPodBuilderWithTerminalSizeZeroValues(t *testing.T) {
+func TestPodBuilderWithPtySizeZeroValues(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
-	builder := NewPodBuilderFromRunner(runner).WithTerminalSize(0, 0)
+	builder := NewPodBuilderFromRunner(runner).WithPtySize(0, 0)
 
 	// Should keep defaults
 	if builder.rows != 24 {
@@ -97,6 +98,7 @@ func TestPodBuilderWithSandboxConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			RepositoryUrl:  "https://github.com/test/repo.git",
 			SourceBranch:   "feature/test",
@@ -122,6 +124,7 @@ func TestPodBuilderWithFilesToCreateMultiple(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		FilesToCreate: []*runnerv1.FileToCreate{
 			{Path: "{{.sandbox.root_path}}/config.json", Content: "{}", Mode: 0644},
 			{Path: "{{.sandbox.work_dir}}/data.txt", Content: "data"},
@@ -144,6 +147,7 @@ func TestPodBuilderCommandWithAllFields(t *testing.T) {
 		PodKey:        "pod-1",
 		LaunchCommand: "claude",
 		LaunchArgs:    []string{"--headless"},
+		AgentfileSource: "AGENT claude\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"API_KEY": "secret",
 		},
@@ -159,7 +163,7 @@ func TestPodBuilderCommandWithAllFields(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(160, 48) // (cols, rows)
+		WithPtySize(160, 48) // (cols, rows)
 
 	if builder.cmd.PodKey != "pod-1" {
 		t.Errorf("podKey = %v, want pod-1", builder.cmd.PodKey)
@@ -211,6 +215,7 @@ func TestPodBuilderBuildEmptyPodKey(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
 	cmd := &runnerv1.CreatePodCommand{
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		// PodKey is empty
 	}
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
@@ -242,8 +247,8 @@ func TestPodBuilderBuildEmptyLaunchCommand(t *testing.T) {
 		t.Error("expected error for empty launch command")
 	}
 
-	if !contains(err.Error(), "launch command is required") {
-		t.Errorf("error = %v, want containing 'launch command is required'", err)
+	if !contains(err.Error(), "launch_command is required") {
+		t.Errorf("error = %v, want containing 'launch_command is required'", err)
 	}
 }
 

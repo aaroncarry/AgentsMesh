@@ -3,22 +3,69 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/anthropics/agentsmesh/runner/internal/mcp/tools"
 )
 
-// mergeModelIntoConfigOverrides ensures the top-level "model" parameter is passed to the backend
-// via config_overrides, since the backend only processes model through that field.
-// If config_overrides already contains "model", the existing value takes precedence.
-func mergeModelIntoConfigOverrides(req *tools.PodCreateRequest, model string) {
-	if model == "" {
-		return
+// buildAgentfileLayerFromArgs generates an AgentFile Layer from MCP tool arguments.
+// Converts scattered config fields into unified AgentFile CONFIG declarations.
+func buildAgentfileLayerFromArgs(
+	model, permissionMode, initialPrompt string,
+	configOverrides map[string]interface{},
+	repositoryURL, branchName string,
+) string {
+	var lines []string
+
+	if permissionMode != "" {
+		lines = append(lines, fmt.Sprintf(`CONFIG permission_mode = "%s"`, permissionMode))
 	}
-	if req.ConfigOverrides == nil {
-		req.ConfigOverrides = make(map[string]interface{})
+	if model != "" {
+		lines = append(lines, fmt.Sprintf(`CONFIG model = "%s"`, model))
 	}
-	if _, exists := req.ConfigOverrides["model"]; !exists {
-		req.ConfigOverrides["model"] = model
+	for k, v := range configOverrides {
+		if k == "model" || k == "permission_mode" {
+			continue // already handled above
+		}
+		lines = append(lines, fmt.Sprintf("CONFIG %s = %s", k, formatMCPConfigValue(v)))
+	}
+	if initialPrompt != "" {
+		escaped := strings.ReplaceAll(initialPrompt, `\`, `\\`)
+		escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+		escaped = strings.ReplaceAll(escaped, "\n", `\n`)
+		escaped = strings.ReplaceAll(escaped, "\t", `\t`)
+		lines = append(lines, fmt.Sprintf(`PROMPT "%s"`, escaped))
+	}
+	if repositoryURL != "" {
+		lines = append(lines, fmt.Sprintf(`REPO "%s"`, repositoryURL))
+	}
+	if branchName != "" {
+		lines = append(lines, fmt.Sprintf(`BRANCH "%s"`, branchName))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatMCPConfigValue(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		escaped := strings.ReplaceAll(val, `\`, `\\`)
+		escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+		escaped = strings.ReplaceAll(escaped, "\n", `\n`)
+		escaped = strings.ReplaceAll(escaped, "\t", `\t`)
+		return fmt.Sprintf(`"%s"`, escaped)
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	case float64:
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%d", int64(val))
+		}
+		return fmt.Sprintf("%g", val)
+	default:
+		return fmt.Sprintf(`"%v"`, val)
 	}
 }
 
@@ -27,7 +74,7 @@ func mergeModelIntoConfigOverrides(req *tools.PodCreateRequest, model string) {
 func (s *HTTPServer) createCreatePodTool() *MCPTool {
 	return &MCPTool{
 		Name:        "create_pod",
-		Description: "Create a new agent pod. IMPORTANT: Before calling this tool, you MUST first call list_runners to get the runner_id and agent_type_id. The new pod will automatically have pod:read and pod:write permissions to the creator via binding.",
+		Description: "Create a new agent pod. IMPORTANT: Before calling this tool, you MUST first call list_runners to get the runner_id and agent_slug. The new pod will automatically have pod:read and pod:write permissions to the creator via binding.",
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -35,9 +82,9 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 					"type":        "integer",
 					"description": "ID of the runner to create the pod on (required). Call list_runners first to get available runner IDs.",
 				},
-				"agent_type_id": map[string]interface{}{
-					"type":        "integer",
-					"description": "ID of the agent type to use for the pod (required). Call list_runners first to see available agent types and their IDs.",
+				"agent_slug": map[string]interface{}{
+					"type":        "string",
+					"description": "Slug of the agent to use for the pod (required, e.g. 'claude-code'). Call list_runners first to see available agents.",
 				},
 				"ticket_slug": map[string]interface{}{
 					"type":        "string",
@@ -45,7 +92,7 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 				},
 				"initial_prompt": map[string]interface{}{
 					"type":        "string",
-					"description": "Initial prompt to send to the new agent pod",
+					"description": "[Deprecated: prefer AgentFile PROMPT declaration] Initial prompt to send to the new agent pod",
 				},
 				"alias": map[string]interface{}{
 					"type":        "string",
@@ -73,20 +120,27 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 				},
 				"config_overrides": map[string]interface{}{
 					"type":        "object",
-					"description": "Override agent type default configuration. Keys depend on the agent type's config schema.",
+					"description": "[Deprecated: prefer AgentFile Layer CONFIG declarations] Override agent default configuration. Keys depend on the agent's config schema.",
 				},
 				"permission_mode": map[string]interface{}{
 					"type":        "string",
 					"enum":        []string{"plan", "default", "bypassPermissions"},
-					"description": "Permission mode for the pod: 'plan' (default, requires approval), 'default' (normal permissions), or 'bypassPermissions' (auto-approve all).",
+					"description": "[Deprecated: prefer AgentFile CONFIG permission_mode] Permission mode for the pod: 'plan' (default, requires approval), 'default' (normal permissions), or 'bypassPermissions' (auto-approve all).",
 				},
 			},
-			"required": []string{"runner_id", "agent_type_id"},
+			"required": []string{"runner_id", "agent_slug"},
 		},
 		Handler: func(ctx context.Context, client tools.CollaborationClient, args map[string]interface{}) (interface{}, error) {
-			req := &tools.PodCreateRequest{
-				InitialPrompt: getStringArg(args, "initial_prompt"),
-			}
+			// Build AgentFile Layer from scattered arguments (AgentFile SSOT).
+			model := getStringArg(args, "model")
+			permissionMode := getStringArg(args, "permission_mode")
+			initialPrompt := getStringArg(args, "initial_prompt")
+			configOverrides := getMapArg(args, "config_overrides")
+			repositoryURL := getStringArg(args, "repository_url")
+			branchName := getStringArg(args, "branch_name")
+			agentfileLayer := buildAgentfileLayerFromArgs(model, permissionMode, initialPrompt, configOverrides, repositoryURL, branchName)
+
+			req := &tools.PodCreateRequest{}
 
 			if v := getStringArg(args, "alias"); v != "" {
 				req.Alias = &v
@@ -94,33 +148,24 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 			if v := getIntArg(args, "runner_id"); v != 0 {
 				req.RunnerID = v
 			}
-			if v := getInt64PtrArg(args, "agent_type_id"); v != nil {
-				req.AgentTypeID = v
+			if v := getStringArg(args, "agent_slug"); v != "" {
+				req.AgentSlug = v
 			}
 			if v := getStringArg(args, "ticket_slug"); v != "" {
 				req.TicketSlug = &v
 			}
+			// repository_id and credential_profile_id remain as separate fields
+			// because they are platform-level ID references that cannot be resolved
+			// to AgentFile slugs/names on the Runner side (no DB access).
 			if v := getInt64PtrArg(args, "repository_id"); v != nil {
 				req.RepositoryID = v
-			}
-			if v := getStringArg(args, "repository_url"); v != "" {
-				req.RepositoryURL = &v
-			}
-			if v := getStringArg(args, "branch_name"); v != "" {
-				req.BranchName = &v
 			}
 			if v := getInt64PtrArg(args, "credential_profile_id"); v != nil {
 				req.CredentialProfileID = v
 			}
-			if v := getMapArg(args, "config_overrides"); v != nil {
-				req.ConfigOverrides = v
+			if agentfileLayer != "" {
+				req.AgentfileLayer = &agentfileLayer
 			}
-			if v := getStringArg(args, "permission_mode"); v != "" {
-				req.PermissionMode = &v
-			}
-
-			// Merge top-level "model" into config_overrides so it reaches the backend
-			mergeModelIntoConfigOverrides(req, getStringArg(args, "model"))
 
 			// Create the pod
 			resp, err := client.CreatePod(ctx, req)
@@ -129,11 +174,9 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 			}
 
 			// Auto-bind to the new pod with pod interaction permissions
-			// This allows the creator to observe and control the new pod
 			scopes := []tools.BindingScope{tools.ScopePodRead, tools.ScopePodWrite}
 			binding, err := client.RequestBinding(ctx, resp.PodKey, scopes)
 			if err != nil {
-				// Pod created but binding failed - return both info
 				return fmt.Sprintf("Pod: %s | Status: %s | Binding Error: %s", resp.PodKey, resp.Status, err.Error()), nil
 			}
 

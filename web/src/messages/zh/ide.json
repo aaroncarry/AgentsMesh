@@ -44,7 +44,7 @@
       "infoTab": {
         "notFound": "Pod 信息不可用",
         "podKey": "Pod Key",
-        "agentType": "智能体",
+        "agent": "智能体",
         "agentStatus": "智能体状态",
         "runner": "Runner",
         "repository": "仓库",
@@ -65,7 +65,7 @@
       "noRunnersAvailable": "暂无可用的 Runner",
       "selectAgent": "选择智能体",
       "selectAgentPlaceholder": "请选择一个智能体...",
-      "noAgentsForRunner": "该 Runner 暂不支持任何智能体类型",
+      "noAgentsForRunner": "该 Runner 暂不支持任何智能体",
       "selectCredential": "API 凭据",
       "runnerHostDescription": "使用 Runner 本地配置",
       "runnerHostHint": "使用 Runner 机器上的本地环境配置，不注入凭据。",
@@ -83,11 +83,16 @@
       "autoCleanup": "完成后自动清理",
       "loadingPlugins": "正在加载插件选项...",
       "pluginConfig": "插件配置",
+      "agentfileLayer": "AgentFile Layer",
+      "sourceMode": "Source Mode",
       "create": "创建 Pod",
       "creating": "创建中...",
       "cancel": "取消",
       "alias": "别名",
-      "aliasPlaceholder": "输入 Pod 显示名称..."
+      "aliasPlaceholder": "输入 Pod 显示名称...",
+      "interactionMode": "交互模式",
+      "modePty": "终端 (PTY)",
+      "modeAcp": "对话 (ACP)"
     },
     "sidebar": {
       "settings": {
@@ -102,7 +107,7 @@
           "members": "成员",
           "membersDesc": "团队成员和角色",
           "agents": "智能体",
-          "agentsDesc": "AI 智能体类型",
+          "agentsDesc": "AI 智能体",
           "runners": "Runner",
           "runnersDesc": "Runner 管理",
           "gitProviders": "Git 提供商",

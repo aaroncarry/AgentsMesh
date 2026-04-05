@@ -31,8 +31,8 @@ type ConnectionSender interface {
 	// status is "completed" or "error" — decided by Runner.
 	SendPodTerminated(podKey string, exitCode int32, errorMsg string, status string) error
 
-	// SendPtyResized sends a PTY resize event to the server.
-	SendPtyResized(podKey string, cols, rows int32) error
+	// SendPodResized sends a pod terminal resize event to the server.
+	SendPodResized(podKey string, cols, rows int32) error
 
 	// SendError sends an error event to the server.
 	SendError(podKey, code, message string) error
@@ -47,8 +47,8 @@ type ConnectionSender interface {
 	// SendSandboxesStatus sends sandbox status query response to the server.
 	SendSandboxesStatus(requestID string, sandboxes []*SandboxStatusInfo) error
 
-	// SendObserveTerminalResult sends terminal observation result to the server.
-	SendObserveTerminalResult(requestID, podKey, output, screen string, cursorX, cursorY, totalLines int, hasMore bool, errMsg string) error
+	// SendObservePodResult sends terminal observation result to the server.
+	SendObservePodResult(requestID, podKey, output, screen string, cursorX, cursorY, totalLines int, hasMore bool, errMsg string) error
 
 	// SendOSCNotification sends an OSC notification event to the server.
 	// This is triggered by OSC 777 (iTerm2/Kitty) or OSC 9 (ConEmu/Windows Terminal) sequences.

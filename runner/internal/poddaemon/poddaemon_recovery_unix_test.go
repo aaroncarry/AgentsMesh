@@ -49,14 +49,14 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "survive")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	// Phase 1: Create session (simulates Runner A creating a pod)
 	opts := CreateOpts{
 		PodKey:      "persist",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -108,7 +108,7 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 
 	// Phase 4: Fresh manager recovers sessions (simulates Runner B starting)
 	mgr2 := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
@@ -152,13 +152,13 @@ func TestDaemonSurvivesMultipleReattachCycles(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "multi")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "multi",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -228,13 +228,13 @@ func TestRecoveredSessionResize(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "rsz")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "rsz",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -288,13 +288,13 @@ func TestRecoveredSessionGracefulStop(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "gstop")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "gstop",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "sleep",
 		Args:        []string{"3600"},
 		WorkDir:     sandbox,
@@ -348,7 +348,7 @@ func TestOrphanCleanupAfterRecovery(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "orph")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
@@ -357,7 +357,7 @@ func TestOrphanCleanupAfterRecovery(t *testing.T) {
 
 	opts := CreateOpts{
 		PodKey:      "orph",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "sleep",
 		Args:        []string{"3600"},
 		WorkDir:     sandbox,

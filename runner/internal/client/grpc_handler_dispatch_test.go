@@ -69,14 +69,14 @@ func TestHandleServerMessage_TerminatePod(t *testing.T) {
 	handler.mu.Unlock()
 }
 
-func TestHandleServerMessage_TerminalInput(t *testing.T) {
+func TestHandleServerMessage_PodInput(t *testing.T) {
 	conn := newTestConnection()
 	handler := &mockHandler{}
 	conn.handler = handler
 
 	msg := &runnerv1.ServerMessage{
-		Payload: &runnerv1.ServerMessage_TerminalInput{
-			TerminalInput: &runnerv1.TerminalInputCommand{
+		Payload: &runnerv1.ServerMessage_PodInput{
+			PodInput: &runnerv1.PodInputCommand{
 				PodKey: "test-pod",
 				Data:   []byte("hello"),
 			},
@@ -92,17 +92,16 @@ func TestHandleServerMessage_TerminalInput(t *testing.T) {
 	handler.mu.Unlock()
 }
 
-func TestHandleServerMessage_TerminalResize(t *testing.T) {
+func TestHandleServerMessage_SendPrompt(t *testing.T) {
 	conn := newTestConnection()
 	handler := &mockHandler{}
 	conn.handler = handler
 
 	msg := &runnerv1.ServerMessage{
-		Payload: &runnerv1.ServerMessage_TerminalResize{
-			TerminalResize: &runnerv1.TerminalResizeCommand{
+		Payload: &runnerv1.ServerMessage_SendPrompt{
+			SendPrompt: &runnerv1.SendPromptCommand{
 				PodKey: "test-pod",
-				Cols:   120,
-				Rows:   40,
+				Prompt: "write hello world",
 			},
 		},
 	}
@@ -110,30 +109,9 @@ func TestHandleServerMessage_TerminalResize(t *testing.T) {
 	conn.handleServerMessage(msg)
 
 	handler.mu.Lock()
-	assert.True(t, handler.terminalResizeCalled)
-	assert.Equal(t, uint16(120), handler.lastResizeReq.Cols)
-	assert.Equal(t, uint16(40), handler.lastResizeReq.Rows)
-	handler.mu.Unlock()
-}
-
-func TestHandleServerMessage_TerminalRedraw(t *testing.T) {
-	conn := newTestConnection()
-	handler := &mockHandler{}
-	conn.handler = handler
-
-	msg := &runnerv1.ServerMessage{
-		Payload: &runnerv1.ServerMessage_TerminalRedraw{
-			TerminalRedraw: &runnerv1.TerminalRedrawCommand{
-				PodKey: "test-pod",
-			},
-		},
-	}
-
-	conn.handleServerMessage(msg)
-
-	handler.mu.Lock()
-	assert.True(t, handler.terminalRedrawCalled)
-	assert.Equal(t, "test-pod", handler.lastRedrawReq.PodKey)
+	assert.True(t, handler.sendPromptCalled)
+	assert.Equal(t, "test-pod", handler.lastSendPromptCmd.PodKey)
+	assert.Equal(t, "write hello world", handler.lastSendPromptCmd.Prompt)
 	handler.mu.Unlock()
 }
 
@@ -145,11 +123,10 @@ func TestHandleServerMessage_NilHandler(t *testing.T) {
 	messages := [](*runnerv1.ServerMessage){
 		{Payload: &runnerv1.ServerMessage_CreatePod{CreatePod: &runnerv1.CreatePodCommand{PodKey: "p"}}},
 		{Payload: &runnerv1.ServerMessage_TerminatePod{TerminatePod: &runnerv1.TerminatePodCommand{PodKey: "p"}}},
-		{Payload: &runnerv1.ServerMessage_TerminalInput{TerminalInput: &runnerv1.TerminalInputCommand{PodKey: "p"}}},
-		{Payload: &runnerv1.ServerMessage_TerminalResize{TerminalResize: &runnerv1.TerminalResizeCommand{PodKey: "p"}}},
-		{Payload: &runnerv1.ServerMessage_TerminalRedraw{TerminalRedraw: &runnerv1.TerminalRedrawCommand{PodKey: "p"}}},
-		{Payload: &runnerv1.ServerMessage_SubscribeTerminal{SubscribeTerminal: &runnerv1.SubscribeTerminalCommand{PodKey: "p"}}},
-		{Payload: &runnerv1.ServerMessage_UnsubscribeTerminal{UnsubscribeTerminal: &runnerv1.UnsubscribeTerminalCommand{PodKey: "p"}}},
+		{Payload: &runnerv1.ServerMessage_PodInput{PodInput: &runnerv1.PodInputCommand{PodKey: "p"}}},
+		{Payload: &runnerv1.ServerMessage_SendPrompt{SendPrompt: &runnerv1.SendPromptCommand{PodKey: "p"}}},
+		{Payload: &runnerv1.ServerMessage_SubscribePod{SubscribePod: &runnerv1.SubscribePodCommand{PodKey: "p"}}},
+		{Payload: &runnerv1.ServerMessage_UnsubscribePod{UnsubscribePod: &runnerv1.UnsubscribePodCommand{PodKey: "p"}}},
 		{Payload: &runnerv1.ServerMessage_QuerySandboxes{QuerySandboxes: &runnerv1.QuerySandboxesCommand{RequestId: "r"}}},
 		{Payload: &runnerv1.ServerMessage_CreateAutopilot{CreateAutopilot: &runnerv1.CreateAutopilotCommand{AutopilotKey: "a"}}},
 		{Payload: &runnerv1.ServerMessage_AutopilotControl{AutopilotControl: &runnerv1.AutopilotControlCommand{AutopilotKey: "a"}}},
@@ -212,7 +189,6 @@ func TestHandleHeartbeatAck(t *testing.T) {
 	conn.handleHeartbeatAck(ack)
 	assert.Equal(t, int32(0), monitor.MissedCount())
 }
-
 
 func TestHandleMcpResponse_NilRPCClient(t *testing.T) {
 	conn := newTestConnection()

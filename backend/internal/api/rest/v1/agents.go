@@ -9,7 +9,7 @@ import (
 
 // AgentHandler handles agent-related requests
 type AgentHandler struct {
-	agentTypeSvc  *agent.AgentTypeService
+	agentSvc  *agent.AgentService
 	credentialSvc *agent.CredentialProfileService
 	userConfigSvc *agent.UserConfigService
 	configBuilder *agent.ConfigBuilder
@@ -17,50 +17,48 @@ type AgentHandler struct {
 
 // NewAgentHandler creates a new agent handler
 func NewAgentHandler(
-	agentTypeSvc *agent.AgentTypeService,
+	agentSvc *agent.AgentService,
 	credentialSvc *agent.CredentialProfileService,
 	userConfigSvc *agent.UserConfigService,
 ) *AgentHandler {
 	return &AgentHandler{
-		agentTypeSvc:  agentTypeSvc,
+		agentSvc:  agentSvc,
 		credentialSvc: credentialSvc,
 		userConfigSvc: userConfigSvc,
 		configBuilder: agent.NewConfigBuilder(&compositeProvider{
-			agentTypeSvc:  agentTypeSvc,
+			agentSvc:  agentSvc,
 			credentialSvc: credentialSvc,
-			userConfigSvc: userConfigSvc,
 		}),
 	}
 }
 
 // compositeProvider implements AgentConfigProvider by combining sub-services
 type compositeProvider struct {
-	agentTypeSvc  *agent.AgentTypeService
+	agentSvc  *agent.AgentService
 	credentialSvc *agent.CredentialProfileService
-	userConfigSvc *agent.UserConfigService
 }
 
-func (p *compositeProvider) GetAgentType(ctx context.Context, id int64) (*agentDomain.AgentType, error) {
-	return p.agentTypeSvc.GetAgentType(ctx, id)
+func (p *compositeProvider) GetAgent(ctx context.Context, slug string) (*agentDomain.Agent, error) {
+	return p.agentSvc.GetAgent(ctx, slug)
 }
 
-func (p *compositeProvider) GetUserEffectiveConfig(ctx context.Context, userID, agentTypeID int64, overrides agentDomain.ConfigValues) agentDomain.ConfigValues {
-	return p.userConfigSvc.GetUserEffectiveConfig(ctx, userID, agentTypeID, overrides)
+func (p *compositeProvider) GetEffectiveCredentialsForPod(ctx context.Context, userID int64, agentSlug string, profileID *int64) (agentDomain.EncryptedCredentials, bool, error) {
+	return p.credentialSvc.GetEffectiveCredentialsForPod(ctx, userID, agentSlug, profileID)
 }
 
-func (p *compositeProvider) GetEffectiveCredentialsForPod(ctx context.Context, userID, agentTypeID int64, profileID *int64) (agentDomain.EncryptedCredentials, bool, error) {
-	return p.credentialSvc.GetEffectiveCredentialsForPod(ctx, userID, agentTypeID, profileID)
+func (p *compositeProvider) ResolveCredentialsByName(ctx context.Context, userID int64, agentSlug, profileName string) (agentDomain.EncryptedCredentials, bool, error) {
+	return p.credentialSvc.ResolveCredentialsByName(ctx, userID, agentSlug, profileName)
 }
 
-// CreateCustomAgentRequest represents custom agent creation request
+// CreateCustomAgentRequest represents custom agent creation request.
+// When AgentfileSource is provided, LaunchCommand becomes optional (extracted from AgentFile).
 type CreateCustomAgentRequest struct {
-	Slug             string                 `json:"slug" binding:"required,min=2,max=50,alphanum"`
-	Name             string                 `json:"name" binding:"required,min=2,max=100"`
-	Description      string                 `json:"description"`
-	LaunchCommand    string                 `json:"launch_command" binding:"required"`
-	DefaultArgs      string                 `json:"default_args"`
-	CredentialSchema map[string]interface{} `json:"credential_schema"`
-	StatusDetection  map[string]interface{} `json:"status_detection"`
+	Slug          string `json:"slug" binding:"required,min=2,max=50,alphanum"`
+	Name          string `json:"name" binding:"required,min=2,max=100"`
+	Description   string `json:"description"`
+	AgentfileSource string `json:"agentfile_source"`
+	LaunchCommand string `json:"launch_command"`
+	DefaultArgs   string `json:"default_args"`
 }
 
 // SetUserAgentConfigRequest represents a request to set user's personal config

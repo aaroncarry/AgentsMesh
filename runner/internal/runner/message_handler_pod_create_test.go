@@ -37,6 +37,7 @@ func TestOnCreatePodSuccess(t *testing.T) {
 		PodKey:        "test-pod-1",
 		LaunchCommand: sleepCmd,
 		LaunchArgs:    sleepArgs,
+		AgentfileSource: "AGENT " + sleepCmd + "\nPROMPT_POSITION prepend\n",
 	}
 
 	err = handler.OnCreatePod(cmd)
@@ -53,8 +54,8 @@ func TestOnCreatePodSuccess(t *testing.T) {
 			t.Errorf("pod status = %s, want running", pod.GetStatus())
 		}
 		// Clean up terminal
-		if pod.Terminal != nil {
-			pod.Terminal.Stop()
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
 		}
 	}
 
@@ -95,6 +96,7 @@ func TestOnCreatePodInvalidCommand(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "invalid-cmd-pod",
 		LaunchCommand: "/nonexistent/command/path",
+		AgentfileSource: "AGENT test\nPROMPT_POSITION prepend\n",
 	}
 
 	err = handler.OnCreatePod(cmd)

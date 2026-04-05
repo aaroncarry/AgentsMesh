@@ -35,11 +35,6 @@ type PodServiceForHandler interface {
 	GetActivePodBySourcePodKey(ctx context.Context, sourcePodKey string) (*agentpod.Pod, error)
 }
 
-// PodTerminalRouter defines the terminal routing methods needed by PodHandler.
-type PodTerminalRouter interface {
-	RouteInput(podKey string, data []byte) error
-}
-
 // NOTE: BillingServiceForHandler, RepositoryServiceForHandler, TicketServiceForHandler,
 // AgentServiceForHandler, and UserServiceForPod interfaces have been moved to
 // PodOrchestrator's narrower interface definitions in service/agentpod/pod_orchestrator.go.

@@ -24,11 +24,12 @@ func TestAutopilotController_OnPodWaiting_UserTakeover(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -61,11 +62,12 @@ func TestAutopilotController_OnPodWaiting_Paused(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -98,11 +100,12 @@ func TestAutopilotController_MaxIterations(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -133,11 +136,12 @@ func TestAutopilotController_OnPodWaiting_Completed(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -170,11 +174,12 @@ func TestAutopilotController_OnPodWaiting_Failed(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -208,11 +213,12 @@ func TestAutopilotController_OnPodWaiting_RunsDecision(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -246,11 +252,12 @@ func TestAutopilotController_OnPodWaiting_MaxIterationsWithTerminatedEvent(t *te
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -286,11 +293,12 @@ func TestAutopilotController_OnPodWaiting_Stopped(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop() // Ensure cleanup even if test fails early
@@ -322,11 +330,12 @@ func TestAutopilotController_OnPodWaiting_WaitingApproval(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -358,11 +367,12 @@ func TestAutopilotController_Start_WithWaitingWorker(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 
 	// Start should succeed and initiate first iteration when worker is waiting

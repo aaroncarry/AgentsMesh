@@ -5,7 +5,6 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/config"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/aggregator"
 )
 
 // Regression tests for issues found during deep review rounds 4-5.
@@ -25,63 +24,6 @@ func TestOnTerminatePod_NilAggregator(t *testing.T) {
 	err := handler.OnTerminatePod(client.TerminatePodRequest{PodKey: "no-agg-pod"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-// --- M1: OnTerminalResize must check pod.Terminal != nil ---
-// Bug: OnTerminalResize would panic on nil pointer dereference when
-// pod.Terminal was nil (before initialization or after teardown).
-
-func TestOnTerminalResize_NilTerminal(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-	runner := &Runner{cfg: &config.Config{}}
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	// Pod with nil Terminal (e.g., still initializing).
-	store.Put("resize-nil-pod", &Pod{
-		PodKey:   "resize-nil-pod",
-		Terminal: nil,
-	})
-
-	err := handler.OnTerminalResize(client.TerminalResizeRequest{
-		PodKey: "resize-nil-pod",
-		Cols:   120,
-		Rows:   40,
-	})
-
-	if err == nil {
-		t.Fatal("expected error for nil terminal")
-	}
-	if !contains(err.Error(), "terminal not initialized") {
-		t.Errorf("error = %v, want containing 'terminal not initialized'", err)
-	}
-}
-
-// --- M1b: OnTerminalRedraw must check pod.Terminal != nil ---
-// Bug: OnTerminalRedraw would panic on nil pointer dereference when
-// pod.Terminal was nil (same class of bug as OnTerminalResize).
-
-func TestOnTerminalRedraw_NilTerminal(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-	runner := &Runner{cfg: &config.Config{}}
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	store.Put("redraw-nil-pod", &Pod{
-		PodKey:   "redraw-nil-pod",
-		Terminal: nil,
-	})
-
-	err := handler.OnTerminalRedraw(client.TerminalRedrawRequest{
-		PodKey: "redraw-nil-pod",
-	})
-
-	if err == nil {
-		t.Fatal("expected error for nil terminal on redraw")
-	}
-	if !contains(err.Error(), "terminal not initialized") {
-		t.Errorf("error = %v, want containing 'terminal not initialized'", err)
 	}
 }
 
@@ -127,11 +69,9 @@ func TestConcurrentExitAndTerminate_OnlyOneCleanup(t *testing.T) {
 	runner := &Runner{cfg: &config.Config{}}
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
-	agg := aggregator.NewSmartAggregator(nil)
 	store.Put("race-pod", &Pod{
-		PodKey:     "race-pod",
-		Status:     PodStatusRunning,
-		Aggregator: agg,
+		PodKey: "race-pod",
+		Status: PodStatusRunning,
 	})
 
 	// Simulate exit handler winning the race.

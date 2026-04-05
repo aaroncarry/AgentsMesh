@@ -2,49 +2,50 @@ package agent
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/anthropics/agentsmesh/backend/internal/domain/agent"
+	"github.com/anthropics/agentsmesh/agentfile/extract"
+	"github.com/anthropics/agentsmesh/agentfile/parser"
 )
 
-// GetConfigSchema returns the raw config schema for an agent type
-// Frontend is responsible for i18n translation using: agent.{slug}.fields.{field.name}.label
-func (b *ConfigBuilder) GetConfigSchema(ctx context.Context, agentTypeID int64) (*ConfigSchemaResponse, error) {
-	agentType, err := b.provider.GetAgentType(ctx, agentTypeID)
+// GetConfigSchema returns the config schema for an agent.
+// CONFIG declarations are extracted from the AgentFile source.
+func (b *ConfigBuilder) GetConfigSchema(ctx context.Context, agentSlug string) (*ConfigSchemaResponse, error) {
+	agentDef, err := b.provider.GetAgent(ctx, agentSlug)
 	if err != nil {
 		return nil, err
 	}
-
-	return b.buildConfigSchemaResponse(&agentType.ConfigSchema), nil
+	if agentDef.AgentfileSource != nil && *agentDef.AgentfileSource != "" {
+		return b.getConfigSchemaFromAgentfile(*agentDef.AgentfileSource)
+	}
+	// No AgentFile = empty schema
+	return &ConfigSchemaResponse{Fields: []ConfigFieldResponse{}}, nil
 }
 
-// buildConfigSchemaResponse converts internal ConfigSchema to API response
-func (b *ConfigBuilder) buildConfigSchemaResponse(schema *agent.ConfigSchema) *ConfigSchemaResponse {
-	result := &ConfigSchemaResponse{
-		Fields: make([]ConfigFieldResponse, 0, len(schema.Fields)),
+// getConfigSchemaFromAgentfile parses an AgentFile and extracts CONFIG declarations as schema.
+func (b *ConfigBuilder) getConfigSchemaFromAgentfile(source string) (*ConfigSchemaResponse, error) {
+	prog, errs := parser.Parse(source)
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("agentfile parse errors: %v", errs)
 	}
 
-	for _, field := range schema.Fields {
-		fieldResponse := ConfigFieldResponse{
-			Name:       field.Name,
-			Type:       field.Type,
-			Default:    field.Default,
-			Required:   field.Required,
-			Validation: field.Validation,
-			ShowWhen:   field.ShowWhen,
+	spec := extract.Extract(prog)
+	result := &ConfigSchemaResponse{
+		Fields: make([]ConfigFieldResponse, 0, len(spec.Config)),
+	}
+	for _, cfg := range spec.Config {
+		field := ConfigFieldResponse{
+			Name:    cfg.Name,
+			Type:    cfg.Type,
+			Default: cfg.Default,
 		}
-
-		// Convert options (without label - frontend will translate)
-		if len(field.Options) > 0 {
-			fieldResponse.Options = make([]FieldOptionResponse, 0, len(field.Options))
-			for _, opt := range field.Options {
-				fieldResponse.Options = append(fieldResponse.Options, FieldOptionResponse{
-					Value: opt.Value,
-				})
+		if len(cfg.Options) > 0 {
+			field.Options = make([]FieldOptionResponse, 0, len(cfg.Options))
+			for _, opt := range cfg.Options {
+				field.Options = append(field.Options, FieldOptionResponse{Value: opt})
 			}
 		}
-
-		result.Fields = append(result.Fields, fieldResponse)
+		result.Fields = append(result.Fields, field)
 	}
-
-	return result
+	return result, nil
 }

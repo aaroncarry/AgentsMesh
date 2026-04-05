@@ -3,23 +3,29 @@ package updater
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
+
+	"github.com/anthropics/agentsmesh/runner/internal/logger"
 )
 
 // ScheduleUpdate checks for updates and schedules a graceful update if available.
 // It waits for all pods to finish before applying. If maxWaitTime is reached,
 // the update is postponed to the next check cycle.
 func (g *GracefulUpdater) ScheduleUpdate(ctx context.Context) error {
+	log := logger.Updater()
+
 	// Atomically check and set state to avoid race condition
 	g.mu.Lock()
 	if g.state != StateIdle {
 		currentState := g.state
 		g.mu.Unlock()
+		log.Warn("Update already in progress", "state", currentState)
 		return fmt.Errorf("update already in progress (state: %s)", currentState)
 	}
 	g.state = StateChecking
 	g.mu.Unlock()
+
+	log.Info("Checking for updates")
 
 	// Notify status change
 	if g.onStatus != nil {
@@ -28,6 +34,7 @@ func (g *GracefulUpdater) ScheduleUpdate(ctx context.Context) error {
 	info, err := g.updater.CheckForUpdate(ctx)
 	if err != nil {
 		g.setState(StateIdle)
+		log.Error("Update check failed", "error", err)
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
 
@@ -36,7 +43,7 @@ func (g *GracefulUpdater) ScheduleUpdate(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("[updater] New version available: %s -> %s", info.CurrentVersion, info.LatestVersion)
+	log.Info("New version available", "current", info.CurrentVersion, "latest", info.LatestVersion)
 
 	g.mu.Lock()
 	g.pendingInfo = info
@@ -55,6 +62,7 @@ func (g *GracefulUpdater) ScheduleUpdate(ctx context.Context) error {
 
 // drainPods waits for all active pods to finish before proceeding.
 func (g *GracefulUpdater) drainPods(ctx context.Context) error {
+	log := logger.Updater()
 	g.setState(StateDraining)
 	g.mu.Lock()
 	g.draining = true
@@ -81,11 +89,11 @@ func (g *GracefulUpdater) drainPods(ctx context.Context) error {
 		}
 
 		if activePods == 0 {
-			log.Printf("[updater] No active pods, applying update...")
+			log.Info("No active pods, applying update")
 			return nil
 		}
 
-		log.Printf("[updater] Waiting for %d active pod(s) to finish...", activePods)
+		log.Info("Waiting for active pods to finish", "count", activePods)
 
 		if g.onStatus != nil {
 			g.mu.RLock()
@@ -97,7 +105,7 @@ func (g *GracefulUpdater) drainPods(ctx context.Context) error {
 		select {
 		case <-drainCtx.Done():
 			if drainCtx.Err() == context.DeadlineExceeded {
-				log.Printf("[updater] Max wait time reached with %d active pods, postponing update", activePods)
+				log.Warn("Max wait time reached, postponing update", "active_pods", activePods)
 				g.mu.Lock()
 				g.pendingInfo = nil
 				g.mu.Unlock()
@@ -117,6 +125,9 @@ func (g *GracefulUpdater) drainPods(ctx context.Context) error {
 
 // ForceUpdate applies the update immediately without waiting for pods.
 func (g *GracefulUpdater) ForceUpdate(ctx context.Context) error {
+	log := logger.Updater()
+	log.Info("Force update requested")
+
 	g.mu.Lock()
 	if g.state != StateIdle && g.state != StateDraining {
 		currentState := g.state

@@ -36,8 +36,8 @@ type RunnerConnectionManager struct {
 	initTimeoutStop chan struct{}
 	initTimeoutOnce sync.Once
 
-	// Agent types provider and server version for initialization handshake
-	agentTypesProvider interfaces.AgentTypesProvider
+	// Agent provider and server version for initialization handshake
+	agentsProvider interfaces.AgentsProvider
 	serverVersion      string
 
 	// Event callbacks - use Proto types directly for zero-copy efficiency
@@ -45,7 +45,6 @@ type RunnerConnectionManager struct {
 	onPodCreated         func(runnerID int64, data *runnerv1.PodCreatedEvent)
 	onPodTerminated      func(runnerID int64, data *runnerv1.PodTerminatedEvent)
 	onAgentStatus        func(runnerID int64, data *runnerv1.AgentStatusEvent)
-	onPtyResized         func(runnerID int64, data *runnerv1.PtyResizedEvent)
 	onPodInitProgress    func(runnerID int64, data *runnerv1.PodInitProgressEvent)
 	onRequestRelayToken  func(runnerID int64, data *runnerv1.RequestRelayTokenEvent)
 	onDisconnect         func(runnerID int64)
@@ -56,8 +55,8 @@ type RunnerConnectionManager struct {
 	onPodError           func(runnerID int64, data *runnerv1.ErrorEvent)
 	onOSCTitle           func(runnerID int64, data *runnerv1.OSCTitleEvent)
 
-	// Terminal observation callback
-	onObserveTerminalResult func(runnerID int64, data *runnerv1.ObserveTerminalResult)
+	// Pod observation callback
+	onObservePodResult func(runnerID int64, data *runnerv1.ObservePodResult)
 
 	// Upgrade event callback
 	onUpgradeStatus func(runnerID int64, data *runnerv1.UpgradeStatusEvent)

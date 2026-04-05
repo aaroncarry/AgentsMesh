@@ -16,6 +16,8 @@ import (
 )
 
 // Build creates the pod.
+// The CreatePodCommand carries pre-evaluated execution instructions from Backend.
+// Runner only resolves path placeholders ({{sandbox_root}}, {{work_dir}}) and executes.
 func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 	if b.cmd == nil {
 		return nil, fmt.Errorf("command is required")
@@ -24,29 +26,64 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		return nil, fmt.Errorf("pod key is required")
 	}
 	if b.cmd.LaunchCommand == "" {
-		return nil, fmt.Errorf("launch command is required")
+		return nil, &client.PodError{
+			Code:    client.ErrCodeAgentfileEval,
+			Message: "launch_command is required (Backend AgentFile eval should populate this)",
+		}
 	}
 
-	logger.Pod().Info("Building pod", "pod_key", b.cmd.PodKey, "command", b.cmd.LaunchCommand)
+	launchCommand := b.cmd.LaunchCommand
+	logger.Pod().Info("Building pod", "pod_key", b.cmd.PodKey, "command", launchCommand)
 
-	// Report initial progress
 	b.sendProgress("pending", 0, "Initializing pod...")
 
-	// Setup sandbox and working directory
 	sandboxRoot, workingDir, branchName, err := b.setup(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Resolve template variables in launch args
-	resolvedArgs := b.resolveArgs(b.cmd.LaunchArgs, sandboxRoot, workingDir)
-	logger.Pod().Debug("Resolved launch args", "pod_key", b.cmd.PodKey, "args", resolvedArgs)
+	// Resolve path placeholders in args, env vars, and files
+	resolvedArgs := resolveStringSlice(b.cmd.LaunchArgs, sandboxRoot, workingDir)
+	if err := b.createFilesFromProto(b.cmd.FilesToCreate, sandboxRoot, workingDir); err != nil {
+		return nil, err
+	}
 
-	// Merge environment variables (with template resolution)
-	envVars := b.mergeEnvVars(sandboxRoot, workingDir)
+	envVars := b.mergeEnvVars(sandboxRoot)
+	for k, v := range b.cmd.EnvVars {
+		envVars[k] = resolvePathPlaceholders(v, sandboxRoot, workingDir)
+	}
+
+	// Handle prompt injection into args
+	prompt := b.cmd.Prompt
+	if prompt == "" {
+		prompt = b.cmd.GetInitialPrompt() //nolint:staticcheck // deprecated fallback
+	}
+	if prompt != "" {
+		switch b.cmd.PromptPosition {
+		case "prepend":
+			resolvedArgs = append([]string{prompt}, resolvedArgs...)
+		case "append":
+			resolvedArgs = append(resolvedArgs, prompt)
+		}
+	}
+
+	// Determine interaction mode
+	interactionMode := b.cmd.InteractionMode
+	if interactionMode == "" {
+		interactionMode = InteractionModePTY
+	}
+
+	logger.Pod().Debug("Resolved launch args", "pod_key", b.cmd.PodKey, "args", resolvedArgs)
 	logger.Pod().Debug("Merged environment variables", "pod_key", b.cmd.PodKey, "count", len(envVars))
 
-	// Report progress: starting PTY
+	if interactionMode == InteractionModeACP {
+		return b.buildACPPod(ctx, sandboxRoot, workingDir, branchName, resolvedArgs, envVars, launchCommand)
+	}
+	return b.buildPTYPod(ctx, sandboxRoot, workingDir, branchName, resolvedArgs, envVars, launchCommand)
+}
+
+// buildPTYPod creates a pod with PTY terminal interaction.
+func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, branchName string, resolvedArgs []string, envVars map[string]string, launchCommand string) (*Pod, error) {
 	b.sendProgress("starting_pty", 80, "Starting terminal...")
 
 	// Build PTY factory for Pod Daemon mode (session persistence across restarts)
@@ -55,7 +92,7 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		mgr := b.deps.PodDaemonManager
 		opts := poddaemon.CreateOpts{
 			PodKey:         b.cmd.PodKey,
-			AgentType:      b.cmd.LaunchCommand,
+			Agent:          launchCommand,
 			SandboxPath:    sandboxRoot,
 			WorkDir:        workingDir,
 			RepositoryURL:  b.cmd.GetSandboxConfig().GetRepositoryUrl(),
@@ -77,21 +114,17 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		}
 	}
 
-	// Create terminal
 	term, err := terminal.New(terminal.Options{
-		Command:    b.cmd.LaunchCommand,
+		Command:    launchCommand,
 		Args:       resolvedArgs,
 		WorkDir:    workingDir,
 		Env:        envVars,
 		Rows:       b.rows,
 		Cols:       b.cols,
-		Label:      b.cmd.PodKey, // For log correlation in PTY diagnostics
+		Label:      b.cmd.PodKey,
 		PTYFactory: ptyFactory,
-		OnOutput:   nil, // Will be wired up after all components are created
-		OnExit:     nil, // Will be set by caller (MessageHandler)
 	})
 	if err != nil {
-		// Cleanup sandbox on failure
 		if sandboxRoot != "" {
 			os.RemoveAll(sandboxRoot)
 		}
@@ -101,7 +134,6 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		}
 	}
 
-	// Create VirtualTerminal for terminal state management and snapshots
 	virtualTerm := vt.NewVirtualTerminal(b.cols, b.rows, b.vtHistoryLimit)
 	if b.oscHandler != nil {
 		virtualTerm.SetOSCHandler(b.oscHandler)
@@ -112,7 +144,6 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		aggregator.WithFullRedrawThrottling(),
 	)
 
-	// Set up PTY logging if enabled
 	var ptyLogger *aggregator.PTYLogger
 	if b.enablePTYLogging && b.ptyLogDir != "" {
 		var logErr error
@@ -125,93 +156,58 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		}
 	}
 
-	// Create pod with all components
 	pod := &Pod{
 		ID:              b.cmd.PodKey,
 		PodKey:          b.cmd.PodKey,
-		AgentType:       b.cmd.LaunchCommand,
+		Agent:           launchCommand,
+		InteractionMode: InteractionModePTY,
 		Branch:          branchName,
 		SandboxPath:     sandboxRoot,
-		LaunchCommand:   b.cmd.LaunchCommand,
+		LaunchCommand:   launchCommand,
 		LaunchArgs:      resolvedArgs,
 		WorkDir:         workingDir,
-		Terminal:        term,
-		VirtualTerminal: virtualTerm,
-		Aggregator:      agg,
-		PTYLogger:       ptyLogger,
 		StartedAt:       time.Now(),
 		Status:          PodStatusInitializing,
+		vtProvider:      func() *vt.VirtualTerminal { return virtualTerm },
 	}
 
-	// Wire up output handler (shared implementation with circuit breaker + inline recover)
-	term.SetOutputHandler(pod.CreateOutputHandler())
+	comps := &PTYComponents{Terminal: term, VirtualTerminal: virtualTerm, Aggregator: agg, PTYLogger: ptyLogger}
+	ptyIO := NewPTYPodIO(b.cmd.PodKey, comps, PTYPodIODeps{
+		GetOrCreateDetector: pod.GetOrCreateStateDetector,
+		SubscribeState:      pod.SubscribeStateChange,
+		UnsubscribeState:    pod.UnsubscribeStateChange,
+		GetPTYError:         pod.GetPTYError,
+	})
+	pod.IO = ptyIO
+	pod.Relay = NewPTYPodRelay(b.cmd.PodKey, pod.IO, comps)
+	term.SetOutputHandler(NewPTYOutputHandler(b.cmd.PodKey, comps, pod.NotifyStateDetectorWithScreen))
 
-	logger.Pod().Info("Pod built", "pod_key", b.cmd.PodKey, "working_dir", workingDir, "cols", b.cols, "rows", b.rows)
-
-	// Report progress: ready
+	logger.Pod().Info("Pod built (PTY)", "pod_key", b.cmd.PodKey, "working_dir", workingDir, "cols", b.cols, "rows", b.rows)
 	b.sendProgress("ready", 100, "Pod is ready")
 
 	return pod, nil
 }
 
-// resolvePath resolves path template variables.
-func (b *PodBuilder) resolvePath(pathTemplate, sandboxRoot, workDir string) string {
-	path := pathTemplate
-	path = strings.ReplaceAll(path, "{{.sandbox.root_path}}", sandboxRoot)
-	path = strings.ReplaceAll(path, "{{.sandbox.work_dir}}", workDir)
-	return path
+// resolvePathPlaceholders substitutes sandbox path placeholders with real paths.
+// Supports both new format ({{sandbox_root}}) and legacy format ({{.sandbox.root_path}}).
+func resolvePathPlaceholders(s, sandboxRoot, workDir string) string {
+	s = strings.ReplaceAll(s, "{{sandbox_root}}", sandboxRoot)
+	s = strings.ReplaceAll(s, "{{work_dir}}", workDir)
+	// Legacy placeholder format (for ResourceToDownload.TargetPath compatibility)
+	s = strings.ReplaceAll(s, "{{.sandbox.root_path}}", sandboxRoot)
+	s = strings.ReplaceAll(s, "{{.sandbox.work_dir}}", workDir)
+	return s
 }
 
-// resolveArgs resolves template variables in command line arguments.
-func (b *PodBuilder) resolveArgs(args []string, sandboxRoot, workDir string) []string {
-	resolved := make([]string, len(args))
-	for i, arg := range args {
-		resolved[i] = b.resolvePath(arg, sandboxRoot, workDir)
+// resolveStringSlice resolves placeholders in a string slice.
+func resolveStringSlice(ss []string, sandboxRoot, workDir string) []string {
+	result := make([]string, len(ss))
+	for i, s := range ss {
+		result[i] = resolvePathPlaceholders(s, sandboxRoot, workDir)
 	}
-	return resolved
-}
-
-// mergeEnvVars merges all environment variable sources and resolves template variables.
-func (b *PodBuilder) mergeEnvVars(sandboxRoot, workDir string) map[string]string {
-	result := make(map[string]string)
-
-	// Inject resolved login shell PATH as lowest-priority base.
-	// This ensures PTY processes can find tools (claude, aider, etc.)
-	// even when the runner runs as a systemd/launchd service with minimal PATH.
-	if b.deps.Config != nil && b.deps.Config.ResolvedPATH != "" {
-		result["PATH"] = b.deps.Config.ResolvedPATH
-	}
-
-	// Add config env vars (overrides resolved PATH if user sets PATH in config)
-	if b.deps.Config != nil {
-		for k, v := range b.deps.Config.AgentEnvVars {
-			result[k] = v
-		}
-	}
-
-	// Add command env vars (highest priority)
-	if b.cmd != nil {
-		for k, v := range b.cmd.EnvVars {
-			result[k] = v
-		}
-	}
-
-	// Resolve template variables (e.g., {{.sandbox.root_path}}, {{.sandbox.work_dir}})
-	for k, v := range result {
-		result[k] = b.resolvePath(v, sandboxRoot, workDir)
-	}
-
 	return result
 }
 
-// sendProgress sends a pod initialization progress event to the server.
-// This is a best-effort operation - errors are logged but not returned.
-func (b *PodBuilder) sendProgress(phase string, progress int, message string) {
-	if b.cmd == nil || b.cmd.PodKey == "" || b.deps.ProgressSender == nil {
-		return
-	}
-
-	if err := b.deps.ProgressSender.SendPodInitProgress(b.cmd.PodKey, phase, int32(progress), message); err != nil {
-		logger.Pod().Debug("Failed to send init progress", "pod_key", b.cmd.PodKey, "phase", phase, "error", err)
-	}
+func (b *PodBuilder) resolvePath(pathTemplate, sandboxRoot, workDir string) string {
+	return resolvePathPlaceholders(pathTemplate, sandboxRoot, workDir)
 }
