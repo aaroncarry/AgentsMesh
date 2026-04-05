@@ -133,7 +133,7 @@ jobs:
             REGISTRY_PREFIX=${{ matrix.use_ecr && env.REGISTRY_PREFIX || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
 
   # ===========================================================================
   # Deploy US West production (independent parallel jobs, changes-based)
