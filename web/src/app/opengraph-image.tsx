@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "AgentsMesh - The Agent Workforce Platform | Ship like a team of fifty";
+export const alt = "AgentsMesh - The AI Agent Workforce Platform | Ship like a team of fifty";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -84,7 +84,7 @@ export default async function Image() {
             textAlign: "center",
           }}
         >
-          The Agent Workforce Platform
+          The AI Agent Workforce Platform
         </div>
         {/* Slogan */}
         <div

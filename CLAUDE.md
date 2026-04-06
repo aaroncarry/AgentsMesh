@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentsMesh is a multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of four main components:
+AgentsMesh is **The AI Agent Workforce Platform** — where teams scale beyond headcount. It supports Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of four main components:
 
 - **Backend**: Go API server (Gin + GORM)
 - **Web**: Next.js frontend (App Router + TypeScript + Tailwind CSS)

@@ -10,13 +10,13 @@
       "language": "语言"
     },
     "hero": {
-      "badge": "Agent 团队管理平台",
+      "badge": "AI Agent 团队管理平台",
       "title1": "基于终端的",
       "title2": "编程智能体",
       "title3": "协作平台",
       "slogan1": "五个人的团队，",
       "slogan2": "五十个人的产出。",
-      "tagline": "为有雄心的团队打造的 Agent 团队管理平台",
+      "tagline": "为有雄心的团队打造的 AI Agent 团队管理平台",
       "description": "给每个团队成员配一支 AI Agent 团队。分配任务、追踪进度、让它们自主协作——数据始终留在你的基础设施内。",
       "getStartedFree": "开始组建你的团队",
       "viewDocs": "查看演示",

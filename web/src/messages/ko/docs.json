@@ -50,7 +50,7 @@
     },
     "intro": {
       "title": "Introduction",
-      "description": "AgentsMesh는 AI Agent Fleet Command Center로, Claude Code, Codex CLI, Gemini CLI, Aider와 같은 AI 코딩 에이전트를 대규모로 오케스트레이션할 수 있게 합니다. 원격 AI 워크스테이션(AgentPod) 관리, 멀티 에이전트 협업 조율(AgentsMesh), 통합 태스크 관리로 진행 상황 추적까지 — 모두 하나의 플랫폼에서 가능합니다.",
+      "description": "AgentsMesh는 AI Agent Workforce Platform으로, Claude Code, Codex CLI, Gemini CLI, Aider와 같은 AI 코딩 에이전트를 대규모로 오케스트레이션할 수 있게 합니다. 원격 AI 워크스테이션(AgentPod) 관리, 멀티 에이전트 협업 조율(AgentsMesh), 통합 태스크 관리로 진행 상황 추적까지 — 모두 하나의 플랫폼에서 가능합니다.",
       "supportedAgents": "Supported AI Agents:",
       "customAgents": "Custom agents via MCP protocol"
     },

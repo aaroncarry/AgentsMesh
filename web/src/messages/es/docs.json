@@ -50,7 +50,7 @@
     },
     "intro": {
       "title": "Introduction",
-      "description": "AgentsMesh is an AI Agent Fleet Command Center that enables teams to orchestrate AI coding agents like Claude Code, Codex CLI, Gemini CLI, and Aider at scale. Manage remote AI workstations (AgentPod), coordinate multi-agent collaboration (AgentsMesh), and track progress with integrated task management — all from a single platform.",
+      "description": "AgentsMesh is The AI Agent Workforce Platform that enables teams to orchestrate AI coding agents like Claude Code, Codex CLI, Gemini CLI, and Aider at scale. Manage remote AI workstations (AgentPod), coordinate multi-agent collaboration (AgentsMesh), and track progress with integrated task management — all from a single platform.",
       "supportedAgents": "Supported AI Agents:",
       "customAgents": "Custom agents via MCP protocol"
     },

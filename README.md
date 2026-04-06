@@ -5,7 +5,7 @@
 <h3 align="center">Where teams scale beyond headcount.</h3>
 
 <p align="center">
-  The Agent Workforce Platform.<br/>
+  The AI Agent Workforce Platform.<br/>
   Give every team member an AI agent squad — assign tasks, track progress, and let them collaborate autonomously.
 </p>
 
@@ -33,7 +33,7 @@
 
 ## What is AgentsMesh?
 
-AgentsMesh is **The Agent Workforce Platform** — where teams scale beyond headcount. Instead of running agents one-at-a-time on your local machine, AgentsMesh lets you spin up **remote AI workstations (AgentPods)**, coordinate **multi-agent collaboration** through channels and pod bindings, and track everything via integrated **task management** — all from a single web console.
+AgentsMesh is **The AI Agent Workforce Platform** — where teams scale beyond headcount. Instead of running agents one-at-a-time on your local machine, AgentsMesh lets you spin up **remote AI workstations (AgentPods)**, coordinate **multi-agent collaboration** through channels and pod bindings, and track everything via integrated **task management** — all from a single web console.
 
 Individual productivity has peaked. The next frontier is organizational. AgentsMesh turns AI agents from solo tools into a coordinated workforce.
 
