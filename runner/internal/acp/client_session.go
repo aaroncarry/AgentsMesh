@@ -44,8 +44,9 @@ func (c *ACPClient) SendPrompt(prompt string) error {
 }
 
 // RespondToPermission approves or denies a permission request.
-func (c *ACPClient) RespondToPermission(requestID string, approved bool) error {
-	if err := c.transport.RespondToPermission(requestID, approved); err != nil {
+// updatedInput is optional; when non-nil, it replaces the tool's original input (for AskUserQuestion).
+func (c *ACPClient) RespondToPermission(requestID string, approved bool, updatedInput map[string]any) error {
+	if err := c.transport.RespondToPermission(requestID, approved, updatedInput); err != nil {
 		return fmt.Errorf("write permission response: %w", err)
 	}
 	if c.State() == StateWaitingPermission {
@@ -57,6 +58,38 @@ func (c *ACPClient) RespondToPermission(requestID string, approved bool) error {
 // CancelSession cancels the current session's processing.
 func (c *ACPClient) CancelSession() error {
 	return c.transport.CancelSession(c.SessionID())
+}
+
+// Interrupt sends an interrupt control_request to stop the current processing.
+func (c *ACPClient) Interrupt() error {
+	_, err := c.transport.SendControlRequest(c.SessionID(), "interrupt", nil)
+	return err
+}
+
+// SetPermissionMode dynamically changes the permission mode at runtime.
+func (c *ACPClient) SetPermissionMode(mode string) error {
+	_, err := c.transport.SendControlRequest(c.SessionID(), "set_permission_mode", map[string]any{
+		"mode": mode,
+	})
+	return err
+}
+
+// SetModel dynamically changes the AI model at runtime.
+func (c *ACPClient) SetModel(model string) error {
+	_, err := c.transport.SendControlRequest(c.SessionID(), "set_model", map[string]any{
+		"model": model,
+	})
+	return err
+}
+
+// GetContextUsage queries the current context window usage.
+func (c *ACPClient) GetContextUsage() (map[string]any, error) {
+	return c.transport.SendControlRequest(c.SessionID(), "get_context_usage", nil)
+}
+
+// SendControlRequest sends a generic outgoing control_request.
+func (c *ACPClient) SendControlRequest(subtype string, payload map[string]any) (map[string]any, error) {
+	return c.transport.SendControlRequest(c.SessionID(), subtype, payload)
 }
 
 // GetRecentMessages returns recent content messages formatted as text.

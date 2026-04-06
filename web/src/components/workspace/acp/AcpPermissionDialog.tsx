@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { relayPool } from "@/stores/relayConnection";
 import { useAcpSessionStore } from "@/stores/acpSession";
 import type { AcpPermissionRequest } from "@/stores/acpSession";
-import { ShieldAlert, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { AcpAskUserQuestion } from "./AcpAskUserQuestion";
+import { AcpToolPermissionCard } from "./AcpToolPermissionCard";
 
 interface AcpPermissionDialogProps {
   podKey: string;
@@ -15,19 +17,23 @@ export function AcpPermissionDialog({ podKey, permissions }: AcpPermissionDialog
   const removePermission = useAcpSessionStore((s) => s.removePermissionRequest);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const handleRespond = (requestId: string, approved: boolean) => {
+  const handleRespond = useCallback((requestId: string, approved: boolean, updatedInput?: Record<string, unknown>) => {
     if (!relayPool.isConnected(podKey)) {
       setSendError("Relay not connected. Please wait and try again.");
       return;
     }
-    relayPool.sendAcpCommand(podKey, {
+    const command: Record<string, unknown> = {
       type: "permission_response",
-      requestId: requestId,
+      requestId,
       approved,
-    });
+    };
+    if (updatedInput) {
+      command.updatedInput = updatedInput;
+    }
+    relayPool.sendAcpCommand(podKey, command);
     removePermission(podKey, requestId);
     setSendError(null);
-  };
+  }, [podKey, removePermission]);
 
   return (
     <div className="border-t bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
@@ -37,35 +43,21 @@ export function AcpPermissionDialog({ podKey, permissions }: AcpPermissionDialog
           {sendError}
         </div>
       )}
-      {permissions.map((perm) => (
-        <div
-          key={perm.requestId}
-          className="rounded-lg border border-amber-200 dark:border-amber-800 p-3"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldAlert className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-medium">Permission Required</span>
-          </div>
-          <p className="text-sm mb-1">{perm.description}</p>
-          <p className="text-xs text-muted-foreground font-mono mb-2">
-            {perm.toolName}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleRespond(perm.requestId, true)}
-              className="rounded bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => handleRespond(perm.requestId, false)}
-              className="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700"
-            >
-              Deny
-            </button>
-          </div>
-        </div>
-      ))}
+      {permissions.map((perm) =>
+        perm.toolName === "AskUserQuestion" ? (
+          <AcpAskUserQuestion
+            key={perm.requestId}
+            permission={perm}
+            onRespond={handleRespond}
+          />
+        ) : (
+          <AcpToolPermissionCard
+            key={perm.requestId}
+            permission={perm}
+            onRespond={handleRespond}
+          />
+        )
+      )}
     </div>
   );
 }

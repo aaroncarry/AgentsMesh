@@ -82,11 +82,24 @@ type TerminalAccess interface {
 // Only ACP-mode pods implement this interface.
 type SessionAccess interface {
 	// RespondToPermission responds to a pending permission request.
-	RespondToPermission(requestID string, approved bool) error
+	// updatedInput is optional; when non-nil, it replaces the tool's original input (for AskUserQuestion answers).
+	RespondToPermission(requestID string, approved bool, updatedInput map[string]any) error
 
 	// CancelSession cancels the active session.
 	CancelSession() error
 
 	// NotifyStateChange propagates state changes to subscribers.
 	NotifyStateChange(state string)
+
+	// Interrupt sends an interrupt to stop current processing.
+	Interrupt() error
+
+	// SetPermissionMode dynamically changes the permission mode.
+	SetPermissionMode(mode string) error
+
+	// SetModel dynamically changes the AI model.
+	SetModel(model string) error
+
+	// SendControlRequest sends a generic control_request to the agent CLI.
+	SendControlRequest(subtype string, payload map[string]any) (map[string]any, error)
 }

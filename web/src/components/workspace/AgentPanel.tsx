@@ -19,6 +19,7 @@ import { AcpPlanTracker } from "./acp/AcpPlanTracker";
 import { AcpActivityStream } from "./acp/AcpActivityStream";
 import { AcpPermissionDialog } from "./acp/AcpPermissionDialog";
 import { AcpPromptInput } from "./acp/AcpPromptInput";
+import { AcpDebugPanel } from "./acp/AcpDebugPanel";
 import { PodSelectorModal } from "./PodSelectorModal";
 
 // Re-export for backward compatibility (used by tests or other consumers)
@@ -129,6 +130,9 @@ export function AgentPanel({
               />
             )}
           <AcpPromptInput podKey={podKey} />
+          {process.env.NODE_ENV === "development" && (
+            <AcpDebugPanel podKey={podKey} />
+          )}
         </div>
       )}
 

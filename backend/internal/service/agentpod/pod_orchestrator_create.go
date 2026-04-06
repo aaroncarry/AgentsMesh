@@ -109,9 +109,14 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		}
 	}
 
-	// --- Compute effective values: resolved (AgentFile) > req (resume inheritance) > defaults ---
+	// --- Compute effective values: resolved (AgentFile) > source pod (resume) > defaults ---
 	effectiveInteractionMode := firstNonEmpty(resolved.InteractionMode, podDomain.InteractionModePTY)
-	effectivePermissionMode := firstNonEmpty(resolved.PermissionMode, "plan")
+	// Permission mode: AgentFile > source pod (resume inheritance) > default.
+	sourcePermMode := ""
+	if sourcePod != nil && sourcePod.PermissionMode != nil {
+		sourcePermMode = *sourcePod.PermissionMode
+	}
+	effectivePermissionMode := firstNonEmpty(resolved.PermissionMode, sourcePermMode, podDomain.PermissionModeBypass)
 	effectiveBranch := firstNonEmptyPtr(resolved.BranchName, req.BranchName) // req.BranchName only from resume
 	effectiveRepoID := firstNonNilInt64(resolved.RepositoryID, req.RepositoryID)
 

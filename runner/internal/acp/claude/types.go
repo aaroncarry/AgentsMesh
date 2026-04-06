@@ -120,7 +120,8 @@ type controlResponsePayload struct {
 
 // controlResponseData holds the permission decision.
 type controlResponseData struct {
-	Behavior     string          `json:"behavior"`               // "allow" | "deny"
-	UpdatedInput json.RawMessage `json:"updatedInput,omitempty"` // allow: pass original input
-	Message      string          `json:"message,omitempty"`      // deny: reason message
+	Behavior           string          `json:"behavior"`                     // "allow" | "deny"
+	UpdatedInput       json.RawMessage `json:"updatedInput,omitempty"`       // allow: tool input
+	UpdatedPermissions json.RawMessage `json:"updatedPermissions,omitempty"` // allow: permission rule updates
+	Message            string          `json:"message,omitempty"`            // deny: reason message
 }

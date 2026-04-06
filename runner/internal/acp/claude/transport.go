@@ -47,6 +47,9 @@ type Transport struct {
 	// pendingInputs stores original tool input by requestID for permission responses.
 	pendingInputs   map[string]json.RawMessage
 	pendingInputsMu sync.Mutex
+
+	// outgoing tracks outgoing control_request → control_response matching.
+	outgoing *controlRequestTracker
 }
 
 // NewTransport creates a new Claude stream-json transport.
@@ -57,6 +60,7 @@ func NewTransport(callbacks acp.EventCallbacks, logger *slog.Logger) *Transport 
 		toolCalls:     make(map[int]*toolCallState),
 		pendingInputs: make(map[string]json.RawMessage),
 		initCh:        make(chan struct{}),
+		outgoing:      newControlRequestTracker(),
 	}
 }
 
@@ -123,23 +127,48 @@ func (t *Transport) SendPrompt(sessionID, prompt string) error {
 }
 
 // RespondToPermission sends a control_response to approve or deny a tool request.
-func (t *Transport) RespondToPermission(requestID string, approved bool) error {
+// When updatedInput is non-nil (e.g., AskUserQuestion answers), it overrides the original input.
+// If updatedInput contains "updatedPermissions", it's extracted as a separate field (SDK protocol).
+func (t *Transport) RespondToPermission(requestID string, approved bool, updatedInput map[string]any) error {
 	respData := controlResponseData{}
 	if approved {
 		respData.Behavior = "allow"
-		t.pendingInputsMu.Lock()
-		if input, ok := t.pendingInputs[requestID]; ok {
-			respData.UpdatedInput = input
-			delete(t.pendingInputs, requestID)
+		// Extract updatedPermissions if present (separate field in SDK protocol).
+		if updatedInput != nil {
+			if perms, ok := updatedInput["updatedPermissions"]; ok {
+				b, _ := json.Marshal(perms)
+				respData.UpdatedPermissions = json.RawMessage(b)
+				// Remove from updatedInput so it doesn't pollute tool input.
+				cleaned := make(map[string]any, len(updatedInput)-1)
+				for k, v := range updatedInput {
+					if k != "updatedPermissions" {
+						cleaned[k] = v
+					}
+				}
+				updatedInput = cleaned
+			}
 		}
-		t.pendingInputsMu.Unlock()
+		if len(updatedInput) > 0 {
+			// Use caller-provided input (AskUserQuestion answers, modified tool input).
+			b, _ := json.Marshal(updatedInput)
+			respData.UpdatedInput = json.RawMessage(b)
+		} else {
+			// Fall back to original input stored during permission request.
+			t.pendingInputsMu.Lock()
+			if input, ok := t.pendingInputs[requestID]; ok {
+				respData.UpdatedInput = input
+			}
+			t.pendingInputsMu.Unlock()
+		}
 	} else {
 		respData.Behavior = "deny"
 		respData.Message = "Denied by user"
-		t.pendingInputsMu.Lock()
-		delete(t.pendingInputs, requestID)
-		t.pendingInputsMu.Unlock()
 	}
+	// Always clean up pending inputs.
+	t.pendingInputsMu.Lock()
+	delete(t.pendingInputs, requestID)
+	t.pendingInputsMu.Unlock()
+
 	msg := controlResponseMessage{
 		Type: "control_response",
 		Response: controlResponsePayload{
@@ -153,9 +182,41 @@ func (t *Transport) RespondToPermission(requestID string, approved bool) error {
 	return nil
 }
 
-// CancelSession is a no-op — the caller should kill the subprocess instead.
+// CancelSession is a no-op — use SendControlRequest("interrupt") instead.
 func (t *Transport) CancelSession(_ string) error {
 	return nil
+}
+
+// SendControlRequest sends an outgoing control_request to Claude CLI
+// and blocks until a matching control_response arrives (or 30s timeout).
+func (t *Transport) SendControlRequest(_ string, subtype string, payload map[string]any) (map[string]any, error) {
+	t.logger.Info("Sending control_request", "subtype", subtype)
+	return t.outgoing.sendAndWait(subtype, payload, t.writeStdin)
+}
+
+// resolveOutgoingControlResponse matches an incoming control_response
+// to a pending outgoing control_request. Returns true if matched.
+func (t *Transport) resolveOutgoingControlResponse(msg *message) bool {
+	if len(msg.Response) == 0 {
+		return false
+	}
+	var resp struct {
+		Subtype   string         `json:"subtype"`
+		RequestID string         `json:"request_id"`
+		Response  map[string]any `json:"response"`
+		Error     string         `json:"error"`
+	}
+	if err := json.Unmarshal(msg.Response, &resp); err != nil {
+		return false
+	}
+	if resp.RequestID == "" {
+		return false
+	}
+	var resErr error
+	if resp.Subtype == "error" {
+		resErr = fmt.Errorf("control_response error: %s", resp.Error)
+	}
+	return t.outgoing.resolve(resp.RequestID, resp.Response, resErr)
 }
 
 // ReadLoop reads NDJSON lines from Claude's stdout and dispatches events.

@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Send, StopCircle } from "lucide-react";
 import { relayPool } from "@/stores/relayConnection";
 import { useAcpSessionStore } from "@/stores/acpSession";
+import { AcpPermissionModeSelector } from "./AcpPermissionModeSelector";
 
 interface AcpPromptInputProps {
   podKey: string;
@@ -38,7 +39,7 @@ export function AcpPromptInput({ podKey }: AcpPromptInputProps) {
       return;
     }
     setError(null);
-    relayPool.sendAcpCommand(podKey, { type: "cancel" });
+    relayPool.sendAcpCommand(podKey, { type: "interrupt" });
   }, [podKey]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -54,6 +55,7 @@ export function AcpPromptInput({ podKey }: AcpPromptInputProps) {
         <div className="text-xs text-red-500 mb-1">{error}</div>
       )}
       <div className="flex items-center gap-2">
+        <AcpPermissionModeSelector podKey={podKey} />
         <textarea
           value={prompt}
           onChange={(e) => { setPrompt(e.target.value); setError(null); }}

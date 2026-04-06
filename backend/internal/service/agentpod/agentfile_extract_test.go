@@ -12,7 +12,7 @@ MODE pty
 PROMPT_POSITION prepend
 CONFIG mcp_enabled BOOL = true
 CONFIG model SELECT("", "sonnet", "opus") = ""
-CONFIG permission_mode SELECT("default", "plan", "bypassPermissions") = "default"
+CONFIG permission_mode SELECT("default", "plan", "acceptEdits", "dontAsk", "bypassPermissions") = "bypassPermissions"
 `
 
 func TestExtractAgentfileOverrides_ModeOverride(t *testing.T) {
@@ -96,9 +96,9 @@ func TestExtractAgentfileOverrides_EmptyLayer(t *testing.T) {
 
 	ov, err := extractFromAgentfileLayer(baseAgentfileSrc, userLayer, nil, nil)
 	require.NoError(t, err)
-	// All overrides should carry the base defaults (MODE pty, permission_mode "default").
+	// All overrides should carry the base defaults (MODE pty, permission_mode "bypassPermissions").
 	assert.Equal(t, "pty", ov.Mode)
-	assert.Equal(t, "default", ov.PermissionMode)
+	assert.Equal(t, "bypassPermissions", ov.PermissionMode)
 	// Fields absent in the base AgentFile stay empty.
 	assert.Empty(t, ov.Branch)
 	assert.Empty(t, ov.RepoSlug)
@@ -114,5 +114,5 @@ func TestExtractAgentfileOverrides_MergeCorrectness(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "acp", ov.Mode, "user layer MODE should override base MODE")
 	// Other base values remain intact.
-	assert.Equal(t, "default", ov.PermissionMode)
+	assert.Equal(t, "bypassPermissions", ov.PermissionMode)
 }

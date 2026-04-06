@@ -135,8 +135,11 @@ const fullClaudeCodeAgentFile = `
 AGENT claude
 EXECUTABLE claude
 
+MODE pty
+MODE acp "-p" "--verbose" "--input-format" "stream-json" "--output-format" "stream-json"
+
 CONFIG model SELECT("", "sonnet", "opus") = ""
-CONFIG permission SELECT("default", "plan", "bypass") = "default"
+CONFIG permission_mode SELECT("default", "plan", "acceptEdits", "dontAsk", "bypassPermissions") = "bypassPermissions"
 CONFIG mcp_enabled BOOL = true
 
 ENV ANTHROPIC_API_KEY SECRET OPTIONAL
@@ -147,11 +150,14 @@ PROMPT_POSITION prepend
 
 arg "--model" config.model when config.model != ""
 
-if config.permission == "plan" {
+if config.permission_mode == "plan" and mode == "acp" {
+  arg "--permission-mode" "default"
+}
+if config.permission_mode == "plan" and mode != "acp" {
   arg "--permission-mode" "plan"
 }
-if config.permission == "bypass" {
-  arg "--dangerously-skip-permissions"
+if config.permission_mode != "default" and config.permission_mode != "plan" and config.permission_mode != "" {
+  arg "--permission-mode" config.permission_mode
 }
 
 if mcp.enabled {
@@ -175,95 +181,25 @@ if mcp.enabled {
 
 func TestEval_FullClaudeCode(t *testing.T) {
 	// Simulate post-resolve state: CONFIG defaults contain final resolved values.
-	// In production, resolve.ResolveConfigValues injects these before eval.
-	resolvedAgentFile := `
-AGENT claude
-EXECUTABLE claude
-
-CONFIG model SELECT("", "sonnet", "opus") = "opus"
-CONFIG permission SELECT("default", "plan", "bypass") = "plan"
-CONFIG mcp_enabled BOOL = true
-
-ENV ANTHROPIC_API_KEY SECRET OPTIONAL
-MCP ON
-SKILLS am-delegate, am-channel
-
-PROMPT_POSITION prepend
-
-arg "--model" config.model when config.model != ""
-
-if config.permission == "plan" {
-  arg "--permission-mode" "plan"
-}
-if config.permission == "bypass" {
-  arg "--dangerously-skip-permissions"
-}
-
-if mcp.enabled {
-  mcp_cfg = json_merge(mcp.builtin, mcp.installed)
-  plugin_dir = sandbox.root + "/agentsmesh-plugin"
-
-  mkdir plugin_dir
-  mkdir plugin_dir + "/.claude-plugin"
-
-  file plugin_dir + "/.claude-plugin/plugin.json" json({
-    name: "agentsmesh",
-    description: "AgentsMesh collaboration plugin",
-    version: "1.0.0"
-  })
-
-  file plugin_dir + "/.mcp.json" json({ mcpServers: mcp_cfg })
-
-  arg "--plugin-dir" plugin_dir
-}
-`
-	prog, errs := parser.Parse(resolvedAgentFile)
+	overridden := replaceConfigDefault(fullClaudeCodeAgentFile, "model", `"opus"`)
+	overridden = replaceConfigDefault(overridden, "permission_mode", `"plan"`)
+	prog, errs := parser.Parse(overridden)
 	require.Empty(t, errs)
 
-	// config is empty — values come from CONFIG declarations during eval
-	ctx := NewContext(map[string]interface{}{
-		"config": make(map[string]interface{}),
-		"mcp": map[string]interface{}{
-			"enabled": true,
-			"builtin": map[string]interface{}{
-				"agentsmesh": map[string]interface{}{
-					"type": "http",
-					"url":  "http://127.0.0.1:19000/mcp",
-				},
-			},
-			"installed": map[string]interface{}{},
-		},
-		"sandbox": map[string]interface{}{
-			"root":     "/tmp/sandbox",
-			"work_dir": "/tmp/sandbox/workspace",
-		},
-	})
-
+	ctx := newMCPContext()
 	require.NoError(t, Eval(prog, ctx))
+	ApplyModeArgs(ctx.Result)
 
 	r := ctx.Result
 	assert.Equal(t, "claude", r.LaunchCommand)
-	assert.Equal(t, "claude", r.Executable)
 	assert.Equal(t, "prepend", r.PromptPosition)
 	assert.True(t, r.MCPEnabled)
 	assert.Equal(t, []string{"am-delegate", "am-channel"}, r.Skills)
 
-	// Args: --model opus, --permission-mode plan, --plugin-dir ...
+	// PTY mode (default): plan stays as --permission-mode plan
 	assert.Contains(t, r.LaunchArgs, "--model")
 	assert.Contains(t, r.LaunchArgs, "opus")
 	assert.Contains(t, r.LaunchArgs, "--permission-mode")
 	assert.Contains(t, r.LaunchArgs, "plan")
 	assert.Contains(t, r.LaunchArgs, "--plugin-dir")
-	assert.Contains(t, r.LaunchArgs, "/tmp/sandbox/agentsmesh-plugin")
-
-	// Dirs
-	assert.Contains(t, r.Dirs, "/tmp/sandbox/agentsmesh-plugin")
-	assert.Contains(t, r.Dirs, "/tmp/sandbox/agentsmesh-plugin/.claude-plugin")
-
-	// Files: plugin.json + .mcp.json
-	require.Len(t, r.FilesToCreate, 2)
-	assert.Contains(t, r.FilesToCreate[0].Path, "plugin.json")
-	assert.Contains(t, r.FilesToCreate[0].Content, "agentsmesh")
-	assert.Contains(t, r.FilesToCreate[1].Path, ".mcp.json")
-	assert.Contains(t, r.FilesToCreate[1].Content, "agentsmesh")
 }

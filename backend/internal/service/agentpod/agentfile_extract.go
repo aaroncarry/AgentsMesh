@@ -19,7 +19,7 @@ type agentfileExtractResult struct {
 	CredentialProfile string // CREDENTIAL "profile-name"
 	Branch            string // BRANCH "branch-name"
 	RepoSlug          string // REPO "slug" (e.g., "dev-org/demo-api")
-	PermissionMode    string // CONFIG permission_mode = "plan"
+	PermissionMode    string // CONFIG permission_mode = "bypassPermissions"
 	Prompt            string // PROMPT "prompt content"
 	// Merged AgentFile source (for Runner, avoids re-parsing in ConfigBuilder).
 	// CONFIG declarations contain final resolved values (post-resolve).

@@ -31,10 +31,17 @@ type Transport interface {
 	SendPrompt(sessionID, prompt string) error
 
 	// RespondToPermission responds to a permission request.
-	RespondToPermission(requestID string, approved bool) error
+	// updatedInput is optional; when non-nil, it replaces the tool's original input.
+	RespondToPermission(requestID string, approved bool, updatedInput map[string]any) error
 
 	// CancelSession cancels the active session's processing.
 	CancelSession(sessionID string) error
+
+	// SendControlRequest sends an outgoing control_request to the agent CLI
+	// and blocks until a control_response is received (or timeout).
+	// Only supported by transports that implement bidirectional control protocol
+	// (e.g., Claude stream-json). Others return ErrControlNotSupported.
+	SendControlRequest(sessionID string, subtype string, payload map[string]any) (map[string]any, error)
 
 	// ReadLoop continuously reads messages from stdout and dispatches via callbacks.
 	// Blocks until EOF or ctx cancellation.

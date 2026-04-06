@@ -107,7 +107,7 @@ func TestTransport_RespondToPermission_Allow(t *testing.T) {
 	done := make(chan string)
 	go func() { buf := make([]byte, 4096); n, _ := stdinPR.Read(buf); done <- string(buf[:n]) }()
 
-	if err := tr.RespondToPermission("req-1", true); err != nil {
+	if err := tr.RespondToPermission("req-1", true, nil); err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}
 
@@ -142,7 +142,7 @@ func TestTransport_RespondToPermission_Deny(t *testing.T) {
 	done := make(chan string)
 	go func() { buf := make([]byte, 4096); n, _ := stdinPR.Read(buf); done <- string(buf[:n]) }()
 
-	if err := tr.RespondToPermission("req-2", false); err != nil {
+	if err := tr.RespondToPermission("req-2", false, nil); err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}
 
@@ -165,7 +165,7 @@ func TestTransport_RespondToPermission_WriteError(t *testing.T) {
 	_, pw := io.Pipe()
 	pw.Close()
 	tr.stdin = pw
-	err := tr.RespondToPermission("req-3", true)
+	err := tr.RespondToPermission("req-3", true, nil)
 	if err == nil || !strings.Contains(err.Error(), "write control response") {
 		t.Errorf("expected write error, got %v", err)
 	}

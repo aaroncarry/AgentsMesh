@@ -11,10 +11,15 @@ import (
 func (h *RunnerMessageHandler) handleAcpRelayCommand(pod *Pod, payload []byte) {
 	log := logger.Pod()
 	var cmd struct {
-		Type   string `json:"type"`
-		Prompt string `json:"prompt"`    // prompt command
-		ReqID  string `json:"requestId"` // permission_response
-		Approv bool   `json:"approved"`  // permission_response
+		Type         string         `json:"type"`
+		Prompt       string         `json:"prompt"`       // prompt command
+		ReqID        string         `json:"requestId"`    // permission_response
+		Approved     bool           `json:"approved"`     // permission_response
+		UpdatedInput map[string]any `json:"updatedInput"` // permission_response (AskUserQuestion answers)
+		Mode         string         `json:"mode"`          // set_permission_mode
+		Model        string         `json:"model"`         // set_model
+		Subtype      string         `json:"subtype"`       // control_request (generic)
+		Payload      map[string]any `json:"payload"`       // control_request (generic)
 	}
 	if err := json.Unmarshal(payload, &cmd); err != nil {
 		log.Warn("Failed to parse ACP relay command", "pod_key", pod.PodKey, "error", err)
@@ -43,7 +48,7 @@ func (h *RunnerMessageHandler) handleAcpRelayCommand(pod *Pod, payload []byte) {
 			log.Warn("SessionAccess not available for permission_response", "pod_key", pod.PodKey)
 			return
 		}
-		if err := sa.RespondToPermission(cmd.ReqID, cmd.Approv); err != nil {
+		if err := sa.RespondToPermission(cmd.ReqID, cmd.Approved, cmd.UpdatedInput); err != nil {
 			log.Error("Failed to respond to ACP permission via relay", "pod_key", pod.PodKey, "error", err)
 		}
 
@@ -54,6 +59,47 @@ func (h *RunnerMessageHandler) handleAcpRelayCommand(pod *Pod, payload []byte) {
 		}
 		if err := sa.CancelSession(); err != nil {
 			log.Error("Failed to cancel ACP session via relay", "pod_key", pod.PodKey, "error", err)
+		}
+
+	case "interrupt":
+		if !ok {
+			log.Warn("SessionAccess not available for interrupt", "pod_key", pod.PodKey)
+			return
+		}
+		if err := sa.Interrupt(); err != nil {
+			log.Error("Failed to interrupt ACP session", "pod_key", pod.PodKey, "error", err)
+		}
+
+	case "set_permission_mode":
+		if !ok {
+			log.Warn("SessionAccess not available for set_permission_mode", "pod_key", pod.PodKey)
+			return
+		}
+		if err := sa.SetPermissionMode(cmd.Mode); err != nil {
+			log.Error("Failed to set permission mode", "pod_key", pod.PodKey, "mode", cmd.Mode, "error", err)
+		}
+
+	case "set_model":
+		if !ok {
+			log.Warn("SessionAccess not available for set_model", "pod_key", pod.PodKey)
+			return
+		}
+		if err := sa.SetModel(cmd.Model); err != nil {
+			log.Error("Failed to set model", "pod_key", pod.PodKey, "model", cmd.Model, "error", err)
+		}
+
+	case "control_request":
+		if !ok {
+			log.Warn("SessionAccess not available for control_request", "pod_key", pod.PodKey)
+			return
+		}
+		resp, err := sa.SendControlRequest(cmd.Subtype, cmd.Payload)
+		if err != nil {
+			log.Error("Failed to send control_request", "pod_key", pod.PodKey, "subtype", cmd.Subtype, "error", err)
+		}
+		// Forward response back via relay if needed.
+		if resp != nil {
+			sendAcpViaRelay(pod, "controlResponse", "", resp)
 		}
 
 	default:

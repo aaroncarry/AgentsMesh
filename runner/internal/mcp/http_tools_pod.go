@@ -124,8 +124,8 @@ func (s *HTTPServer) createCreatePodTool() *MCPTool {
 				},
 				"permission_mode": map[string]interface{}{
 					"type":        "string",
-					"enum":        []string{"plan", "default", "bypassPermissions"},
-					"description": "[Deprecated: prefer AgentFile CONFIG permission_mode] Permission mode for the pod: 'plan' (default, requires approval), 'default' (normal permissions), or 'bypassPermissions' (auto-approve all).",
+					"enum":        []string{"default", "plan", "acceptEdits", "dontAsk", "bypassPermissions"},
+					"description": "[Deprecated: prefer AgentFile CONFIG permission_mode] Permission mode: 'bypassPermissions' (default, auto-approve all), 'default' (per-tool approval via canUseTool), 'acceptEdits' (auto-approve file edits), 'dontAsk' (deny unless allowlisted), or 'plan' (read-only planning, no execution).",
 				},
 			},
 			"required": []string{"runner_id", "agent_slug"},

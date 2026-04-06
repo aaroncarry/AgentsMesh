@@ -160,7 +160,7 @@ func (t *ACPTransport) SendPrompt(sessionID, prompt string) error {
 
 // RespondToPermission sends a JSON-RPC response to a session/request_permission request.
 // The requestID is the string-encoded JSON-RPC request id.
-func (t *ACPTransport) RespondToPermission(requestID string, approved bool) error {
+func (t *ACPTransport) RespondToPermission(requestID string, approved bool, _ map[string]any) error {
 	rpcID, err := strconv.ParseInt(requestID, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid permission request ID %q: %w", requestID, err)
@@ -184,6 +184,11 @@ func (t *ACPTransport) CancelSession(sessionID string) error {
 		"sessionId": sessionID,
 	}
 	return t.tracker.Writer.WriteNotification("session/cancel", params)
+}
+
+// SendControlRequest is not supported by the standard ACP JSON-RPC transport.
+func (t *ACPTransport) SendControlRequest(_ string, _ string, _ map[string]any) (map[string]any, error) {
+	return nil, ErrControlNotSupported
 }
 
 // ReadLoop reads JSON-RPC messages from stdout and dispatches them.

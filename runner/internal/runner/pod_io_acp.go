@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/anthropics/agentsmesh/runner/internal/acp"
@@ -83,10 +84,10 @@ func (a *ACPPodIO) Detach() {
 	// No-op: ACP has no terminal to detach from
 }
 
-func (a *ACPPodIO) RespondToPermission(requestID string, approved bool) error {
+func (a *ACPPodIO) RespondToPermission(requestID string, approved bool, updatedInput map[string]any) error {
 	logger.Pod().Info("ACP responding to permission",
 		"pod_key", a.podKey, "request_id", requestID, "approved", approved)
-	err := a.client.RespondToPermission(requestID, approved)
+	err := a.client.RespondToPermission(requestID, approved, updatedInput)
 	if err != nil {
 		logger.Pod().Error("ACP permission response failed",
 			"pod_key", a.podKey, "request_id", requestID, "error", err)
@@ -104,6 +105,35 @@ func (a *ACPPodIO) CancelSession() error {
 		return err
 	}
 	return nil
+}
+
+func (a *ACPPodIO) Interrupt() error {
+	logger.Pod().Info("ACP interrupt", "pod_key", a.podKey)
+	return a.client.Interrupt()
+}
+
+// validPermissionModes lists the modes accepted by Claude Code CLI.
+var validPermissionModes = map[string]bool{
+	"default": true, "plan": true, "acceptEdits": true,
+	"dontAsk": true, "bypassPermissions": true,
+}
+
+func (a *ACPPodIO) SetPermissionMode(mode string) error {
+	if !validPermissionModes[mode] {
+		return fmt.Errorf("invalid permission mode: %q", mode)
+	}
+	logger.Pod().Info("ACP set permission mode", "pod_key", a.podKey, "mode", mode)
+	return a.client.SetPermissionMode(mode)
+}
+
+func (a *ACPPodIO) SetModel(model string) error {
+	logger.Pod().Info("ACP set model", "pod_key", a.podKey, "model", model)
+	return a.client.SetModel(model)
+}
+
+func (a *ACPPodIO) SendControlRequest(subtype string, payload map[string]any) (map[string]any, error) {
+	logger.Pod().Info("ACP control request", "pod_key", a.podKey, "subtype", subtype)
+	return a.client.SendControlRequest(subtype, payload)
 }
 
 // mapACPState maps ACP client states to backend-compatible status strings.

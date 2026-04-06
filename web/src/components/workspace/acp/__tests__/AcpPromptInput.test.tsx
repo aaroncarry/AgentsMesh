@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AcpPromptInput } from "@/components/workspace/acp/AcpPromptInput";
+import { useAcpSessionStore } from "@/stores/acpSession";
 import { relayPool } from "@/stores/relayConnection";
 
 vi.mock("@/stores/relayConnection", () => ({
@@ -13,6 +14,8 @@ vi.mock("@/stores/relayConnection", () => ({
 describe("AcpPromptInput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(relayPool.isConnected).mockReturnValue(true);
+    useAcpSessionStore.setState({ sessions: {} });
   });
 
   it("renders input with correct placeholder", () => {
@@ -72,5 +75,19 @@ describe("AcpPromptInput", () => {
 
     expect(screen.getByText("Not connected")).toBeInTheDocument();
     expect(relayPool.sendAcpCommand).not.toHaveBeenCalled();
+  });
+
+  it("sends interrupt command when cancel button is clicked during processing", () => {
+    useAcpSessionStore.getState().updateSessionState("pod-1", "", "processing");
+
+    const { container } = render(<AcpPromptInput podKey="pod-1" />);
+    // The cancel button has title="Cancel" and uses StopCircle icon
+    const cancelBtn = container.querySelector("button[title='Cancel']");
+    expect(cancelBtn).toBeTruthy();
+    fireEvent.click(cancelBtn!);
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith("pod-1", {
+      type: "interrupt",
+    });
   });
 });

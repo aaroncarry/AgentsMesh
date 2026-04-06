@@ -86,7 +86,7 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 	}
 	permissionMode := req.PermissionMode
 	if permissionMode == "" {
-		permissionMode = agentpod.PermissionModePlan
+		permissionMode = agentpod.PermissionModeBypass
 	}
 	// Handle session ID
 	var sessionID *string

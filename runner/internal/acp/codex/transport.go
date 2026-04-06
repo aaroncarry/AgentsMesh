@@ -150,7 +150,7 @@ func (t *Transport) SendPrompt(sessionID, prompt string) error {
 
 // RespondToPermission responds to an approval request from the Codex agent
 // by sending a JSON-RPC response to the original request ID.
-func (t *Transport) RespondToPermission(requestID string, approved bool) error {
+func (t *Transport) RespondToPermission(requestID string, approved bool, _ map[string]any) error {
 	rpcID, err := strconv.ParseInt(requestID, 10, 64)
 	if err != nil {
 		return fmt.Errorf("parse request ID %q: %w", requestID, err)
@@ -175,6 +175,11 @@ func (t *Transport) CancelSession(sessionID string) error {
 		t.tracker.WaitResponse(pr, 10*time.Second)
 	}()
 	return nil
+}
+
+// SendControlRequest is not supported by the Codex transport.
+func (t *Transport) SendControlRequest(_ string, _ string, _ map[string]any) (map[string]any, error) {
+	return nil, acp.ErrControlNotSupported
 }
 
 // ReadLoop reads JSON-RPC messages from stdout and dispatches them.

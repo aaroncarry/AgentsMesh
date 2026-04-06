@@ -76,7 +76,7 @@ func TestACPClient_PermissionRequest_EndToEnd(t *testing.T) {
 	}
 
 	// Approve the permission.
-	if err := client.RespondToPermission(req.RequestID, true); err != nil {
+	if err := client.RespondToPermission(req.RequestID, true, nil); err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}
 

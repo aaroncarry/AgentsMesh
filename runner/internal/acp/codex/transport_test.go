@@ -167,7 +167,7 @@ func TestTransport_RespondToPermission(t *testing.T) {
 	}()
 
 	// requestID is now a numeric JSON-RPC id string
-	if err := tr.RespondToPermission("42", true); err != nil {
+	if err := tr.RespondToPermission("42", true, nil); err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}
 
@@ -210,7 +210,7 @@ func TestTransport_RespondToPermission_Decline(t *testing.T) {
 		received <- json.RawMessage(scanner.Bytes())
 	}()
 
-	if err := tr.RespondToPermission("7", false); err != nil {
+	if err := tr.RespondToPermission("7", false, nil); err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}
 

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useAcpSessionStore } from "@/stores/acpSession";
 import { AcpPermissionDialog } from "@/components/workspace/acp/AcpPermissionDialog";
 import { relayPool } from "@/stores/relayConnection";
@@ -16,6 +16,7 @@ const POD = "pod-perm";
 describe("AcpPermissionDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(relayPool.isConnected).mockReturnValue(true);
     useAcpSessionStore.setState({ sessions: {} });
   });
 
@@ -29,14 +30,16 @@ describe("AcpPermissionDialog", () => {
   ];
 
   it("renders permission request details", () => {
+    vi.useFakeTimers();
     render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
     expect(screen.getByText("Permission Required")).toBeInTheDocument();
     expect(screen.getByText("Execute: rm -rf /tmp/test")).toBeInTheDocument();
     expect(screen.getByText("bash")).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it("sends approve command and removes permission", () => {
-    // Pre-populate store
+    vi.useFakeTimers();
     useAcpSessionStore.getState().addPermissionRequest(POD, perms[0]);
 
     render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
@@ -48,12 +51,13 @@ describe("AcpPermissionDialog", () => {
       approved: true,
     });
 
-    // Permission removed from store
     const s = useAcpSessionStore.getState().sessions[POD];
     expect(s.pendingPermissions).toHaveLength(0);
+    vi.useRealTimers();
   });
 
   it("sends deny command and removes permission", () => {
+    vi.useFakeTimers();
     useAcpSessionStore.getState().addPermissionRequest(POD, perms[0]);
 
     render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
@@ -64,9 +68,11 @@ describe("AcpPermissionDialog", () => {
       requestId: "perm-1",
       approved: false,
     });
+    vi.useRealTimers();
   });
 
   it("shows error when relay is not connected", () => {
+    vi.useFakeTimers();
     vi.mocked(relayPool.isConnected).mockReturnValue(false);
 
     render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
@@ -74,9 +80,11 @@ describe("AcpPermissionDialog", () => {
 
     expect(screen.getByText(/not connected/i)).toBeInTheDocument();
     expect(relayPool.sendAcpCommand).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("renders multiple permission requests", () => {
+    vi.useFakeTimers();
     const multiPerms = [
       { requestId: "p1", toolName: "bash", argumentsJson: "{}", description: "Run bash" },
       { requestId: "p2", toolName: "write_file", argumentsJson: "{}", description: "Write file" },
@@ -86,5 +94,172 @@ describe("AcpPermissionDialog", () => {
     expect(screen.getAllByText("Permission Required")).toHaveLength(2);
     expect(screen.getByText("Run bash")).toBeInTheDocument();
     expect(screen.getByText("Write file")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("renders AskUserQuestion UI for AskUserQuestion tool", () => {
+    const askPerms = [
+      {
+        requestId: "ask-1",
+        toolName: "AskUserQuestion",
+        argumentsJson: JSON.stringify({
+          questions: [{
+            question: "Which framework?",
+            header: "Framework",
+            options: [
+              { label: "React", description: "Frontend library" },
+              { label: "Vue", description: "Progressive framework" },
+            ],
+            multiSelect: false,
+          }],
+        }),
+        description: "Claude has a question",
+      },
+    ];
+
+    render(<AcpPermissionDialog podKey={POD} permissions={askPerms} />);
+    expect(screen.queryByText("Permission Required")).not.toBeInTheDocument();
+    expect(screen.getByText("Which framework?")).toBeInTheDocument();
+    expect(screen.getByText("React")).toBeInTheDocument();
+    expect(screen.getByText("Vue")).toBeInTheDocument();
+  });
+
+  it("sends updatedInput with AskUserQuestion answers", () => {
+    const askPerm = {
+      requestId: "ask-2",
+      toolName: "AskUserQuestion",
+      argumentsJson: JSON.stringify({
+        questions: [{
+          question: "Pick one?",
+          header: "Choice",
+          options: [
+            { label: "OptionA", description: "First option" },
+            { label: "OptionB", description: "Second option" },
+          ],
+          multiSelect: false,
+        }],
+      }),
+      description: "Question",
+    };
+    useAcpSessionStore.getState().addPermissionRequest(POD, askPerm);
+    const permsFromStore = useAcpSessionStore.getState().sessions[POD].pendingPermissions;
+
+    render(<AcpPermissionDialog podKey={POD} permissions={permsFromStore} />);
+    fireEvent.click(screen.getByText("OptionA"));
+    fireEvent.click(screen.getByText("Submit"));
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith(POD, expect.objectContaining({
+      type: "permission_response",
+      requestId: "ask-2",
+      approved: true,
+      updatedInput: expect.objectContaining({
+        answers: expect.objectContaining({ "Pick one?": "OptionA" }),
+      }),
+    }));
+  });
+
+  it("auto-denies permission after timeout", () => {
+    vi.useFakeTimers();
+    useAcpSessionStore.getState().addPermissionRequest(POD, perms[0]);
+
+    render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
+
+    act(() => { vi.advanceTimersByTime(61000); });
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith(POD, {
+      type: "permission_response",
+      requestId: "perm-1",
+      approved: false,
+    });
+    vi.useRealTimers();
+  });
+
+  it("Always Allow sends updatedInput with _alwaysAllow flag", () => {
+    vi.useFakeTimers();
+    useAcpSessionStore.getState().addPermissionRequest(POD, perms[0]);
+
+    render(<AcpPermissionDialog podKey={POD} permissions={perms} />);
+    fireEvent.click(screen.getByText("Always Allow"));
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith(POD, {
+      type: "permission_response",
+      requestId: "perm-1",
+      approved: true,
+      updatedInput: expect.objectContaining({
+        updatedPermissions: expect.arrayContaining([
+          expect.objectContaining({ type: "addRules", destination: "session" }),
+        ]),
+      }),
+    });
+    vi.useRealTimers();
+  });
+
+  it("handles AskUserQuestion multiSelect with multiple choices", () => {
+    const askPerm = {
+      requestId: "multi-1",
+      toolName: "AskUserQuestion",
+      argumentsJson: JSON.stringify({
+        questions: [{
+          question: "Which features?",
+          header: "Features",
+          options: [
+            { label: "Auth", description: "Authentication" },
+            { label: "DB", description: "Database" },
+            { label: "Cache", description: "Caching" },
+          ],
+          multiSelect: true,
+        }],
+      }),
+      description: "Pick features",
+    };
+    useAcpSessionStore.getState().addPermissionRequest(POD, askPerm);
+    const permsFromStore = useAcpSessionStore.getState().sessions[POD].pendingPermissions;
+
+    render(<AcpPermissionDialog podKey={POD} permissions={permsFromStore} />);
+    // Select two options
+    fireEvent.click(screen.getByText("Auth"));
+    fireEvent.click(screen.getByText("Cache"));
+    fireEvent.click(screen.getByText("Submit"));
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith(POD, expect.objectContaining({
+      approved: true,
+      updatedInput: expect.objectContaining({
+        answers: expect.objectContaining({ "Which features?": "Auth, Cache" }),
+      }),
+    }));
+  });
+
+  it("handles AskUserQuestion custom Other text input", () => {
+    const askPerm = {
+      requestId: "custom-1",
+      toolName: "AskUserQuestion",
+      argumentsJson: JSON.stringify({
+        questions: [{
+          question: "Which framework?",
+          header: "Framework",
+          options: [
+            { label: "React", description: "Frontend lib" },
+            { label: "Vue", description: "Progressive" },
+          ],
+          multiSelect: false,
+        }],
+      }),
+      description: "Pick framework",
+    };
+    useAcpSessionStore.getState().addPermissionRequest(POD, askPerm);
+    const permsFromStore = useAcpSessionStore.getState().sessions[POD].pendingPermissions;
+
+    render(<AcpPermissionDialog podKey={POD} permissions={permsFromStore} />);
+    // Type custom text instead of selecting
+    const customInput = screen.getByPlaceholderText("Other...");
+    fireEvent.change(customInput, { target: { value: "Svelte" } });
+    fireEvent.click(screen.getByText("Submit"));
+
+    expect(relayPool.sendAcpCommand).toHaveBeenCalledWith(POD, expect.objectContaining({
+      approved: true,
+      updatedInput: expect.objectContaining({
+        answers: expect.objectContaining({ "Which framework?": "Svelte" }),
+      }),
+    }));
   });
 });

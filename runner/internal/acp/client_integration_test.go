@@ -137,7 +137,7 @@ func TestACPClient_RespondToPermission(t *testing.T) {
 
 	client.setState(StateWaitingPermission)
 
-	err := client.RespondToPermission("123", true)
+	err := client.RespondToPermission("123", true, nil)
 	if err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}

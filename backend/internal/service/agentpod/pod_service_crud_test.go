@@ -187,8 +187,8 @@ func TestCreatePod_DefaultValues(t *testing.T) {
 	if sess.Model == nil || *sess.Model != "opus" {
 		t.Error("Default model should be opus")
 	}
-	if sess.PermissionMode == nil || *sess.PermissionMode != agentpod.PermissionModePlan {
-		t.Error("Default permission mode should be plan")
+	if sess.PermissionMode == nil || *sess.PermissionMode != agentpod.PermissionModeBypass {
+		t.Error("Default permission mode should be bypassPermissions")
 	}
 }
 

@@ -29,11 +29,13 @@ const (
 	AgentStatusIdle      = "idle"
 )
 
-// Permission mode for Claude
+// Permission mode for Claude Code (maps to --permission-mode flag)
 const (
-	PermissionModePlan    = "plan"
-	PermissionModeDefault = "default"
-	PermissionModeBypass  = "bypassPermissions"
+	PermissionModeDefault     = "default"
+	PermissionModePlan        = "plan"
+	PermissionModeAcceptEdits = "acceptEdits"
+	PermissionModeDontAsk     = "dontAsk"
+	PermissionModeBypass      = "bypassPermissions"
 )
 
 // Interaction mode constants
@@ -73,7 +75,7 @@ type Pod struct {
 
 	// Agent configuration used for this pod
 	Model           *string `gorm:"size:50" json:"model,omitempty"`           // opus/sonnet/haiku
-	PermissionMode  *string `gorm:"size:50" json:"permission_mode,omitempty"` // plan/default/bypassPermissions
+	PermissionMode  *string `gorm:"size:50" json:"permission_mode,omitempty"` // default/plan/acceptEdits/dontAsk/bypassPermissions
 	InteractionMode string  `gorm:"column:interaction_mode;type:varchar(10);default:pty;not null" json:"interaction_mode"`
 	// Error details from Runner (e.g., git clone auth failure)
 	ErrorCode    *string `gorm:"size:100" json:"error_code,omitempty"`

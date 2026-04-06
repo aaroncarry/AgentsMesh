@@ -67,7 +67,7 @@ func TestACPClient_PermissionRequest_Deny(t *testing.T) {
 	}
 
 	// Deny the permission.
-	if err := client.RespondToPermission(req.RequestID, false); err != nil {
+	if err := client.RespondToPermission(req.RequestID, false, nil); err != nil {
 		t.Fatalf("RespondToPermission(deny): %v", err)
 	}
 

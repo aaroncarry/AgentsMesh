@@ -24,8 +24,14 @@ func (t *Transport) handleSystem(msg *message) {
 }
 
 // handleControlResponse handles the control_response message from Claude.
-// The initialize response closes initCh to unblock Handshake().
+// First tries to match against outgoing control_request tracker;
+// falls back to the initialize handshake channel.
 func (t *Transport) handleControlResponse(msg *message) {
+	// Try matching outgoing control_request first.
+	if t.resolveOutgoingControlResponse(msg) {
+		return
+	}
+	// Fallback: the initialize response closes initCh to unblock Handshake().
 	select {
 	case <-t.initCh:
 		// already closed (duplicate response — defensive)

@@ -23,7 +23,7 @@ MODE pty
 
 # User-configurable options
 CONFIG model STRING = "sonnet"
-CONFIG permission_mode SELECT("default","bypassPermissions") = "default"
+CONFIG permission_mode SELECT("default","plan","acceptEdits","dontAsk","bypassPermissions") = "bypassPermissions"
 CONFIG verbose BOOL = false
 
 # Environment variables
@@ -36,8 +36,8 @@ MCP ON
 # Build the CLI arguments
 arg "--model " + config.model
 
-if config.permission_mode == "bypassPermissions" {
-  arg "--dangerously-skip-permissions"
+if config.permission_mode != "default" and config.permission_mode != "" {
+  arg "--permission-mode" config.permission_mode
 }
 
 when config.verbose arg "--verbose"

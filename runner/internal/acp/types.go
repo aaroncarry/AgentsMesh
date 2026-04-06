@@ -1,5 +1,13 @@
 package acp
 
+import "errors"
+
+// Errors for control request operations.
+var (
+	ErrControlNotSupported = errors.New("transport does not support outgoing control requests")
+	ErrControlTimeout      = errors.New("control request timed out waiting for response")
+)
+
 // ACP client states.
 const (
 	StateUninitialized     = "uninitialized"

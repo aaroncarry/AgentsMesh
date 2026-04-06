@@ -97,7 +97,7 @@ func TestACPClient_RespondToPermission_WrongState(t *testing.T) {
 	client := startMockClient(t)
 	defer client.Stop()
 
-	err := client.RespondToPermission("999", true)
+	err := client.RespondToPermission("999", true, nil)
 	if err != nil {
 		t.Fatalf("RespondToPermission: %v", err)
 	}

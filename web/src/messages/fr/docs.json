@@ -381,7 +381,7 @@
           "model": "Model",
           "modelDesc": "opus, sonnet, or haiku (for Claude)",
           "permissionMode": "Permission Mode",
-          "permissionModeDesc": "plan (ask before changes), default, or bypassPermissions",
+          "permissionModeDesc": "bypassPermissions (auto-approve all, default), default (per-tool approval), acceptEdits (auto-approve file edits), dontAsk (deny unless allowlisted), or plan (read-only planning)",
           "repository": "Repository",
           "repositoryDesc": "Link to a Git repository for automatic cloning",
           "ticket": "Ticket",
