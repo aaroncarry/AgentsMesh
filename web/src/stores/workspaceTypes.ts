@@ -48,8 +48,8 @@ export type SplitTreeSplit = {
   type: "split";
   id: string;
   direction: SplitDirection;
-  children: [SplitTreeNode, SplitTreeNode];
-  sizes: [number, number];
+  children: SplitTreeNode[];
+  sizes: number[];
 };
 
 export type SplitTreeNode = SplitTreeLeaf | SplitTreeSplit;
@@ -67,7 +67,7 @@ export interface WorkspaceState {
   setActivePane: (paneId: string | null) => void;
   splitPane: (paneId: string, direction: SplitDirection, podKey: string) => void;
   closePaneFromTree: (paneId: string) => void;
-  updateSplitSizes: (splitId: string, sizes: [number, number]) => void;
+  updateSplitSizes: (splitId: string, sizes: number[]) => void;
   setMobileActiveIndex: (index: number) => void;
   setTerminalFontSize: (size: number) => void;
   removePaneByPodKey: (podKey: string) => void;

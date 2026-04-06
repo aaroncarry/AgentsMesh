@@ -1,10 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { WorkspacePane, SplitTreeLeaf, SplitTreeSplit, WorkspaceState } from "./workspaceTypes";
+import type { WorkspacePane, SplitTreeLeaf, SplitTreeSplit, SplitTreeNode, WorkspaceState } from "./workspaceTypes";
 import {
   generatePaneId, generateNodeId,
-  findLastLeaf, findLeafByPaneId,
-  replaceNode, removeLeaf, updateSizes,
+  findLeafByPaneId, findParentSplit,
+  replaceNode, removeLeaf, updateSizes, insertChildAt,
 } from "./workspaceSplitTree";
 
 // Re-export types and singletons for consumer convenience
@@ -27,32 +27,22 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       addPane: (podKey) => {
         const panes = get().panes;
-        const existingIndex = panes.findIndex((p) => p.podKey === podKey);
-        if (existingIndex >= 0) {
-          const existingPane = panes[existingIndex];
-          set({ activePane: existingPane.id, mobileActiveIndex: existingIndex });
-          return existingPane.id;
+        const existing = panes.find((p) => p.podKey === podKey);
+        if (existing) {
+          set({ activePane: existing.id, mobileActiveIndex: panes.indexOf(existing) });
+          return existing.id;
         }
 
         const id = generatePaneId();
         const newPane: WorkspacePane = { id, podKey };
         const tree = get().splitTree;
-        const leafNode: SplitTreeLeaf = { type: "leaf", id: generateNodeId(), paneId: id };
+        const newLeaf: SplitTreeLeaf = { type: "leaf", id: generateNodeId(), paneId: id };
 
         let newTree;
         if (!tree) {
-          newTree = leafNode;
+          newTree = newLeaf;
         } else {
-          const lastLeaf = findLastLeaf(tree);
-          if (lastLeaf) {
-            const splitNode: SplitTreeSplit = {
-              type: "split", id: generateNodeId(), direction: "horizontal",
-              children: [{ ...lastLeaf }, leafNode], sizes: [50, 50],
-            };
-            newTree = replaceNode(tree, lastLeaf.id, splitNode);
-          } else {
-            newTree = leafNode;
-          }
+          newTree = addPaneToTree(tree, newLeaf, get().activePane);
         }
 
         set((state) => ({
@@ -112,11 +102,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const newPaneId = generatePaneId();
           const newPane: WorkspacePane = { id: newPaneId, podKey };
           const newLeaf: SplitTreeLeaf = { type: "leaf", id: generateNodeId(), paneId: newPaneId };
-          const splitNode: SplitTreeSplit = {
-            type: "split", id: generateNodeId(), direction,
-            children: [{ ...leaf }, newLeaf], sizes: [50, 50],
-          };
-          const newTree = replaceNode(tree, leaf.id, splitNode);
+
+          const newTree = splitLeafInTree(tree, leaf, newLeaf, direction);
           return { panes: [...state.panes, newPane], activePane: newPaneId, splitTree: newTree };
         });
       },
@@ -155,7 +142,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: "agentsmesh-workspace",
-      version: 3,
+      version: 4,
       partialize: (state) => ({
         panes: state.panes,
         activePane: state.activePane,
@@ -167,3 +154,57 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }
   )
 );
+
+// --- Size strategy helpers (business logic) ---
+
+/** addPane: add new leaf to active pane's parent group with even distribution */
+function addPaneToTree(
+  tree: SplitTreeNode,
+  newLeaf: SplitTreeLeaf,
+  activePaneId: string | null,
+): SplitTreeNode {
+  // Find active leaf's node in tree
+  const activeLeaf = activePaneId ? findLeafByPaneId(tree, activePaneId) : null;
+  const parent = activeLeaf ? findParentSplit(tree, activeLeaf.id) : null;
+
+  if (parent && activeLeaf) {
+    const idx = parent.children.findIndex((c) => c.id === activeLeaf.id);
+    const evenSize = 100 / (parent.children.length + 1);
+    const evenSizes = Array.from({ length: parent.children.length + 1 }, () => evenSize);
+    return insertChildAt(tree, parent.id, newLeaf, idx, evenSizes);
+  }
+
+  // Root is a leaf or no active pane — wrap in new horizontal split
+  const split: SplitTreeSplit = {
+    type: "split", id: generateNodeId(), direction: "horizontal",
+    children: [tree, newLeaf], sizes: [50, 50],
+  };
+  return split;
+}
+
+/** splitPane: same-direction bubbles up (halve target), cross-direction nests */
+function splitLeafInTree(
+  tree: SplitTreeNode,
+  leaf: SplitTreeLeaf,
+  newLeaf: SplitTreeLeaf,
+  direction: "horizontal" | "vertical",
+): SplitTreeNode {
+  const parent = findParentSplit(tree, leaf.id);
+
+  // Same-direction bubbling: add to parent group, halve target's size
+  if (parent && parent.direction === direction) {
+    const idx = parent.children.findIndex((c) => c.id === leaf.id);
+    const targetSize = parent.sizes[idx];
+    const newSizes = [...parent.sizes];
+    newSizes[idx] = targetSize / 2;
+    newSizes.splice(idx + 1, 0, targetSize / 2);
+    return insertChildAt(tree, parent.id, newLeaf, idx, newSizes);
+  }
+
+  // Cross-direction: create new nested split
+  const splitNode: SplitTreeSplit = {
+    type: "split", id: generateNodeId(), direction,
+    children: [{ ...leaf }, newLeaf], sizes: [50, 50],
+  };
+  return replaceNode(tree, leaf.id, splitNode);
+}
