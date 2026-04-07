@@ -70,6 +70,8 @@ interface TicketFilterSectionProps {
   onToggleStatus: (status: TicketStatus) => void;
   onTogglePriority: (priority: TicketPriority) => void;
   allTickets?: Ticket[];
+  externalStatusCounts?: Record<string, number>;
+  externalPriorityCounts?: Record<string, number>;
   t: (key: string) => string;
 }
 
@@ -86,25 +88,29 @@ export function TicketFilterSection({
   onToggleStatus,
   onTogglePriority,
   allTickets,
+  externalStatusCounts,
+  externalPriorityCounts,
   t,
 }: TicketFilterSectionProps) {
   const statusCounts = useMemo(() => {
+    if (externalStatusCounts) return externalStatusCounts;
     if (!allTickets) return {};
     const counts: Record<string, number> = {};
     for (const ticket of allTickets) {
       counts[ticket.status] = (counts[ticket.status] || 0) + 1;
     }
     return counts;
-  }, [allTickets]);
+  }, [externalStatusCounts, allTickets]);
 
   const priorityCounts = useMemo(() => {
+    if (externalPriorityCounts) return externalPriorityCounts;
     if (!allTickets) return {};
     const counts: Record<string, number> = {};
     for (const ticket of allTickets) {
       counts[ticket.priority] = (counts[ticket.priority] || 0) + 1;
     }
     return counts;
-  }, [allTickets]);
+  }, [externalPriorityCounts, allTickets]);
 
   return (
     <div className="border-t border-border">

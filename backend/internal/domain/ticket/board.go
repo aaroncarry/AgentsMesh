@@ -9,5 +9,6 @@ type BoardColumn struct {
 
 // Board represents a kanban board view
 type Board struct {
-	Columns []BoardColumn `json:"columns"`
+	Columns        []BoardColumn    `json:"columns"`
+	PriorityCounts map[string]int64 `json:"priority_counts"`
 }

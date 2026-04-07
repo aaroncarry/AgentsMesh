@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -30,7 +30,24 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
   const viewMode = useTicketStore((s) => s.viewMode);
   const allTickets = useTicketStore((s) => s.tickets);
   const fetchTickets = useTicketStore((s) => s.fetchTickets);
+  const fetchBoard = useTicketStore((s) => s.fetchBoard);
   const setViewMode = useTicketStore((s) => s.setViewMode);
+  const boardColumns = useTicketStore((s) => s.boardColumns);
+  const storePriorityCounts = useTicketStore((s) => s.priorityCounts);
+
+  // Derive accurate status counts from board API response
+  const externalStatusCounts = useMemo(() => {
+    if (boardColumns.length === 0) return undefined;
+    const counts: Record<string, number> = {};
+    for (const col of boardColumns) {
+      counts[col.status] = col.count;
+    }
+    return counts;
+  }, [boardColumns]);
+
+  const externalPriorityCounts = useMemo(() => {
+    return Object.keys(storePriorityCounts).length > 0 ? storePriorityCounts : undefined;
+  }, [storePriorityCounts]);
 
   // Filter state and actions
   const {
@@ -50,30 +67,26 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
   const [statusExpanded, setStatusExpanded] = useState(true);
   const [priorityExpanded, setPriorityExpanded] = useState(false);
 
-  // Load tickets on mount
-  useEffect(() => {
-    if (currentOrg) {
-      fetchTickets();
-    }
-  }, [currentOrg, fetchTickets]);
+  // No fetch on mount — page.tsx is responsible for loading ticket data.
+  // Sidebar only reads from the shared store.
 
-  // Refresh handler
+  // Refresh handler (explicit user action)
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await fetchTickets();
+      await (viewMode === "board" ? fetchBoard() : fetchTickets());
     } finally {
       setRefreshing(false);
     }
-  }, [fetchTickets]);
+  }, [fetchTickets, fetchBoard, viewMode]);
 
   // Handle ticket created
   const handleTicketCreated = useCallback((ticketId: number, slug: string) => {
-    fetchTickets();
+    viewMode === "board" ? fetchBoard() : fetchTickets();
     if (currentOrg?.slug) {
       router.push(`/${currentOrg.slug}/tickets/${slug}`);
     }
-  }, [fetchTickets, currentOrg, router]);
+  }, [fetchTickets, fetchBoard, viewMode, currentOrg, router]);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -171,6 +184,8 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
         onToggleStatus={toggleStatus}
         onTogglePriority={togglePriority}
         allTickets={allTickets}
+        externalStatusCounts={externalStatusCounts}
+        externalPriorityCounts={externalPriorityCounts}
         t={t}
       />
     </div>
