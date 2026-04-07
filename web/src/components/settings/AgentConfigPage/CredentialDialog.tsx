@@ -80,7 +80,7 @@ export function CredentialDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {editingProfile ? t("settings.agentCredentials.editProfile") : t("settings.agentCredentials.addProfile")}
@@ -88,7 +88,7 @@ export function CredentialDialog({
           <DialogDescription>{t("settings.agentCredentials.customProfileDescription")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 px-6 py-4">
           {error && <div className="text-sm text-destructive">{error}</div>}
 
           <div className="grid gap-2">
