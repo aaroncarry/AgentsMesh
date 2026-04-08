@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	"github.com/anthropics/agentsmesh/agentfile/eval"
 	"github.com/anthropics/agentsmesh/agentfile/parser"
+	"github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
 
@@ -58,5 +58,13 @@ func (b *ConfigBuilder) buildFromAgentfile(
 	eval.ApplyModeArgs(evalCtx.Result)
 	eval.ApplyRemoves(evalCtx.Result)
 
-	return buildResultToProto(req, evalCtx.Result, creds, isRunnerHost), nil
+	// AgentFile SETUP is the most specific source for preparation scripts.
+	// Preserve repository-level preparation as a fallback when SETUP is absent.
+	effectiveReq := *req
+	if evalCtx.Result.Setup.Script != "" {
+		effectiveReq.PreparationScript = evalCtx.Result.Setup.Script
+		effectiveReq.PreparationTimeout = evalCtx.Result.Setup.Timeout
+	}
+
+	return buildResultToProto(&effectiveReq, evalCtx.Result, creds, isRunnerHost), nil
 }

@@ -49,7 +49,7 @@ func TestBuildSandboxConfig_OnlySshCloneURL(t *testing.T) {
 	assert.Empty(t, cfg.GetRepositoryUrl(), "deprecated RepositoryUrl must not be populated")
 }
 
-func TestBuildSandboxConfig_NilWhenNoURLOrLocalPath(t *testing.T) {
+func TestBuildSandboxConfig_NilWhenNoURLLocalPathOrSetup(t *testing.T) {
 	req := &ConfigBuildRequest{
 		PodKey:       "pod-1",
 		SourceBranch: "develop",
@@ -57,6 +57,22 @@ func TestBuildSandboxConfig_NilWhenNoURLOrLocalPath(t *testing.T) {
 
 	cfg := buildSandboxConfig(req)
 	assert.Nil(t, cfg, "should return nil when no clone URL or local path is set")
+}
+
+func TestBuildSandboxConfig_SetupOnly(t *testing.T) {
+	req := &ConfigBuildRequest{
+		PreparationScript:  "echo hi",
+		PreparationTimeout: 60,
+	}
+
+	cfg := buildSandboxConfig(req)
+	require.NotNil(t, cfg)
+
+	assert.Equal(t, "echo hi", cfg.PreparationScript)
+	assert.Equal(t, int32(60), cfg.PreparationTimeout)
+	assert.Empty(t, cfg.HttpCloneUrl)
+	assert.Empty(t, cfg.SshCloneUrl)
+	assert.Empty(t, cfg.LocalPath)
 }
 
 func TestBuildSandboxConfig_LocalPathOnly(t *testing.T) {

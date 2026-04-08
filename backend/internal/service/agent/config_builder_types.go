@@ -27,9 +27,9 @@ type ConfigBuildRequest struct {
 	RepositoryID *int64
 
 	// Repository configuration
-	HttpCloneURL  string // HTTPS clone URL
-	SshCloneURL   string // SSH clone URL
-	SourceBranch  string // Branch to checkout
+	HttpCloneURL string // HTTPS clone URL
+	SshCloneURL  string // SSH clone URL
+	SourceBranch string // Branch to checkout
 
 	// Git authentication
 	// CredentialType determines how to authenticate:
@@ -43,7 +43,7 @@ type ConfigBuildRequest struct {
 	// Ticket association
 	TicketSlug string
 
-	// Preparation script (from Repository)
+	// Preparation script (from AgentFile SETUP or Repository fallback)
 	PreparationScript  string
 	PreparationTimeout int
 
@@ -80,15 +80,15 @@ type ConfigBuildRequest struct {
 // ConfigSchemaResponse is the config schema returned to frontend
 // Frontend is responsible for i18n translation using slug + field.name as key
 type ConfigSchemaResponse struct {
-	Fields           []ConfigFieldResponse       `json:"fields"`
-	CredentialFields []CredentialFieldResponse    `json:"credential_fields,omitempty"`
+	Fields           []ConfigFieldResponse     `json:"fields"`
+	CredentialFields []CredentialFieldResponse `json:"credential_fields,omitempty"`
 }
 
 // CredentialFieldResponse describes a credential field from AgentFile ENV SECRET/TEXT declarations.
 // Frontend uses these to dynamically render credential profile forms.
 type CredentialFieldResponse struct {
-	Name     string `json:"name"`     // Full ENV name, e.g. "ANTHROPIC_API_KEY"
-	Type     string `json:"type"`     // "secret" or "text"
+	Name     string `json:"name"` // Full ENV name, e.g. "ANTHROPIC_API_KEY"
+	Type     string `json:"type"` // "secret" or "text"
 	Optional bool   `json:"optional"`
 }
 
