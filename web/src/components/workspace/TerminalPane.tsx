@@ -23,6 +23,7 @@ interface TerminalPaneProps {
   onMaximize?: () => void;
   onPopout?: () => void;
   showHeader?: boolean;
+  allowSplit?: boolean;
   className?: string;
 }
 
@@ -34,6 +35,7 @@ export function TerminalPane({
   onMaximize,
   onPopout,
   showHeader = true,
+  allowSplit = true,
   className,
 }: TerminalPaneProps) {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -117,8 +119,8 @@ export function TerminalPane({
           onSyncSize={syncSize}
           onStartAutopilot={() => triggerAutopilotRef.current?.()}
           onPopout={onPopout}
-          onSplitRight={() => setPendingSplitDirection("horizontal")}
-          onSplitDown={() => setPendingSplitDirection("vertical")}
+          onSplitRight={allowSplit ? () => setPendingSplitDirection("horizontal") : undefined}
+          onSplitDown={allowSplit ? () => setPendingSplitDirection("vertical") : undefined}
           onMaximize={handleMaximize}
           onClose={onClose}
         />
