@@ -7,7 +7,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { TicketCard } from "./TicketCard";
 import { Ticket, TicketStatus } from "@/stores/ticket";
 import { cn } from "@/lib/utils";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Loader2, ChevronLeft } from "lucide-react";
 
 type Status = TicketStatus;
 
@@ -46,16 +46,22 @@ interface DroppableColumnProps {
   topColor: string;
   dotColor: string;
   tickets: Ticket[];
+  totalCount?: number;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  sentinelRef?: React.RefObject<HTMLDivElement | null>;
   isOver: boolean;
   onTicketClick?: (ticket: Ticket) => void;
+  onCollapse?: () => void;
   prefetchOnHover: (slug: string) => void;
   cancelPrefetch: () => void;
   t: (key: string) => string;
 }
 
 export function DroppableColumn({
-  status, labelKey, topColor, dotColor, tickets, isOver,
-  onTicketClick, prefetchOnHover, cancelPrefetch, t,
+  status, labelKey, topColor, dotColor, tickets, totalCount,
+  loadingMore, sentinelRef, isOver, onTicketClick, onCollapse,
+  prefetchOnHover, cancelPrefetch, t,
 }: DroppableColumnProps) {
   const ticketIds = useMemo(() => tickets.map((t) => t.slug), [tickets]);
   const { setNodeRef, isOver: isDroppableOver } = useDroppable({ id: status });
@@ -66,11 +72,20 @@ export function DroppableColumn({
       className={cn("flex-shrink-0 w-72 flex flex-col rounded-lg bg-muted/30 transition-all duration-200 overflow-hidden",
         highlighted && "ring-2 ring-primary/50 bg-primary/5")}>
       <div className={cn("h-1 w-full", topColor)} />
-      <div className="flex items-center px-3 py-2.5">
+      <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2">
           <div className={cn("w-2 h-2 rounded-full", dotColor)} />
           <h3 className="font-medium text-sm">{t(labelKey)}</h3>
+          <span className="text-xs text-muted-foreground font-mono">
+            {totalCount !== undefined ? totalCount : tickets.length}
+          </span>
         </div>
+        {onCollapse && (
+          <button onClick={onCollapse}
+            className="p-0.5 rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors">
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1.5 min-h-[100px]">
         <SortableContext items={ticketIds} strategy={verticalListSortingStrategy}>
@@ -79,6 +94,13 @@ export function DroppableColumn({
               onMouseEnter={() => prefetchOnHover(ticket.slug)} onMouseLeave={cancelPrefetch} />
           ))}
         </SortableContext>
+        {/* Sentinel for infinite scroll */}
+        {sentinelRef && <div ref={sentinelRef} className="h-1 shrink-0" />}
+        {loadingMore && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
         {tickets.length === 0 && (
           <div className={cn("flex flex-col items-center justify-center py-10 text-muted-foreground/50 transition-colors rounded-lg border-2 border-dashed border-transparent",
             highlighted && "border-primary/30 text-primary/50")}>

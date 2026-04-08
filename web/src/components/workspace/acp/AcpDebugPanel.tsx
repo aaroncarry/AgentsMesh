@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAcpSessionStore } from "@/stores/acpSession";
-import type { AcpToolCall, AcpLog } from "@/stores/acpSession";
 import { ChevronDown, ChevronRight, ArrowDown, ArrowUp, Bug } from "lucide-react";
 
 interface AcpDebugPanelProps {

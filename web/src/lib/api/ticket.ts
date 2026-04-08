@@ -76,9 +76,23 @@ export const ticketApi = {
     return request<{ tickets: TicketData[] }>(`${orgPath("/tickets/active")}${params}`);
   },
 
-  getBoard: (repositoryId?: number) => {
-    const params = repositoryId ? `?repository_id=${repositoryId}` : "";
-    return request<{ board: { columns: BoardColumn[] } }>(`${orgPath("/tickets/board")}${params}`);
+  getBoard: (filters?: {
+    repositoryId?: number; priority?: string; assigneeId?: number;
+    search?: string; limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters) {
+      const keyMap: Record<string, string> = {
+        assigneeId: "assignee_id", repositoryId: "repository_id", search: "query",
+      };
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) params.append(keyMap[key] || key, String(value));
+      });
+    }
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return request<{ board: { columns: BoardColumn[]; priority_counts: Record<string, number> } }>(
+      `${orgPath("/tickets/board")}${query}`
+    );
   },
 
   getSubTickets: (slug: string) =>

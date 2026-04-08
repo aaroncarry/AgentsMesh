@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TicketData, TicketStatus, TicketPriority } from "@/lib/api";
+import { TicketData, TicketStatus, TicketPriority, BoardColumn } from "@/lib/api";
 import { createTicketActions } from "./ticket-actions";
 
 // Re-export types from API for component convenience
@@ -13,11 +13,17 @@ export interface Label {
   color: string;
 }
 
+export interface ColumnPagination {
+  offset: number;
+  hasMore: boolean;
+  loading: boolean;
+}
+
 export interface Ticket extends TicketData {
   child_tickets?: Ticket[];
 }
 
-interface TicketFilters {
+export interface TicketFilters {
   status?: TicketStatus;
   priority?: TicketPriority;
   assigneeId?: number;
@@ -25,14 +31,36 @@ interface TicketFilters {
   search?: string;
 }
 
+/** Shared dependency types for store action creators (get/set). */
+export interface TicketStoreDeps {
+  get: () => {
+    tickets: Ticket[];
+    currentTicket: Ticket | null;
+    filters: TicketFilters;
+    totalCount: number;
+    boardColumns: BoardColumn[];
+    priorityCounts: Record<string, number>;
+    columnPagination: Record<string, ColumnPagination>;
+  };
+  set: (updater: object | ((state: ReturnType<TicketStoreDeps["get"]>) => object)) => void;
+}
+
 interface TicketUIFilters {
   selectedStatuses: TicketStatus[];
   selectedPriorities: TicketPriority[];
+  selectedRepositoryIds: number[];
 }
 
 export type TicketViewMode = "list" | "board";
 
 interface TicketState {
+  /**
+   * Flat ticket array consumed by useFilteredTickets and list view.
+   * - List mode: source of truth, populated by fetchTickets.
+   * - Board mode: **derived** from boardColumns via flattenColumns().
+   *   All mutations (loadMore, drag-drop) update boardColumns first,
+   *   then re-derive this array. Do NOT mutate directly in board mode.
+   */
   tickets: Ticket[];
   currentTicket: Ticket | null;
   selectedTicketSlug: string | null;
@@ -43,8 +71,15 @@ interface TicketState {
   loading: boolean;
   error: string | null;
   totalCount: number;
+  /** Board mode source of truth: per-column tickets + DB total count. */
+  boardColumns: BoardColumn[];
+  priorityCounts: Record<string, number>;
+  columnPagination: Record<string, ColumnPagination>;
+  doneCollapsed: boolean;
 
   fetchTickets: (filters?: TicketFilters) => Promise<void>;
+  fetchBoard: (filters?: TicketFilters) => Promise<void>;
+  loadMoreColumn: (status: string) => Promise<void>;
   fetchTicket: (slug: string) => Promise<void>;
   setSelectedTicketSlug: (slug: string | null) => void;
   createTicket: (data: {
@@ -64,9 +99,11 @@ interface TicketState {
   setUIFilters: (uiFilters: Partial<TicketUIFilters>) => void;
   toggleStatus: (status: TicketStatus) => void;
   togglePriority: (priority: TicketPriority) => void;
+  toggleRepository: (id: number) => void;
   clearUIFilters: () => void;
   setViewMode: (mode: TicketViewMode) => void;
   setCurrentTicket: (ticket: Ticket | null) => void;
+  setDoneCollapsed: (collapsed: boolean) => void;
   clearError: () => void;
 }
 
@@ -76,11 +113,15 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   selectedTicketSlug: null,
   labels: [],
   filters: {},
-  uiFilters: { selectedStatuses: [], selectedPriorities: [] },
+  uiFilters: { selectedStatuses: [], selectedPriorities: [], selectedRepositoryIds: [] },
   viewMode: "board",
   loading: false,
   error: null,
   totalCount: 0,
+  boardColumns: [],
+  priorityCounts: {},
+  columnPagination: {},
+  doneCollapsed: true,
 
   // Spread API actions from extracted module
   ...createTicketActions(
@@ -101,9 +142,15 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     return { uiFilters: { ...state.uiFilters, selectedPriorities: prev.includes(priority) ? prev.filter((p) => p !== priority) : [...prev, priority] } };
   }),
 
-  clearUIFilters: () => set({ uiFilters: { selectedStatuses: [], selectedPriorities: [] } }),
+  toggleRepository: (id) => set((state) => {
+    const prev = state.uiFilters.selectedRepositoryIds;
+    return { uiFilters: { ...state.uiFilters, selectedRepositoryIds: prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id] } };
+  }),
+
+  clearUIFilters: () => set({ uiFilters: { selectedStatuses: [], selectedPriorities: [], selectedRepositoryIds: [] } }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setCurrentTicket: (ticket) => set({ currentTicket: ticket }),
   setSelectedTicketSlug: (slug) => set({ selectedTicketSlug: slug }),
+  setDoneCollapsed: (collapsed) => set({ doneCollapsed: collapsed }),
   clearError: () => set({ error: null }),
 }));

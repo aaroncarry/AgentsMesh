@@ -188,7 +188,7 @@ export function useCreatePodForm(
         setLoading(false);
       }
     },
-    [selectedAgent, selectedAgentSlug, selectedRepository, selectedBranch, creds.selectedCredentialProfile, interactionMode, prompt, alias, agentfileLayer, onSuccess, validate, setLastChoices]
+    [selectedAgent, selectedRepository, selectedBranch, creds.selectedCredentialProfile, alias, agentfileLayer, onSuccess, validate, setLastChoices]
   );
 
   return {

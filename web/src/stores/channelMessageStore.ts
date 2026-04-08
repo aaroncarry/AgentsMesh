@@ -7,11 +7,17 @@ import type { ChannelMessageState } from "./channelMessageTypes";
 
 export { EMPTY_CACHE, type ChannelMessageCache } from "./channelMessageTypes";
 
+/** Number of messages to fetch on initial channel load (kept small for fast first paint). */
+export const INITIAL_MESSAGE_LIMIT = 20;
+
+/** Number of messages to fetch when loading older history. */
+export const LOAD_MORE_MESSAGE_LIMIT = 30;
+
 export const useChannelMessageStore = create<ChannelMessageState>((set, get) => ({
   cache: {},
   unreadCounts: {},
 
-  fetchMessages: async (channelId, limit = 50, beforeId) => {
+  fetchMessages: async (channelId, limit = INITIAL_MESSAGE_LIMIT, beforeId) => {
     const isLoadMore = beforeId !== undefined;
     const current = getCache(get(), channelId);
     if (isLoadMore ? current.loadingMore : current.loading) return; // dedup guard

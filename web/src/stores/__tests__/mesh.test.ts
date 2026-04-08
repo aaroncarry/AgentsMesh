@@ -2,9 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "@testing-library/react";
 import {
   useMeshStore,
-  getPodStatusInfo,
-  getAgentStatusInfo,
-  getBindingStatusInfo,
   MeshTopology,
   MeshNode,
   MeshEdge,

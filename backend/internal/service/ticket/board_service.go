@@ -22,9 +22,11 @@ func (s *Service) GetBoard(ctx context.Context, filter *ticket.TicketListFilter)
 		Columns: make([]ticket.BoardColumn, len(columnStatuses)),
 	}
 
+	// Use a copy for each column query to avoid mutating the caller's filter
 	for i, status := range columnStatuses {
-		filter.Status = status
-		tickets, count, err := s.ListTickets(ctx, filter)
+		colFilter := *filter
+		colFilter.Status = status
+		tickets, count, err := s.ListTickets(ctx, &colFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -39,6 +41,13 @@ func (s *Service) GetBoard(ctx context.Context, filter *ticket.TicketListFilter)
 		}
 		board.Columns[i] = column
 	}
+
+	// Fetch priority distribution counts
+	priorityCounts, err := s.repo.GetPriorityCounts(ctx, filter.OrganizationID, filter.RepositoryID)
+	if err != nil {
+		return nil, err
+	}
+	board.PriorityCounts = priorityCounts
 
 	return board, nil
 }

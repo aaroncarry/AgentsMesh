@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CredentialFormFields } from "../CredentialFormFields";
-import type { CredentialProfileDialogProps, CredentialFormData } from "./types";
+import type { CredentialProfileDialogProps } from "./types";
 
 /**
  * CredentialProfileDialog - Dialog for adding or editing credential profiles.

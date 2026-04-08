@@ -1,44 +1,38 @@
 import { ticketApi, TicketStatus, TicketPriority } from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
-import type { Ticket, Label } from "./ticket";
+import type { Ticket, Label, TicketFilters, TicketStoreDeps } from "./ticket";
+import { createBoardActions } from "./ticket-board-actions";
+import { createListMutations, createBoardMutations, type TicketMutations } from "./ticket-mutations";
 
-interface TicketFilters {
-  status?: TicketStatus;
-  priority?: TicketPriority;
-  assigneeId?: number;
-  repositoryId?: number;
-  search?: string;
-}
+export function createTicketActions(set: TicketStoreDeps["set"], get: TicketStoreDeps["get"]) {
+  const listMut = createListMutations(get, set);
+  const boardMut = createBoardMutations(get, set);
+  const mutations = (): TicketMutations => (get().boardColumns.length > 0 ? boardMut : listMut);
 
-type GetFn = () => {
-  tickets: Ticket[];
-  currentTicket: Ticket | null;
-  filters: TicketFilters;
-  totalCount: number;
-};
-
-type SetFn = (updater: object | ((state: ReturnType<GetFn>) => object)) => void;
-
-export function createTicketActions(set: SetFn, get: GetFn) {
   return {
+    // ── Board-specific actions (delegated) ─────────────────────────────
+    ...createBoardActions(set, get),
+
+    // ── List mode ──────────────────────────────────────────────────────
     fetchTickets: async (filters?: TicketFilters) => {
       const mergedFilters = { ...get().filters, ...filters };
       set({ error: null, filters: mergedFilters });
       try {
-        const response = await ticketApi.list(mergedFilters);
-        set({ tickets: response.tickets || [], totalCount: response.total || 0 });
+        const response = await ticketApi.list({ ...mergedFilters, limit: 500 });
+        // Clear board state so sidebar counts fall back to computing from tickets
+        set({
+          tickets: response.tickets || [], totalCount: response.total || 0,
+          boardColumns: [], priorityCounts: {}, columnPagination: {},
+        });
       } catch (error: unknown) {
         set({ error: getErrorMessage(error, "Failed to fetch tickets") });
       }
     },
 
+    // ── Ticket CRUD (strategy-driven, no mode branching) ───────────────
     fetchTicket: async (slug: string) => {
-      try {
-        const ticket = await ticketApi.get(slug);
-        set({ currentTicket: ticket });
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to fetch ticket") });
-      }
+      try { set({ currentTicket: await ticketApi.get(slug) }); }
+      catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to fetch ticket") }); }
     },
 
     createTicket: async (data: {
@@ -48,14 +42,9 @@ export function createTicketActions(set: SetFn, get: GetFn) {
       set({ error: null });
       try {
         const ticket = await ticketApi.create(data);
-        set((state: { tickets: Ticket[]; totalCount: number }) => ({
-          tickets: [ticket, ...state.tickets], totalCount: state.totalCount + 1,
-        }));
+        mutations().insert(ticket as Ticket, (ticket as Ticket).status || "backlog");
         return ticket;
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to create ticket") });
-        throw error;
-      }
+      } catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to create ticket") }); throw e; }
     },
 
     updateTicket: async (slug: string, data: Partial<{
@@ -64,54 +53,46 @@ export function createTicketActions(set: SetFn, get: GetFn) {
     }>) => {
       try {
         const ticket = await ticketApi.update(slug, data);
-        set((state: { tickets: Ticket[]; currentTicket: Ticket | null }) => ({
-          tickets: state.tickets.map((t) => (t.slug === slug ? ticket : t)),
-          currentTicket: state.currentTicket?.slug === slug ? ticket : state.currentTicket,
-        }));
+        mutations().update(slug, ticket as Ticket);
+        set({ currentTicket: get().currentTicket?.slug === slug ? ticket : get().currentTicket });
         return ticket;
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to update ticket") });
-        throw error;
-      }
+      } catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to update ticket") }); throw e; }
     },
 
     deleteTicket: async (slug: string) => {
       try {
         await ticketApi.delete(slug);
-        set((state: { tickets: Ticket[]; totalCount: number; currentTicket: Ticket | null }) => ({
-          tickets: state.tickets.filter((t) => t.slug !== slug),
-          totalCount: state.totalCount - 1,
-          currentTicket: state.currentTicket?.slug === slug ? null : state.currentTicket,
-        }));
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to delete ticket") });
-        throw error;
-      }
+        mutations().remove(slug);
+      } catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to delete ticket") }); throw e; }
     },
 
+    /** Optimistic status change. Mutates state before API call, rolls back on failure. */
     updateTicketStatus: async (slug: string, status: TicketStatus) => {
       const prevTickets = get().tickets;
       const prevCurrent = get().currentTicket;
-      set((state: { tickets: Ticket[]; currentTicket: Ticket | null }) => ({
-        tickets: state.tickets.map((t) => (t.slug === slug ? { ...t, status } : t)),
-        currentTicket: state.currentTicket?.slug === slug
-          ? { ...state.currentTicket, status } : state.currentTicket,
-      }));
+      const prevColumns = get().boardColumns;
+      const ticket = prevTickets.find((t) => t.slug === slug);
+      const fromStatus = ticket?.status;
+
+      if (fromStatus && fromStatus !== status) {
+        const movedTicket = { ...ticket!, status };
+        mutations().moveStatus(slug, movedTicket, fromStatus, status);
+        set({ currentTicket: prevCurrent?.slug === slug ? { ...prevCurrent, status } : prevCurrent });
+      }
+
       try {
         await ticketApi.updateStatus(slug, status);
-      } catch (error: unknown) {
-        set({ tickets: prevTickets, currentTicket: prevCurrent, error: getErrorMessage(error, "Failed to update ticket status") });
-        throw error;
+      } catch (e: unknown) {
+        set({ tickets: prevTickets, currentTicket: prevCurrent, boardColumns: prevColumns,
+          error: getErrorMessage(e, "Failed to update ticket status") });
+        throw e;
       }
     },
 
+    // ── Labels ─────────────────────────────────────────────────────────
     fetchLabels: async (repositoryId?: number) => {
-      try {
-        const response = await ticketApi.listLabels(repositoryId);
-        set({ labels: response.labels || [] });
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to fetch labels") });
-      }
+      try { set({ labels: (await ticketApi.listLabels(repositoryId)).labels || [] }); }
+      catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to fetch labels") }); }
     },
 
     createLabel: async (name: string, color: string, repositoryId?: number) => {
@@ -119,20 +100,14 @@ export function createTicketActions(set: SetFn, get: GetFn) {
         const label = await ticketApi.createLabel(name, color, repositoryId);
         set((state: { labels: Label[] }) => ({ labels: [...state.labels, label] }));
         return label;
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to create label") });
-        throw error;
-      }
+      } catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to create label") }); throw e; }
     },
 
     deleteLabel: async (id: number) => {
       try {
         await ticketApi.deleteLabel(id);
         set((state: { labels: Label[] }) => ({ labels: state.labels.filter((l) => l.id !== id) }));
-      } catch (error: unknown) {
-        set({ error: getErrorMessage(error, "Failed to delete label") });
-        throw error;
-      }
+      } catch (e: unknown) { set({ error: getErrorMessage(e, "Failed to delete label") }); throw e; }
     },
   };
 }

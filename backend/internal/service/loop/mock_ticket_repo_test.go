@@ -156,3 +156,6 @@ func (m *mockTicketRepoForCrossUnit) GetSubTicketCounts(context.Context, []int64
 func (m *mockTicketRepoForCrossUnit) GetTicketStats(context.Context, int64, *int64) (map[string]int64, error) {
 	return nil, nil
 }
+func (m *mockTicketRepoForCrossUnit) GetPriorityCounts(context.Context, int64, *int64) (map[string]int64, error) {
+	return nil, nil
+}

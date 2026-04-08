@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { act } from "@testing-library/react";
 import {
   useMeshStore,
   MeshTopology,

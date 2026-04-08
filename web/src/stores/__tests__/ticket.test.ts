@@ -10,6 +10,7 @@ vi.mock('@/lib/api', () => ({
     update: vi.fn(),
     delete: vi.fn(),
     updateStatus: vi.fn(),
+    getBoard: vi.fn(),
     listLabels: vi.fn(),
     createLabel: vi.fn(),
     deleteLabel: vi.fn(),
@@ -28,6 +29,10 @@ beforeEach(() => {
     loading: false,
     error: null,
     totalCount: 0,
+    boardColumns: [],
+    priorityCounts: {},
+    columnPagination: {},
+    doneCollapsed: true,
   })
   vi.clearAllMocks()
 })
@@ -86,7 +91,7 @@ describe('Ticket Store Actions', () => {
       useTicketStore.setState({ filters: { status: 'todo' } })
       await useTicketStore.getState().fetchTickets({ priority: 'high' })
 
-      expect(ticketApi.list).toHaveBeenCalledWith({ status: 'todo', priority: 'high' })
+      expect(ticketApi.list).toHaveBeenCalledWith({ status: 'todo', priority: 'high', limit: 500 })
     })
   })
 

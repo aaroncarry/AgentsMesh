@@ -91,3 +91,29 @@ func (r *ticketRepository) GetTicketStats(ctx context.Context, orgID int64, repo
 	}
 	return stats, nil
 }
+
+func (r *ticketRepository) GetPriorityCounts(ctx context.Context, orgID int64, repoID *int64) (map[string]int64, error) {
+	type countResult struct {
+		Priority string
+		Count    int64
+	}
+
+	query := r.db.WithContext(ctx).Model(&ticket.Ticket{}).
+		Select("priority, COUNT(*) as count").
+		Where("organization_id = ?", orgID)
+
+	if repoID != nil {
+		query = query.Where("repository_id = ?", *repoID)
+	}
+
+	var results []countResult
+	if err := query.Group("priority").Find(&results).Error; err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int64, len(results))
+	for _, r := range results {
+		counts[r.Priority] = r.Count
+	}
+	return counts, nil
+}

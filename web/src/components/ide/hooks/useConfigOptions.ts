@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { agentApi, userAgentConfigApi, ConfigField } from "@/lib/api";
 
 export interface ConfigOptionsState {
@@ -90,7 +90,7 @@ export function useConfigOptions(
               }
             }
           }
-        } catch (err) {
+        } catch {
           // User config not found or error - use ConfigSchema defaults only
         }
 

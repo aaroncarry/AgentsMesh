@@ -9,7 +9,7 @@
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
 import { useChannelStore, useChannelMessageStore } from "@/stores/channel";
-import { EMPTY_CACHE } from "@/stores/channelMessageStore";
+import { EMPTY_CACHE, LOAD_MORE_MESSAGE_LIMIT } from "@/stores/channelMessageStore";
 import { useMeshStore } from "@/stores/mesh";
 import { transformMessage } from "@/components/channel/transformMessage";
 import type { TransformedMessage } from "@/components/channel/types";
@@ -143,7 +143,7 @@ export function useChannelChat({ channelId }: UseChannelChatOptions): UseChannel
   const handleLoadMore = useCallback(() => {
     // Guard: prevent concurrent requests and unnecessary calls
     if (loadingMore || !hasMore || messages.length === 0) return;
-    fetchMessages(channelId, 50, messages[0].id);
+    fetchMessages(channelId, LOAD_MORE_MESSAGE_LIMIT, messages[0].id);
   }, [channelId, messages, fetchMessages, loadingMore, hasMore]);
 
   const handleRefresh = useCallback(() => {

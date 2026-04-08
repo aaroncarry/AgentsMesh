@@ -37,17 +37,14 @@ export function TerminalPane({
   className,
 }: TerminalPaneProps) {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isTerminating, setIsTerminating] = useState(false);
   const [pendingSplitDirection, setPendingSplitDirection] = useState<SplitDirection | null>(null);
   const triggerAutopilotRef = useRef<(() => void) | null>(null);
   const maximizeRafRef = useRef<number | undefined>(undefined);
   const terminalFontSize = useWorkspaceStore((s) => s.terminalFontSize);
   const setActivePane = useWorkspaceStore((s) => s.setActivePane);
   const splitPane = useWorkspaceStore((s) => s.splitPane);
-  const removePaneByPodKey = useWorkspaceStore((s) => s.removePaneByPodKey);
   const panes = useWorkspaceStore((s) => s.panes);
   const initProgress = usePodStore((state) => state.initProgress[podKey]);
-  const terminatePod = usePodStore((state) => state.terminatePod);
   const hasAutopilot = useAutopilotStore((state) => !!state.getAutopilotControllerByPodKey(podKey));
 
   const openPodKeys = useMemo(() => panes.map((p) => p.podKey), [panes]);
@@ -58,11 +55,11 @@ export function TerminalPane({
   // "Sticky ready" flag: once the terminal has been shown, don't unmount it
   // due to transient status changes (e.g., stale WebSocket events causing
   // status to temporarily revert to "initializing").
-  const wasEverReady = useRef(false);
-  if (isPodReady) {
-    wasEverReady.current = true;
+  // Uses the React-recommended "adjusting state during render" pattern.
+  const [showTerminal, setShowTerminal] = useState(false);
+  if (isPodReady && !showTerminal) {
+    setShowTerminal(true);
   }
-  const showTerminal = wasEverReady.current;
 
   // Terminal initialization and management
   const {
@@ -91,18 +88,6 @@ export function TerminalPane({
       syncSize();
     });
   }, [onMaximize, syncSize]);
-
-  const handleTerminate = useCallback(async () => {
-    setIsTerminating(true);
-    try {
-      await terminatePod(podKey);
-      removePaneByPodKey(podKey);
-    } catch (error) {
-      console.error("Failed to terminate pod:", error);
-    } finally {
-      setIsTerminating(false);
-    }
-  }, [podKey, terminatePod, removePaneByPodKey]);
 
   // Cancel pending maximize RAF on unmount
   useEffect(() => {

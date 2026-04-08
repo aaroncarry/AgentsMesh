@@ -117,7 +117,8 @@ export function RealtimeProvider({
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
-    return () => { if (loopDebounceRef.current) clearTimeout(loopDebounceRef.current); };
+    const ref = loopDebounceRef;
+    return () => { if (ref.current) clearTimeout(ref.current); };
   }, []);
 
   // Refresh data when reconnected
