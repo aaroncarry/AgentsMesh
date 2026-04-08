@@ -3,25 +3,20 @@ import { renderHook } from '@testing-library/react'
 import { useColumnInfiniteScroll } from '../useColumnInfiniteScroll'
 
 // Track IntersectionObserver instances
-let lastObserverCallback: IntersectionObserverCallback | null = null
 let mockObserve: ReturnType<typeof vi.fn>
 let mockDisconnect: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
-  lastObserverCallback = null
   mockObserve = vi.fn()
   mockDisconnect = vi.fn()
 
-  global.IntersectionObserver = vi.fn((callback) => {
-    lastObserverCallback = callback
-    return {
-      observe: mockObserve,
-      disconnect: mockDisconnect,
-      unobserve: vi.fn(),
-      root: null, rootMargin: '', thresholds: [],
-      takeRecords: () => [],
-    }
-  }) as unknown as typeof IntersectionObserver
+  global.IntersectionObserver = vi.fn(() => ({
+    observe: mockObserve,
+    disconnect: mockDisconnect,
+    unobserve: vi.fn(),
+    root: null, rootMargin: '', thresholds: [],
+    takeRecords: () => [],
+  })) as unknown as typeof IntersectionObserver
 })
 
 afterEach(() => { vi.restoreAllMocks() })
@@ -74,19 +69,13 @@ describe('useColumnInfiniteScroll', () => {
     const onLoadMore = vi.fn()
 
     // Create observer and capture callback
-    const observerInstances: { callback: IntersectionObserverCallback; observe: typeof vi.fn }[] = []
-    global.IntersectionObserver = vi.fn((callback) => {
-      const instance = {
-        callback,
-        observe: vi.fn(),
-        disconnect: vi.fn(),
-        unobserve: vi.fn(),
-        root: null, rootMargin: '', thresholds: [],
-        takeRecords: () => [],
-      }
-      observerInstances.push({ callback, observe: instance.observe })
-      return instance
-    }) as unknown as typeof IntersectionObserver
+    global.IntersectionObserver = vi.fn(() => ({
+      observe: vi.fn(),
+      disconnect: vi.fn(),
+      unobserve: vi.fn(),
+      root: null, rootMargin: '', thresholds: [],
+      takeRecords: () => [],
+    })) as unknown as typeof IntersectionObserver
 
     // Hook won't create observer with null ref, so we test the callback pattern directly:
     // The callback stored in onLoadMoreRef should be the latest onLoadMore

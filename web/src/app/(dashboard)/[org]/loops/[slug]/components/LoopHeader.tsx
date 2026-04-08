@@ -20,7 +20,6 @@ import type { LoopData } from "@/stores/loop";
 
 interface LoopHeaderProps {
   loop: LoopData;
-  orgSlug: string;
   triggering: boolean;
   t: (key: string) => string;
   onBack: () => void;
@@ -33,7 +32,6 @@ interface LoopHeaderProps {
 
 export function LoopHeader({
   loop,
-  orgSlug,
   triggering,
   t,
   onBack,

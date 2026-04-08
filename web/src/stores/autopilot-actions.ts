@@ -12,7 +12,6 @@ type SetFn = (
     | Partial<ReturnType<typeof getInitialState>>
     | ((state: ReturnType<typeof getInitialState>) => Partial<ReturnType<typeof getInitialState>>)
 ) => void;
-type GetFn = () => ReturnType<typeof getInitialState>;
 
 // Stub type for referencing the shape; actual state lives in autopilot.ts
 function getInitialState() {
@@ -25,7 +24,7 @@ function getInitialState() {
   };
 }
 
-export function createApiActions(set: SetFn, _get: GetFn) {
+export function createApiActions(set: SetFn) {
   return {
     fetchAutopilotControllers: async () => {
       set({ loading: true, error: null });

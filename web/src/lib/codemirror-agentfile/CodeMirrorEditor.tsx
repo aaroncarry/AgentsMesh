@@ -86,7 +86,6 @@ export function CodeMirrorEditor({
     view.dispatch({
       effects: compartmentRef.current.reconfigure(extensions),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extensions]);
 
   return <div ref={containerRef} className={className} />;

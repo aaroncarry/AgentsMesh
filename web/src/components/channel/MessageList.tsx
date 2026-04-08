@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
-import { MessageSquare, Bot, ChevronDown } from "lucide-react";
+import { useMemo, useCallback, useRef, useEffect } from "react";
+import { MessageSquare, Bot, ChevronDown, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { MessageBubble } from "./MessageBubble";
 import { useMessageListScroll } from "./useMessageListScroll";
@@ -55,6 +55,28 @@ export function MessageList({
     containerRef, bottomRef, isAtBottom, newMessageCount,
     handleScroll, scrollToBottom,
   } = useMessageListScroll({ messages, loading, loadingMore });
+
+  // IntersectionObserver: auto-load older messages when sentinel enters viewport
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // Keep ref in sync with latest callback (intentionally no deps — runs every render)
+  const onLoadMoreRef = useRef(onLoadMore);
+  useEffect(() => { onLoadMoreRef.current = onLoadMore; });
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore) {
+          onLoadMoreRef.current?.();
+        }
+      },
+      { root: containerRef.current, rootMargin: "200px 0px 0px 0px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, containerRef]);
 
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
@@ -134,12 +156,11 @@ export function MessageList({
   return (
     <div className="relative flex-1 min-h-0">
       <div ref={containerRef} className="h-full overflow-y-auto px-4 py-2" onScroll={handleScroll}>
-        {hasMore && (
-          <div className="text-center mb-4">
-            <button className="text-sm text-primary hover:underline disabled:opacity-50"
-              onClick={onLoadMore} disabled={loadingMore}>
-              {loadingMore ? t("loading") : t("loadOlder")}
-            </button>
+        {/* Sentinel for IntersectionObserver auto-load */}
+        {hasMore && <div ref={sentinelRef} className="h-1" />}
+        {loadingMore && (
+          <div className="flex justify-center py-3">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
           </div>
         )}
 

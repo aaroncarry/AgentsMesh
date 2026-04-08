@@ -59,8 +59,9 @@ interface DroppableColumnProps {
 }
 
 export function DroppableColumn({
-  status, labelKey, topColor, dotColor, tickets, totalCount, hasMore, loadingMore,
-  sentinelRef, isOver, onTicketClick, onCollapse, prefetchOnHover, cancelPrefetch, t,
+  status, labelKey, topColor, dotColor, tickets, totalCount,
+  loadingMore, sentinelRef, isOver, onTicketClick, onCollapse,
+  prefetchOnHover, cancelPrefetch, t,
 }: DroppableColumnProps) {
   const ticketIds = useMemo(() => tickets.map((t) => t.slug), [tickets]);
   const { setNodeRef, isOver: isDroppableOver } = useDroppable({ id: status });

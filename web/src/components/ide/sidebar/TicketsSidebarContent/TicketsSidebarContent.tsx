@@ -60,7 +60,7 @@ export function TicketsSidebarContent({ className }: TicketsSidebarContentProps)
   }, [fetchTickets, fetchBoard, viewMode]);
 
   const handleTicketCreated = useCallback((_ticketId: number, slug: string) => {
-    viewMode === "board" ? fetchBoard() : fetchTickets();
+    if (viewMode === "board") { fetchBoard(); } else { fetchTickets(); }
     if (currentOrg?.slug) router.push(`/${currentOrg.slug}/tickets/${slug}`);
   }, [fetchTickets, fetchBoard, viewMode, currentOrg, router]);
 

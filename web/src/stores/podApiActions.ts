@@ -1,7 +1,7 @@
 import { podApi, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { getErrorMessage } from "@/lib/utils";
-import type { Pod, PodState } from "./podTypes";
+import type { PodState } from "./podTypes";
 import { SIDEBAR_STATUS_MAP, SIDEBAR_PAGE_SIZE, fetchPodInflight, upsertPod } from "./podTypes";
 
 type SetState = (partial: Partial<PodState> | ((state: PodState) => Partial<PodState> | PodState)) => void;

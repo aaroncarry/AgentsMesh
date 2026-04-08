@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
+
 import { cn } from "@/lib/utils";
 import type { PodData } from "@/lib/api/pod";
 import { getPodDisplayName } from "@/lib/pod-utils";

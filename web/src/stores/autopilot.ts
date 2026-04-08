@@ -60,7 +60,7 @@ export const useAutopilotStore = create<AutopilotState>((set, get) => ({
   loading: false,
   error: null,
 
-  ...createApiActions(set as Parameters<typeof createApiActions>[0], get as Parameters<typeof createApiActions>[1]),
+  ...createApiActions(set as Parameters<typeof createApiActions>[0]),
 
   updateAutopilotControllerStatus: (key, phase, currentIteration, maxIterations, circuitBreakerState, circuitBreakerReason) => {
     set((state) =>

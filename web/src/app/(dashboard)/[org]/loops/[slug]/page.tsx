@@ -132,7 +132,7 @@ export default function LoopDetailPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-5">
-        <LoopHeader loop={currentLoop} orgSlug={orgSlug} triggering={triggering} t={t}
+        <LoopHeader loop={currentLoop} triggering={triggering} t={t}
           onBack={() => router.push(`/${orgSlug}/loops`)} onTrigger={handleTrigger}
           onEdit={() => setEditOpen(true)} onEnable={handleEnable}
           onDisable={handleDisable} onDelete={handleDelete} />
