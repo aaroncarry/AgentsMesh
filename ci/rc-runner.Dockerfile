@@ -54,17 +54,18 @@ RUN export HOME=/usr/local && \
     curl -fsSL https://app.factory.ai/cli | sh
 
 # -- Install AgentsMesh Runner CLI ─────────────────
-RUN ARCH="$(dpkg --print-architecture)" && \
-    case "$ARCH" in \
-      amd64) PLATFORM="linux_amd64" ;; \
-      arm64) PLATFORM="linux_arm64" ;; \
-      *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSL "https://github.com/AgentsMesh/AgentsMesh/releases/download/v${AGENTSMESH_RUNNER_VERSION}/agentsmesh-runner_${AGENTSMESH_RUNNER_VERSION}_${PLATFORM}.tar.gz" -o /tmp/agentsmesh-runner.tar.gz && \
-    tar -xzf /tmp/agentsmesh-runner.tar.gz -C /tmp && \
-    mv /tmp/agentsmesh-runner /usr/local/bin/agentsmesh-runner && \
-    chmod +x /usr/local/bin/agentsmesh-runner && \
-    rm -f /tmp/agentsmesh-runner.tar.gz
+RUN curl -fsSL https://agentsmesh.int.rclabenv.com/install.sh | sh
+# RUN ARCH="$(dpkg --print-architecture)" && \
+#     case "$ARCH" in \
+#       amd64) PLATFORM="linux_amd64" ;; \
+#       arm64) PLATFORM="linux_arm64" ;; \
+#       *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
+#     esac && \
+#     curl -fsSL "https://github.com/AgentsMesh/AgentsMesh/releases/download/v${AGENTSMESH_RUNNER_VERSION}/agentsmesh-runner_${AGENTSMESH_RUNNER_VERSION}_${PLATFORM}.tar.gz" -o /tmp/agentsmesh-runner.tar.gz && \
+#     tar -xzf /tmp/agentsmesh-runner.tar.gz -C /tmp && \
+#     mv /tmp/agentsmesh-runner /usr/local/bin/agentsmesh-runner && \
+#     chmod +x /usr/local/bin/agentsmesh-runner && \
+#     rm -f /tmp/agentsmesh-runner.tar.gz
 
 # Ensure PATH includes installers' default locations
 ENV PATH="/home/node/.local/bin:/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
