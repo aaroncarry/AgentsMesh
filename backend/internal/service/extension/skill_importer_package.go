@@ -42,6 +42,11 @@ func packageSkillDir(dirPath string) ([]byte, error) {
 			return filepath.SkipDir
 		}
 
+		// Skip macOS resource fork files (._*)
+		if !info.IsDir() && shouldIgnoreFile(info.Name()) {
+			return nil
+		}
+
 		header, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return err
@@ -97,6 +102,10 @@ func computeDirSHA(dirPath string) (string, error) {
 			if shouldIgnoreDir(info.Name()) && path != dirPath {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		// Skip macOS resource fork files (._*)
+		if shouldIgnoreFile(info.Name()) {
 			return nil
 		}
 		relPath, err := filepath.Rel(dirPath, path)

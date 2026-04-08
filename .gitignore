@@ -2,6 +2,7 @@
 # General
 # =========================
 .DS_Store
+._*
 *.log
 *.tmp
 *.swp

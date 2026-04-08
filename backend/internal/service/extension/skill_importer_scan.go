@@ -86,6 +86,14 @@ func shouldIgnoreDir(name string) bool {
 	return strings.HasPrefix(name, ".") || ignoredDirs[name]
 }
 
+// shouldIgnoreFile returns true for files to skip during packaging and hashing.
+// This filters out macOS Apple Double / resource fork files (._*) that are
+// created by Time Machine, Finder, and other backup tools, which cause
+// non-deterministic archives and SHA hashes on macOS dev machines.
+func shouldIgnoreFile(name string) bool {
+	return strings.HasPrefix(name, "._")
+}
+
 // parseSkillDir parses a skill directory's SKILL.md frontmatter
 func parseSkillDir(dirPath string) (*SkillInfo, error) {
 	skillMdPath := filepath.Join(dirPath, "SKILL.md")
