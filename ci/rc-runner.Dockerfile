@@ -2,6 +2,7 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 ENV HOME=/home/node
+ARG AGENTSMESH_RUNNER_VERSION=0.24.0
 
 # ── System dependencies ────────────────────────────────────────
 RUN apt-get update && apt-get install -y \
@@ -52,6 +53,19 @@ RUN curl -fsSL https://cursor.sh/install | sh
 RUN export HOME=/usr/local && \
     curl -fsSL https://app.factory.ai/cli | sh
 
+# -- Install AgentsMesh Runner CLI ─────────────────
+RUN ARCH="$(dpkg --print-architecture)" && \
+    case "$ARCH" in \
+      amd64) PLATFORM="linux_amd64" ;; \
+      arm64) PLATFORM="linux_arm64" ;; \
+      *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/AgentsMesh/AgentsMesh/releases/download/v${AGENTSMESH_RUNNER_VERSION}/agentsmesh-runner_${AGENTSMESH_RUNNER_VERSION}_${PLATFORM}.tar.gz" -o /tmp/agentsmesh-runner.tar.gz && \
+    tar -xzf /tmp/agentsmesh-runner.tar.gz -C /tmp && \
+    mv /tmp/agentsmesh-runner /usr/local/bin/agentsmesh-runner && \
+    chmod +x /usr/local/bin/agentsmesh-runner && \
+    rm -f /tmp/agentsmesh-runner.tar.gz
+
 # Ensure PATH includes installers' default locations
 ENV PATH="/home/node/.local/bin:/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
 
@@ -82,11 +96,15 @@ RUN set -eux; \
 # COPY --chown=runner:runner deploy/dev/ai-cli-configs/codex/config.toml /home/runner/.codex/config.toml
 # COPY --chown=runner:runner deploy/dev/ai-cli-configs/gemini/settings.json /home/runner/.gemini/settings.json
 
+USER root
+COPY ci/runner-init.sh /usr/local/bin/runner-init.sh
+RUN chmod +x /usr/local/bin/runner-init.sh && chown node:node /usr/local/bin/runner-init.sh
+
 USER node
 WORKDIR /workspace
 
 # ── Install Playwright Chromium (as node user) ─────────────────
 RUN npx playwright install chromium
 
-# Keep container running for exec-based CLI usage
-CMD ["sleep", "infinity"]
+ENTRYPOINT ["/usr/local/bin/runner-init.sh"]
+CMD ["agentsmesh-runner", "run"]
