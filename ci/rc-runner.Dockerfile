@@ -53,7 +53,7 @@ RUN export HOME=/usr/local && \
     curl -fsSL https://app.factory.ai/cli | sh
 
 # Ensure PATH includes installers' default locations
-ENV PATH="/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
+ENV PATH="/home/node/.local/bin:/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
 
 # Verify installations
 RUN echo "=== Verifying AI CLI installations ===" && \
