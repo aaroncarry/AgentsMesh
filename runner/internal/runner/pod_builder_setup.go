@@ -113,7 +113,7 @@ func (b *PodBuilder) selectSetupStrategy(cfg *runnerv1.SandboxConfig) SetupStrat
 		}
 	}
 	// Fallback to empty sandbox (should not reach here if strategies are properly configured)
-	return NewEmptySandboxStrategy()
+	return NewEmptySandboxStrategy(b)
 }
 
 // runPreparationScript executes the preparation script in the workspace.

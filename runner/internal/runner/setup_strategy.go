@@ -127,11 +127,13 @@ func (s *LocalPathStrategy) Setup(ctx context.Context, sandboxRoot string, cfg *
 
 // EmptySandboxStrategy creates an empty workspace directory.
 // This is the default strategy when no repository or local path is specified.
-type EmptySandboxStrategy struct{}
+type EmptySandboxStrategy struct {
+	builder *PodBuilder
+}
 
 // NewEmptySandboxStrategy creates a new empty sandbox setup strategy.
-func NewEmptySandboxStrategy() *EmptySandboxStrategy {
-	return &EmptySandboxStrategy{}
+func NewEmptySandboxStrategy(b *PodBuilder) *EmptySandboxStrategy {
+	return &EmptySandboxStrategy{builder: b}
 }
 
 func (s *EmptySandboxStrategy) Name() string {
@@ -152,6 +154,12 @@ func (s *EmptySandboxStrategy) Setup(ctx context.Context, sandboxRoot string, cf
 		}
 	}
 
+	if cfg != nil && cfg.PreparationScript != "" && s.builder != nil {
+		if err := s.builder.runPreparationScript(ctx, cfg, workingDir, ""); err != nil {
+			return nil, err
+		}
+	}
+
 	return &SetupResult{WorkingDir: workingDir, BranchName: ""}, nil
 }
 
@@ -165,6 +173,6 @@ func DefaultSetupStrategies(b *PodBuilder) []SetupStrategy {
 	return []SetupStrategy{
 		NewGitWorktreeStrategy(b),
 		NewLocalPathStrategy(),
-		NewEmptySandboxStrategy(), // Default fallback - must be last
+		NewEmptySandboxStrategy(b), // Default fallback - must be last
 	}
 }
