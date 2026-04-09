@@ -34,13 +34,12 @@ func TestCreatePod_NormalMode_Success(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		InitialPrompt:  "Hello",
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		Cols:           120,
 		Rows:           40,
 	})
@@ -56,15 +55,15 @@ func TestCreatePod_NormalMode_Success(t *testing.T) {
 }
 
 func TestCreatePod_NormalMode_MissingRunnerID(t *testing.T) {
-	// Without RunnerSelector/AgentTypeResolver injected, RunnerID=0 should fail with ErrMissingRunnerID
+	// Without RunnerSelector/AgentResolver injected, RunnerID=0 should fail with ErrMissingRunnerID
 	orch, _, _ := setupOrchestrator(t)
 
-	agentTypeID := int64(1)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
+		UserID: 1,
 		RunnerID:       0, // missing
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.Error(t, err)
@@ -78,22 +77,22 @@ func TestCreatePod_AutoSelectRunner_Success(t *testing.T) {
 	selector := &mockRunnerSelector{
 		runner: &runnerDomain.Runner{ID: 42, NodeID: "auto-runner"},
 	}
-	resolver := &mockAgentTypeResolver{
-		agentType: &agentDomain.AgentType{ID: 1, Slug: "claude-code"},
+	resolver := &mockAgentResolver{
+		agentDef: &agentDomain.Agent{Slug: "claude-code", SupportedModes: "pty", AgentfileSource: ptrStr("AGENT claude\nPROMPT_POSITION prepend")},
 	}
 
 	orch, _, _ := setupOrchestrator(t,
 		withCoordinator(coord),
 		withRunnerSelector(selector),
-		withAgentTypeResolver(resolver),
+		withAgentResolver(resolver),
 	)
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
+		UserID: 1,
 		RunnerID:       0, // auto-select
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.NoError(t, err)
@@ -108,50 +107,50 @@ func TestCreatePod_AutoSelectRunner_NoAvailableRunner(t *testing.T) {
 	selector := &mockRunnerSelector{
 		err: errors.New("no available runner supports the requested agent"),
 	}
-	resolver := &mockAgentTypeResolver{
-		agentType: &agentDomain.AgentType{ID: 1, Slug: "claude-code"},
+	resolver := &mockAgentResolver{
+		agentDef: &agentDomain.Agent{Slug: "claude-code", SupportedModes: "pty", AgentfileSource: ptrStr("AGENT claude\nPROMPT_POSITION prepend")},
 	}
 
 	orch, _, _ := setupOrchestrator(t,
 		withRunnerSelector(selector),
-		withAgentTypeResolver(resolver),
+		withAgentResolver(resolver),
 	)
 
-	agentTypeID := int64(1)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
+		UserID: 1,
 		RunnerID:       0,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrNoAvailableRunner))
 }
 
-func TestCreatePod_AutoSelectRunner_AgentTypeResolveError(t *testing.T) {
+func TestCreatePod_AutoSelectRunner_AgentResolveError(t *testing.T) {
 	selector := &mockRunnerSelector{
 		runner: &runnerDomain.Runner{ID: 42},
 	}
-	resolver := &mockAgentTypeResolver{
-		err: errors.New("agent type not found"),
+	resolver := &mockAgentResolver{
+		err: errors.New("agent not found"),
 	}
 
 	orch, _, _ := setupOrchestrator(t,
 		withRunnerSelector(selector),
-		withAgentTypeResolver(resolver),
+		withAgentResolver(resolver),
 	)
 
-	agentTypeID := int64(999)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
+		UserID: 1,
 		RunnerID:       0,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrMissingAgentTypeID))
+	assert.True(t, errors.Is(err, ErrMissingAgentSlug))
 }
 
 func TestCreatePod_ExplicitRunnerID_SkipsAutoSelect(t *testing.T) {
@@ -161,22 +160,22 @@ func TestCreatePod_ExplicitRunnerID_SkipsAutoSelect(t *testing.T) {
 		// This would fail if called, but it shouldn't be called
 		err: errors.New("should not be called"),
 	}
-	resolver := &mockAgentTypeResolver{
-		agentType: &agentDomain.AgentType{ID: 1, Slug: "claude-code"},
+	resolver := &mockAgentResolver{
+		agentDef: &agentDomain.Agent{Slug: "claude-code", SupportedModes: "pty", AgentfileSource: ptrStr("AGENT claude\nPROMPT_POSITION prepend")},
 	}
 
 	orch, _, _ := setupOrchestrator(t,
 		withCoordinator(coord),
 		withRunnerSelector(selector),
-		withAgentTypeResolver(resolver),
+		withAgentResolver(resolver),
 	)
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
+		UserID: 1,
 		RunnerID:       5, // explicit runner
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.NoError(t, err)
@@ -184,18 +183,18 @@ func TestCreatePod_ExplicitRunnerID_SkipsAutoSelect(t *testing.T) {
 	assert.Equal(t, int64(5), result.Pod.RunnerID) // uses explicit runner, not auto-selected
 }
 
-func TestCreatePod_NormalMode_MissingAgentTypeID(t *testing.T) {
+func TestCreatePod_NormalMode_MissingAgentSlug(t *testing.T) {
 	orch, _, _ := setupOrchestrator(t)
 
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    nil, // missing
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug: "", // missing
 	})
 
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrMissingAgentTypeID))
+	assert.True(t, errors.Is(err, ErrMissingAgentSlug))
 }
 
 func TestCreatePod_QuotaExceeded(t *testing.T) {
@@ -203,12 +202,12 @@ func TestCreatePod_QuotaExceeded(t *testing.T) {
 	billing := &mockBillingService{err: errQuota}
 	orch, _, _ := setupOrchestrator(t, withBilling(billing))
 
-	agentTypeID := int64(1)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.Error(t, err)
@@ -219,12 +218,12 @@ func TestCreatePod_NilBilling_SkipsQuotaCheck(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.NoError(t, err)
@@ -235,12 +234,12 @@ func TestCreatePod_NilCoordinator(t *testing.T) {
 	// No coordinator -> pod is created in DB but no command sent
 	orch, _, _ := setupOrchestrator(t)
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.NoError(t, err)
@@ -248,30 +247,29 @@ func TestCreatePod_NilCoordinator(t *testing.T) {
 	assert.Empty(t, result.Warning)
 }
 
-func TestCreatePod_CoordinatorSendFailure_ReturnsWarning(t *testing.T) {
+func TestCreatePod_CoordinatorSendFailure_ReturnsError(t *testing.T) {
 	coord := &mockPodCoordinator{err: errors.New("runner not connected")}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
-	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
-	require.NoError(t, err) // Not an error - returns warning
-	assert.NotNil(t, result.Pod)
-	assert.Contains(t, result.Warning, "runner communication failed")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrRunnerDispatchFailed)
 }
 
 func TestCreatePod_ConfigBuildFailure(t *testing.T) {
-	// Create an orchestrator with a provider that fails on GetAgentType
+	// Create an orchestrator with a provider that fails on GetAgent
 	db := setupTestDB(t)
 	podSvc := newTestPodService(db)
 
 	provider := &mockAgentConfigProvider{
-		agentErr: errors.New("agent type not found"),
+		agentErr: errors.New("agent not found"),
 	}
 	configBuilder := agent.NewConfigBuilder(provider)
 
@@ -280,12 +278,12 @@ func TestCreatePod_ConfigBuildFailure(t *testing.T) {
 		ConfigBuilder: configBuilder,
 	})
 
-	agentTypeID := int64(999)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.Error(t, err)
@@ -296,12 +294,12 @@ func TestCreatePod_SessionID_SetForNormalMode(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 	})
 
 	require.NoError(t, err)
@@ -310,71 +308,19 @@ func TestCreatePod_SessionID_SetForNormalMode(t *testing.T) {
 	assert.NotEmpty(t, *result.Pod.SessionID)
 }
 
-func TestCreatePod_ConfigOverrides_Preserved(t *testing.T) {
-	coord := &mockPodCoordinator{}
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
-
-	agentTypeID := int64(1)
-	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID:  1,
-		UserID:          1,
-		RunnerID:        1,
-		AgentTypeID:     &agentTypeID,
-		ConfigOverrides: map[string]interface{}{"custom_key": "custom_value"},
-	})
-
-	require.NoError(t, err)
-	assert.True(t, coord.createPodCalled)
-}
-
-func TestCreatePod_NilConfigOverrides_Initialized(t *testing.T) {
-	coord := &mockPodCoordinator{}
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
-
-	agentTypeID := int64(1)
-	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID:  1,
-		UserID:          1,
-		RunnerID:        1,
-		AgentTypeID:     &agentTypeID,
-		ConfigOverrides: nil, // should be auto-initialized
-	})
-
-	require.NoError(t, err)
-	assert.True(t, coord.createPodCalled)
-}
-
-func TestCreatePod_PermissionMode(t *testing.T) {
-	coord := &mockPodCoordinator{}
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
-
-	agentTypeID := int64(1)
-	permMode := "bypassPermissions"
-	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		PermissionMode: &permMode,
-	})
-
-	require.NoError(t, err)
-	assert.True(t, coord.createPodCalled)
-}
-
 // ==================== CredentialProfileID DB Storage Tests ====================
 
 func TestCreatePod_CredentialProfileID_ZeroConvertsToNil(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	zero := int64(0)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID:      1,
-		UserID:              1,
-		RunnerID:            1,
-		AgentTypeID:         &agentTypeID,
+		OrganizationID: 1,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		CredentialProfileID: &zero, // explicit RunnerHost
 	})
 
@@ -391,13 +337,13 @@ func TestCreatePod_CredentialProfileID_PositiveStored(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	profileID := int64(42)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID:      1,
-		UserID:              1,
-		RunnerID:            1,
-		AgentTypeID:         &agentTypeID,
+		OrganizationID: 1,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		CredentialProfileID: &profileID,
 	})
 
@@ -415,12 +361,12 @@ func TestCreatePod_CredentialProfileID_NilStaysNil(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
 	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID:      1,
-		UserID:              1,
-		RunnerID:            1,
-		AgentTypeID:         &agentTypeID,
+		OrganizationID: 1,
+		UserID: 1,
+		RunnerID: 1,
+		AgentSlug:    "claude-code",
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		CredentialProfileID: nil, // use default
 	})
 
@@ -431,4 +377,84 @@ func TestCreatePod_CredentialProfileID_NilStaysNil(t *testing.T) {
 	dbPod, err := podSvc.GetPod(context.Background(), result.Pod.PodKey)
 	require.NoError(t, err)
 	assert.Nil(t, dbPod.CredentialProfileID, "nil credential_profile_id should stay nil in DB")
+}
+
+// ==================== AgentFile Resolved Precedence Tests ====================
+
+func TestCreatePod_AgentFilePrompt_ExtractedToDB(t *testing.T) {
+	coord := &mockPodCoordinator{}
+	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
+
+	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		RunnerID:       1,
+		AgentSlug:      "claude-code",
+		AgentfileLayer:   ptrStr(`PROMPT "from agentfile"`),
+	})
+
+	require.NoError(t, err)
+	dbPod, err := podSvc.GetPod(context.Background(), result.Pod.PodKey)
+	require.NoError(t, err)
+	assert.Equal(t, "from agentfile", dbPod.Prompt, "AgentFile PROMPT should be extracted to DB")
+}
+
+func TestCreatePod_AgentFileBranch_OverridesReqBranch(t *testing.T) {
+	coord := &mockPodCoordinator{}
+	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
+
+	reqBranch := "req-branch"
+	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		RunnerID:       1,
+		AgentSlug:      "claude-code",
+		BranchName:     &reqBranch,
+		AgentfileLayer:   ptrStr(`BRANCH "agentfile-branch"`),
+	})
+
+	require.NoError(t, err)
+	dbPod, err := podSvc.GetPod(context.Background(), result.Pod.PodKey)
+	require.NoError(t, err)
+	require.NotNil(t, dbPod.BranchName)
+	assert.Equal(t, "agentfile-branch", *dbPod.BranchName, "AgentFile BRANCH should override req.BranchName")
+}
+
+func TestCreatePod_AgentFilePermissionMode_ExtractedToDB(t *testing.T) {
+	coord := &mockPodCoordinator{}
+	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
+
+	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		RunnerID:       1,
+		AgentSlug:      "claude-code",
+		AgentfileLayer:   ptrStr(`CONFIG permission_mode = "bypassPermissions"`),
+	})
+
+	require.NoError(t, err)
+	dbPod, err := podSvc.GetPod(context.Background(), result.Pod.PodKey)
+	require.NoError(t, err)
+	require.NotNil(t, dbPod.PermissionMode)
+	assert.Equal(t, "bypassPermissions", *dbPod.PermissionMode, "AgentFile CONFIG permission_mode should be extracted to DB")
+}
+
+func TestCreatePod_NoLayer_BranchInheritedFromResume(t *testing.T) {
+	coord := &mockPodCoordinator{}
+	orch, podSvc, _ := setupOrchestrator(t, withCoordinator(coord))
+
+	reqBranch := "my-branch"
+	result, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		RunnerID:       1,
+		AgentSlug:      "claude-code",
+		BranchName:     &reqBranch,
+	})
+
+	require.NoError(t, err)
+	dbPod, err := podSvc.GetPod(context.Background(), result.Pod.PodKey)
+	require.NoError(t, err)
+	require.NotNil(t, dbPod.BranchName)
+	assert.Equal(t, "my-branch", *dbPod.BranchName, "Without AgentFile Layer, req.BranchName (resume inheritance) should be used")
 }

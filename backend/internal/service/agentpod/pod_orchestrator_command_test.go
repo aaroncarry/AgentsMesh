@@ -21,7 +21,7 @@ func TestBuildPodCommand_WithRepository(t *testing.T) {
 	prepScript := "npm install"
 	prepTimeout := 600
 	repo := &gitprovider.Repository{
-		CloneURL:           "https://github.com/org/repo.git",
+		HttpCloneURL:       "https://github.com/org/repo.git",
 		DefaultBranch:      "develop",
 		PreparationScript:  &prepScript,
 		PreparationTimeout: &prepTimeout,
@@ -30,61 +30,44 @@ func TestBuildPodCommand_WithRepository(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	repoID := int64(10)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		RepositoryID:   &repoID,
 	})
 
 	require.NoError(t, err)
 	require.NotNil(t, coord.lastCmd)
 	require.NotNil(t, coord.lastCmd.SandboxConfig)
-	assert.Equal(t, "https://github.com/org/repo.git", coord.lastCmd.SandboxConfig.RepositoryUrl)
+	assert.Equal(t, "https://github.com/org/repo.git", coord.lastCmd.SandboxConfig.HttpCloneUrl)
 	assert.Equal(t, "develop", coord.lastCmd.SandboxConfig.SourceBranch)
 	assert.Equal(t, "npm install", coord.lastCmd.SandboxConfig.PreparationScript)
 	assert.Equal(t, int32(600), coord.lastCmd.SandboxConfig.PreparationTimeout)
 }
 
-func TestBuildPodCommand_WithRepositoryURL(t *testing.T) {
-	coord := &mockPodCoordinator{}
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
-
-	agentTypeID := int64(1)
-	repoURL := "https://github.com/org/repo.git"
-	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
-		OrganizationID: 1,
-		UserID:         1,
-		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		RepositoryURL:  &repoURL,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, coord.lastCmd.SandboxConfig)
-	assert.Equal(t, repoURL, coord.lastCmd.SandboxConfig.RepositoryUrl)
-}
-
 func TestBuildPodCommand_BranchOverride(t *testing.T) {
 	repo := &gitprovider.Repository{
-		CloneURL:      "https://github.com/org/repo.git",
+		HttpCloneURL:  "https://github.com/org/repo.git",
 		DefaultBranch: "develop",
 	}
 	repoSvc := &mockRepoService{repo: repo}
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	repoID := int64(10)
 	branch := "feature/my-branch"
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		RepositoryID:   &repoID,
 		BranchName:     &branch,
 	})
@@ -103,13 +86,14 @@ func TestBuildPodCommand_WithTicket(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withTicketSvc(ticketSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	ticketID := int64(1)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		TicketID:       &ticketID,
 	})
 
@@ -121,13 +105,14 @@ func TestBuildPodCommand_WithTicketSlug(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	ticketSlug := "AM-99"
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		TicketSlug:     &ticketSlug,
 	})
 
@@ -146,17 +131,22 @@ func TestBuildPodCommand_WithOAuthCredential(t *testing.T) {
 			Token: "github-token-123",
 		},
 	}
+	repo := &gitprovider.Repository{
+		HttpCloneURL: "https://github.com/org/repo.git",
+	}
+	repoSvc := &mockRepoService{repo: repo}
 	coord := &mockPodCoordinator{}
-	repoURL := "https://github.com/org/repo.git"
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc))
+	repoID := int64(10)
+	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		RepositoryURL:  &repoURL,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
+		RepositoryID:   &repoID,
 	})
 
 	require.NoError(t, err)
@@ -176,17 +166,22 @@ func TestBuildPodCommand_WithSSHCredential(t *testing.T) {
 			SSHPrivateKey: "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
 		},
 	}
+	repo := &gitprovider.Repository{
+		SshCloneURL: "git@github.com:org/repo.git",
+	}
+	repoSvc := &mockRepoService{repo: repo}
 	coord := &mockPodCoordinator{}
-	repoURL := "git@github.com:org/repo.git"
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc))
+	repoID := int64(10)
+	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		RepositoryURL:  &repoURL,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
+		RepositoryID:   &repoID,
 	})
 
 	require.NoError(t, err)
@@ -202,17 +197,22 @@ func TestBuildPodCommand_RunnerLocalCredential_NoCredsSent(t *testing.T) {
 			CredentialType: "runner_local",
 		},
 	}
+	repo := &gitprovider.Repository{
+		HttpCloneURL: "https://github.com/org/repo.git",
+	}
+	repoSvc := &mockRepoService{repo: repo}
 	coord := &mockPodCoordinator{}
-	repoURL := "https://github.com/org/repo.git"
-	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc))
+	repoID := int64(10)
+	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withUserSvc(userSvc), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
-		RepositoryURL:  &repoURL,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
+		RepositoryID:   &repoID,
 	})
 
 	require.NoError(t, err)
@@ -328,13 +328,14 @@ func TestBuildPodCommand_RepoServiceError_IgnoresRepo(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withRepoSvc(repoSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	repoID := int64(999)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		RepositoryID:   &repoID,
 	})
 
@@ -347,13 +348,14 @@ func TestBuildPodCommand_TicketServiceError_IgnoresTicket(t *testing.T) {
 	coord := &mockPodCoordinator{}
 	orch, _, _ := setupOrchestrator(t, withCoordinator(coord), withTicketSvc(ticketSvc))
 
-	agentTypeID := int64(1)
+	agentSlug := "claude-code"
 	ticketID := int64(999)
 	_, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
 		OrganizationID: 1,
 		UserID:         1,
 		RunnerID:       1,
-		AgentTypeID:    &agentTypeID,
+		AgentSlug:    agentSlug,
+		AgentfileLayer: ptrStr("CONFIG mcp_enabled = true"),
 		TicketID:       &ticketID,
 	})
 

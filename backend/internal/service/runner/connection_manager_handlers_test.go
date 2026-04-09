@@ -109,7 +109,7 @@ func TestConnectionManager_HandlePodTerminated(t *testing.T) {
 	assert.Equal(t, event, callbackData)
 }
 
-// NOTE: TestConnectionManager_HandleTerminalOutput removed - output is exclusively streamed via Relay
+// NOTE: TestConnectionManager_HandlePtyOutput removed - output is exclusively streamed via Relay
 
 func TestConnectionManager_HandleAgentStatus(t *testing.T) {
 	cm := NewRunnerConnectionManager(newTestLogger())
@@ -132,33 +132,6 @@ func TestConnectionManager_HandleAgentStatus(t *testing.T) {
 		Status: "running",
 	}
 	cm.HandleAgentStatus(1, event)
-
-	assert.Equal(t, int64(1), callbackRunnerID)
-	assert.Equal(t, event, callbackData)
-}
-
-func TestConnectionManager_HandlePtyResized(t *testing.T) {
-	cm := NewRunnerConnectionManager(newTestLogger())
-	defer cm.Close()
-
-	stream := newMockRunnerStream()
-	defer stream.Close()
-
-	cm.AddConnection(1, "test-node", "test-org", stream)
-
-	var callbackRunnerID int64
-	var callbackData *runnerv1.PtyResizedEvent
-	cm.SetPtyResizedCallback(func(runnerID int64, data *runnerv1.PtyResizedEvent) {
-		callbackRunnerID = runnerID
-		callbackData = data
-	})
-
-	event := &runnerv1.PtyResizedEvent{
-		PodKey: "test-pod",
-		Cols:   120,
-		Rows:   40,
-	}
-	cm.HandlePtyResized(1, event)
 
 	assert.Equal(t, int64(1), callbackRunnerID)
 	assert.Equal(t, event, callbackData)

@@ -111,6 +111,34 @@ func TestOAuthLoginWithUserService(t *testing.T) {
 			t.Error("User should not be nil")
 		}
 	})
+
+	t.Run("updates last_login_at on oauth login", func(t *testing.T) {
+		req := &OAuthLoginRequest{
+			Provider:       "github",
+			ProviderUserID: "gh_login_time",
+			Email:          "logintime@example.com",
+			Username:       "logintime",
+			Name:           "Login Time User",
+		}
+
+		before := time.Now()
+		result, err := svc.OAuthLogin(ctx, req)
+		if err != nil {
+			t.Fatalf("OAuthLogin failed: %v", err)
+		}
+
+		// Re-fetch user from DB to verify last_login_at
+		u, err := userSvc.GetByID(ctx, result.User.ID)
+		if err != nil {
+			t.Fatalf("GetByID failed: %v", err)
+		}
+		if u.LastLoginAt == nil {
+			t.Fatal("expected LastLoginAt to be set after OAuth login")
+		}
+		if u.LastLoginAt.Before(before) {
+			t.Error("expected LastLoginAt to be >= time before OAuth login")
+		}
+	})
 }
 
 func TestOAuthLoginErrors(t *testing.T) {

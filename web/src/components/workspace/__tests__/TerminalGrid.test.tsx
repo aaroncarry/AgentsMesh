@@ -83,15 +83,18 @@ function leaf(paneId: string, id = `node-${paneId}`): SplitTreeNode {
 
 function split(
   direction: "horizontal" | "vertical",
-  children: [SplitTreeNode, SplitTreeNode],
+  children: SplitTreeNode[],
   id = `split-${Math.random().toString(36).slice(2, 7)}`
 ): SplitTreeNode {
-  return { type: "split", id, direction, children, sizes: [50, 50] };
+  const evenSize = 100 / children.length;
+  return {
+    type: "split", id, direction, children,
+    sizes: children.map(() => evenSize),
+  };
 }
 
 describe("TerminalGrid", () => {
   beforeEach(() => {
-    // Reset store to initial state
     useWorkspaceStore.setState({
       panes: [],
       activePane: null,
@@ -219,6 +222,39 @@ describe("TerminalGrid", () => {
     });
   });
 
+  describe("Three-way Split", () => {
+    beforeEach(() => {
+      useWorkspaceStore.setState({
+        panes: [
+          { id: "pane-1", podKey: "pod-1" },
+          { id: "pane-2", podKey: "pod-2" },
+          { id: "pane-3", podKey: "pod-3" },
+        ],
+        activePane: "pane-1",
+        splitTree: split("horizontal", [
+          leaf("pane-1"), leaf("pane-2"), leaf("pane-3"),
+        ]),
+      });
+    });
+
+    it("should render three panes", () => {
+      render(<TerminalGrid />);
+
+      expect(screen.getByTestId("terminal-pane-pane-1")).toBeInTheDocument();
+      expect(screen.getByTestId("terminal-pane-pane-2")).toBeInTheDocument();
+      expect(screen.getByTestId("terminal-pane-pane-3")).toBeInTheDocument();
+    });
+
+    it("should render 3 panels and 2 separators", () => {
+      render(<TerminalGrid />);
+
+      const panels = screen.getAllByTestId("panel");
+      const separators = screen.getAllByTestId("separator");
+      expect(panels).toHaveLength(3);
+      expect(separators).toHaveLength(2);
+    });
+  });
+
   describe("Nested Split (2x2 Grid)", () => {
     beforeEach(() => {
       useWorkspaceStore.setState({
@@ -280,7 +316,6 @@ describe("TerminalGrid", () => {
       const closeButton = screen.getByTestId("close-pane-1");
       fireEvent.click(closeButton);
 
-      // Check that pane was removed from store
       const state = useWorkspaceStore.getState();
       expect(state.panes.find((p) => p.id === "pane-1")).toBeUndefined();
     });

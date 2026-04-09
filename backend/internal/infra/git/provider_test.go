@@ -182,11 +182,11 @@ func TestProjectStruct(t *testing.T) {
 	project := &Project{
 		ID:            "456",
 		Name:          "test-repo",
-		FullPath:      "owner/test-repo",
+		Slug:          "owner/test-repo",
 		Description:   "Test repository",
 		DefaultBranch: "main",
 		WebURL:        "https://github.com/owner/test-repo",
-		CloneURL:      "https://github.com/owner/test-repo.git",
+		HttpCloneURL:  "https://github.com/owner/test-repo.git",
 		SSHCloneURL:   "git@github.com:owner/test-repo.git",
 		Visibility:    "public",
 	}

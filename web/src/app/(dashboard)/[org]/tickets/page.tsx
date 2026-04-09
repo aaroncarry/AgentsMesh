@@ -18,6 +18,7 @@ export default function TicketsPage() {
   // Use individual selectors to prevent re-renders from unrelated store changes
   const viewMode = useTicketStore(state => state.viewMode);
   const fetchTickets = useTicketStore(state => state.fetchTickets);
+  const fetchBoard = useTicketStore(state => state.fetchBoard);
   const updateTicketStatus = useTicketStore(state => state.updateTicketStatus);
 
   const tickets = useFilteredTickets();
@@ -31,10 +32,11 @@ export default function TicketsPage() {
   // State for auto-triggered create pod modal (when dragging ticket to in_progress)
   const [createPodTicket, setCreatePodTicket] = useState<Ticket | null>(null);
 
-  // Load tickets on mount
+  // Load tickets on mount and when view mode changes
   useEffect(() => {
-    fetchTickets().finally(() => setLoading(false));
-  }, [fetchTickets]);
+    const load = viewMode === "board" ? fetchBoard() : fetchTickets();
+    load.finally(() => setLoading(false));
+  }, [fetchTickets, fetchBoard, viewMode]);
 
   const handleStatusChange = useCallback(async (slug: string, newStatus: TicketStatus) => {
     try {

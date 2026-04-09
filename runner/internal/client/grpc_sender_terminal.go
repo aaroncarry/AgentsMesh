@@ -23,21 +23,6 @@ func (c *GRPCConnection) SendAgentStatus(podKey string, status string) error {
 	return c.sendTerminal(msg)
 }
 
-// SendPtyResized sends a PTY resize event to the server (control message).
-func (c *GRPCConnection) SendPtyResized(podKey string, cols, rows int32) error {
-	msg := &runnerv1.RunnerMessage{
-		Payload: &runnerv1.RunnerMessage_PtyResized{
-			PtyResized: &runnerv1.PtyResizedEvent{
-				PodKey: podKey,
-				Cols:   cols,
-				Rows:   rows,
-			},
-		},
-		Timestamp: time.Now().UnixMilli(),
-	}
-	return c.sendControl(msg)
-}
-
 // SendOSCNotification sends an OSC notification event to the server (control message).
 // This is triggered by OSC 777 (iTerm2/Kitty) or OSC 9 (ConEmu/Windows Terminal) sequences.
 // Uses controlCh for high priority delivery (not affected by terminal output throttling).

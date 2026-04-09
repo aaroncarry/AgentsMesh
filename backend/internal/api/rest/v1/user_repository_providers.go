@@ -9,11 +9,11 @@ import (
 type RepositoryResponse struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
-	FullPath      string `json:"full_path"`
+	Slug          string `json:"slug"`
 	Description   string `json:"description"`
 	DefaultBranch string `json:"default_branch"`
 	Visibility    string `json:"visibility"`
-	CloneURL      string `json:"clone_url"`
+	HttpCloneURL  string `json:"http_clone_url"`
 	SSHCloneURL   string `json:"ssh_clone_url"`
 	WebURL        string `json:"web_url"`
 }

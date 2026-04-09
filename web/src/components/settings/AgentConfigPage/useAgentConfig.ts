@@ -6,7 +6,8 @@ import {
   userAgentConfigApi,
   userAgentCredentialApi,
   type ConfigField,
-  type AgentTypeData,
+  type CredentialField,
+  type AgentData,
   type CredentialProfileData,
 } from "@/lib/api";
 import { getLocalizedErrorMessage } from "@/lib/api/errors";
@@ -25,9 +26,10 @@ export function useAgentConfig(
   const [savingConfig, setSavingConfig] = useState(false);
 
   // Data states
-  const [agentType, setAgentType] = useState<AgentTypeData | null>(null);
+  const [agent, setAgent] = useState<AgentData | null>(null);
   const [configFields, setConfigFields] = useState<ConfigField[]>([]);
   const [configValues, setConfigValues] = useState<Record<string, unknown>>({});
+  const [credentialFields, setCredentialFields] = useState<CredentialField[]>([]);
   const [credentialProfiles, setCredentialProfiles] = useState<CredentialProfileData[]>([]);
   const [isRunnerHostDefault, setIsRunnerHostDefault] = useState(true);
 
@@ -41,29 +43,32 @@ export function useAgentConfig(
       setLoading(true);
       setError(null);
 
-      // Load agent types to find the one matching the slug
-      const typesRes = await agentApi.listTypes();
-      const foundAgentType = typesRes.agent_types?.find(
-        (at: AgentTypeData) => at.slug === agentSlug
+      // Load agents to find the one matching the slug
+      const agentsRes = await agentApi.list();
+      const foundAgent = agentsRes.agents?.find(
+        (a: AgentData) => a.slug === agentSlug
       );
 
-      if (!foundAgentType) {
+      if (!foundAgent) {
         setError(t("settings.agentConfig.agentNotFound"));
         setLoading(false);
         return;
       }
 
-      setAgentType(foundAgentType);
+      setAgent(foundAgent);
 
       // Load data in parallel
       const [schemaRes, credentialsRes] = await Promise.all([
-        agentApi.getConfigSchema(foundAgentType.id).catch(() => ({ schema: { fields: [] } })),
+        agentApi.getConfigSchema(foundAgent.slug).catch(() => ({ schema: { fields: [], credential_fields: [] } })),
         userAgentCredentialApi.list().catch(() => ({ items: [] })),
       ]);
 
       // Set config schema fields
       const fields = schemaRes.schema?.fields || [];
       setConfigFields(fields);
+
+      // Set credential fields from AgentFile ENV SECRET/TEXT declarations
+      setCredentialFields(schemaRes.schema?.credential_fields || []);
 
       // Initialize config values with defaults from schema
       const defaultValues: Record<string, unknown> = {};
@@ -75,7 +80,7 @@ export function useAgentConfig(
 
       // Try to load user's saved config
       try {
-        const userConfigRes = await userAgentConfigApi.get(foundAgentType.id);
+        const userConfigRes = await userAgentConfigApi.get(foundAgent.slug);
         if (userConfigRes.config?.config_values) {
           // Merge user config over defaults
           setConfigValues({ ...defaultValues, ...userConfigRes.config.config_values });
@@ -87,9 +92,9 @@ export function useAgentConfig(
         setConfigValues(defaultValues);
       }
 
-      // Extract credential profiles for this agent type
+      // Extract credential profiles for this agent
       const agentCredentials = credentialsRes.items?.find(
-        (item: { agent_type_id: number }) => item.agent_type_id === foundAgentType.id
+        (item: { agent_slug: string }) => item.agent_slug === foundAgent.slug
       );
       const profiles = agentCredentials?.profiles || [];
       setCredentialProfiles(profiles);
@@ -119,7 +124,7 @@ export function useAgentConfig(
 
   // Save runtime config
   const handleSaveConfig = useCallback(async () => {
-    if (!agentType) return;
+    if (!agent) return;
 
     try {
       setSavingConfig(true);
@@ -134,7 +139,7 @@ export function useAgentConfig(
         }
       }
 
-      await userAgentConfigApi.set(agentType.id, cleanedConfig);
+      await userAgentConfigApi.set(agent.slug, cleanedConfig);
       setSuccess(t("settings.agentConfig.configSaved"));
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -145,7 +150,7 @@ export function useAgentConfig(
     } finally {
       setSavingConfig(false);
     }
-  }, [agentType, configValues, t]);
+  }, [agent, configValues, t]);
 
   // Set RunnerHost as default
   const handleSetRunnerHostDefault = useCallback(async () => {
@@ -199,57 +204,45 @@ export function useAgentConfig(
   }, [loadData, t]);
 
   // Save credential profile (create or update)
-  // Sends only the active credential method's value; the other is excluded.
-  // Backend replaces the entire credentials object, clearing stale fields.
+  // credentials keys are full ENV names from AgentFile declarations.
   const handleSaveProfile = useCallback(async (
     data: CredentialFormData,
     editingProfile: CredentialProfileData | null
   ) => {
-    if (!agentType) return;
+    if (!agent) return;
 
-    const credentials: Record<string, string> = {};
-
-    // base_url is shared across both methods
-    if (data.baseUrl) credentials.base_url = data.baseUrl;
-
-    // Only include the active credential method
-    if (data.credentialMethod === "api_key") {
-      if (data.apiKey) credentials.api_key = data.apiKey;
-    } else {
-      if (data.authToken) credentials.auth_token = data.authToken;
-    }
+    const credentials = Object.keys(data.credentials).length > 0 ? data.credentials : undefined;
 
     if (editingProfile) {
-      // When updating, always send credentials object to ensure stale fields
-      // from the other method are cleared (backend replaces entire object)
       await userAgentCredentialApi.update(editingProfile.id, {
         name: data.name,
         description: data.description || undefined,
         is_runner_host: false,
-        credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
+        credentials,
       });
       setSuccess(t("settings.agentCredentials.profileUpdated"));
     } else {
-      await userAgentCredentialApi.create(agentType.id, {
+      await userAgentCredentialApi.create(agent.slug, {
         name: data.name,
         description: data.description || undefined,
         is_runner_host: false,
-        credentials: credentials,
+        credentials: data.credentials,
       });
       setSuccess(t("settings.agentCredentials.profileCreated"));
     }
 
     await loadData();
     setTimeout(() => setSuccess(null), 3000);
-  }, [agentType, loadData, t]);
+  }, [agent, loadData, t]);
 
   return {
     // State
     loading,
     savingConfig,
-    agentType,
+    agent,
     configFields,
     configValues,
+    credentialFields,
     credentialProfiles,
     isRunnerHostDefault,
     error,

@@ -28,7 +28,7 @@ func (f *fakeStream) Recv() (*runnerv1.ServerMessage, error) {
 	return nil, io.EOF
 }
 
-func (f *fakeStream) CloseSend() error            { return nil }
+func (f *fakeStream) CloseSend() error             { return nil }
 func (f *fakeStream) Header() (metadata.MD, error) { return nil, nil }
 func (f *fakeStream) Trailer() metadata.MD         { return nil }
 func (f *fakeStream) Context() context.Context     { return context.Background() }
@@ -168,7 +168,7 @@ func TestSendPodTerminated(t *testing.T) {
 	conn := newTestConnection()
 	setFakeStream(conn)
 
-	err := conn.SendPodTerminated("pod-1", 0, "")
+	err := conn.SendPodTerminated("pod-1", 0, "", "completed")
 	require.NoError(t, err)
 
 	msg := <-conn.controlCh
@@ -216,19 +216,6 @@ func TestSendAgentStatus(t *testing.T) {
 	status, ok := msg.Payload.(*runnerv1.RunnerMessage_AgentStatus)
 	require.True(t, ok)
 	assert.Equal(t, "executing", status.AgentStatus.Status)
-}
-
-func TestSendPtyResized(t *testing.T) {
-	conn := newTestConnection()
-	setFakeStream(conn)
-
-	err := conn.SendPtyResized("pod-1", 120, 40)
-	require.NoError(t, err)
-
-	msg := <-conn.controlCh
-	resized, ok := msg.Payload.(*runnerv1.RunnerMessage_PtyResized)
-	require.True(t, ok)
-	assert.Equal(t, int32(120), resized.PtyResized.Cols)
 }
 
 func TestSendOSCNotification(t *testing.T) {

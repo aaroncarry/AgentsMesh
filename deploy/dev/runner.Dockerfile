@@ -115,6 +115,11 @@ WORKDIR /proto
 COPY --chown=runner:runner proto/go.mod proto/go.sum ./
 RUN chown -R runner:runner /proto
 
+# Copy agentfile module (required by go.mod replace directive)
+WORKDIR /agentfile
+COPY --chown=runner:runner agentfile/go.mod agentfile/go.sum ./
+RUN chown -R runner:runner /agentfile
+
 # Copy runner go mod files
 WORKDIR /app
 COPY --chown=runner:runner runner/go.mod runner/go.sum ./

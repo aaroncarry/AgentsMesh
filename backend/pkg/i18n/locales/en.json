@@ -120,8 +120,8 @@
     "status_paused": "Paused",
     "status_terminated": "Terminated",
     "status_failed": "Failed",
-    "agent_type": "Agent Type",
-    "initial_prompt": "Initial Prompt",
+    "agent": "Agent",
+    "prompt": "Prompt",
     "branch_name": "Branch Name",
     "pod_created": "Pod created successfully",
     "pod_terminated": "Pod terminated successfully"

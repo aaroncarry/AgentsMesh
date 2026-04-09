@@ -9,7 +9,7 @@ const docsMetadataMap: Record<string, DocsMeta> = {
   "/docs": {
     title: "Documentation",
     description:
-      "Complete documentation for AgentsMesh — the AI agent fleet command center for orchestrating multi-agent collaboration.",
+      "Complete documentation for AgentsMesh — the agent workforce platform for ambitious teams.",
   },
   "/docs/getting-started": {
     title: "Quick Start",
@@ -70,6 +70,16 @@ const docsMetadataMap: Record<string, DocsMeta> = {
     title: "Repositories & Git Integration",
     description:
       "Connect Git providers, manage repository access, configure SSH keys, and use Git worktree isolation with AI agents.",
+  },
+  "/docs/concepts/agentfile": {
+    title: "AgentFile Syntax Reference",
+    description:
+      "Complete reference for AgentFile — the DSL for configuring AI agent execution environments, similar to Dockerfile for containers.",
+  },
+  "/docs/concepts/agentfile-layer": {
+    title: "AgentFile Layer",
+    description:
+      "Learn about AgentFile Layers — per-Pod override mechanism with a 3-tier merge model for customizing agent configuration at runtime.",
   },
   "/docs/features/tickets": {
     title: "Tickets",

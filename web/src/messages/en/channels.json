@@ -32,6 +32,7 @@
       "copyMessage": "Copy",
       "editMessage": "Edit",
       "deleteMessage": "Delete",
+      "metadata": "Metadata",
       "edited": "edited",
       "save": "Save",
       "cancel": "Cancel",

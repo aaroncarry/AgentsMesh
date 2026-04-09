@@ -9,11 +9,11 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/config"
 )
 
-// Tests for terminal operations: OnTerminalInput, OnTerminalResize
+// Tests for terminal operations: OnPodInput
 
-// --- OnTerminalInput Tests ---
+// --- OnPodInput Tests ---
 
-func TestOnTerminalInputPodNotFound(t *testing.T) {
+func TestOnPodInputPodNotFound(t *testing.T) {
 	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
@@ -21,12 +21,12 @@ func TestOnTerminalInputPodNotFound(t *testing.T) {
 
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
-	req := client.TerminalInputRequest{
+	req := client.PodInputRequest{
 		PodKey: "nonexistent",
 		Data:   []byte("hello"),
 	}
 
-	err := handler.OnTerminalInput(req)
+	err := handler.OnPodInput(req)
 	if err == nil {
 		t.Error("expected error for nonexistent pod")
 	}
@@ -35,7 +35,7 @@ func TestOnTerminalInputPodNotFound(t *testing.T) {
 	}
 }
 
-func TestOnTerminalInputNilTerminal(t *testing.T) {
+func TestOnPodInputNilTerminal(t *testing.T) {
 	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
 
@@ -45,22 +45,21 @@ func TestOnTerminalInputNilTerminal(t *testing.T) {
 
 	// Add pod with nil terminal (will fail on Write)
 	store.Put("input-pod", &Pod{
-		ID:       "input-pod",
-		Terminal: nil,
+		ID: "input-pod",
 	})
 
-	req := client.TerminalInputRequest{
+	req := client.PodInputRequest{
 		PodKey: "input-pod",
 		Data:   []byte("some input"),
 	}
 
-	err := handler.OnTerminalInput(req)
+	err := handler.OnPodInput(req)
 	if err == nil {
 		t.Error("expected error for nil terminal")
 	}
 }
 
-func TestOnTerminalInputSuccess(t *testing.T) {
+func TestOnPodInputSuccess(t *testing.T) {
 	tempDir := t.TempDir()
 	store := NewInMemoryPodStore()
 	mockConn := client.NewMockConnection()
@@ -68,7 +67,7 @@ func TestOnTerminalInputSuccess(t *testing.T) {
 	runner := &Runner{
 		cfg: &config.Config{
 			MaxConcurrentPods: 10,
-			WorkspaceRoot:         tempDir,
+			WorkspaceRoot:     tempDir,
 		},
 	}
 
@@ -78,6 +77,7 @@ func TestOnTerminalInputSuccess(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "input-success-pod",
 		LaunchCommand: "cat",
+		AgentfileSource: "AGENT cat\nPROMPT_POSITION prepend\n",
 	}
 
 	err := handler.OnCreatePod(cmd)
@@ -89,104 +89,21 @@ func TestOnTerminalInputSuccess(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Send input
-	inputReq := client.TerminalInputRequest{
+	inputReq := client.PodInputRequest{
 		PodKey: "input-success-pod",
 		Data:   []byte("hello\n"),
 	}
 
-	err = handler.OnTerminalInput(inputReq)
+	err = handler.OnPodInput(inputReq)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Clean up
 	pod, ok := store.Get("input-success-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
-	}
-}
-
-// --- OnTerminalResize Tests ---
-
-func TestOnTerminalResizePodNotFound(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	req := client.TerminalResizeRequest{
-		PodKey: "nonexistent",
-		Rows:      30,
-		Cols:      100,
-	}
-
-	err := handler.OnTerminalResize(req)
-	if err == nil {
-		t.Error("expected error for nonexistent pod")
-	}
-	if !contains(err.Error(), "pod not found") {
-		t.Errorf("error = %v, want containing 'pod not found'", err)
-	}
-}
-
-func TestOnTerminalResizeSuccess(t *testing.T) {
-	tempDir := t.TempDir()
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{
-		cfg: &config.Config{
-			MaxConcurrentPods: 10,
-			WorkspaceRoot:         tempDir,
-		},
-	}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	// First create a pod
-	cmd := &runnerv1.CreatePodCommand{
-		PodKey:        "resize-pod",
-		LaunchCommand: "cat",
-	}
-
-	err := handler.OnCreatePod(cmd)
-	if err != nil {
-		t.Skipf("Could not create pod: %v", err)
-	}
-
-	// Wait for terminal to be ready
-	time.Sleep(100 * time.Millisecond)
-
-	// Now resize the terminal
-	resizeReq := client.TerminalResizeRequest{
-		PodKey: "resize-pod",
-		Rows:      40,
-		Cols:      120,
-	}
-
-	err = handler.OnTerminalResize(resizeReq)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	// Verify pty_resized event was sent
-	events := mockConn.GetEvents()
-	hasResized := false
-	for _, e := range events {
-		if e.Type == client.MsgTypePtyResized {
-			hasResized = true
-			break
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
 		}
-	}
-	if !hasResized {
-		t.Error("should have sent pty_resized event")
-	}
-
-	// Clean up
-	pod, ok := store.Get("resize-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
 	}
 }

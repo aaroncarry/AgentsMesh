@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { POD_MODE_PTY } from "@/lib/pod-modes";
 
 // Mock functions
 export const mockSetSelectedRunnerId = vi.fn();
@@ -16,8 +17,8 @@ export const defaultPodCreationData = {
   loading: false,
   selectedRunner: null,
   setSelectedRunnerId: mockSetSelectedRunnerId,
-  availableAgentTypes: [],
-  agentTypes: [],
+  availableAgents: [],
+  agents: [],
   error: null,
 };
 
@@ -26,6 +27,7 @@ export const defaultFormState = {
   selectedRepository: null,
   selectedBranch: "",
   selectedCredentialProfile: 0,
+  interactionMode: POD_MODE_PTY,
   prompt: "",
   alias: "",
   credentialProfiles: [],
@@ -34,9 +36,13 @@ export const defaultFormState = {
   setSelectedRepository: vi.fn(),
   setSelectedBranch: vi.fn(),
   setSelectedCredentialProfile: vi.fn(),
+  setInteractionMode: vi.fn(),
   setPrompt: mockSetPrompt,
   setAlias: mockSetAlias,
+  perpetual: false,
+  setPerpetual: vi.fn(),
   selectedAgentSlug: "",
+  supportedModes: [POD_MODE_PTY],
   loading: false,
   error: null,
   validationErrors: {},
@@ -44,6 +50,12 @@ export const defaultFormState = {
   reset: mockFormReset,
   validate: vi.fn(),
   submit: mockFormSubmit,
+  // AgentFile Layer
+  rawLayerMode: false,
+  rawLayerText: "",
+  agentfileLayer: "",
+  setRawLayerMode: vi.fn(),
+  setRawLayerText: vi.fn(),
 };
 
 export const defaultConfigOptions = {
@@ -67,8 +79,7 @@ export const mockRunner = {
   updated_at: "2024-01-01T00:00:00Z",
 };
 
-export const mockAgentType = {
-  id: 1,
+export const mockAgent = {
   name: "Claude Code",
   slug: "claude-code",
   is_builtin: true,
@@ -80,10 +91,10 @@ export const mockRepository = {
   organization_id: 1,
   provider_type: "github",
   provider_base_url: "https://github.com",
-  clone_url: "https://github.com/org/repo1.git",
+  http_clone_url: "https://github.com/org/repo1.git",
   external_id: "org-repo1",
   name: "repo1",
-  full_path: "org/repo1",
+  slug: "org/repo1",
   default_branch: "main",
   visibility: "organization",
   is_active: true,
@@ -94,7 +105,7 @@ export const mockRepository = {
 export const mockCredentialProfile = {
   id: 1,
   user_id: 1,
-  agent_type_id: 1,
+  agent_slug: "claude-code",
   name: "My Credentials",
   is_runner_host: false,
   is_default: false,

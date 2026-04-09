@@ -16,8 +16,8 @@ func TestPod_GetOrCreateStateDetector(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 
@@ -32,8 +32,7 @@ func TestPod_GetOrCreateStateDetector(t *testing.T) {
 
 func TestPod_GetOrCreateStateDetector_NoVirtualTerminal(t *testing.T) {
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: nil,
+		PodKey: "test-pod",
 	}
 
 	// Should return nil when no VirtualTerminal
@@ -45,8 +44,8 @@ func TestPod_SubscribeStateChange(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 
@@ -75,8 +74,7 @@ func TestPod_SubscribeStateChange(t *testing.T) {
 
 func TestPod_SubscribeStateChange_NoVirtualTerminal(t *testing.T) {
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: nil,
+		PodKey: "test-pod",
 	}
 
 	// Should return false when no VirtualTerminal
@@ -88,8 +86,8 @@ func TestPod_UnsubscribeStateChange(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 
@@ -119,8 +117,7 @@ func TestPod_UnsubscribeStateChange(t *testing.T) {
 
 func TestPod_UnsubscribeStateChange_NoDetector(t *testing.T) {
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: nil,
+		PodKey: "test-pod",
 	}
 
 	// Should not panic when no detector exists
@@ -131,8 +128,8 @@ func TestPod_MultipleSubscribers(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 
@@ -168,8 +165,8 @@ func TestPod_NotifyStateDetectorWithScreen(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 
 	// Create detector first
@@ -184,8 +181,7 @@ func TestPod_NotifyStateDetectorWithScreen(t *testing.T) {
 
 func TestPod_NotifyStateDetectorWithScreen_NoDetector(t *testing.T) {
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: nil,
+		PodKey: "test-pod",
 	}
 
 	// Should not panic when no detector
@@ -196,8 +192,8 @@ func TestPod_NotifyStateDetectorWithScreen_NilScreenLines(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 
@@ -212,8 +208,8 @@ func TestPod_StopStateDetector(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 
 	// Create detector
@@ -231,8 +227,7 @@ func TestPod_StopStateDetector(t *testing.T) {
 
 func TestPod_StopStateDetector_NoDetector(t *testing.T) {
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: nil,
+		PodKey: "test-pod",
 	}
 
 	// Should not panic when no detector
@@ -243,8 +238,8 @@ func TestPod_ConcurrentSubscribeUnsubscribe(t *testing.T) {
 	vterminal := vt.NewVirtualTerminal(80, 24, 1000)
 
 	pod := &Pod{
-		PodKey:          "test-pod",
-		VirtualTerminal: vterminal,
+		PodKey:     "test-pod",
+		vtProvider: func() *vt.VirtualTerminal { return vterminal },
 	}
 	defer pod.StopStateDetector()
 

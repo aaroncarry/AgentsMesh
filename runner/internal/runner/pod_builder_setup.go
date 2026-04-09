@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/cache"
@@ -37,10 +36,11 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	b.sendProgress("preparing", 20, "Setting up working directory...")
 
 	strategy := b.selectSetupStrategy(cfg)
-	logger.Pod().Debug("Working directory setup mode", "pod_key", b.cmd.PodKey, "mode", strategy.Name())
+	logger.Pod().Info("Setup strategy selected", "pod_key", b.cmd.PodKey, "strategy", strategy.Name())
 
 	result, err := strategy.Setup(ctx, sandboxRoot, cfg)
 	if err != nil {
+		logger.Pod().Error("Setup strategy failed", "pod_key", b.cmd.PodKey, "strategy", strategy.Name(), "error", err)
 		if rmErr := fsutil.RemoveAll(sandboxRoot); rmErr != nil {
 			slog.Warn("Failed to clean up sandbox after setup error", "path", sandboxRoot, "error", rmErr)
 		}
@@ -113,7 +113,7 @@ func (b *PodBuilder) selectSetupStrategy(cfg *runnerv1.SandboxConfig) SetupStrat
 		}
 	}
 	// Fallback to empty sandbox (should not reach here if strategies are properly configured)
-	return NewEmptySandboxStrategy()
+	return NewEmptySandboxStrategy(b)
 }
 
 // runPreparationScript executes the preparation script in the workspace.
@@ -172,79 +172,5 @@ func (b *PodBuilder) downloadResources(ctx context.Context, sandboxRoot, workDir
 			slog.Info("Resource downloaded", "sha", res.Sha, "bytes", result.BytesRead)
 		}
 	}
-	return nil
-}
-
-// createFiles creates files from the FilesToCreate list.
-func (b *PodBuilder) createFiles(sandboxRoot, workDir string) error {
-	absSandbox, err := filepath.Abs(sandboxRoot)
-	if err != nil {
-		return &client.PodError{
-			Code:    client.ErrCodeFileCreate,
-			Message: fmt.Sprintf("failed to resolve sandbox root: %v", err),
-		}
-	}
-	absSandbox = filepath.Clean(absSandbox)
-
-	for _, f := range b.cmd.FilesToCreate {
-		// Resolve path template
-		path := b.resolvePath(f.Path, sandboxRoot, workDir)
-
-		// Validate resolved path stays within sandbox to prevent path traversal attacks
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return &client.PodError{
-				Code:    client.ErrCodeFileCreate,
-				Message: fmt.Sprintf("failed to resolve file path: %v", err),
-				Details: map[string]string{"path": f.Path},
-			}
-		}
-		if absPath != absSandbox && !strings.HasPrefix(absPath, absSandbox+string(os.PathSeparator)) {
-			return &client.PodError{
-				Code:    client.ErrCodeFileCreate,
-				Message: fmt.Sprintf("path %q escapes sandbox root %q (resolved: %q)", f.Path, absSandbox, absPath),
-				Details: map[string]string{"path": f.Path, "sandbox_root": absSandbox, "resolved_path": absPath},
-			}
-		}
-
-		if f.IsDirectory {
-			if err := os.MkdirAll(path, 0755); err != nil {
-				return &client.PodError{
-					Code:    client.ErrCodeFileCreate,
-					Message: fmt.Sprintf("failed to create directory: %v", err),
-					Details: map[string]string{"path": path},
-				}
-			}
-			continue
-		}
-
-		// Ensure parent directory exists
-		parentDir := filepath.Dir(path)
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
-			return &client.PodError{
-				Code:    client.ErrCodeFileCreate,
-				Message: fmt.Sprintf("failed to create parent directory: %v", err),
-				Details: map[string]string{"path": parentDir},
-			}
-		}
-
-		// Determine file mode
-		mode := os.FileMode(0644)
-		if f.Mode != 0 {
-			mode = os.FileMode(f.Mode)
-		}
-
-		// Write file
-		if err := os.WriteFile(path, []byte(f.Content), mode); err != nil {
-			return &client.PodError{
-				Code:    client.ErrCodeFileCreate,
-				Message: fmt.Sprintf("failed to write file: %v", err),
-				Details: map[string]string{"path": path},
-			}
-		}
-
-		logger.Pod().Debug("Created file", "path", path, "mode", fmt.Sprintf("%o", mode))
-	}
-
 	return nil
 }

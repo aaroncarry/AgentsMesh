@@ -7,7 +7,7 @@
     "noRunnersOnline": "Keine Runner online",
     "selectAgent": "Agent auswählen",
     "selectRepository": "Repository auswählen",
-    "initialPrompt": "Initialer Prompt",
+    "prompt": "Initialer Prompt",
     "status": {
       "initializing": "Initialisierung",
       "running": "Läuft",
@@ -112,7 +112,11 @@
     "view": "Ansicht",
     "filters": {
       "status": "Status",
-      "priority": "Priorität"
+      "priority": "Priorität",
+      "repository": "Repository",
+      "noRepository": "Kein Repository",
+      "showMore": "Mehr anzeigen",
+      "showLess": "Weniger anzeigen"
     },
     "emptyState": {
       "title": "Keine Tickets",
@@ -205,8 +209,8 @@
       "permissionDefault": "Default",
       "permissionPlan": "Plan Mode",
       "permissionAutoApprove": "Auto-approve (Dangerous)",
-      "initialPrompt": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Work on ticket: {title}",
+      "prompt": "Initial Prompt (optional)",
+      "promptPlaceholder": "Work on ticket: {title}",
       "creating": "Creating...",
       "createPod": "Create Pod",
       "createFailed": "Failed to create pod",
@@ -279,15 +283,15 @@
     },
     "modal": {
       "title": "Create New Pod",
-      "agentType": "Agent Type",
+      "agent": "Agent",
       "selectAgent": "Select an agent...",
       "selectRunner": "Select a runner...",
       "repositoryOptional": "Repository (optional)",
       "selectRepository": "Select a repository...",
       "branch": "Branch",
       "branchPlaceholder": "Enter branch name (e.g., main)",
-      "initialPromptOptional": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Enter an initial prompt for the agent...",
+      "promptOptional": "Initial Prompt (optional)",
+      "promptPlaceholder": "Enter an initial prompt for the agent...",
       "creating": "Creating...",
       "createPod": "Create Pod"
     }
@@ -323,11 +327,14 @@
     "toOpen": "zum Öffnen"
   },
   "relayStatus": {
-    "connected": "Relay Verbunden",
-    "connecting": "Verbindung zu Relay...",
-    "disconnected": "Relay Getrennt",
-    "error": "Relay Verbindungsfehler",
-    "runnerDisconnected": "Runner Getrennt"
+    "web": "Web",
+    "relay": "Relay",
+    "runner": "Runner",
+    "connected": "Verbunden",
+    "connecting": "Verbindung wird hergestellt",
+    "disconnected": "Getrennt",
+    "error": "Fehler",
+    "unknown": "Unbekannt"
   },
   "terminalTabs": {
     "singleView": "Einzelansicht",

@@ -31,13 +31,12 @@ type Repository struct {
 	// Provider info (self-contained, no foreign key to git_providers)
 	ProviderType    string `gorm:"size:50;not null" json:"provider_type"`      // github, gitlab, gitee, generic
 	ProviderBaseURL string `gorm:"size:255;not null" json:"provider_base_url"` // https://github.com, https://gitlab.company.com
-	CloneURL        string `gorm:"size:500" json:"clone_url"`                  // Full clone URL
 	HttpCloneURL    string `gorm:"size:500" json:"http_clone_url"`             // HTTPS clone URL
 	SshCloneURL     string `gorm:"size:500" json:"ssh_clone_url"`              // SSH clone URL
 
 	ExternalID    string  `gorm:"size:255;not null" json:"external_id"`
 	Name          string  `gorm:"size:255;not null" json:"name"`
-	FullPath      string  `gorm:"size:500;not null" json:"full_path"`
+	Slug          string  `gorm:"column:slug;size:500;not null" json:"slug"`
 	DefaultBranch string  `gorm:"size:100;default:'main'" json:"default_branch"`
 	TicketPrefix  *string `gorm:"size:10" json:"ticket_prefix,omitempty"`
 

@@ -10,10 +10,8 @@ func TestPodCreateRequest(t *testing.T) {
 	ticketSlug := "AM-123"
 
 	req := PodCreateRequest{
-		RunnerID:      1,
-		TicketSlug:    &ticketSlug,
-		InitialPrompt: "Hello",
-		Model:         "claude-sonnet",
+		RunnerID:   1,
+		TicketSlug: &ticketSlug,
 	}
 
 	if req.RunnerID != 1 {
@@ -26,35 +24,26 @@ func TestPodCreateRequest(t *testing.T) {
 
 func TestPodCreateRequestWithAllFields(t *testing.T) {
 	ticketSlug := "AM-123"
-	agentTypeID := int64(456)
 	repositoryID := int64(789)
 	repositoryURL := "https://github.com/example/repo.git"
 	branchName := "feature/new-feature"
 	credentialProfileID := int64(111)
-	permissionMode := "plan"
 
 	req := PodCreateRequest{
 		RunnerID:            1,
-		AgentTypeID:         &agentTypeID,
+		AgentSlug:           "claude-code",
 		TicketSlug:          &ticketSlug,
-		InitialPrompt:       "Hello",
-		Model:               "claude-sonnet",
 		RepositoryID:        &repositoryID,
 		RepositoryURL:       &repositoryURL,
 		BranchName:          &branchName,
 		CredentialProfileID: &credentialProfileID,
-		ConfigOverrides: map[string]interface{}{
-			"timeout":    300,
-			"max_tokens": 4096,
-		},
-		PermissionMode: &permissionMode,
 	}
 
 	if req.RunnerID != 1 {
 		t.Errorf("RunnerID: got %v, want %v", req.RunnerID, 1)
 	}
-	if req.AgentTypeID == nil || *req.AgentTypeID != 456 {
-		t.Errorf("AgentTypeID: got %v, want 456", req.AgentTypeID)
+	if req.AgentSlug != "claude-code" {
+		t.Errorf("AgentSlug: got %v, want claude-code", req.AgentSlug)
 	}
 	if req.RepositoryID == nil || *req.RepositoryID != 789 {
 		t.Errorf("RepositoryID: got %v, want 789", req.RepositoryID)
@@ -67,15 +56,6 @@ func TestPodCreateRequestWithAllFields(t *testing.T) {
 	}
 	if req.CredentialProfileID == nil || *req.CredentialProfileID != 111 {
 		t.Errorf("CredentialProfileID: got %v, want 111", req.CredentialProfileID)
-	}
-	if req.ConfigOverrides == nil {
-		t.Error("ConfigOverrides should not be nil")
-	}
-	if req.ConfigOverrides["timeout"] != 300 {
-		t.Errorf("ConfigOverrides[timeout]: got %v, want 300", req.ConfigOverrides["timeout"])
-	}
-	if req.PermissionMode == nil || *req.PermissionMode != "plan" {
-		t.Errorf("PermissionMode: got %v, want plan", req.PermissionMode)
 	}
 }
 
@@ -94,30 +74,30 @@ func TestPodCreateResponse(t *testing.T) {
 	}
 }
 
-func TestAgentTypeFieldUnmarshalJSONString(t *testing.T) {
-	var field AgentTypeField
+func TestAgentFieldUnmarshalJSONString(t *testing.T) {
+	var field AgentField
 	err := field.UnmarshalJSON([]byte(`"claude-code"`))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if string(field) != "claude-code" {
-		t.Errorf("AgentTypeField: got %v, want claude-code", field)
+		t.Errorf("AgentField: got %v, want claude-code", field)
 	}
 }
 
-func TestAgentTypeFieldUnmarshalJSONObject(t *testing.T) {
-	var field AgentTypeField
+func TestAgentFieldUnmarshalJSONObject(t *testing.T) {
+	var field AgentField
 	err := field.UnmarshalJSON([]byte(`{"id": 1, "slug": "aider", "name": "Aider"}`))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if string(field) != "aider" {
-		t.Errorf("AgentTypeField: got %v, want aider", field)
+		t.Errorf("AgentField: got %v, want aider", field)
 	}
 }
 
-func TestAgentTypeFieldUnmarshalJSONInvalid(t *testing.T) {
-	var field AgentTypeField
+func TestAgentFieldUnmarshalJSONInvalid(t *testing.T) {
+	var field AgentField
 	// Invalid JSON should not cause error, just ignore
 	err := field.UnmarshalJSON([]byte(`invalid json`))
 	if err != nil {

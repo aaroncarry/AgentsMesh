@@ -1,4 +1,5 @@
 import { request, orgPath } from "./base";
+import type { PodMode } from "@/lib/pod-modes";
 
 // Pod interface matching the store
 export interface PodData {
@@ -6,7 +7,7 @@ export interface PodData {
   pod_key: string;
   status: "initializing" | "running" | "paused" | "disconnected" | "orphaned" | "completed" | "terminated" | "error" | "failed";
   agent_status: string;
-  initial_prompt?: string;
+  prompt?: string;
   branch_name?: string;
   sandbox_path?: string;
   started_at?: string;
@@ -20,15 +21,14 @@ export interface PodData {
     node_id: string;
     status: string;
   };
-  agent_type?: {
-    id: number;
+  agent?: {
     name: string;
     slug: string;
   };
   repository?: {
     id: number;
     name: string;
-    full_path: string;
+    slug: string;
     provider_type?: string; // github, gitlab, gitee
   };
   ticket?: {
@@ -41,6 +41,10 @@ export interface PodData {
     name: string;
     slug: string;
   };
+  interaction_mode?: PodMode;
+  perpetual?: boolean;
+  restart_count?: number;
+  last_restart_at?: string;
   error_code?: string;
   error_message?: string;
   created_by?: {
@@ -67,20 +71,19 @@ export const podApi = {
     request<{ pod: PodData }>(`${orgPath("/pods")}/${key}`),
 
   create: (data: {
-    agent_type_id?: number; // Required unless resuming
+    agent_slug?: string; // Required unless resuming
     runner_id?: number;
-    repository_id?: number;
     ticket_slug?: string;
-    initial_prompt?: string;
     alias?: string; // User-defined display name (max 100 chars)
-    branch_name?: string;
-    config_overrides?: Record<string, unknown>;
-    credential_profile_id?: number; // User's credential profile ID (undefined = RunnerHost mode)
     cols?: number; // Terminal columns (from xterm.js)
     rows?: number; // Terminal rows (from xterm.js)
+    // AgentFile Layer — SSOT (PROMPT, MODE, CONFIG, REPO, BRANCH, CREDENTIAL)
+    agentfile_layer?: string;
     // Resume mode fields
-    source_pod_key?: string; // Pod key to resume from (enables resume mode)
-    resume_agent_session?: boolean; // Whether to restore agent session (default: true when resuming)
+    source_pod_key?: string;
+    resume_agent_session?: boolean;
+    // Perpetual mode
+    perpetual?: boolean;
   }) =>
     request<{ message: string; pod: PodData }>(
       orgPath("/pods"),
@@ -101,15 +104,15 @@ export const podApi = {
       `${orgPath("/pods")}/${key}/connect`
     ),
 
-  // Get terminal connection info via Relay
+  // Get Pod connection info via Relay
   // Returns Relay URL and token for WebSocket connection
   // Note: podKey is embedded in the token for channel routing
-  getTerminalConnection: (key: string) =>
+  getPodConnection: (key: string) =>
     request<{
       relay_url: string;
       token: string;
       pod_key: string;
-    }>(`${orgPath("/pods")}/${key}/terminal/connect`),
+    }>(`${orgPath("/pods")}/${key}/relay/connect`),
 
   // Update pod alias (user-defined display name)
   // Pass null to clear the alias

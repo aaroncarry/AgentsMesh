@@ -2,6 +2,9 @@ package agent
 
 import (
 	"time"
+
+	"github.com/anthropics/agentsmesh/agentfile/extract"
+	"github.com/anthropics/agentsmesh/agentfile/parser"
 )
 
 // RunnerHostProfileID is a special sentinel value indicating explicit "RunnerHost" mode.
@@ -10,12 +13,12 @@ import (
 // This is distinct from nil/absent, which means "use user's default profile".
 const RunnerHostProfileID int64 = 0
 
-// UserAgentCredentialProfile represents a user's credential configuration profile for an agent type
-// Each user can have multiple profiles per agent type (e.g., RunnerHost, work config, proxy config)
+// UserAgentCredentialProfile represents a user's credential configuration profile for an agent
+// Each user can have multiple profiles per agent (e.g., RunnerHost, work config, proxy config)
 type UserAgentCredentialProfile struct {
-	ID          int64 `gorm:"primaryKey" json:"id"`
-	UserID      int64 `gorm:"not null;index" json:"user_id"`
-	AgentTypeID int64 `gorm:"not null;index" json:"agent_type_id"`
+	ID        int64  `gorm:"primaryKey" json:"id"`
+	UserID    int64  `gorm:"not null;index" json:"user_id"`
+	AgentSlug string `gorm:"size:100;not null;index;column:agent_slug" json:"agent_slug"`
 
 	// Profile info
 	Name        string  `gorm:"size:100;not null" json:"name"`
@@ -36,7 +39,7 @@ type UserAgentCredentialProfile struct {
 	UpdatedAt time.Time `gorm:"not null;default:now()" json:"updated_at"`
 
 	// Associations
-	AgentType *AgentType `gorm:"foreignKey:AgentTypeID" json:"agent_type,omitempty"`
+	Agent *Agent `gorm:"foreignKey:AgentSlug;references:Slug" json:"agent,omitempty"`
 }
 
 func (UserAgentCredentialProfile) TableName() string {
@@ -45,9 +48,9 @@ func (UserAgentCredentialProfile) TableName() string {
 
 // CredentialProfileResponse is the API response for credential profile
 type CredentialProfileResponse struct {
-	ID          int64   `json:"id"`
-	UserID      int64   `json:"user_id"`
-	AgentTypeID int64   `json:"agent_type_id"`
+	ID        int64  `json:"id"`
+	UserID    int64  `json:"user_id"`
+	AgentSlug string `json:"agent_slug"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 
@@ -61,9 +64,8 @@ type CredentialProfileResponse struct {
 	// Non-secret field values that can be echoed back for editing (e.g. base_url)
 	ConfiguredValues map[string]string `json:"configured_values,omitempty"`
 
-	// AgentType info
-	AgentTypeName string `json:"agent_type_name,omitempty"`
-	AgentTypeSlug string `json:"agent_type_slug,omitempty"`
+	// Agent info
+	AgentName string `json:"agent_name,omitempty"`
 
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
@@ -77,7 +79,7 @@ func (p *UserAgentCredentialProfile) ToResponse() *CredentialProfileResponse {
 	resp := &CredentialProfileResponse{
 		ID:           p.ID,
 		UserID:       p.UserID,
-		AgentTypeID:  p.AgentTypeID,
+		AgentSlug:    p.AgentSlug,
 		Name:         p.Name,
 		Description:  p.Description,
 		IsRunnerHost: p.IsRunnerHost,
@@ -87,12 +89,10 @@ func (p *UserAgentCredentialProfile) ToResponse() *CredentialProfileResponse {
 		UpdatedAt:    p.UpdatedAt.Format(time.RFC3339),
 	}
 
-	// Build a lookup of field type from CredentialSchema (requires AgentType preloaded)
+	// Build a lookup of field type from AgentFile ENV declarations (requires Agent preloaded)
 	fieldTypes := make(map[string]string)
-	if p.AgentType != nil {
-		for _, f := range p.AgentType.CredentialSchema {
-			fieldTypes[f.Name] = f.Type
-		}
+	if p.Agent != nil {
+		fieldTypes = extractCredentialFieldTypes(p.Agent.AgentfileSource)
 	}
 
 	// Separate credentials into ConfiguredFields (names only) and ConfiguredValues (non-secret values)
@@ -114,24 +114,42 @@ func (p *UserAgentCredentialProfile) ToResponse() *CredentialProfileResponse {
 		}
 	}
 
-	// AgentType info
-	if p.AgentType != nil {
-		resp.AgentTypeName = p.AgentType.Name
-		resp.AgentTypeSlug = p.AgentType.Slug
+	// Agent info
+	if p.Agent != nil {
+		resp.AgentName = p.Agent.Name
 	}
 
 	return resp
 }
 
-// CredentialProfilesByAgentType groups profiles by agent type for list response
-type CredentialProfilesByAgentType struct {
-	AgentTypeID   int64                        `json:"agent_type_id"`
-	AgentTypeName string                       `json:"agent_type_name"`
-	AgentTypeSlug string                       `json:"agent_type_slug"`
-	Profiles      []*CredentialProfileResponse `json:"profiles"`
+// CredentialProfilesByAgent groups profiles by agent for list response
+type CredentialProfilesByAgent struct {
+	AgentSlug string                       `json:"agent_slug"`
+	AgentName string                       `json:"agent_name"`
+	Profiles  []*CredentialProfileResponse `json:"profiles"`
 }
 
 // ListCredentialProfilesResponse is the response for listing all user credential profiles
 type ListCredentialProfilesResponse struct {
-	Items []*CredentialProfilesByAgentType `json:"items"`
+	Items []*CredentialProfilesByAgent `json:"items"`
+}
+
+// extractCredentialFieldTypes extracts ENV field types from AgentFile source.
+// Returns a map of field name -> source type ("secret" or "text").
+func extractCredentialFieldTypes(agentfileSource *string) map[string]string {
+	types := make(map[string]string)
+	if agentfileSource == nil || *agentfileSource == "" {
+		return types
+	}
+	prog, errs := parser.Parse(*agentfileSource)
+	if len(errs) > 0 || prog == nil {
+		return types
+	}
+	spec := extract.Extract(prog)
+	for _, env := range spec.Env {
+		if env.Source != "" {
+			types[env.Name] = env.Source
+		}
+	}
+	return types
 }

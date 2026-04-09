@@ -29,6 +29,7 @@ func TestOnCreatePodWithLaunchArgs(t *testing.T) {
 		PodKey:        "launch-args-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"hello", "world"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	err := handler.OnCreatePod(cmd)
@@ -38,8 +39,10 @@ func TestOnCreatePodWithLaunchArgs(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("launch-args-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
 
@@ -62,6 +65,7 @@ func TestOnCreatePodWithPromptInArgs(t *testing.T) {
 		PodKey:        "prompt-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"Hello from test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	err := handler.OnCreatePod(cmd)
@@ -71,8 +75,10 @@ func TestOnCreatePodWithPromptInArgs(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("prompt-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
 
@@ -95,8 +101,9 @@ func TestOnCreatePodWithWorktreeConfigError(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "worktree-error-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
-			RepositoryUrl:  "https://github.com/test/repo",
+			HttpCloneUrl:   "https://github.com/test/repo",
 			SourceBranch:   "main",
 			CredentialType: "runner_local",
 		},
@@ -128,6 +135,7 @@ func TestOnCreatePodWithSendEventError(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "send-error-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 	}
 
 	err := handler.OnCreatePod(cmd)
@@ -138,8 +146,9 @@ func TestOnCreatePodWithSendEventError(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("send-error-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
-

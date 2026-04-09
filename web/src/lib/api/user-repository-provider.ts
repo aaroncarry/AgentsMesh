@@ -20,11 +20,11 @@ export interface RepositoryProviderData {
 export interface RepositoryData {
   id: string;
   name: string;
-  full_path: string;
+  slug: string;
   description: string;
   default_branch: string;
   visibility: string;
-  clone_url: string;
+  http_clone_url: string;
   ssh_clone_url: string;
   web_url: string;
 }

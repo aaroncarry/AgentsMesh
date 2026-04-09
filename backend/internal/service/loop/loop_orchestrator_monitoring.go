@@ -9,57 +9,6 @@ import (
 	loopDomain "github.com/anthropics/agentsmesh/backend/internal/domain/loop"
 )
 
-// HandlePodTerminated is called when a Pod reaches a terminal state.
-// It looks up the associated LoopRun and processes completion.
-//
-// Uses FindActiveRunByPodKey (no status resolution) because the event payload
-// carries the authoritative podStatus — re-querying Pod status would be redundant.
-func (o *LoopOrchestrator) HandlePodTerminated(ctx context.Context, podKey string, podStatus string, podFinishedAt *time.Time) {
-	run, err := o.loopRunService.FindActiveRunByPodKey(ctx, podKey)
-	if err != nil {
-		// Not a loop-associated pod, ignore
-		return
-	}
-
-	// Derive effective status using SSOT logic
-	autopilotPhase := ""
-	if run.AutopilotControllerKey != nil {
-		autopilotPhase = o.loopRunService.GetAutopilotPhase(ctx, *run.AutopilotControllerKey)
-	}
-	effectiveStatus := loopDomain.DeriveRunStatus(podStatus, autopilotPhase)
-
-	// Only process if the run reached a terminal state
-	if effectiveStatus == loopDomain.RunStatusRunning {
-		return
-	}
-
-	o.HandleRunCompleted(ctx, run, effectiveStatus)
-}
-
-// HandleAutopilotTerminated is called when an Autopilot reaches a terminal phase.
-// It looks up the associated LoopRun and processes completion.
-//
-// Uses FindActiveRunByAutopilotKey (no status resolution) because the event payload
-// carries the authoritative phase — re-querying would be redundant.
-// Delegates to DeriveRunStatus for status mapping (SSOT — single mapping location).
-func (o *LoopOrchestrator) HandleAutopilotTerminated(ctx context.Context, autopilotKey string, phase string) {
-	if !agentpod.IsAutopilotPhaseTerminal(phase) {
-		return // Not terminal, ignore
-	}
-
-	run, err := o.loopRunService.FindActiveRunByAutopilotKey(ctx, autopilotKey)
-	if err != nil {
-		// Not a loop-associated autopilot, ignore
-		return
-	}
-
-	// Delegate to DeriveRunStatus for consistent mapping (SSOT)
-	// Pod status is irrelevant when autopilot phase is terminal — DeriveRunStatus handles this.
-	effectiveStatus := loopDomain.DeriveRunStatus("", phase)
-
-	o.HandleRunCompleted(ctx, run, effectiveStatus)
-}
-
 // CheckTimeoutRuns detects loop runs that have exceeded their timeout and marks them as timed out.
 // orgIDs filters to specific organizations; nil means all orgs (single-instance mode).
 // Called periodically by the LoopScheduler.
@@ -179,10 +128,16 @@ func (o *LoopOrchestrator) CleanupOrphanPendingRuns(ctx context.Context, orgIDs 
 func (o *LoopOrchestrator) RefreshLoopStats(ctx context.Context, loopID int64) error {
 	total, successful, failed, err := o.loopRunService.ComputeLoopStats(ctx, loopID)
 	if err != nil {
+		o.logger.Error("failed to compute loop stats", "loop_id", loopID, "error", err)
 		return fmt.Errorf("failed to compute loop stats: %w", err)
 	}
 
-	return o.loopService.UpdateStats(ctx, loopID, total, successful, failed)
+	if err := o.loopService.UpdateStats(ctx, loopID, total, successful, failed); err != nil {
+		o.logger.Error("failed to update loop stats", "loop_id", loopID, "error", err)
+		return err
+	}
+
+	return nil
 }
 
 // GetLastPodKey returns the pod_key from the most recent run that has one.

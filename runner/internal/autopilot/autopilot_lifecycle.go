@@ -8,7 +8,7 @@ import (
 )
 
 // Start initializes and starts the AutopilotController.
-// It checks if the Pod is waiting and sends the initial prompt if so.
+// It checks if the Pod is waiting and sends the prompt if so.
 func (ac *AutopilotController) Start() error {
 	ac.log.Info("Starting AutopilotController", "autopilot_key", ac.key, "pod_key", ac.podKey)
 
@@ -28,8 +28,8 @@ func (ac *AutopilotController) Start() error {
 	ac.log.Info("Pod current status", "status", agentStatus)
 
 	if agentStatus == "waiting" {
-		// Pod is waiting for input, send initial_prompt
-		ac.sendInitialPrompt()
+		// Pod is waiting for input, send prompt
+		ac.sendPrompt()
 	}
 	// If executing, we'll wait for the next waiting event
 
@@ -47,6 +47,11 @@ func (ac *AutopilotController) Stop() {
 		ac.phaseMgr.SetPhaseWithoutReport(PhaseStopped)
 
 		ac.stateCoordinator.Stop()
+
+		// Stop control process (ACP mode: shuts down long-lived session)
+		if ac.controlRunner != nil {
+			ac.controlRunner.Stop()
+		}
 
 		// Acquire wgMu to ensure no new wg.Add() can happen while we set stopped=true.
 		// This guarantees that after this block, no new goroutines will be added to wg.

@@ -29,17 +29,16 @@ func TestPodStatusConstantsBase(t *testing.T) {
 
 func TestPodStruct(t *testing.T) {
 	now := time.Now()
-	// Note: InitialPrompt field has been removed - prompt is now passed via LaunchArgs by Backend
+	// Note: Prompt field has been removed - prompt is now passed via LaunchArgs by Backend
 	pod := Pod{
-		ID:               "pod-1",
-		PodKey:           "key-123",
-		AgentType:        "claude-code",
-		Branch:           "main",
-		SandboxPath:      "/workspace/worktrees/pod-1",
-		Terminal:         nil,
-		StartedAt:        now,
-		Status:           PodStatusRunning,
-		TicketSlug: "TICKET-123",
+		ID:          "pod-1",
+		PodKey:      "key-123",
+		Agent:       "claude-code",
+		Branch:      "main",
+		SandboxPath: "/workspace/worktrees/pod-1",
+		StartedAt:   now,
+		Status:      PodStatusRunning,
+		TicketSlug:  "TICKET-123",
 	}
 
 	if pod.ID != "pod-1" {
@@ -48,8 +47,8 @@ func TestPodStruct(t *testing.T) {
 	if pod.PodKey != "key-123" {
 		t.Errorf("PodKey: got %v, want key-123", pod.PodKey)
 	}
-	if pod.AgentType != "claude-code" {
-		t.Errorf("AgentType: got %v, want claude-code", pod.AgentType)
+	if pod.Agent != "claude-code" {
+		t.Errorf("Agent: got %v, want claude-code", pod.Agent)
 	}
 	if pod.GetStatus() != PodStatusRunning {
 		t.Errorf("Status: got %v, want running", pod.GetStatus())
@@ -62,18 +61,17 @@ func TestPodStruct(t *testing.T) {
 func TestPodAllFields(t *testing.T) {
 	now := time.Now()
 
-	// Note: InitialPrompt field has been removed - prompt is now passed via LaunchArgs by Backend
+	// Note: Prompt field has been removed - prompt is now passed via LaunchArgs by Backend
 	// Note: OnOutput and OnExit fields have been removed - callbacks are now set via Terminal
 	pod := &Pod{
-		ID:               "id-1",
-		PodKey:           "key-1",
-		AgentType:        "claude-code",
-		Branch:           "feature/test",
-		SandboxPath:      "/workspace/worktrees/test",
-		Terminal:         nil,
-		StartedAt:        now,
-		Status:           PodStatusRunning,
-		TicketSlug: "TICKET-123",
+		ID:          "id-1",
+		PodKey:      "key-1",
+		Agent:       "claude-code",
+		Branch:      "feature/test",
+		SandboxPath: "/workspace/worktrees/test",
+		StartedAt:   now,
+		Status:      PodStatusRunning,
+		TicketSlug:  "TICKET-123",
 	}
 
 	if pod.ID != "id-1" {

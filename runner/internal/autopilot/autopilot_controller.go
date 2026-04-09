@@ -11,7 +11,6 @@ import (
 
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // AutopilotController is a supervised automation controller that orchestrates
@@ -21,8 +20,8 @@ import (
 // - PhaseManager: lifecycle phase transitions
 // - IterationController: iteration counting and max iteration protection
 // - UserInteractionHandler: takeover/handback/approve handling
-// - StateDetectorCoordinator: terminal state detection
-// - ControlRunner: control process execution
+// - StateDetectorCoordinator: pod state change detection (event-driven via PodIO)
+// - AcpControlProcess: control agent execution (long-lived ACP session)
 // - ProgressTracker: file/git change tracking
 type AutopilotController struct {
 	key    string
@@ -43,7 +42,7 @@ type AutopilotController struct {
 	iterCtrl         *IterationController
 	userHandler      *UserInteractionHandler
 	stateCoordinator *StateDetectorCoordinator
-	controlRunner    *ControlRunner
+	controlRunner    ControlProcess
 	promptBuilder    *PromptBuilder
 	progressTracker  *ProgressTracker
 
@@ -69,12 +68,13 @@ type AutopilotController struct {
 
 // Config contains configuration for creating an AutopilotController.
 type Config struct {
-	AutopilotKey string
-	PodKey       string
-	ProtoConfig  *runnerv1.AutopilotConfig
-	PodCtrl      TargetPodController
-	Reporter     EventReporter
-	MCPPort      int // MCP HTTP Server port for control process
+	AutopilotKey   string
+	PodKey         string
+	ProtoConfig    *runnerv1.AutopilotConfig
+	PodCtrl        TargetPodController
+	Reporter       EventReporter
+	MCPPort        int            // MCP HTTP Server port for control process
+	ControlProcess ControlProcess // Optional: inject custom ControlProcess (for testing)
 }
 
 // NewAutopilotController creates a new AutopilotController instance.
@@ -136,7 +136,7 @@ func NewAutopilotController(cfg Config) *AutopilotController {
 
 	// Initialize PromptBuilder
 	ac.promptBuilder = NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt:       cfg.ProtoConfig.InitialPrompt,
+		Prompt:              cfg.ProtoConfig.Prompt,
 		CustomTemplate:      cfg.ProtoConfig.ControlPromptTemplate,
 		MCPPort:             mcpPort,
 		PodKey:              cfg.PodKey,
@@ -144,15 +144,19 @@ func NewAutopilotController(cfg Config) *AutopilotController {
 		GetCurrentIteration: ac.iterCtrl.GetCurrentIteration,
 	})
 
-	// Initialize ControlRunner
-	ac.controlRunner = NewControlRunner(ControlRunnerConfig{
-		WorkDir:        cfg.PodCtrl.GetWorkDir(),
-		AgentType:      cfg.ProtoConfig.ControlAgentType,
-		MCPConfigPath:  mcpConfigPath,
-		PromptBuilder:  ac.promptBuilder,
-		DecisionParser: NewDecisionParser(),
-		Logger:         log,
-	})
+	// Initialize ControlProcess (use injected or default ACP)
+	if cfg.ControlProcess != nil {
+		ac.controlRunner = cfg.ControlProcess
+	} else {
+		ac.controlRunner = NewAcpControlProcess(AcpControlProcessConfig{
+			Command:        cfg.ProtoConfig.ControlAgentSlug,
+			WorkDir:        cfg.PodCtrl.GetWorkDir(),
+			MCPConfigPath:  mcpConfigPath,
+			PromptBuilder:  ac.promptBuilder,
+			DecisionParser: NewDecisionParser(),
+			Logger:         log,
+		})
+	}
 
 	// Initialize ProgressTracker
 	ac.progressTracker = NewProgressTracker(ProgressTrackerConfig{
@@ -160,15 +164,10 @@ func NewAutopilotController(cfg Config) *AutopilotController {
 		Logger:  log,
 	})
 
-	// Initialize StateDetectorCoordinator
-	var stateDetector detector.StateDetector
-	if cfg.PodCtrl != nil {
-		stateDetector = cfg.PodCtrl.GetStateDetector()
-	}
+	// Initialize StateDetectorCoordinator (event-driven, mode-agnostic)
 	ac.stateCoordinator = NewStateDetectorCoordinator(StateDetectorCoordinatorConfig{
-		Detector:     stateDetector,
+		PodCtrl:      cfg.PodCtrl,
 		OnWaiting:    ac.OnPodWaiting,
-		CheckPeriod:  500 * time.Millisecond,
 		Logger:       log,
 		AutopilotKey: cfg.AutopilotKey,
 	})
@@ -213,5 +212,5 @@ func (ac *AutopilotController) GetStatus() Status {
 	}
 }
 
-// Note: OnPodWaiting, sendInitialPrompt are in autopilot_controller_logic.go
+// Note: OnPodWaiting, sendPrompt are in autopilot_controller_logic.go
 // Note: Test helpers and progress methods are in autopilot_controller_helpers.go

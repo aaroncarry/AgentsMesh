@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -151,6 +152,15 @@ func (l *Logger) cleanupBackups() {
 	if err != nil {
 		return
 	}
+
+	// Filter out macOS resource fork files (._*) that may match the glob
+	filtered := matches[:0]
+	for _, m := range matches {
+		if !strings.HasPrefix(filepath.Base(m), "._") {
+			filtered = append(filtered, m)
+		}
+	}
+	matches = filtered
 
 	// Remove oldest files if we have too many
 	if len(matches) > l.config.MaxBackups {

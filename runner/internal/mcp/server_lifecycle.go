@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/anthropics/agentsmesh/runner/internal/envfilter"
+	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/process"
 )
 
@@ -28,6 +29,7 @@ type Server struct {
 	tools      map[string]*Tool
 	resources  map[string]*Resource
 	running    bool
+	readerDone sync.WaitGroup
 }
 
 // NewServer creates a new MCP server instance
@@ -45,10 +47,13 @@ func NewServer(cfg *Config) *Server {
 
 // Start starts the MCP server process
 func (s *Server) Start(ctx context.Context) error {
+	log := logger.MCP()
+
 	// Pre-check: verify the command exists before acquiring the lock.
 	// On Windows, exec.CommandContext may fail with a cryptic error if the
 	// binary is not on PATH. LookPath gives a clear "not found" message.
 	if _, err := exec.LookPath(s.command); err != nil {
+		log.Error("MCP server command not found", "name", s.name, "command", s.command, "error", err)
 		return fmt.Errorf("MCP server command not found: %s: %w", s.command, err)
 	}
 
@@ -73,24 +78,28 @@ func (s *Server) Start(ctx context.Context) error {
 	s.stdin, err = s.cmd.StdinPipe()
 	if err != nil {
 		s.mu.Unlock()
+		log.Error("Failed to create stdin pipe", "name", s.name, "error", err)
 		return fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
 
 	s.stdout, err = s.cmd.StdoutPipe()
 	if err != nil {
 		s.mu.Unlock()
+		log.Error("Failed to create stdout pipe", "name", s.name, "error", err)
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	// Start process
 	if err := s.cmd.Start(); err != nil {
 		s.mu.Unlock()
+		log.Error("Failed to start MCP server process", "name", s.name, "command", s.command, "error", err)
 		return fmt.Errorf("failed to start MCP server: %w", err)
 	}
 
 	s.running = true
 
 	// Start reading responses
+	s.readerDone.Add(1)
 	go s.readResponses()
 
 	// Release lock before initialize (which needs to acquire lock for RPC calls)
@@ -99,18 +108,20 @@ func (s *Server) Start(ctx context.Context) error {
 	// Initialize the server
 	if err := s.initialize(ctx); err != nil {
 		s.Stop()
+		log.Error("Failed to initialize MCP server", "name", s.name, "error", err)
 		return fmt.Errorf("failed to initialize MCP server: %w", err)
 	}
 
+	log.Info("MCP server started and initialized", "name", s.name)
 	return nil
 }
 
 // Stop stops the MCP server
 func (s *Server) Stop() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if !s.running {
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -121,6 +132,13 @@ func (s *Server) Stop() error {
 		s.stdin.Close()
 	}
 
+	// Close stdout BEFORE cmd.Wait() to unblock readResponses goroutine.
+	// Go's cmd.Wait() waits for all StdoutPipe readers to finish, so if
+	// readResponses is still blocking on decoder.Decode, Wait() deadlocks.
+	if s.stdout != nil {
+		s.stdout.Close()
+	}
+
 	// Kill process tree if still running.
 	// On Windows, child processes are NOT killed when the parent dies,
 	// so we must walk the tree and kill each descendant.
@@ -129,11 +147,18 @@ func (s *Server) Stop() error {
 		s.cmd.Wait()
 	}
 
-	// Cancel all pending requests
+	// Release the lock and wait for readResponses goroutine to exit
+	// before closing pending channels — this prevents send-on-closed-channel.
+	s.mu.Unlock()
+	s.readerDone.Wait()
+
+	// Now safe to close pending channels — readResponses has exited
+	s.mu.Lock()
 	for _, ch := range s.pending {
 		close(ch)
 	}
 	s.pending = make(map[int64]chan *Response)
+	s.mu.Unlock()
 
 	return nil
 }

@@ -151,14 +151,14 @@ func TestPodStruct(t *testing.T) {
 	branch := "feature/test"
 
 	p := Pod{
-		ID:             1,
+		ID: 1,
 		OrganizationID: 100,
 		PodKey:         "pod-123",
 		RunnerID:       5,
 		CreatedByID:    50,
 		Status:         StatusRunning,
 		AgentStatus:    AgentStatusExecuting,
-		InitialPrompt:  "Test prompt",
+		Prompt:         "Test prompt",
 		BranchName:     &branch,
 		Model:          &model,
 		PermissionMode: &permMode,
@@ -174,6 +174,30 @@ func TestPodStruct(t *testing.T) {
 	}
 	if *p.Model != "opus" {
 		t.Errorf("expected Model 'opus', got %s", *p.Model)
+	}
+}
+
+// --- Test IsACPMode ---
+
+func TestPodIsACPMode(t *testing.T) {
+	tests := []struct {
+		name            string
+		interactionMode string
+		expected        bool
+	}{
+		{"acp mode returns true", InteractionModeACP, true},
+		{"pty mode returns false", InteractionModePTY, false},
+		{"empty mode returns false", "", false},
+		{"unknown mode returns false", "unknown", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Pod{InteractionMode: tt.interactionMode}
+			if p.IsACPMode() != tt.expected {
+				t.Errorf("IsACPMode() = %v, want %v", p.IsACPMode(), tt.expected)
+			}
+		})
 	}
 }
 
@@ -199,7 +223,7 @@ func TestCreatePodCommandStruct(t *testing.T) {
 	cmd := CreatePodCommand{
 		PodKey:           "pod-456",
 		InitialCommand:   "bash",
-		InitialPrompt:    "Start working",
+		Prompt:           "Start working",
 		PermissionMode:   "bypassPermissions",
 		TicketSlug: "TICKET-123",
 		PodSuffix:        "v1",

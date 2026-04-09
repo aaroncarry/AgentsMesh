@@ -45,9 +45,9 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 
 	// Check repository quota before creation (skip for re-imports of existing repos)
 	if h.billingService != nil {
-		_, existsErr := h.repositoryService.GetByFullPath(
+		_, existsErr := h.repositoryService.GetBySlug(
 			c.Request.Context(), tenant.OrganizationID,
-			req.ProviderType, req.ProviderBaseURL, req.FullPath,
+			req.ProviderType, req.ProviderBaseURL, req.Slug,
 		)
 		isNewRepo := existsErr == repository.ErrRepositoryNotFound
 		if isNewRepo {
@@ -85,12 +85,11 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 		OrganizationID:   tenant.OrganizationID,
 		ProviderType:     req.ProviderType,
 		ProviderBaseURL:  req.ProviderBaseURL,
-		CloneURL:         req.CloneURL,
 		HttpCloneURL:     req.HttpCloneURL,
 		SshCloneURL:      req.SshCloneURL,
 		ExternalID:       req.ExternalID,
 		Name:             req.Name,
-		FullPath:         req.FullPath,
+		Slug:             req.Slug,
 		DefaultBranch:    defaultBranch,
 		TicketPrefix:     ticketPrefix,
 		Visibility:       visibility,
