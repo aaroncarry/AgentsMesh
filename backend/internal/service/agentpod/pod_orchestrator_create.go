@@ -164,6 +164,7 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		SourcePodKey:        req.SourcePodKey,
 		CredentialProfileID: dbCredProfileID,
 		InteractionMode:     effectiveInteractionMode,
+		Perpetual:           req.Perpetual,
 	})
 	if err != nil {
 		return nil, err

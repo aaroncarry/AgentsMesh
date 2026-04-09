@@ -10,6 +10,7 @@ export type EventType =
   | "pod:title_changed"
   | "pod:alias_changed"
   | "pod:init_progress"
+  | "pod:restarting"
   | "channel:message"
   | "channel:message_edited"
   | "channel:message_deleted"

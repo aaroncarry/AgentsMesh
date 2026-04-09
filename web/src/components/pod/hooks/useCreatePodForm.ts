@@ -32,6 +32,7 @@ export function useCreatePodForm(
   const [interactionMode, setInteractionMode] = useState<PodMode>(POD_MODE_PTY);
   const [prompt, setPrompt] = useState<string>("");
   const [alias, setAlias] = useState<string>("");
+  const [perpetual, setPerpetual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
@@ -119,6 +120,7 @@ export function useCreatePodForm(
     setInteractionMode(POD_MODE_PTY);
     setPrompt("");
     setAlias("");
+    setPerpetual(false);
     setError(null);
     setValidationErrors({});
     setRawLayerModeState(false);
@@ -167,7 +169,7 @@ export function useCreatePodForm(
       setError(null);
       try {
         const pod = await submitCreatePod({
-          selectedAgent, alias, selectedRunnerId,
+          selectedAgent, alias, perpetual, selectedRunnerId,
           agentfileLayer: agentfileLayer || undefined, options,
         });
         if (pod) {
@@ -188,17 +190,17 @@ export function useCreatePodForm(
         setLoading(false);
       }
     },
-    [selectedAgent, selectedRepository, selectedBranch, creds.selectedCredentialProfile, alias, agentfileLayer, onSuccess, validate, setLastChoices]
+    [selectedAgent, selectedRepository, selectedBranch, creds.selectedCredentialProfile, alias, perpetual, agentfileLayer, onSuccess, validate, setLastChoices]
   );
 
   return {
     selectedAgent, selectedRepository, selectedBranch,
     selectedCredentialProfile: creds.selectedCredentialProfile,
-    interactionMode, prompt, alias,
+    interactionMode, prompt, alias, perpetual,
     credentialProfiles: creds.credentialProfiles, loadingCredentials: creds.loadingCredentials,
     setSelectedAgent, setSelectedRepository, setSelectedBranch,
     setSelectedCredentialProfile: creds.setSelectedCredentialProfile,
-    setInteractionMode, setPrompt, setAlias, selectedAgentSlug, supportedModes,
+    setInteractionMode, setPrompt, setAlias, setPerpetual, selectedAgentSlug, supportedModes,
     loading, error, validationErrors, isValid, reset, validate, submit,
     // AgentFile Layer
     rawLayerMode, rawLayerText, agentfileLayer, setRawLayerMode, setRawLayerText,

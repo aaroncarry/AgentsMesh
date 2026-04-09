@@ -49,6 +49,8 @@ message RunnerMessage {
     TokenUsageReport token_usage = 25;
     // Pod 观察结果（Runner -> Backend，响应 ObservePodCommand）
     ObservePodResult observe_pod_result = 26;
+    // 永续 Pod 重启事件
+    PodRestartingEvent pod_restarting = 31;
     // 27-30 reserved: previously used for ACP gRPC events, now ACP data flows exclusively via Relay.
   }
   reserved 27, 28, 29, 30;
@@ -122,6 +124,14 @@ message PodTerminatedEvent {
   int32 exit_code = 2;
   string error_message = 3;  // Diagnostic info for display (not used for status decision)
   string status = 4;         // "completed" or "error" — decided by Runner
+}
+
+// PodRestartingEvent 永续 Pod 重启事件（Runner → Backend）
+message PodRestartingEvent {
+  string pod_key = 1;
+  int32 exit_code = 2;       // 上一次退出的 exit code
+  int32 restart_count = 3;   // 累计重启次数
+  int32 new_pid = 4;         // 新进程 PID
 }
 
 // PodOutputEvent Pod 输出事件
@@ -251,6 +261,8 @@ message CreatePodCommand {
   // AgentFile eval 产出的新字段
   string prompt = 19;                      // PROMPT 声明的初始提示内容
   string prompt_position = 20;             // PROMPT_POSITION 声明："prepend"/"append"/"none"
+
+  bool perpetual = 21;                     // 永续模式：agent 退出后 Runner 自动重启
 }
 
 // ResourceToDownload 需要下载的资源描述

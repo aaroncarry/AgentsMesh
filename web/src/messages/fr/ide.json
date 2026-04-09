@@ -92,7 +92,9 @@
       "creating": "Création...",
       "cancel": "Annuler",
       "alias": "Alias",
-      "aliasPlaceholder": "Entrez un nom d'affichage pour ce pod..."
+      "aliasPlaceholder": "Entrez un nom d'affichage pour ce pod...",
+      "perpetual": "Perpétuel",
+      "perpetualDescription": "Redémarrage automatique à la sortie de l'agent. Le Pod reste actif indéfiniment."
     },
     "sidebar": {
       "settings": {

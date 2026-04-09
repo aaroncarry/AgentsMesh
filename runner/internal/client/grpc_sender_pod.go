@@ -54,3 +54,19 @@ func (c *GRPCConnection) SendPodInitProgress(podKey, phase string, progress int3
 	}
 	return c.sendControl(msg)
 }
+
+// SendPodRestarting sends a pod_restarting event when a perpetual pod auto-restarts.
+func (c *GRPCConnection) SendPodRestarting(podKey string, exitCode, restartCount, newPID int32) error {
+	msg := &runnerv1.RunnerMessage{
+		Payload: &runnerv1.RunnerMessage_PodRestarting{
+			PodRestarting: &runnerv1.PodRestartingEvent{
+				PodKey:       podKey,
+				ExitCode:     exitCode,
+				RestartCount: restartCount,
+				NewPid:       newPID,
+			},
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	return c.sendControl(msg)
+}

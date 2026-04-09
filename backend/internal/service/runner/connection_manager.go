@@ -64,6 +64,9 @@ type RunnerConnectionManager struct {
 	// Log upload event callback
 	onLogUploadStatus func(runnerID int64, data *runnerv1.LogUploadStatusEvent)
 
+	// Perpetual pod restart callback
+	onPodRestarting func(runnerID int64, data *runnerv1.PodRestartingEvent)
+
 	// AutopilotController event callbacks
 	onAutopilotStatus     func(runnerID int64, data *runnerv1.AutopilotStatusEvent)
 	onAutopilotIteration  func(runnerID int64, data *runnerv1.AutopilotIterationEvent)

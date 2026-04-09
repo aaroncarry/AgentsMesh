@@ -64,6 +64,9 @@ type CreatePodRequest struct {
 
 	// Interaction mode: "pty" (default) or "acp"
 	InteractionMode string
+
+	// Perpetual mode: Runner auto-restarts the agent process on clean exit
+	Perpetual bool
 }
 
 // CreatePod creates a new pod
@@ -125,6 +128,7 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 		SourcePodKey:        sourcePodKey,
 		CredentialProfileID: req.CredentialProfileID,
 		InteractionMode:     interactionMode,
+		Perpetual:           req.Perpetual,
 	}
 
 	if err := s.repo.Create(ctx, pod); err != nil {

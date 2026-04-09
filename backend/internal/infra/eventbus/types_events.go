@@ -84,6 +84,13 @@ type PodInitProgressData struct {
 	Message  string `json:"message"`  // Human-readable progress message
 }
 
+// PodRestartingData represents the payload for perpetual pod restart events
+type PodRestartingData struct {
+	PodKey       string `json:"pod_key"`
+	ExitCode     int32  `json:"exit_code"`
+	RestartCount int32  `json:"restart_count"`
+}
+
 // AutopilotStatusChangedData represents the payload for AutopilotController status change events
 type AutopilotStatusChangedData struct {
 	AutopilotControllerKey string `json:"autopilot_controller_key"`

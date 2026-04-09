@@ -31,6 +31,9 @@ type ConnectionSender interface {
 	// status is "completed" or "error" — decided by Runner.
 	SendPodTerminated(podKey string, exitCode int32, errorMsg string, status string) error
 
+	// SendPodRestarting sends a pod_restarting event for perpetual pod auto-restart.
+	SendPodRestarting(podKey string, exitCode, restartCount, newPID int32) error
+
 	// SendError sends an error event to the server.
 	SendError(podKey, code, message string) error
 

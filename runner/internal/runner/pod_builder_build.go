@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/runner/internal/client"
+	"github.com/anthropics/agentsmesh/runner/internal/envfilter"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal"
@@ -83,6 +84,10 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, branchName string, resolvedArgs []string, envVars map[string]string, launchCommand string) (*Pod, error) {
 	b.sendProgress("starting_pty", 80, "Starting terminal...")
 
+	// capturedEnv holds the full merged environment (os.Environ + AgentFile ENV)
+	// as built by terminal.New. Replicated here for perpetual pod restart.
+	capturedEnv := buildMergedEnv(envVars)
+
 	// Build PTY factory for Pod Daemon mode (session persistence across restarts)
 	var ptyFactory terminal.PTYFactory
 	if b.deps.PodDaemonManager != nil && sandboxRoot != "" {
@@ -96,6 +101,7 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 			Branch:         branchName,
 			TicketSlug:     b.cmd.GetSandboxConfig().GetTicketSlug(),
 			VTHistoryLimit: b.vtHistoryLimit,
+			Perpetual:      b.cmd.Perpetual,
 		}
 		ptyFactory = func(command string, args []string, workDir string, env []string, cols, rows int) (terminal.PtyProcess, error) {
 			opts.Command = command
@@ -163,6 +169,8 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 		LaunchCommand:   launchCommand,
 		LaunchArgs:      resolvedArgs,
 		WorkDir:         workingDir,
+		LaunchEnv:       capturedEnv,
+		Perpetual:       b.cmd.Perpetual,
 		StartedAt:       time.Now(),
 		Status:          PodStatusInitializing,
 		vtProvider:      func() *vt.VirtualTerminal { return virtualTerm },
@@ -207,4 +215,30 @@ func resolveStringSlice(ss []string, sandboxRoot, workDir string) []string {
 
 func (b *PodBuilder) resolvePath(pathTemplate, sandboxRoot, workDir string) string {
 	return resolvePathPlaceholders(pathTemplate, sandboxRoot, workDir)
+}
+
+func mapToEnvSlice(m map[string]string) []string {
+	s := make([]string, 0, len(m))
+	for k, v := range m {
+		s = append(s, k+"="+v)
+	}
+	return s
+}
+
+// buildMergedEnv replicates terminal.New's env merging logic:
+// os.Environ() (filtered) + TERM/COLORTERM + user env vars.
+func buildMergedEnv(userEnv map[string]string) []string {
+	envMap := make(map[string]string)
+	for _, e := range envfilter.FilterEnv(os.Environ()) {
+		if idx := strings.Index(e, "="); idx >= 0 {
+			envMap[e[:idx]] = e[idx+1:]
+		}
+	}
+	delete(envMap, "CLAUDECODE")
+	envMap["TERM"] = "xterm-256color"
+	envMap["COLORTERM"] = "truecolor"
+	for k, v := range userEnv {
+		envMap[k] = v
+	}
+	return mapToEnvSlice(envMap)
 }

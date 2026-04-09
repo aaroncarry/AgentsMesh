@@ -55,6 +55,7 @@ type PodCoordinator struct {
 
 	onStatusChange   func(podKey string, status string, agentStatus string)
 	onInitProgress   func(podKey string, phase string, progress int, message string)
+	onPodRestarting  func(podKey string, exitCode, restartCount int32)
 
 	onAutopilotStatusChange    AutopilotStatusChangeFunc
 	onAutopilotIterationChange AutopilotIterationChangeFunc
@@ -92,6 +93,7 @@ func NewPodCoordinator(
 	cm.SetPodErrorCallback(pc.handlePodError)
 	cm.SetDisconnectCallback(pc.handleRunnerDisconnect)
 	cm.SetPodInitProgressCallback(pc.handlePodInitProgress)
+	cm.SetPodRestartingCallback(pc.handlePodRestarting)
 
 	cm.SetAutopilotStatusCallback(pc.handleAutopilotControllerStatus)
 	cm.SetAutopilotCreatedCallback(pc.handleAutopilotControllerCreated)
@@ -121,6 +123,10 @@ func (pc *PodCoordinator) SetStatusChangeCallback(fn func(podKey string, status 
 
 func (pc *PodCoordinator) SetInitProgressCallback(fn func(podKey string, phase string, progress int, message string)) {
 	pc.onInitProgress = fn
+}
+
+func (pc *PodCoordinator) SetPodRestartingCallback(fn func(podKey string, exitCode, restartCount int32)) {
+	pc.onPodRestarting = fn
 }
 
 func (pc *PodCoordinator) IncrementPods(ctx context.Context, runnerID int64) error {

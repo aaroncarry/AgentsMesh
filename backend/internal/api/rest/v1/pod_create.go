@@ -33,6 +33,9 @@ type CreatePodRequest struct {
 	// Resume related fields
 	SourcePodKey       string `json:"source_pod_key"`
 	ResumeAgentSession *bool  `json:"resume_agent_session"`
+
+	// Perpetual mode: Runner auto-restarts agent on clean exit
+	Perpetual *bool `json:"perpetual"`
 }
 
 // CreatePod creates a new pod
@@ -75,6 +78,7 @@ func (h *PodHandler) CreatePod(c *gin.Context) {
 		Rows:                req.Rows,
 		SourcePodKey:        req.SourcePodKey,
 		ResumeAgentSession:  req.ResumeAgentSession,
+		Perpetual:           req.Perpetual != nil && *req.Perpetual,
 	}
 
 	result, err := h.orchestrator.CreatePod(c.Request.Context(), orchReq)

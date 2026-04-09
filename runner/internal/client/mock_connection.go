@@ -114,6 +114,17 @@ func (m *MockConnection) SendPodTerminated(podKey string, exitCode int32, errorM
 	return nil
 }
 
+// SendPodRestarting implements Connection.
+func (m *MockConnection) SendPodRestarting(podKey string, exitCode, restartCount, newPID int32) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.SendErr != nil {
+		return m.SendErr
+	}
+	m.Events = append(m.Events, EventCall{Type: MessageType("pod_restarting"), Data: map[string]interface{}{"pod_key": podKey, "exit_code": exitCode, "restart_count": restartCount}})
+	return nil
+}
+
 // NOTE: SendTerminalOutput removed - output is exclusively streamed via Relay
 
 // SendError implements Connection.

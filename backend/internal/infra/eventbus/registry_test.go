@@ -220,9 +220,7 @@ func TestEventRegistry_ListAll(t *testing.T) {
 		}
 
 		// Count expected builtin events (based on registerBuiltinEvents)
-		// Pod: 7, Channel: 3, Ticket: 5, Runner: 3 = 18 (entity)
-		// Autopilot+MR+Pipeline+Loop registered in types but check actual count
-		expectedCount := 18
+		expectedCount := 19
 
 		if len(types) != expectedCount {
 			t.Errorf("expected %d events, got %d", expectedCount, len(types))

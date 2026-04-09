@@ -109,6 +109,12 @@ func (r *EventRegistry) registerBuiltinEvents() {
 		EntityType:  "pod",
 		Description: "Pod has been terminated",
 	}
+	r.definitions[EventPodRestarting] = &EventDefinition{
+		Type:        EventPodRestarting,
+		Category:    CategoryEntity,
+		EntityType:  "pod",
+		Description: "Perpetual pod is restarting",
+	}
 
 	// Ticket events
 	r.definitions[EventTicketCreated] = &EventDefinition{

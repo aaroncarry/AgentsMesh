@@ -123,6 +123,9 @@ func (a *GRPCRunnerAdapter) handleProtoMessage(ctx context.Context, runnerID int
 		// Token usage report from Runner (sent when pod exits)
 		a.connManager.HandleTokenUsage(runnerID, payload.TokenUsage)
 
+	case *runnerv1.RunnerMessage_PodRestarting:
+		a.connManager.HandlePodRestarting(runnerID, payload.PodRestarting)
+
 	default:
 		a.logger.Warn("unknown message type", "runner_id", runnerID)
 	}

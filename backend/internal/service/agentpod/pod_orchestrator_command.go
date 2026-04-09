@@ -122,5 +122,10 @@ func (o *PodOrchestrator) buildPodCommand(
 		CredentialProfile:   resolved.CredentialProfile,
 	}
 
-	return o.configBuilder.BuildPodCommand(ctx, buildReq)
+	cmd, err := o.configBuilder.BuildPodCommand(ctx, buildReq)
+	if err != nil {
+		return nil, err
+	}
+	cmd.Perpetual = req.Perpetual
+	return cmd, nil
 }

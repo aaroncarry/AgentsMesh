@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Spinner } from "@/components/ui/spinner";
 import { ConfigForm } from "@/components/ide/ConfigForm";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { RunnerSelect } from "./RunnerSelect";
 import { CredentialSelect } from "./CredentialSelect";
 import { RepositorySelect, BranchInput } from "./RepositorySelect";
@@ -23,6 +24,7 @@ interface AdvancedFormSectionProps {
   loadingConfig: boolean;
   configValues: Record<string, unknown>;
   handleConfigChange: (key: string, value: unknown) => void;
+  showPerpetual?: boolean;
 }
 
 export function AdvancedFormSection({
@@ -35,6 +37,7 @@ export function AdvancedFormSection({
   loadingConfig,
   configValues,
   handleConfigChange,
+  showPerpetual,
 }: AdvancedFormSectionProps) {
   const t = useTranslations();
 
@@ -58,6 +61,25 @@ export function AdvancedFormSection({
           maxLength={100}
         />
       </div>
+
+      {/* Perpetual Pod (auto-restart on exit) — workspace only */}
+      {showPerpetual && (
+        <div className="flex items-center justify-between">
+          <div>
+            <label htmlFor="pod-perpetual" className="text-sm font-medium">
+              {t("ide.createPod.perpetual")}
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {t("ide.createPod.perpetualDescription")}
+            </p>
+          </div>
+          <Switch
+            id="pod-perpetual"
+            checked={form.perpetual}
+            onCheckedChange={form.setPerpetual}
+          />
+        </div>
+      )}
 
       {/* Runner Select (manual override, optional) — always visible */}
       <RunnerSelect

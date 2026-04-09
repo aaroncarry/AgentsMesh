@@ -53,6 +53,9 @@ type OrchestrateCreatePodRequest struct {
 	SourcePodKey       string
 	ResumeAgentSession *bool
 
+	// Perpetual mode: Runner auto-restarts agent on clean exit
+	Perpetual bool
+
 	// BranchName is only set internally by handleResumeMode (inherited from source pod).
 	// Not accepted from external callers — use AgentFile BRANCH declaration instead.
 	BranchName *string

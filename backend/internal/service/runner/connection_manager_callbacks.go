@@ -132,6 +132,11 @@ func (cm *RunnerConnectionManager) SetLogUploadStatusCallback(fn func(runnerID i
 	cm.onLogUploadStatus = fn
 }
 
+// SetPodRestartingCallback sets the perpetual pod restart callback (Proto type)
+func (cm *RunnerConnectionManager) SetPodRestartingCallback(fn func(runnerID int64, data *runnerv1.PodRestartingEvent)) {
+	cm.onPodRestarting = fn
+}
+
 // ==================== AutopilotController Callback Setters ====================
 
 // SetAutopilotStatusCallback sets the AutopilotController status callback (Proto type)

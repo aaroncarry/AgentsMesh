@@ -164,6 +164,7 @@ export function CreatePodForm({
               loadingConfig={loadingConfig}
               configValues={configValues}
               handleConfigChange={handleConfigChange}
+              showPerpetual={mergedConfig.scenario === "workspace"}
             />
           )}
 

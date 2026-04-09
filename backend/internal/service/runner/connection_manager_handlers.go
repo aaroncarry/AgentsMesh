@@ -39,6 +39,14 @@ func (cm *RunnerConnectionManager) HandlePodTerminated(runnerID int64, data *run
 	}
 }
 
+// HandlePodRestarting handles perpetual pod restart event (Proto type)
+func (cm *RunnerConnectionManager) HandlePodRestarting(runnerID int64, data *runnerv1.PodRestartingEvent) {
+	cm.UpdateHeartbeat(runnerID)
+	if cm.onPodRestarting != nil {
+		cm.onPodRestarting(runnerID, data)
+	}
+}
+
 // HandlePodError handles pod error event (Proto type)
 func (cm *RunnerConnectionManager) HandlePodError(runnerID int64, data *runnerv1.ErrorEvent) {
 	cm.UpdateHeartbeat(runnerID)

@@ -27,6 +27,7 @@ const (
 	EventPodTitleChanged  EventType = "pod:title_changed"
 	EventPodAliasChanged  EventType = "pod:alias_changed"
 	EventPodInitProgress  EventType = "pod:init_progress"
+	EventPodRestarting    EventType = "pod:restarting"
 
 	// Channel events
 	EventChannelMessage        EventType = "channel:message"

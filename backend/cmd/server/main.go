@@ -148,6 +148,7 @@ func main() {
 	// Setup event callbacks
 	setupRunnerEventCallbacks(db, runnerConnMgr, eventBus)
 	setupPodEventCallbacks(db, podCoordinator, eventBus, notifDispatcher)
+	setupPerpetualPodCallbacks(db, podCoordinator, eventBus)
 	startOSCDedupCleanup()
 
 	// Wire AutopilotControllerService with PodCoordinator for gRPC command sending.

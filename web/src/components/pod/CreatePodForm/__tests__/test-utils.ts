@@ -39,6 +39,8 @@ export const defaultFormState = {
   setInteractionMode: vi.fn(),
   setPrompt: mockSetPrompt,
   setAlias: mockSetAlias,
+  perpetual: false,
+  setPerpetual: vi.fn(),
   selectedAgentSlug: "",
   supportedModes: [POD_MODE_PTY],
   loading: false,

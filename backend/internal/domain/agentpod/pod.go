@@ -95,6 +95,12 @@ type Pod struct {
 	// Enables tracking the chain of resumed sessions
 	SourcePodKey *string `gorm:"size:100" json:"source_pod_key,omitempty"`
 
+	// Perpetual mode: Runner auto-restarts the agent process on clean exit.
+	// pod_key stays the same across restarts (service identity).
+	Perpetual     bool       `gorm:"not null;default:false" json:"perpetual"`
+	RestartCount  int        `gorm:"not null;default:0" json:"restart_count"`
+	LastRestartAt *time.Time `json:"last_restart_at,omitempty"`
+
 	// CredentialProfileID records which credential profile was used to create this pod.
 	// nil = used default profile (or RunnerHost fallback), >0 = specific profile ID.
 	// Sentinel value 0 is NOT stored (FK constraint); explicit RunnerHost is stored as nil.

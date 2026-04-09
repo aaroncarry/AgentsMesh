@@ -42,6 +42,9 @@ export interface PodData {
     slug: string;
   };
   interaction_mode?: PodMode;
+  perpetual?: boolean;
+  restart_count?: number;
+  last_restart_at?: string;
   error_code?: string;
   error_message?: string;
   created_by?: {
@@ -79,6 +82,8 @@ export const podApi = {
     // Resume mode fields
     source_pod_key?: string;
     resume_agent_session?: boolean;
+    // Perpetual mode
+    perpetual?: boolean;
   }) =>
     request<{ message: string; pod: PodData }>(
       orgPath("/pods"),

@@ -7,6 +7,7 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/config"
 	"github.com/anthropics/agentsmesh/runner/internal/monitor"
+	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 	"github.com/anthropics/agentsmesh/runner/internal/updater"
 )
 
@@ -25,6 +26,7 @@ type PodComponentContext interface {
 	GetMCPServer() MCPServer
 	GetAgentMonitor() AgentMonitor
 	GetSandboxStatus(podKey string) *client.SandboxStatusInfo
+	GetPodDaemonManager() *poddaemon.PodDaemonManager
 }
 
 // AutopilotRegistry manages AutopilotController instances.

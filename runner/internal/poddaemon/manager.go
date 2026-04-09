@@ -35,6 +35,7 @@ type CreateOpts struct {
 	Branch         string
 	TicketSlug     string
 	VTHistoryLimit int
+	Perpetual      bool
 }
 
 // authTokenBytes is the number of random bytes for IPC authentication tokens.
@@ -87,10 +88,12 @@ func (m *PodDaemonManager) CreateSession(opts CreateOpts) (*daemonPTY, *PodDaemo
 		TicketSlug:     opts.TicketSlug,
 		Command:        opts.Command,
 		Args:           opts.Args,
+		Env:            opts.Env,
 		Cols:           opts.Cols,
 		Rows:           opts.Rows,
 		StartedAt:      time.Now(),
 		VTHistoryLimit: opts.VTHistoryLimit,
+		Perpetual:      opts.Perpetual,
 	}
 
 	// Save state before starting daemon (daemon reads it on startup).

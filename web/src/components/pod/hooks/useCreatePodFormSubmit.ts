@@ -9,11 +9,12 @@ import { podApi, PodData } from "@/lib/api";
 export async function submitCreatePod(params: {
   selectedAgent: string;
   alias: string;
+  perpetual?: boolean;
   selectedRunnerId: number | null | undefined;
   agentfileLayer?: string;
   options?: { ticketSlug?: string; cols?: number; rows?: number };
 }): Promise<PodData | null> {
-  const { selectedAgent, alias, selectedRunnerId, agentfileLayer, options } = params;
+  const { selectedAgent, alias, perpetual, selectedRunnerId, agentfileLayer, options } = params;
 
   const response = await podApi.create({
     agent_slug: selectedAgent,
@@ -22,8 +23,8 @@ export async function submitCreatePod(params: {
     ticket_slug: options?.ticketSlug,
     cols: options?.cols,
     rows: options?.rows,
-    // AgentFile Layer — SSOT (PROMPT, MODE, CONFIG, REPO, BRANCH, CREDENTIAL)
     agentfile_layer: agentfileLayer || undefined,
+    perpetual: perpetual || undefined,
   });
 
   return response.pod || null;

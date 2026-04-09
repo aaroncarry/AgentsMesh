@@ -58,8 +58,15 @@ func (h *RunnerMessageHandler) cleanupPodExit(podKey string, exitCode int, stopI
 
 	pod := h.podStore.Delete(podKey)
 	if pod == nil {
-		// Pod was already removed by another exit path — avoid double cleanup.
 		log.Info("Pod already removed, skipping cleanup", "pod_key", podKey)
+		return
+	}
+
+	// Perpetual pod: clean exit + not user-terminated → restart in place.
+	// Re-insert into store so the pod remains visible during restart.
+	if !stopIO && pod.Perpetual && isCleanExit(exitCode) {
+		h.podStore.Put(podKey, pod)
+		h.restartPerpetualPod(pod, exitCode)
 		return
 	}
 

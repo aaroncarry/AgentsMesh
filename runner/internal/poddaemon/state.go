@@ -25,10 +25,12 @@ type PodDaemonState struct {
 	TicketSlug     string    `json:"ticket_slug,omitempty"`
 	Command        string    `json:"command"`
 	Args           []string  `json:"args"`
+	Env            []string  `json:"env,omitempty"`
 	Cols           int       `json:"cols"`
 	Rows           int       `json:"rows"`
 	StartedAt      time.Time `json:"started_at"`
 	VTHistoryLimit int       `json:"vt_history_limit"`
+	Perpetual      bool      `json:"perpetual,omitempty"`
 }
 
 // SaveState atomically writes the daemon state to disk.

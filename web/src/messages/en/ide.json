@@ -90,6 +90,8 @@
       "cancel": "Cancel",
       "alias": "Alias",
       "aliasPlaceholder": "Enter a display name for this pod...",
+      "perpetual": "Perpetual",
+      "perpetualDescription": "Auto-restart when agent exits. Pod stays alive indefinitely.",
       "interactionMode": "Interaction Mode",
       "modePty": "Terminal (PTY)",
       "modeAcp": "Conversational (ACP)"

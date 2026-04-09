@@ -92,7 +92,9 @@
       "creating": "생성 중...",
       "cancel": "취소",
       "alias": "별칭",
-      "aliasPlaceholder": "Pod 표시 이름을 입력하세요..."
+      "aliasPlaceholder": "Pod 표시 이름을 입력하세요...",
+      "perpetual": "영구 모드",
+      "perpetualDescription": "에이전트 종료 시 자동 재시작. Pod가 지속적으로 온라인 상태를 유지합니다."
     },
     "sidebar": {
       "settings": {

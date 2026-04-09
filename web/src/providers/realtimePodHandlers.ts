@@ -58,5 +58,10 @@ export function handlePodEvent(event: RealtimeEvent) {
       usePodStore.getState().updatePodInitProgress(data.pod_key, data.phase, data.progress, data.message);
       break;
     }
+    case "pod:restarting": {
+      const data = event.data as { pod_key: string };
+      usePodStore.getState().fetchPod?.(data.pod_key);
+      break;
+    }
   }
 }

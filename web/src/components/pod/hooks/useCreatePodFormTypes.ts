@@ -24,6 +24,7 @@ export interface CreatePodFormState {
   interactionMode: PodMode;
   prompt: string;
   alias: string;
+  perpetual: boolean;
 
   // Credential profiles for selected agent
   credentialProfiles: CredentialProfileData[];
@@ -37,6 +38,7 @@ export interface CreatePodFormState {
   setInteractionMode: (mode: PodMode) => void;
   setPrompt: (prompt: string) => void;
   setAlias: (alias: string) => void;
+  setPerpetual: (perpetual: boolean) => void;
 
   // AgentFile Layer
   rawLayerMode: boolean;

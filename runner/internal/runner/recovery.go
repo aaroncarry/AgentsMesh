@@ -35,6 +35,21 @@ func (r *Runner) recoverDaemonSessions() {
 	for _, state := range states {
 		pod, err := r.recoverSingleSession(state)
 		if err != nil {
+			// Perpetual pod: daemon died → re-create it from the existing sandbox
+			if state.Perpetual {
+				pod, restartErr := r.restartDeadPerpetualDaemon(state)
+				if restartErr != nil {
+					log.Warn("failed to restart perpetual daemon, cleaning up",
+						"pod_key", state.PodKey, "error", restartErr)
+					_ = r.podDaemonManager.CleanupSession(state.SandboxPath)
+					continue
+				}
+				r.podStore.Put(pod.PodKey, pod)
+				log.Info("perpetual daemon restarted",
+					"pod_key", pod.PodKey, "sandbox", pod.SandboxPath)
+				continue
+			}
+
 			log.Warn("failed to recover session, cleaning up",
 				"pod_key", state.PodKey, "error", err)
 			_ = r.podDaemonManager.CleanupSession(state.SandboxPath)
@@ -77,15 +92,11 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 		return nil, fmt.Errorf("create terminal: %w", err)
 	}
 
-	// Create VirtualTerminal and Aggregator (fresh state after recovery)
 	virtualTerm := vt.NewVirtualTerminal(state.Cols, state.Rows, state.VTHistoryLimit)
 	virtualTerm.SetOSCHandler(r.messageHandler.createOSCHandler(state.PodKey))
 
-	agg := aggregator.NewSmartAggregator(nil,
-		aggregator.WithFullRedrawThrottling(),
-	)
+	agg := aggregator.NewSmartAggregator(nil, aggregator.WithFullRedrawThrottling())
 
-	// Enable PTY logging if configured (same as pod_builder_build.go)
 	var ptyLogger *aggregator.PTYLogger
 	cfg := r.GetConfig()
 	if cfg.LogPTY {
@@ -112,6 +123,8 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 		LaunchCommand:   state.Command,
 		LaunchArgs:      state.Args,
 		WorkDir:         state.WorkDir,
+		LaunchEnv:       state.Env,
+		Perpetual:       state.Perpetual,
 		TicketSlug:      state.TicketSlug,
 		StartedAt:       state.StartedAt,
 		Status:          PodStatusInitializing,
@@ -162,4 +175,32 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 	pod.SubscribeAgentStatusBridge(r.conn.SendAgentStatus)
 
 	return pod, nil
+}
+
+// restartDeadPerpetualDaemon re-creates a daemon session for a perpetual pod
+// whose daemon died. Uses the existing sandbox and state to spawn a new daemon.
+func (r *Runner) restartDeadPerpetualDaemon(state *poddaemon.PodDaemonState) (*Pod, error) {
+	_, updatedState, err := r.podDaemonManager.CreateSession(poddaemon.CreateOpts{
+		PodKey:         state.PodKey,
+		Agent:          state.Agent,
+		Command:        state.Command,
+		Args:           state.Args,
+		WorkDir:        state.WorkDir,
+		Env:            state.Env,
+		Cols:           state.Cols,
+		Rows:           state.Rows,
+		SandboxPath:    state.SandboxPath,
+		RepositoryURL:  state.RepositoryURL,
+		Branch:         state.Branch,
+		TicketSlug:     state.TicketSlug,
+		VTHistoryLimit: state.VTHistoryLimit,
+		Perpetual:      true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create daemon session: %w", err)
+	}
+
+	// recoverSingleSession will AttachSession (new TCP conn). The CreateSession
+	// connection is implicitly replaced by daemon's single-client model.
+	return r.recoverSingleSession(updatedState)
 }

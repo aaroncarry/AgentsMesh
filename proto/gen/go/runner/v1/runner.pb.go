@@ -51,6 +51,7 @@ type RunnerMessage struct {
 	//	*RunnerMessage_LogUploadStatus
 	//	*RunnerMessage_TokenUsage
 	//	*RunnerMessage_ObservePodResult
+	//	*RunnerMessage_PodRestarting
 	Payload       isRunnerMessage_Payload `protobuf_oneof:"payload"`
 	Timestamp     int64                   `protobuf:"varint,15,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -319,6 +320,15 @@ func (x *RunnerMessage) GetObservePodResult() *ObservePodResult {
 	return nil
 }
 
+func (x *RunnerMessage) GetPodRestarting() *PodRestartingEvent {
+	if x != nil {
+		if x, ok := x.Payload.(*RunnerMessage_PodRestarting); ok {
+			return x.PodRestarting
+		}
+	}
+	return nil
+}
+
 func (x *RunnerMessage) GetTimestamp() int64 {
 	if x != nil {
 		return x.Timestamp
@@ -434,7 +444,12 @@ type RunnerMessage_TokenUsage struct {
 
 type RunnerMessage_ObservePodResult struct {
 	// Pod 观察结果（Runner -> Backend，响应 ObservePodCommand）
-	ObservePodResult *ObservePodResult `protobuf:"bytes,26,opt,name=observe_pod_result,json=observePodResult,proto3,oneof"` // 27-30 reserved: previously used for ACP gRPC events, now ACP data flows exclusively via Relay.
+	ObservePodResult *ObservePodResult `protobuf:"bytes,26,opt,name=observe_pod_result,json=observePodResult,proto3,oneof"`
+}
+
+type RunnerMessage_PodRestarting struct {
+	// 永续 Pod 重启事件
+	PodRestarting *PodRestartingEvent `protobuf:"bytes,31,opt,name=pod_restarting,json=podRestarting,proto3,oneof"` // 27-30 reserved: previously used for ACP gRPC events, now ACP data flows exclusively via Relay.
 }
 
 func (*RunnerMessage_Initialize) isRunnerMessage_Payload() {}
@@ -486,6 +501,8 @@ func (*RunnerMessage_LogUploadStatus) isRunnerMessage_Payload() {}
 func (*RunnerMessage_TokenUsage) isRunnerMessage_Payload() {}
 
 func (*RunnerMessage_ObservePodResult) isRunnerMessage_Payload() {}
+
+func (*RunnerMessage_PodRestarting) isRunnerMessage_Payload() {}
 
 // InitializeRequest Runner 初始化请求
 type InitializeRequest struct {
@@ -1084,6 +1101,75 @@ func (x *PodTerminatedEvent) GetStatus() string {
 	return ""
 }
 
+// PodRestartingEvent 永续 Pod 重启事件（Runner → Backend）
+type PodRestartingEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PodKey        string                 `protobuf:"bytes,1,opt,name=pod_key,json=podKey,proto3" json:"pod_key,omitempty"`
+	ExitCode      int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`             // 上一次退出的 exit code
+	RestartCount  int32                  `protobuf:"varint,3,opt,name=restart_count,json=restartCount,proto3" json:"restart_count,omitempty"` // 累计重启次数
+	NewPid        int32                  `protobuf:"varint,4,opt,name=new_pid,json=newPid,proto3" json:"new_pid,omitempty"`                   // 新进程 PID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PodRestartingEvent) Reset() {
+	*x = PodRestartingEvent{}
+	mi := &file_runner_v1_runner_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PodRestartingEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PodRestartingEvent) ProtoMessage() {}
+
+func (x *PodRestartingEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_v1_runner_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PodRestartingEvent.ProtoReflect.Descriptor instead.
+func (*PodRestartingEvent) Descriptor() ([]byte, []int) {
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PodRestartingEvent) GetPodKey() string {
+	if x != nil {
+		return x.PodKey
+	}
+	return ""
+}
+
+func (x *PodRestartingEvent) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
+	}
+	return 0
+}
+
+func (x *PodRestartingEvent) GetRestartCount() int32 {
+	if x != nil {
+		return x.RestartCount
+	}
+	return 0
+}
+
+func (x *PodRestartingEvent) GetNewPid() int32 {
+	if x != nil {
+		return x.NewPid
+	}
+	return 0
+}
+
 // PodOutputEvent Pod 输出事件
 type PodOutputEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1095,7 +1181,7 @@ type PodOutputEvent struct {
 
 func (x *PodOutputEvent) Reset() {
 	*x = PodOutputEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[10]
+	mi := &file_runner_v1_runner_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1193,7 @@ func (x *PodOutputEvent) String() string {
 func (*PodOutputEvent) ProtoMessage() {}
 
 func (x *PodOutputEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[10]
+	mi := &file_runner_v1_runner_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1120,7 +1206,7 @@ func (x *PodOutputEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodOutputEvent.ProtoReflect.Descriptor instead.
 func (*PodOutputEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{10}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PodOutputEvent) GetPodKey() string {
@@ -1148,7 +1234,7 @@ type AgentStatusEvent struct {
 
 func (x *AgentStatusEvent) Reset() {
 	*x = AgentStatusEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[11]
+	mi := &file_runner_v1_runner_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1160,7 +1246,7 @@ func (x *AgentStatusEvent) String() string {
 func (*AgentStatusEvent) ProtoMessage() {}
 
 func (x *AgentStatusEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[11]
+	mi := &file_runner_v1_runner_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1173,7 +1259,7 @@ func (x *AgentStatusEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentStatusEvent.ProtoReflect.Descriptor instead.
 func (*AgentStatusEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{11}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AgentStatusEvent) GetPodKey() string {
@@ -1202,7 +1288,7 @@ type PodResizedEvent struct {
 
 func (x *PodResizedEvent) Reset() {
 	*x = PodResizedEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[12]
+	mi := &file_runner_v1_runner_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1214,7 +1300,7 @@ func (x *PodResizedEvent) String() string {
 func (*PodResizedEvent) ProtoMessage() {}
 
 func (x *PodResizedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[12]
+	mi := &file_runner_v1_runner_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1227,7 +1313,7 @@ func (x *PodResizedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodResizedEvent.ProtoReflect.Descriptor instead.
 func (*PodResizedEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{12}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PodResizedEvent) GetPodKey() string {
@@ -1264,7 +1350,7 @@ type ErrorEvent struct {
 
 func (x *ErrorEvent) Reset() {
 	*x = ErrorEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[13]
+	mi := &file_runner_v1_runner_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1276,7 +1362,7 @@ func (x *ErrorEvent) String() string {
 func (*ErrorEvent) ProtoMessage() {}
 
 func (x *ErrorEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[13]
+	mi := &file_runner_v1_runner_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1289,7 +1375,7 @@ func (x *ErrorEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorEvent.ProtoReflect.Descriptor instead.
 func (*ErrorEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{13}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ErrorEvent) GetPodKey() string {
@@ -1333,7 +1419,7 @@ type PodInitProgressEvent struct {
 
 func (x *PodInitProgressEvent) Reset() {
 	*x = PodInitProgressEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[14]
+	mi := &file_runner_v1_runner_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1345,7 +1431,7 @@ func (x *PodInitProgressEvent) String() string {
 func (*PodInitProgressEvent) ProtoMessage() {}
 
 func (x *PodInitProgressEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[14]
+	mi := &file_runner_v1_runner_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1358,7 +1444,7 @@ func (x *PodInitProgressEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodInitProgressEvent.ProtoReflect.Descriptor instead.
 func (*PodInitProgressEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{14}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PodInitProgressEvent) GetPodKey() string {
@@ -1420,7 +1506,7 @@ type ServerMessage struct {
 
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
-	mi := &file_runner_v1_runner_proto_msgTypes[15]
+	mi := &file_runner_v1_runner_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1432,7 +1518,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[15]
+	mi := &file_runner_v1_runner_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1445,7 +1531,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{15}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ServerMessage) GetPayload() isServerMessage_Payload {
@@ -1760,7 +1846,7 @@ type InitializeResult struct {
 
 func (x *InitializeResult) Reset() {
 	*x = InitializeResult{}
-	mi := &file_runner_v1_runner_proto_msgTypes[16]
+	mi := &file_runner_v1_runner_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1772,7 +1858,7 @@ func (x *InitializeResult) String() string {
 func (*InitializeResult) ProtoMessage() {}
 
 func (x *InitializeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[16]
+	mi := &file_runner_v1_runner_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1785,7 +1871,7 @@ func (x *InitializeResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitializeResult.ProtoReflect.Descriptor instead.
 func (*InitializeResult) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{16}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *InitializeResult) GetProtocolVersion() int32 {
@@ -1826,7 +1912,7 @@ type ServerInfo struct {
 
 func (x *ServerInfo) Reset() {
 	*x = ServerInfo{}
-	mi := &file_runner_v1_runner_proto_msgTypes[17]
+	mi := &file_runner_v1_runner_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1838,7 +1924,7 @@ func (x *ServerInfo) String() string {
 func (*ServerInfo) ProtoMessage() {}
 
 func (x *ServerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[17]
+	mi := &file_runner_v1_runner_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1851,7 +1937,7 @@ func (x *ServerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerInfo.ProtoReflect.Descriptor instead.
 func (*ServerInfo) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{17}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ServerInfo) GetVersion() string {
@@ -1874,7 +1960,7 @@ type AgentInfo struct {
 
 func (x *AgentInfo) Reset() {
 	*x = AgentInfo{}
-	mi := &file_runner_v1_runner_proto_msgTypes[18]
+	mi := &file_runner_v1_runner_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1886,7 +1972,7 @@ func (x *AgentInfo) String() string {
 func (*AgentInfo) ProtoMessage() {}
 
 func (x *AgentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[18]
+	mi := &file_runner_v1_runner_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1899,7 +1985,7 @@ func (x *AgentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
 func (*AgentInfo) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{18}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AgentInfo) GetSlug() string {
@@ -1964,13 +2050,14 @@ type CreatePodCommand struct {
 	// AgentFile eval 产出的新字段
 	Prompt         string `protobuf:"bytes,19,opt,name=prompt,proto3" json:"prompt,omitempty"`                                       // PROMPT 声明的初始提示内容
 	PromptPosition string `protobuf:"bytes,20,opt,name=prompt_position,json=promptPosition,proto3" json:"prompt_position,omitempty"` // PROMPT_POSITION 声明："prepend"/"append"/"none"
+	Perpetual      bool   `protobuf:"varint,21,opt,name=perpetual,proto3" json:"perpetual,omitempty"`                                // 永续模式：agent 退出后 Runner 自动重启
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreatePodCommand) Reset() {
 	*x = CreatePodCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[19]
+	mi := &file_runner_v1_runner_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1982,7 +2069,7 @@ func (x *CreatePodCommand) String() string {
 func (*CreatePodCommand) ProtoMessage() {}
 
 func (x *CreatePodCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[19]
+	mi := &file_runner_v1_runner_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1995,7 +2082,7 @@ func (x *CreatePodCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePodCommand.ProtoReflect.Descriptor instead.
 func (*CreatePodCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{19}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreatePodCommand) GetPodKey() string {
@@ -2136,6 +2223,13 @@ func (x *CreatePodCommand) GetPromptPosition() string {
 	return ""
 }
 
+func (x *CreatePodCommand) GetPerpetual() bool {
+	if x != nil {
+		return x.Perpetual
+	}
+	return false
+}
+
 // ResourceToDownload 需要下载的资源描述
 type ResourceToDownload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2150,7 +2244,7 @@ type ResourceToDownload struct {
 
 func (x *ResourceToDownload) Reset() {
 	*x = ResourceToDownload{}
-	mi := &file_runner_v1_runner_proto_msgTypes[20]
+	mi := &file_runner_v1_runner_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2162,7 +2256,7 @@ func (x *ResourceToDownload) String() string {
 func (*ResourceToDownload) ProtoMessage() {}
 
 func (x *ResourceToDownload) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[20]
+	mi := &file_runner_v1_runner_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2175,7 +2269,7 @@ func (x *ResourceToDownload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceToDownload.ProtoReflect.Descriptor instead.
 func (*ResourceToDownload) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{20}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ResourceToDownload) GetSha() string {
@@ -2226,7 +2320,7 @@ type FileToCreate struct {
 
 func (x *FileToCreate) Reset() {
 	*x = FileToCreate{}
-	mi := &file_runner_v1_runner_proto_msgTypes[21]
+	mi := &file_runner_v1_runner_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2238,7 +2332,7 @@ func (x *FileToCreate) String() string {
 func (*FileToCreate) ProtoMessage() {}
 
 func (x *FileToCreate) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[21]
+	mi := &file_runner_v1_runner_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2251,7 +2345,7 @@ func (x *FileToCreate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileToCreate.ProtoReflect.Descriptor instead.
 func (*FileToCreate) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{21}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *FileToCreate) GetPath() string {
@@ -2316,7 +2410,7 @@ type SandboxConfig struct {
 
 func (x *SandboxConfig) Reset() {
 	*x = SandboxConfig{}
-	mi := &file_runner_v1_runner_proto_msgTypes[22]
+	mi := &file_runner_v1_runner_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2328,7 +2422,7 @@ func (x *SandboxConfig) String() string {
 func (*SandboxConfig) ProtoMessage() {}
 
 func (x *SandboxConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[22]
+	mi := &file_runner_v1_runner_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2341,7 +2435,7 @@ func (x *SandboxConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxConfig.ProtoReflect.Descriptor instead.
 func (*SandboxConfig) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{22}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{23}
 }
 
 // Deprecated: Marked as deprecated in runner/v1/runner.proto.
@@ -2433,7 +2527,7 @@ type TerminatePodCommand struct {
 
 func (x *TerminatePodCommand) Reset() {
 	*x = TerminatePodCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[23]
+	mi := &file_runner_v1_runner_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2445,7 +2539,7 @@ func (x *TerminatePodCommand) String() string {
 func (*TerminatePodCommand) ProtoMessage() {}
 
 func (x *TerminatePodCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[23]
+	mi := &file_runner_v1_runner_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2458,7 +2552,7 @@ func (x *TerminatePodCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminatePodCommand.ProtoReflect.Descriptor instead.
 func (*TerminatePodCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{23}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *TerminatePodCommand) GetPodKey() string {
@@ -2486,7 +2580,7 @@ type PodInputCommand struct {
 
 func (x *PodInputCommand) Reset() {
 	*x = PodInputCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[24]
+	mi := &file_runner_v1_runner_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2498,7 +2592,7 @@ func (x *PodInputCommand) String() string {
 func (*PodInputCommand) ProtoMessage() {}
 
 func (x *PodInputCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[24]
+	mi := &file_runner_v1_runner_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2511,7 +2605,7 @@ func (x *PodInputCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodInputCommand.ProtoReflect.Descriptor instead.
 func (*PodInputCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{24}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PodInputCommand) GetPodKey() string {
@@ -2540,7 +2634,7 @@ type PodResizeCommand struct {
 
 func (x *PodResizeCommand) Reset() {
 	*x = PodResizeCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[25]
+	mi := &file_runner_v1_runner_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2552,7 +2646,7 @@ func (x *PodResizeCommand) String() string {
 func (*PodResizeCommand) ProtoMessage() {}
 
 func (x *PodResizeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[25]
+	mi := &file_runner_v1_runner_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2565,7 +2659,7 @@ func (x *PodResizeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodResizeCommand.ProtoReflect.Descriptor instead.
 func (*PodResizeCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{25}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *PodResizeCommand) GetPodKey() string {
@@ -2600,7 +2694,7 @@ type SendPromptCommand struct {
 
 func (x *SendPromptCommand) Reset() {
 	*x = SendPromptCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[26]
+	mi := &file_runner_v1_runner_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2612,7 +2706,7 @@ func (x *SendPromptCommand) String() string {
 func (*SendPromptCommand) ProtoMessage() {}
 
 func (x *SendPromptCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[26]
+	mi := &file_runner_v1_runner_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2625,7 +2719,7 @@ func (x *SendPromptCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendPromptCommand.ProtoReflect.Descriptor instead.
 func (*SendPromptCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{26}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SendPromptCommand) GetPodKey() string {
@@ -2655,7 +2749,7 @@ type PodRedrawCommand struct {
 
 func (x *PodRedrawCommand) Reset() {
 	*x = PodRedrawCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[27]
+	mi := &file_runner_v1_runner_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2667,7 +2761,7 @@ func (x *PodRedrawCommand) String() string {
 func (*PodRedrawCommand) ProtoMessage() {}
 
 func (x *PodRedrawCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[27]
+	mi := &file_runner_v1_runner_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2680,7 +2774,7 @@ func (x *PodRedrawCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PodRedrawCommand.ProtoReflect.Descriptor instead.
 func (*PodRedrawCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{27}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *PodRedrawCommand) GetPodKey() string {
@@ -2705,7 +2799,7 @@ type SubscribePodCommand struct {
 
 func (x *SubscribePodCommand) Reset() {
 	*x = SubscribePodCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[28]
+	mi := &file_runner_v1_runner_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2717,7 +2811,7 @@ func (x *SubscribePodCommand) String() string {
 func (*SubscribePodCommand) ProtoMessage() {}
 
 func (x *SubscribePodCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[28]
+	mi := &file_runner_v1_runner_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2730,7 +2824,7 @@ func (x *SubscribePodCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribePodCommand.ProtoReflect.Descriptor instead.
 func (*SubscribePodCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{28}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SubscribePodCommand) GetPodKey() string {
@@ -2779,7 +2873,7 @@ type UnsubscribePodCommand struct {
 
 func (x *UnsubscribePodCommand) Reset() {
 	*x = UnsubscribePodCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[29]
+	mi := &file_runner_v1_runner_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2791,7 +2885,7 @@ func (x *UnsubscribePodCommand) String() string {
 func (*UnsubscribePodCommand) ProtoMessage() {}
 
 func (x *UnsubscribePodCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[29]
+	mi := &file_runner_v1_runner_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2804,7 +2898,7 @@ func (x *UnsubscribePodCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnsubscribePodCommand.ProtoReflect.Descriptor instead.
 func (*UnsubscribePodCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{29}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UnsubscribePodCommand) GetPodKey() string {
@@ -2828,7 +2922,7 @@ type RequestRelayTokenEvent struct {
 
 func (x *RequestRelayTokenEvent) Reset() {
 	*x = RequestRelayTokenEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[30]
+	mi := &file_runner_v1_runner_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2840,7 +2934,7 @@ func (x *RequestRelayTokenEvent) String() string {
 func (*RequestRelayTokenEvent) ProtoMessage() {}
 
 func (x *RequestRelayTokenEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[30]
+	mi := &file_runner_v1_runner_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2853,7 +2947,7 @@ func (x *RequestRelayTokenEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestRelayTokenEvent.ProtoReflect.Descriptor instead.
 func (*RequestRelayTokenEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{30}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *RequestRelayTokenEvent) GetPodKey() string {
@@ -2889,7 +2983,7 @@ type QuerySandboxesCommand struct {
 
 func (x *QuerySandboxesCommand) Reset() {
 	*x = QuerySandboxesCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[31]
+	mi := &file_runner_v1_runner_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2901,7 +2995,7 @@ func (x *QuerySandboxesCommand) String() string {
 func (*QuerySandboxesCommand) ProtoMessage() {}
 
 func (x *QuerySandboxesCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[31]
+	mi := &file_runner_v1_runner_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2914,7 +3008,7 @@ func (x *QuerySandboxesCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuerySandboxesCommand.ProtoReflect.Descriptor instead.
 func (*QuerySandboxesCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{31}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *QuerySandboxesCommand) GetRequestId() string {
@@ -2941,7 +3035,7 @@ type SandboxQuery struct {
 
 func (x *SandboxQuery) Reset() {
 	*x = SandboxQuery{}
-	mi := &file_runner_v1_runner_proto_msgTypes[32]
+	mi := &file_runner_v1_runner_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2953,7 +3047,7 @@ func (x *SandboxQuery) String() string {
 func (*SandboxQuery) ProtoMessage() {}
 
 func (x *SandboxQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[32]
+	mi := &file_runner_v1_runner_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2966,7 +3060,7 @@ func (x *SandboxQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxQuery.ProtoReflect.Descriptor instead.
 func (*SandboxQuery) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{32}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *SandboxQuery) GetPodKey() string {
@@ -2987,7 +3081,7 @@ type SandboxesStatusEvent struct {
 
 func (x *SandboxesStatusEvent) Reset() {
 	*x = SandboxesStatusEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[33]
+	mi := &file_runner_v1_runner_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2999,7 +3093,7 @@ func (x *SandboxesStatusEvent) String() string {
 func (*SandboxesStatusEvent) ProtoMessage() {}
 
 func (x *SandboxesStatusEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[33]
+	mi := &file_runner_v1_runner_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3012,7 +3106,7 @@ func (x *SandboxesStatusEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxesStatusEvent.ProtoReflect.Descriptor instead.
 func (*SandboxesStatusEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{33}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *SandboxesStatusEvent) GetRequestId() string {
@@ -3049,7 +3143,7 @@ type SandboxStatus struct {
 
 func (x *SandboxStatus) Reset() {
 	*x = SandboxStatus{}
-	mi := &file_runner_v1_runner_proto_msgTypes[34]
+	mi := &file_runner_v1_runner_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3061,7 +3155,7 @@ func (x *SandboxStatus) String() string {
 func (*SandboxStatus) ProtoMessage() {}
 
 func (x *SandboxStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[34]
+	mi := &file_runner_v1_runner_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3074,7 +3168,7 @@ func (x *SandboxStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SandboxStatus.ProtoReflect.Descriptor instead.
 func (*SandboxStatus) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{34}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SandboxStatus) GetPodKey() string {
@@ -3168,7 +3262,7 @@ type ObservePodCommand struct {
 
 func (x *ObservePodCommand) Reset() {
 	*x = ObservePodCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[35]
+	mi := &file_runner_v1_runner_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3180,7 +3274,7 @@ func (x *ObservePodCommand) String() string {
 func (*ObservePodCommand) ProtoMessage() {}
 
 func (x *ObservePodCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[35]
+	mi := &file_runner_v1_runner_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3193,7 +3287,7 @@ func (x *ObservePodCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObservePodCommand.ProtoReflect.Descriptor instead.
 func (*ObservePodCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{35}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ObservePodCommand) GetRequestId() string {
@@ -3242,7 +3336,7 @@ type ObservePodResult struct {
 
 func (x *ObservePodResult) Reset() {
 	*x = ObservePodResult{}
-	mi := &file_runner_v1_runner_proto_msgTypes[36]
+	mi := &file_runner_v1_runner_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3254,7 +3348,7 @@ func (x *ObservePodResult) String() string {
 func (*ObservePodResult) ProtoMessage() {}
 
 func (x *ObservePodResult) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[36]
+	mi := &file_runner_v1_runner_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3267,7 +3361,7 @@ func (x *ObservePodResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObservePodResult.ProtoReflect.Descriptor instead.
 func (*ObservePodResult) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{36}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ObservePodResult) GetRequestId() string {
@@ -3347,7 +3441,7 @@ type OSCNotificationEvent struct {
 
 func (x *OSCNotificationEvent) Reset() {
 	*x = OSCNotificationEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[37]
+	mi := &file_runner_v1_runner_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3359,7 +3453,7 @@ func (x *OSCNotificationEvent) String() string {
 func (*OSCNotificationEvent) ProtoMessage() {}
 
 func (x *OSCNotificationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[37]
+	mi := &file_runner_v1_runner_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3372,7 +3466,7 @@ func (x *OSCNotificationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OSCNotificationEvent.ProtoReflect.Descriptor instead.
 func (*OSCNotificationEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{37}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *OSCNotificationEvent) GetPodKey() string {
@@ -3415,7 +3509,7 @@ type OSCTitleEvent struct {
 
 func (x *OSCTitleEvent) Reset() {
 	*x = OSCTitleEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[38]
+	mi := &file_runner_v1_runner_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3427,7 +3521,7 @@ func (x *OSCTitleEvent) String() string {
 func (*OSCTitleEvent) ProtoMessage() {}
 
 func (x *OSCTitleEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[38]
+	mi := &file_runner_v1_runner_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3440,7 +3534,7 @@ func (x *OSCTitleEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OSCTitleEvent.ProtoReflect.Descriptor instead.
 func (*OSCTitleEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{38}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *OSCTitleEvent) GetPodKey() string {
@@ -3469,7 +3563,7 @@ type AutopilotStatusEvent struct {
 
 func (x *AutopilotStatusEvent) Reset() {
 	*x = AutopilotStatusEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[39]
+	mi := &file_runner_v1_runner_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3481,7 +3575,7 @@ func (x *AutopilotStatusEvent) String() string {
 func (*AutopilotStatusEvent) ProtoMessage() {}
 
 func (x *AutopilotStatusEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[39]
+	mi := &file_runner_v1_runner_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3494,7 +3588,7 @@ func (x *AutopilotStatusEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotStatusEvent.ProtoReflect.Descriptor instead.
 func (*AutopilotStatusEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{39}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *AutopilotStatusEvent) GetAutopilotKey() string {
@@ -3540,7 +3634,7 @@ type AutopilotStatus struct {
 
 func (x *AutopilotStatus) Reset() {
 	*x = AutopilotStatus{}
-	mi := &file_runner_v1_runner_proto_msgTypes[40]
+	mi := &file_runner_v1_runner_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3552,7 +3646,7 @@ func (x *AutopilotStatus) String() string {
 func (*AutopilotStatus) ProtoMessage() {}
 
 func (x *AutopilotStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[40]
+	mi := &file_runner_v1_runner_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3565,7 +3659,7 @@ func (x *AutopilotStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotStatus.ProtoReflect.Descriptor instead.
 func (*AutopilotStatus) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{40}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *AutopilotStatus) GetPhase() string {
@@ -3640,7 +3734,7 @@ type AutopilotIterationEvent struct {
 
 func (x *AutopilotIterationEvent) Reset() {
 	*x = AutopilotIterationEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[41]
+	mi := &file_runner_v1_runner_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3652,7 +3746,7 @@ func (x *AutopilotIterationEvent) String() string {
 func (*AutopilotIterationEvent) ProtoMessage() {}
 
 func (x *AutopilotIterationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[41]
+	mi := &file_runner_v1_runner_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3665,7 +3759,7 @@ func (x *AutopilotIterationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotIterationEvent.ProtoReflect.Descriptor instead.
 func (*AutopilotIterationEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{41}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *AutopilotIterationEvent) GetAutopilotKey() string {
@@ -3729,7 +3823,7 @@ type AutopilotControlCommand struct {
 
 func (x *AutopilotControlCommand) Reset() {
 	*x = AutopilotControlCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[42]
+	mi := &file_runner_v1_runner_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3741,7 +3835,7 @@ func (x *AutopilotControlCommand) String() string {
 func (*AutopilotControlCommand) ProtoMessage() {}
 
 func (x *AutopilotControlCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[42]
+	mi := &file_runner_v1_runner_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3754,7 +3848,7 @@ func (x *AutopilotControlCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotControlCommand.ProtoReflect.Descriptor instead.
 func (*AutopilotControlCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{42}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AutopilotControlCommand) GetAutopilotKey() string {
@@ -3876,7 +3970,7 @@ type AutopilotApproveAction struct {
 
 func (x *AutopilotApproveAction) Reset() {
 	*x = AutopilotApproveAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[43]
+	mi := &file_runner_v1_runner_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3888,7 +3982,7 @@ func (x *AutopilotApproveAction) String() string {
 func (*AutopilotApproveAction) ProtoMessage() {}
 
 func (x *AutopilotApproveAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[43]
+	mi := &file_runner_v1_runner_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3901,7 +3995,7 @@ func (x *AutopilotApproveAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotApproveAction.ProtoReflect.Descriptor instead.
 func (*AutopilotApproveAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{43}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AutopilotApproveAction) GetContinueExecution() bool {
@@ -3927,7 +4021,7 @@ type AutopilotTakeoverAction struct {
 
 func (x *AutopilotTakeoverAction) Reset() {
 	*x = AutopilotTakeoverAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[44]
+	mi := &file_runner_v1_runner_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3939,7 +4033,7 @@ func (x *AutopilotTakeoverAction) String() string {
 func (*AutopilotTakeoverAction) ProtoMessage() {}
 
 func (x *AutopilotTakeoverAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[44]
+	mi := &file_runner_v1_runner_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3952,7 +4046,7 @@ func (x *AutopilotTakeoverAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotTakeoverAction.ProtoReflect.Descriptor instead.
 func (*AutopilotTakeoverAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{44}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{45}
 }
 
 // AutopilotHandbackAction 用户交回控制权
@@ -3964,7 +4058,7 @@ type AutopilotHandbackAction struct {
 
 func (x *AutopilotHandbackAction) Reset() {
 	*x = AutopilotHandbackAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[45]
+	mi := &file_runner_v1_runner_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3976,7 +4070,7 @@ func (x *AutopilotHandbackAction) String() string {
 func (*AutopilotHandbackAction) ProtoMessage() {}
 
 func (x *AutopilotHandbackAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[45]
+	mi := &file_runner_v1_runner_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3989,7 +4083,7 @@ func (x *AutopilotHandbackAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotHandbackAction.ProtoReflect.Descriptor instead.
 func (*AutopilotHandbackAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{45}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{46}
 }
 
 // AutopilotPauseAction 暂停 Autopilot
@@ -4001,7 +4095,7 @@ type AutopilotPauseAction struct {
 
 func (x *AutopilotPauseAction) Reset() {
 	*x = AutopilotPauseAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[46]
+	mi := &file_runner_v1_runner_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4013,7 +4107,7 @@ func (x *AutopilotPauseAction) String() string {
 func (*AutopilotPauseAction) ProtoMessage() {}
 
 func (x *AutopilotPauseAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[46]
+	mi := &file_runner_v1_runner_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4026,7 +4120,7 @@ func (x *AutopilotPauseAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotPauseAction.ProtoReflect.Descriptor instead.
 func (*AutopilotPauseAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{46}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{47}
 }
 
 // AutopilotResumeAction 恢复 Autopilot
@@ -4038,7 +4132,7 @@ type AutopilotResumeAction struct {
 
 func (x *AutopilotResumeAction) Reset() {
 	*x = AutopilotResumeAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[47]
+	mi := &file_runner_v1_runner_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4050,7 +4144,7 @@ func (x *AutopilotResumeAction) String() string {
 func (*AutopilotResumeAction) ProtoMessage() {}
 
 func (x *AutopilotResumeAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[47]
+	mi := &file_runner_v1_runner_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4063,7 +4157,7 @@ func (x *AutopilotResumeAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotResumeAction.ProtoReflect.Descriptor instead.
 func (*AutopilotResumeAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{47}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{48}
 }
 
 // AutopilotStopAction 停止 Autopilot
@@ -4075,7 +4169,7 @@ type AutopilotStopAction struct {
 
 func (x *AutopilotStopAction) Reset() {
 	*x = AutopilotStopAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[48]
+	mi := &file_runner_v1_runner_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4087,7 +4181,7 @@ func (x *AutopilotStopAction) String() string {
 func (*AutopilotStopAction) ProtoMessage() {}
 
 func (x *AutopilotStopAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[48]
+	mi := &file_runner_v1_runner_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4100,7 +4194,7 @@ func (x *AutopilotStopAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotStopAction.ProtoReflect.Descriptor instead.
 func (*AutopilotStopAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{48}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{49}
 }
 
 // CreateAutopilotCommand 创建 Autopilot 命令 (Backend -> Runner)
@@ -4119,7 +4213,7 @@ type CreateAutopilotCommand struct {
 
 func (x *CreateAutopilotCommand) Reset() {
 	*x = CreateAutopilotCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[49]
+	mi := &file_runner_v1_runner_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4131,7 +4225,7 @@ func (x *CreateAutopilotCommand) String() string {
 func (*CreateAutopilotCommand) ProtoMessage() {}
 
 func (x *CreateAutopilotCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[49]
+	mi := &file_runner_v1_runner_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4144,7 +4238,7 @@ func (x *CreateAutopilotCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAutopilotCommand.ProtoReflect.Descriptor instead.
 func (*CreateAutopilotCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{49}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *CreateAutopilotCommand) GetAutopilotKey() string {
@@ -4198,7 +4292,7 @@ type AutopilotConfig struct {
 
 func (x *AutopilotConfig) Reset() {
 	*x = AutopilotConfig{}
-	mi := &file_runner_v1_runner_proto_msgTypes[50]
+	mi := &file_runner_v1_runner_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4210,7 +4304,7 @@ func (x *AutopilotConfig) String() string {
 func (*AutopilotConfig) ProtoMessage() {}
 
 func (x *AutopilotConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[50]
+	mi := &file_runner_v1_runner_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4223,7 +4317,7 @@ func (x *AutopilotConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotConfig.ProtoReflect.Descriptor instead.
 func (*AutopilotConfig) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{50}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AutopilotConfig) GetPrompt() string {
@@ -4300,7 +4394,7 @@ type AutopilotCreatedEvent struct {
 
 func (x *AutopilotCreatedEvent) Reset() {
 	*x = AutopilotCreatedEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[51]
+	mi := &file_runner_v1_runner_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4312,7 +4406,7 @@ func (x *AutopilotCreatedEvent) String() string {
 func (*AutopilotCreatedEvent) ProtoMessage() {}
 
 func (x *AutopilotCreatedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[51]
+	mi := &file_runner_v1_runner_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4325,7 +4419,7 @@ func (x *AutopilotCreatedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotCreatedEvent.ProtoReflect.Descriptor instead.
 func (*AutopilotCreatedEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{51}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *AutopilotCreatedEvent) GetAutopilotKey() string {
@@ -4353,7 +4447,7 @@ type AutopilotTerminatedEvent struct {
 
 func (x *AutopilotTerminatedEvent) Reset() {
 	*x = AutopilotTerminatedEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[52]
+	mi := &file_runner_v1_runner_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4365,7 +4459,7 @@ func (x *AutopilotTerminatedEvent) String() string {
 func (*AutopilotTerminatedEvent) ProtoMessage() {}
 
 func (x *AutopilotTerminatedEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[52]
+	mi := &file_runner_v1_runner_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4378,7 +4472,7 @@ func (x *AutopilotTerminatedEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotTerminatedEvent.ProtoReflect.Descriptor instead.
 func (*AutopilotTerminatedEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{52}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AutopilotTerminatedEvent) GetAutopilotKey() string {
@@ -4417,7 +4511,7 @@ type AutopilotThinkingEvent struct {
 
 func (x *AutopilotThinkingEvent) Reset() {
 	*x = AutopilotThinkingEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[53]
+	mi := &file_runner_v1_runner_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4429,7 +4523,7 @@ func (x *AutopilotThinkingEvent) String() string {
 func (*AutopilotThinkingEvent) ProtoMessage() {}
 
 func (x *AutopilotThinkingEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[53]
+	mi := &file_runner_v1_runner_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4442,7 +4536,7 @@ func (x *AutopilotThinkingEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotThinkingEvent.ProtoReflect.Descriptor instead.
 func (*AutopilotThinkingEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{53}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AutopilotThinkingEvent) GetAutopilotKey() string {
@@ -4513,7 +4607,7 @@ type AutopilotAction struct {
 
 func (x *AutopilotAction) Reset() {
 	*x = AutopilotAction{}
-	mi := &file_runner_v1_runner_proto_msgTypes[54]
+	mi := &file_runner_v1_runner_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4525,7 +4619,7 @@ func (x *AutopilotAction) String() string {
 func (*AutopilotAction) ProtoMessage() {}
 
 func (x *AutopilotAction) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[54]
+	mi := &file_runner_v1_runner_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4538,7 +4632,7 @@ func (x *AutopilotAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotAction.ProtoReflect.Descriptor instead.
 func (*AutopilotAction) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{54}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *AutopilotAction) GetType() string {
@@ -4575,7 +4669,7 @@ type AutopilotProgress struct {
 
 func (x *AutopilotProgress) Reset() {
 	*x = AutopilotProgress{}
-	mi := &file_runner_v1_runner_proto_msgTypes[55]
+	mi := &file_runner_v1_runner_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4587,7 +4681,7 @@ func (x *AutopilotProgress) String() string {
 func (*AutopilotProgress) ProtoMessage() {}
 
 func (x *AutopilotProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[55]
+	mi := &file_runner_v1_runner_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4600,7 +4694,7 @@ func (x *AutopilotProgress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotProgress.ProtoReflect.Descriptor instead.
 func (*AutopilotProgress) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{55}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *AutopilotProgress) GetSummary() string {
@@ -4644,7 +4738,7 @@ type AutopilotHelpRequest struct {
 
 func (x *AutopilotHelpRequest) Reset() {
 	*x = AutopilotHelpRequest{}
-	mi := &file_runner_v1_runner_proto_msgTypes[56]
+	mi := &file_runner_v1_runner_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4656,7 +4750,7 @@ func (x *AutopilotHelpRequest) String() string {
 func (*AutopilotHelpRequest) ProtoMessage() {}
 
 func (x *AutopilotHelpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[56]
+	mi := &file_runner_v1_runner_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4669,7 +4763,7 @@ func (x *AutopilotHelpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotHelpRequest.ProtoReflect.Descriptor instead.
 func (*AutopilotHelpRequest) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{56}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *AutopilotHelpRequest) GetReason() string {
@@ -4711,7 +4805,7 @@ type AutopilotHelpSuggestion struct {
 
 func (x *AutopilotHelpSuggestion) Reset() {
 	*x = AutopilotHelpSuggestion{}
-	mi := &file_runner_v1_runner_proto_msgTypes[57]
+	mi := &file_runner_v1_runner_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4723,7 +4817,7 @@ func (x *AutopilotHelpSuggestion) String() string {
 func (*AutopilotHelpSuggestion) ProtoMessage() {}
 
 func (x *AutopilotHelpSuggestion) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[57]
+	mi := &file_runner_v1_runner_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4736,7 +4830,7 @@ func (x *AutopilotHelpSuggestion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutopilotHelpSuggestion.ProtoReflect.Descriptor instead.
 func (*AutopilotHelpSuggestion) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{57}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AutopilotHelpSuggestion) GetAction() string {
@@ -4767,7 +4861,7 @@ type McpRequest struct {
 
 func (x *McpRequest) Reset() {
 	*x = McpRequest{}
-	mi := &file_runner_v1_runner_proto_msgTypes[58]
+	mi := &file_runner_v1_runner_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4779,7 +4873,7 @@ func (x *McpRequest) String() string {
 func (*McpRequest) ProtoMessage() {}
 
 func (x *McpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[58]
+	mi := &file_runner_v1_runner_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4792,7 +4886,7 @@ func (x *McpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpRequest.ProtoReflect.Descriptor instead.
 func (*McpRequest) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{58}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *McpRequest) GetRequestId() string {
@@ -4836,7 +4930,7 @@ type McpResponse struct {
 
 func (x *McpResponse) Reset() {
 	*x = McpResponse{}
-	mi := &file_runner_v1_runner_proto_msgTypes[59]
+	mi := &file_runner_v1_runner_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4848,7 +4942,7 @@ func (x *McpResponse) String() string {
 func (*McpResponse) ProtoMessage() {}
 
 func (x *McpResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[59]
+	mi := &file_runner_v1_runner_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4861,7 +4955,7 @@ func (x *McpResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpResponse.ProtoReflect.Descriptor instead.
 func (*McpResponse) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{59}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *McpResponse) GetRequestId() string {
@@ -4903,7 +4997,7 @@ type McpError struct {
 
 func (x *McpError) Reset() {
 	*x = McpError{}
-	mi := &file_runner_v1_runner_proto_msgTypes[60]
+	mi := &file_runner_v1_runner_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4915,7 +5009,7 @@ func (x *McpError) String() string {
 func (*McpError) ProtoMessage() {}
 
 func (x *McpError) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[60]
+	mi := &file_runner_v1_runner_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4928,7 +5022,7 @@ func (x *McpError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use McpError.ProtoReflect.Descriptor instead.
 func (*McpError) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{60}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *McpError) GetCode() int32 {
@@ -4956,7 +5050,7 @@ type PingCommand struct {
 
 func (x *PingCommand) Reset() {
 	*x = PingCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[61]
+	mi := &file_runner_v1_runner_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4968,7 +5062,7 @@ func (x *PingCommand) String() string {
 func (*PingCommand) ProtoMessage() {}
 
 func (x *PingCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[61]
+	mi := &file_runner_v1_runner_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4981,7 +5075,7 @@ func (x *PingCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingCommand.ProtoReflect.Descriptor instead.
 func (*PingCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{61}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *PingCommand) GetTimestamp() int64 {
@@ -5002,7 +5096,7 @@ type PongEvent struct {
 
 func (x *PongEvent) Reset() {
 	*x = PongEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[62]
+	mi := &file_runner_v1_runner_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5014,7 +5108,7 @@ func (x *PongEvent) String() string {
 func (*PongEvent) ProtoMessage() {}
 
 func (x *PongEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[62]
+	mi := &file_runner_v1_runner_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5027,7 +5121,7 @@ func (x *PongEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PongEvent.ProtoReflect.Descriptor instead.
 func (*PongEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{62}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *PongEvent) GetPingTimestamp() int64 {
@@ -5048,7 +5142,7 @@ type HeartbeatAck struct {
 
 func (x *HeartbeatAck) Reset() {
 	*x = HeartbeatAck{}
-	mi := &file_runner_v1_runner_proto_msgTypes[63]
+	mi := &file_runner_v1_runner_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5060,7 +5154,7 @@ func (x *HeartbeatAck) String() string {
 func (*HeartbeatAck) ProtoMessage() {}
 
 func (x *HeartbeatAck) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[63]
+	mi := &file_runner_v1_runner_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5073,7 +5167,7 @@ func (x *HeartbeatAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatAck.ProtoReflect.Descriptor instead.
 func (*HeartbeatAck) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{63}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *HeartbeatAck) GetHeartbeatTimestamp() int64 {
@@ -5096,7 +5190,7 @@ type UpgradeRunnerCommand struct {
 
 func (x *UpgradeRunnerCommand) Reset() {
 	*x = UpgradeRunnerCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[64]
+	mi := &file_runner_v1_runner_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5108,7 +5202,7 @@ func (x *UpgradeRunnerCommand) String() string {
 func (*UpgradeRunnerCommand) ProtoMessage() {}
 
 func (x *UpgradeRunnerCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[64]
+	mi := &file_runner_v1_runner_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5121,7 +5215,7 @@ func (x *UpgradeRunnerCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpgradeRunnerCommand.ProtoReflect.Descriptor instead.
 func (*UpgradeRunnerCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{64}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *UpgradeRunnerCommand) GetRequestId() string {
@@ -5162,7 +5256,7 @@ type UpgradeStatusEvent struct {
 
 func (x *UpgradeStatusEvent) Reset() {
 	*x = UpgradeStatusEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[65]
+	mi := &file_runner_v1_runner_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5174,7 +5268,7 @@ func (x *UpgradeStatusEvent) String() string {
 func (*UpgradeStatusEvent) ProtoMessage() {}
 
 func (x *UpgradeStatusEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[65]
+	mi := &file_runner_v1_runner_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5187,7 +5281,7 @@ func (x *UpgradeStatusEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpgradeStatusEvent.ProtoReflect.Descriptor instead.
 func (*UpgradeStatusEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{65}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *UpgradeStatusEvent) GetRequestId() string {
@@ -5252,7 +5346,7 @@ type UploadLogsCommand struct {
 
 func (x *UploadLogsCommand) Reset() {
 	*x = UploadLogsCommand{}
-	mi := &file_runner_v1_runner_proto_msgTypes[66]
+	mi := &file_runner_v1_runner_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5264,7 +5358,7 @@ func (x *UploadLogsCommand) String() string {
 func (*UploadLogsCommand) ProtoMessage() {}
 
 func (x *UploadLogsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[66]
+	mi := &file_runner_v1_runner_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5277,7 +5371,7 @@ func (x *UploadLogsCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadLogsCommand.ProtoReflect.Descriptor instead.
 func (*UploadLogsCommand) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{66}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *UploadLogsCommand) GetRequestId() string {
@@ -5317,7 +5411,7 @@ type LogUploadStatusEvent struct {
 
 func (x *LogUploadStatusEvent) Reset() {
 	*x = LogUploadStatusEvent{}
-	mi := &file_runner_v1_runner_proto_msgTypes[67]
+	mi := &file_runner_v1_runner_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5329,7 +5423,7 @@ func (x *LogUploadStatusEvent) String() string {
 func (*LogUploadStatusEvent) ProtoMessage() {}
 
 func (x *LogUploadStatusEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[67]
+	mi := &file_runner_v1_runner_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5342,7 +5436,7 @@ func (x *LogUploadStatusEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogUploadStatusEvent.ProtoReflect.Descriptor instead.
 func (*LogUploadStatusEvent) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{67}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *LogUploadStatusEvent) GetRequestId() string {
@@ -5399,7 +5493,7 @@ type TokenUsageReport struct {
 
 func (x *TokenUsageReport) Reset() {
 	*x = TokenUsageReport{}
-	mi := &file_runner_v1_runner_proto_msgTypes[68]
+	mi := &file_runner_v1_runner_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5411,7 +5505,7 @@ func (x *TokenUsageReport) String() string {
 func (*TokenUsageReport) ProtoMessage() {}
 
 func (x *TokenUsageReport) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[68]
+	mi := &file_runner_v1_runner_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5424,7 +5518,7 @@ func (x *TokenUsageReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenUsageReport.ProtoReflect.Descriptor instead.
 func (*TokenUsageReport) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{68}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *TokenUsageReport) GetPodKey() string {
@@ -5455,7 +5549,7 @@ type TokenModelUsage struct {
 
 func (x *TokenModelUsage) Reset() {
 	*x = TokenModelUsage{}
-	mi := &file_runner_v1_runner_proto_msgTypes[69]
+	mi := &file_runner_v1_runner_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5467,7 +5561,7 @@ func (x *TokenModelUsage) String() string {
 func (*TokenModelUsage) ProtoMessage() {}
 
 func (x *TokenModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_runner_v1_runner_proto_msgTypes[69]
+	mi := &file_runner_v1_runner_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5480,7 +5574,7 @@ func (x *TokenModelUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenModelUsage.ProtoReflect.Descriptor instead.
 func (*TokenModelUsage) Descriptor() ([]byte, []int) {
-	return file_runner_v1_runner_proto_rawDescGZIP(), []int{69}
+	return file_runner_v1_runner_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *TokenModelUsage) GetModel() string {
@@ -5522,7 +5616,7 @@ var File_runner_v1_runner_proto protoreflect.FileDescriptor
 
 const file_runner_v1_runner_proto_rawDesc = "" +
 	"\n" +
-	"\x16runner/v1/runner.proto\x12\trunner.v1\"\xa7\x0e\n" +
+	"\x16runner/v1/runner.proto\x12\trunner.v1\"\xef\x0e\n" +
 	"\rRunnerMessage\x12>\n" +
 	"\n" +
 	"initialize\x18\x01 \x01(\v2\x1c.runner.v1.InitializeRequestH\x00R\n" +
@@ -5556,7 +5650,8 @@ const file_runner_v1_runner_proto_rawDesc = "" +
 	"\x11log_upload_status\x18\x18 \x01(\v2\x1f.runner.v1.LogUploadStatusEventH\x00R\x0flogUploadStatus\x12>\n" +
 	"\vtoken_usage\x18\x19 \x01(\v2\x1b.runner.v1.TokenUsageReportH\x00R\n" +
 	"tokenUsage\x12K\n" +
-	"\x12observe_pod_result\x18\x1a \x01(\v2\x1b.runner.v1.ObservePodResultH\x00R\x10observePodResult\x12\x1c\n" +
+	"\x12observe_pod_result\x18\x1a \x01(\v2\x1b.runner.v1.ObservePodResultH\x00R\x10observePodResult\x12F\n" +
+	"\x0epod_restarting\x18\x1f \x01(\v2\x1d.runner.v1.PodRestartingEventH\x00R\rpodRestarting\x12\x1c\n" +
 	"\ttimestamp\x18\x0f \x01(\x03R\ttimestampB\t\n" +
 	"\apayloadJ\x04\b\x1b\x10\x1cJ\x04\b\x1c\x10\x1dJ\x04\b\x1d\x10\x1eJ\x04\b\x1e\x10\x1f\"v\n" +
 	"\x11InitializeRequest\x12)\n" +
@@ -5604,7 +5699,12 @@ const file_runner_v1_runner_proto_rawDesc = "" +
 	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12\x1b\n" +
 	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12#\n" +
 	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"=\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"\x88\x01\n" +
+	"\x12PodRestartingEvent\x12\x17\n" +
+	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12\x1b\n" +
+	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12#\n" +
+	"\rrestart_count\x18\x03 \x01(\x05R\frestartCount\x12\x17\n" +
+	"\anew_pid\x18\x04 \x01(\x05R\x06newPid\"=\n" +
 	"\x0ePodOutputEvent\x12\x17\n" +
 	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\"C\n" +
@@ -5671,7 +5771,7 @@ const file_runner_v1_runner_proto_rawDesc = "" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acommand\x18\x03 \x01(\tR\acommand\x12!\n" +
-	"\fdefault_args\x18\x04 \x03(\tR\vdefaultArgs\"\xf0\b\n" +
+	"\fdefault_args\x18\x04 \x03(\tR\vdefaultArgs\"\x8e\t\n" +
 	"\x10CreatePodCommand\x12\x17\n" +
 	"\apod_key\x18\x01 \x01(\tR\x06podKey\x12%\n" +
 	"\x0elaunch_command\x18\x02 \x01(\tR\rlaunchCommand\x12\x1f\n" +
@@ -5693,7 +5793,8 @@ const file_runner_v1_runner_proto_rawDesc = "" +
 	"\x10mcp_builtin_json\x18\x11 \x01(\tB\x02\x18\x01R\x0emcpBuiltinJson\x120\n" +
 	"\x12mcp_installed_json\x18\x12 \x01(\tB\x02\x18\x01R\x10mcpInstalledJson\x12\x16\n" +
 	"\x06prompt\x18\x13 \x01(\tR\x06prompt\x12'\n" +
-	"\x0fprompt_position\x18\x14 \x01(\tR\x0epromptPosition\x1a:\n" +
+	"\x0fprompt_position\x18\x14 \x01(\tR\x0epromptPosition\x12\x1c\n" +
+	"\tperpetual\x18\x15 \x01(\bR\tperpetual\x1a:\n" +
 	"\fEnvVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
@@ -5977,7 +6078,7 @@ func file_runner_v1_runner_proto_rawDescGZIP() []byte {
 	return file_runner_v1_runner_proto_rawDescData
 }
 
-var file_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
+var file_runner_v1_runner_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
 var file_runner_v1_runner_proto_goTypes = []any{
 	(*RunnerMessage)(nil),            // 0: runner.v1.RunnerMessage
 	(*InitializeRequest)(nil),        // 1: runner.v1.InitializeRequest
@@ -5989,70 +6090,71 @@ var file_runner_v1_runner_proto_goTypes = []any{
 	(*RelayConnectionInfo)(nil),      // 7: runner.v1.RelayConnectionInfo
 	(*PodCreatedEvent)(nil),          // 8: runner.v1.PodCreatedEvent
 	(*PodTerminatedEvent)(nil),       // 9: runner.v1.PodTerminatedEvent
-	(*PodOutputEvent)(nil),           // 10: runner.v1.PodOutputEvent
-	(*AgentStatusEvent)(nil),         // 11: runner.v1.AgentStatusEvent
-	(*PodResizedEvent)(nil),          // 12: runner.v1.PodResizedEvent
-	(*ErrorEvent)(nil),               // 13: runner.v1.ErrorEvent
-	(*PodInitProgressEvent)(nil),     // 14: runner.v1.PodInitProgressEvent
-	(*ServerMessage)(nil),            // 15: runner.v1.ServerMessage
-	(*InitializeResult)(nil),         // 16: runner.v1.InitializeResult
-	(*ServerInfo)(nil),               // 17: runner.v1.ServerInfo
-	(*AgentInfo)(nil),                // 18: runner.v1.AgentInfo
-	(*CreatePodCommand)(nil),         // 19: runner.v1.CreatePodCommand
-	(*ResourceToDownload)(nil),       // 20: runner.v1.ResourceToDownload
-	(*FileToCreate)(nil),             // 21: runner.v1.FileToCreate
-	(*SandboxConfig)(nil),            // 22: runner.v1.SandboxConfig
-	(*TerminatePodCommand)(nil),      // 23: runner.v1.TerminatePodCommand
-	(*PodInputCommand)(nil),          // 24: runner.v1.PodInputCommand
-	(*PodResizeCommand)(nil),         // 25: runner.v1.PodResizeCommand
-	(*SendPromptCommand)(nil),        // 26: runner.v1.SendPromptCommand
-	(*PodRedrawCommand)(nil),         // 27: runner.v1.PodRedrawCommand
-	(*SubscribePodCommand)(nil),      // 28: runner.v1.SubscribePodCommand
-	(*UnsubscribePodCommand)(nil),    // 29: runner.v1.UnsubscribePodCommand
-	(*RequestRelayTokenEvent)(nil),   // 30: runner.v1.RequestRelayTokenEvent
-	(*QuerySandboxesCommand)(nil),    // 31: runner.v1.QuerySandboxesCommand
-	(*SandboxQuery)(nil),             // 32: runner.v1.SandboxQuery
-	(*SandboxesStatusEvent)(nil),     // 33: runner.v1.SandboxesStatusEvent
-	(*SandboxStatus)(nil),            // 34: runner.v1.SandboxStatus
-	(*ObservePodCommand)(nil),        // 35: runner.v1.ObservePodCommand
-	(*ObservePodResult)(nil),         // 36: runner.v1.ObservePodResult
-	(*OSCNotificationEvent)(nil),     // 37: runner.v1.OSCNotificationEvent
-	(*OSCTitleEvent)(nil),            // 38: runner.v1.OSCTitleEvent
-	(*AutopilotStatusEvent)(nil),     // 39: runner.v1.AutopilotStatusEvent
-	(*AutopilotStatus)(nil),          // 40: runner.v1.AutopilotStatus
-	(*AutopilotIterationEvent)(nil),  // 41: runner.v1.AutopilotIterationEvent
-	(*AutopilotControlCommand)(nil),  // 42: runner.v1.AutopilotControlCommand
-	(*AutopilotApproveAction)(nil),   // 43: runner.v1.AutopilotApproveAction
-	(*AutopilotTakeoverAction)(nil),  // 44: runner.v1.AutopilotTakeoverAction
-	(*AutopilotHandbackAction)(nil),  // 45: runner.v1.AutopilotHandbackAction
-	(*AutopilotPauseAction)(nil),     // 46: runner.v1.AutopilotPauseAction
-	(*AutopilotResumeAction)(nil),    // 47: runner.v1.AutopilotResumeAction
-	(*AutopilotStopAction)(nil),      // 48: runner.v1.AutopilotStopAction
-	(*CreateAutopilotCommand)(nil),   // 49: runner.v1.CreateAutopilotCommand
-	(*AutopilotConfig)(nil),          // 50: runner.v1.AutopilotConfig
-	(*AutopilotCreatedEvent)(nil),    // 51: runner.v1.AutopilotCreatedEvent
-	(*AutopilotTerminatedEvent)(nil), // 52: runner.v1.AutopilotTerminatedEvent
-	(*AutopilotThinkingEvent)(nil),   // 53: runner.v1.AutopilotThinkingEvent
-	(*AutopilotAction)(nil),          // 54: runner.v1.AutopilotAction
-	(*AutopilotProgress)(nil),        // 55: runner.v1.AutopilotProgress
-	(*AutopilotHelpRequest)(nil),     // 56: runner.v1.AutopilotHelpRequest
-	(*AutopilotHelpSuggestion)(nil),  // 57: runner.v1.AutopilotHelpSuggestion
-	(*McpRequest)(nil),               // 58: runner.v1.McpRequest
-	(*McpResponse)(nil),              // 59: runner.v1.McpResponse
-	(*McpError)(nil),                 // 60: runner.v1.McpError
-	(*PingCommand)(nil),              // 61: runner.v1.PingCommand
-	(*PongEvent)(nil),                // 62: runner.v1.PongEvent
-	(*HeartbeatAck)(nil),             // 63: runner.v1.HeartbeatAck
-	(*UpgradeRunnerCommand)(nil),     // 64: runner.v1.UpgradeRunnerCommand
-	(*UpgradeStatusEvent)(nil),       // 65: runner.v1.UpgradeStatusEvent
-	(*UploadLogsCommand)(nil),        // 66: runner.v1.UploadLogsCommand
-	(*LogUploadStatusEvent)(nil),     // 67: runner.v1.LogUploadStatusEvent
-	(*TokenUsageReport)(nil),         // 68: runner.v1.TokenUsageReport
-	(*TokenModelUsage)(nil),          // 69: runner.v1.TokenModelUsage
-	nil,                              // 70: runner.v1.ErrorEvent.DetailsEntry
-	nil,                              // 71: runner.v1.CreatePodCommand.EnvVarsEntry
-	nil,                              // 72: runner.v1.CreatePodCommand.ConfigValuesEntry
-	nil,                              // 73: runner.v1.CreatePodCommand.CredentialsEntry
+	(*PodRestartingEvent)(nil),       // 10: runner.v1.PodRestartingEvent
+	(*PodOutputEvent)(nil),           // 11: runner.v1.PodOutputEvent
+	(*AgentStatusEvent)(nil),         // 12: runner.v1.AgentStatusEvent
+	(*PodResizedEvent)(nil),          // 13: runner.v1.PodResizedEvent
+	(*ErrorEvent)(nil),               // 14: runner.v1.ErrorEvent
+	(*PodInitProgressEvent)(nil),     // 15: runner.v1.PodInitProgressEvent
+	(*ServerMessage)(nil),            // 16: runner.v1.ServerMessage
+	(*InitializeResult)(nil),         // 17: runner.v1.InitializeResult
+	(*ServerInfo)(nil),               // 18: runner.v1.ServerInfo
+	(*AgentInfo)(nil),                // 19: runner.v1.AgentInfo
+	(*CreatePodCommand)(nil),         // 20: runner.v1.CreatePodCommand
+	(*ResourceToDownload)(nil),       // 21: runner.v1.ResourceToDownload
+	(*FileToCreate)(nil),             // 22: runner.v1.FileToCreate
+	(*SandboxConfig)(nil),            // 23: runner.v1.SandboxConfig
+	(*TerminatePodCommand)(nil),      // 24: runner.v1.TerminatePodCommand
+	(*PodInputCommand)(nil),          // 25: runner.v1.PodInputCommand
+	(*PodResizeCommand)(nil),         // 26: runner.v1.PodResizeCommand
+	(*SendPromptCommand)(nil),        // 27: runner.v1.SendPromptCommand
+	(*PodRedrawCommand)(nil),         // 28: runner.v1.PodRedrawCommand
+	(*SubscribePodCommand)(nil),      // 29: runner.v1.SubscribePodCommand
+	(*UnsubscribePodCommand)(nil),    // 30: runner.v1.UnsubscribePodCommand
+	(*RequestRelayTokenEvent)(nil),   // 31: runner.v1.RequestRelayTokenEvent
+	(*QuerySandboxesCommand)(nil),    // 32: runner.v1.QuerySandboxesCommand
+	(*SandboxQuery)(nil),             // 33: runner.v1.SandboxQuery
+	(*SandboxesStatusEvent)(nil),     // 34: runner.v1.SandboxesStatusEvent
+	(*SandboxStatus)(nil),            // 35: runner.v1.SandboxStatus
+	(*ObservePodCommand)(nil),        // 36: runner.v1.ObservePodCommand
+	(*ObservePodResult)(nil),         // 37: runner.v1.ObservePodResult
+	(*OSCNotificationEvent)(nil),     // 38: runner.v1.OSCNotificationEvent
+	(*OSCTitleEvent)(nil),            // 39: runner.v1.OSCTitleEvent
+	(*AutopilotStatusEvent)(nil),     // 40: runner.v1.AutopilotStatusEvent
+	(*AutopilotStatus)(nil),          // 41: runner.v1.AutopilotStatus
+	(*AutopilotIterationEvent)(nil),  // 42: runner.v1.AutopilotIterationEvent
+	(*AutopilotControlCommand)(nil),  // 43: runner.v1.AutopilotControlCommand
+	(*AutopilotApproveAction)(nil),   // 44: runner.v1.AutopilotApproveAction
+	(*AutopilotTakeoverAction)(nil),  // 45: runner.v1.AutopilotTakeoverAction
+	(*AutopilotHandbackAction)(nil),  // 46: runner.v1.AutopilotHandbackAction
+	(*AutopilotPauseAction)(nil),     // 47: runner.v1.AutopilotPauseAction
+	(*AutopilotResumeAction)(nil),    // 48: runner.v1.AutopilotResumeAction
+	(*AutopilotStopAction)(nil),      // 49: runner.v1.AutopilotStopAction
+	(*CreateAutopilotCommand)(nil),   // 50: runner.v1.CreateAutopilotCommand
+	(*AutopilotConfig)(nil),          // 51: runner.v1.AutopilotConfig
+	(*AutopilotCreatedEvent)(nil),    // 52: runner.v1.AutopilotCreatedEvent
+	(*AutopilotTerminatedEvent)(nil), // 53: runner.v1.AutopilotTerminatedEvent
+	(*AutopilotThinkingEvent)(nil),   // 54: runner.v1.AutopilotThinkingEvent
+	(*AutopilotAction)(nil),          // 55: runner.v1.AutopilotAction
+	(*AutopilotProgress)(nil),        // 56: runner.v1.AutopilotProgress
+	(*AutopilotHelpRequest)(nil),     // 57: runner.v1.AutopilotHelpRequest
+	(*AutopilotHelpSuggestion)(nil),  // 58: runner.v1.AutopilotHelpSuggestion
+	(*McpRequest)(nil),               // 59: runner.v1.McpRequest
+	(*McpResponse)(nil),              // 60: runner.v1.McpResponse
+	(*McpError)(nil),                 // 61: runner.v1.McpError
+	(*PingCommand)(nil),              // 62: runner.v1.PingCommand
+	(*PongEvent)(nil),                // 63: runner.v1.PongEvent
+	(*HeartbeatAck)(nil),             // 64: runner.v1.HeartbeatAck
+	(*UpgradeRunnerCommand)(nil),     // 65: runner.v1.UpgradeRunnerCommand
+	(*UpgradeStatusEvent)(nil),       // 66: runner.v1.UpgradeStatusEvent
+	(*UploadLogsCommand)(nil),        // 67: runner.v1.UploadLogsCommand
+	(*LogUploadStatusEvent)(nil),     // 68: runner.v1.LogUploadStatusEvent
+	(*TokenUsageReport)(nil),         // 69: runner.v1.TokenUsageReport
+	(*TokenModelUsage)(nil),          // 70: runner.v1.TokenModelUsage
+	nil,                              // 71: runner.v1.ErrorEvent.DetailsEntry
+	nil,                              // 72: runner.v1.CreatePodCommand.EnvVarsEntry
+	nil,                              // 73: runner.v1.CreatePodCommand.ConfigValuesEntry
+	nil,                              // 74: runner.v1.CreatePodCommand.CredentialsEntry
 }
 var file_runner_v1_runner_proto_depIdxs = []int32{
 	1,  // 0: runner.v1.RunnerMessage.initialize:type_name -> runner.v1.InitializeRequest
@@ -6060,82 +6162,83 @@ var file_runner_v1_runner_proto_depIdxs = []int32{
 	5,  // 2: runner.v1.RunnerMessage.heartbeat:type_name -> runner.v1.HeartbeatData
 	8,  // 3: runner.v1.RunnerMessage.pod_created:type_name -> runner.v1.PodCreatedEvent
 	9,  // 4: runner.v1.RunnerMessage.pod_terminated:type_name -> runner.v1.PodTerminatedEvent
-	10, // 5: runner.v1.RunnerMessage.pod_output:type_name -> runner.v1.PodOutputEvent
-	11, // 6: runner.v1.RunnerMessage.agent_status:type_name -> runner.v1.AgentStatusEvent
-	12, // 7: runner.v1.RunnerMessage.pod_resized:type_name -> runner.v1.PodResizedEvent
-	13, // 8: runner.v1.RunnerMessage.error:type_name -> runner.v1.ErrorEvent
-	14, // 9: runner.v1.RunnerMessage.pod_init_progress:type_name -> runner.v1.PodInitProgressEvent
-	30, // 10: runner.v1.RunnerMessage.request_relay_token:type_name -> runner.v1.RequestRelayTokenEvent
-	33, // 11: runner.v1.RunnerMessage.sandboxes_status:type_name -> runner.v1.SandboxesStatusEvent
-	37, // 12: runner.v1.RunnerMessage.osc_notification:type_name -> runner.v1.OSCNotificationEvent
-	38, // 13: runner.v1.RunnerMessage.osc_title:type_name -> runner.v1.OSCTitleEvent
-	39, // 14: runner.v1.RunnerMessage.autopilot_status:type_name -> runner.v1.AutopilotStatusEvent
-	41, // 15: runner.v1.RunnerMessage.autopilot_iteration:type_name -> runner.v1.AutopilotIterationEvent
-	51, // 16: runner.v1.RunnerMessage.autopilot_created:type_name -> runner.v1.AutopilotCreatedEvent
-	52, // 17: runner.v1.RunnerMessage.autopilot_terminated:type_name -> runner.v1.AutopilotTerminatedEvent
-	53, // 18: runner.v1.RunnerMessage.autopilot_thinking:type_name -> runner.v1.AutopilotThinkingEvent
-	58, // 19: runner.v1.RunnerMessage.mcp_request:type_name -> runner.v1.McpRequest
-	62, // 20: runner.v1.RunnerMessage.pong:type_name -> runner.v1.PongEvent
-	65, // 21: runner.v1.RunnerMessage.upgrade_status:type_name -> runner.v1.UpgradeStatusEvent
-	67, // 22: runner.v1.RunnerMessage.log_upload_status:type_name -> runner.v1.LogUploadStatusEvent
-	68, // 23: runner.v1.RunnerMessage.token_usage:type_name -> runner.v1.TokenUsageReport
-	36, // 24: runner.v1.RunnerMessage.observe_pod_result:type_name -> runner.v1.ObservePodResult
-	2,  // 25: runner.v1.InitializeRequest.runner_info:type_name -> runner.v1.RunnerInfo
-	4,  // 26: runner.v1.InitializedConfirm.agent_versions:type_name -> runner.v1.AgentVersionInfo
-	6,  // 27: runner.v1.HeartbeatData.pods:type_name -> runner.v1.PodInfo
-	7,  // 28: runner.v1.HeartbeatData.relay_connections:type_name -> runner.v1.RelayConnectionInfo
-	4,  // 29: runner.v1.HeartbeatData.agent_versions:type_name -> runner.v1.AgentVersionInfo
-	70, // 30: runner.v1.ErrorEvent.details:type_name -> runner.v1.ErrorEvent.DetailsEntry
-	16, // 31: runner.v1.ServerMessage.initialize_result:type_name -> runner.v1.InitializeResult
-	19, // 32: runner.v1.ServerMessage.create_pod:type_name -> runner.v1.CreatePodCommand
-	23, // 33: runner.v1.ServerMessage.terminate_pod:type_name -> runner.v1.TerminatePodCommand
-	24, // 34: runner.v1.ServerMessage.pod_input:type_name -> runner.v1.PodInputCommand
-	25, // 35: runner.v1.ServerMessage.pod_resize:type_name -> runner.v1.PodResizeCommand
-	26, // 36: runner.v1.ServerMessage.send_prompt:type_name -> runner.v1.SendPromptCommand
-	27, // 37: runner.v1.ServerMessage.pod_redraw:type_name -> runner.v1.PodRedrawCommand
-	28, // 38: runner.v1.ServerMessage.subscribe_pod:type_name -> runner.v1.SubscribePodCommand
-	29, // 39: runner.v1.ServerMessage.unsubscribe_pod:type_name -> runner.v1.UnsubscribePodCommand
-	31, // 40: runner.v1.ServerMessage.query_sandboxes:type_name -> runner.v1.QuerySandboxesCommand
-	49, // 41: runner.v1.ServerMessage.create_autopilot:type_name -> runner.v1.CreateAutopilotCommand
-	42, // 42: runner.v1.ServerMessage.autopilot_control:type_name -> runner.v1.AutopilotControlCommand
-	59, // 43: runner.v1.ServerMessage.mcp_response:type_name -> runner.v1.McpResponse
-	61, // 44: runner.v1.ServerMessage.ping:type_name -> runner.v1.PingCommand
-	63, // 45: runner.v1.ServerMessage.heartbeat_ack:type_name -> runner.v1.HeartbeatAck
-	64, // 46: runner.v1.ServerMessage.upgrade_runner:type_name -> runner.v1.UpgradeRunnerCommand
-	66, // 47: runner.v1.ServerMessage.upload_logs:type_name -> runner.v1.UploadLogsCommand
-	35, // 48: runner.v1.ServerMessage.observe_pod:type_name -> runner.v1.ObservePodCommand
-	17, // 49: runner.v1.InitializeResult.server_info:type_name -> runner.v1.ServerInfo
-	18, // 50: runner.v1.InitializeResult.agents:type_name -> runner.v1.AgentInfo
-	71, // 51: runner.v1.CreatePodCommand.env_vars:type_name -> runner.v1.CreatePodCommand.EnvVarsEntry
-	21, // 52: runner.v1.CreatePodCommand.files_to_create:type_name -> runner.v1.FileToCreate
-	22, // 53: runner.v1.CreatePodCommand.sandbox_config:type_name -> runner.v1.SandboxConfig
-	20, // 54: runner.v1.CreatePodCommand.resources_to_download:type_name -> runner.v1.ResourceToDownload
-	72, // 55: runner.v1.CreatePodCommand.config_values:type_name -> runner.v1.CreatePodCommand.ConfigValuesEntry
-	73, // 56: runner.v1.CreatePodCommand.credentials:type_name -> runner.v1.CreatePodCommand.CredentialsEntry
-	32, // 57: runner.v1.QuerySandboxesCommand.queries:type_name -> runner.v1.SandboxQuery
-	34, // 58: runner.v1.SandboxesStatusEvent.sandboxes:type_name -> runner.v1.SandboxStatus
-	40, // 59: runner.v1.AutopilotStatusEvent.status:type_name -> runner.v1.AutopilotStatus
-	46, // 60: runner.v1.AutopilotControlCommand.pause:type_name -> runner.v1.AutopilotPauseAction
-	47, // 61: runner.v1.AutopilotControlCommand.resume:type_name -> runner.v1.AutopilotResumeAction
-	48, // 62: runner.v1.AutopilotControlCommand.stop:type_name -> runner.v1.AutopilotStopAction
-	43, // 63: runner.v1.AutopilotControlCommand.approve:type_name -> runner.v1.AutopilotApproveAction
-	44, // 64: runner.v1.AutopilotControlCommand.takeover:type_name -> runner.v1.AutopilotTakeoverAction
-	45, // 65: runner.v1.AutopilotControlCommand.handback:type_name -> runner.v1.AutopilotHandbackAction
-	19, // 66: runner.v1.CreateAutopilotCommand.pod_config:type_name -> runner.v1.CreatePodCommand
-	50, // 67: runner.v1.CreateAutopilotCommand.config:type_name -> runner.v1.AutopilotConfig
-	54, // 68: runner.v1.AutopilotThinkingEvent.action:type_name -> runner.v1.AutopilotAction
-	55, // 69: runner.v1.AutopilotThinkingEvent.progress:type_name -> runner.v1.AutopilotProgress
-	56, // 70: runner.v1.AutopilotThinkingEvent.help_request:type_name -> runner.v1.AutopilotHelpRequest
-	57, // 71: runner.v1.AutopilotHelpRequest.suggestions:type_name -> runner.v1.AutopilotHelpSuggestion
-	60, // 72: runner.v1.McpResponse.error:type_name -> runner.v1.McpError
-	69, // 73: runner.v1.TokenUsageReport.models:type_name -> runner.v1.TokenModelUsage
-	0,  // 74: runner.v1.RunnerService.Connect:input_type -> runner.v1.RunnerMessage
-	15, // 75: runner.v1.RunnerService.Connect:output_type -> runner.v1.ServerMessage
-	75, // [75:76] is the sub-list for method output_type
-	74, // [74:75] is the sub-list for method input_type
-	74, // [74:74] is the sub-list for extension type_name
-	74, // [74:74] is the sub-list for extension extendee
-	0,  // [0:74] is the sub-list for field type_name
+	11, // 5: runner.v1.RunnerMessage.pod_output:type_name -> runner.v1.PodOutputEvent
+	12, // 6: runner.v1.RunnerMessage.agent_status:type_name -> runner.v1.AgentStatusEvent
+	13, // 7: runner.v1.RunnerMessage.pod_resized:type_name -> runner.v1.PodResizedEvent
+	14, // 8: runner.v1.RunnerMessage.error:type_name -> runner.v1.ErrorEvent
+	15, // 9: runner.v1.RunnerMessage.pod_init_progress:type_name -> runner.v1.PodInitProgressEvent
+	31, // 10: runner.v1.RunnerMessage.request_relay_token:type_name -> runner.v1.RequestRelayTokenEvent
+	34, // 11: runner.v1.RunnerMessage.sandboxes_status:type_name -> runner.v1.SandboxesStatusEvent
+	38, // 12: runner.v1.RunnerMessage.osc_notification:type_name -> runner.v1.OSCNotificationEvent
+	39, // 13: runner.v1.RunnerMessage.osc_title:type_name -> runner.v1.OSCTitleEvent
+	40, // 14: runner.v1.RunnerMessage.autopilot_status:type_name -> runner.v1.AutopilotStatusEvent
+	42, // 15: runner.v1.RunnerMessage.autopilot_iteration:type_name -> runner.v1.AutopilotIterationEvent
+	52, // 16: runner.v1.RunnerMessage.autopilot_created:type_name -> runner.v1.AutopilotCreatedEvent
+	53, // 17: runner.v1.RunnerMessage.autopilot_terminated:type_name -> runner.v1.AutopilotTerminatedEvent
+	54, // 18: runner.v1.RunnerMessage.autopilot_thinking:type_name -> runner.v1.AutopilotThinkingEvent
+	59, // 19: runner.v1.RunnerMessage.mcp_request:type_name -> runner.v1.McpRequest
+	63, // 20: runner.v1.RunnerMessage.pong:type_name -> runner.v1.PongEvent
+	66, // 21: runner.v1.RunnerMessage.upgrade_status:type_name -> runner.v1.UpgradeStatusEvent
+	68, // 22: runner.v1.RunnerMessage.log_upload_status:type_name -> runner.v1.LogUploadStatusEvent
+	69, // 23: runner.v1.RunnerMessage.token_usage:type_name -> runner.v1.TokenUsageReport
+	37, // 24: runner.v1.RunnerMessage.observe_pod_result:type_name -> runner.v1.ObservePodResult
+	10, // 25: runner.v1.RunnerMessage.pod_restarting:type_name -> runner.v1.PodRestartingEvent
+	2,  // 26: runner.v1.InitializeRequest.runner_info:type_name -> runner.v1.RunnerInfo
+	4,  // 27: runner.v1.InitializedConfirm.agent_versions:type_name -> runner.v1.AgentVersionInfo
+	6,  // 28: runner.v1.HeartbeatData.pods:type_name -> runner.v1.PodInfo
+	7,  // 29: runner.v1.HeartbeatData.relay_connections:type_name -> runner.v1.RelayConnectionInfo
+	4,  // 30: runner.v1.HeartbeatData.agent_versions:type_name -> runner.v1.AgentVersionInfo
+	71, // 31: runner.v1.ErrorEvent.details:type_name -> runner.v1.ErrorEvent.DetailsEntry
+	17, // 32: runner.v1.ServerMessage.initialize_result:type_name -> runner.v1.InitializeResult
+	20, // 33: runner.v1.ServerMessage.create_pod:type_name -> runner.v1.CreatePodCommand
+	24, // 34: runner.v1.ServerMessage.terminate_pod:type_name -> runner.v1.TerminatePodCommand
+	25, // 35: runner.v1.ServerMessage.pod_input:type_name -> runner.v1.PodInputCommand
+	26, // 36: runner.v1.ServerMessage.pod_resize:type_name -> runner.v1.PodResizeCommand
+	27, // 37: runner.v1.ServerMessage.send_prompt:type_name -> runner.v1.SendPromptCommand
+	28, // 38: runner.v1.ServerMessage.pod_redraw:type_name -> runner.v1.PodRedrawCommand
+	29, // 39: runner.v1.ServerMessage.subscribe_pod:type_name -> runner.v1.SubscribePodCommand
+	30, // 40: runner.v1.ServerMessage.unsubscribe_pod:type_name -> runner.v1.UnsubscribePodCommand
+	32, // 41: runner.v1.ServerMessage.query_sandboxes:type_name -> runner.v1.QuerySandboxesCommand
+	50, // 42: runner.v1.ServerMessage.create_autopilot:type_name -> runner.v1.CreateAutopilotCommand
+	43, // 43: runner.v1.ServerMessage.autopilot_control:type_name -> runner.v1.AutopilotControlCommand
+	60, // 44: runner.v1.ServerMessage.mcp_response:type_name -> runner.v1.McpResponse
+	62, // 45: runner.v1.ServerMessage.ping:type_name -> runner.v1.PingCommand
+	64, // 46: runner.v1.ServerMessage.heartbeat_ack:type_name -> runner.v1.HeartbeatAck
+	65, // 47: runner.v1.ServerMessage.upgrade_runner:type_name -> runner.v1.UpgradeRunnerCommand
+	67, // 48: runner.v1.ServerMessage.upload_logs:type_name -> runner.v1.UploadLogsCommand
+	36, // 49: runner.v1.ServerMessage.observe_pod:type_name -> runner.v1.ObservePodCommand
+	18, // 50: runner.v1.InitializeResult.server_info:type_name -> runner.v1.ServerInfo
+	19, // 51: runner.v1.InitializeResult.agents:type_name -> runner.v1.AgentInfo
+	72, // 52: runner.v1.CreatePodCommand.env_vars:type_name -> runner.v1.CreatePodCommand.EnvVarsEntry
+	22, // 53: runner.v1.CreatePodCommand.files_to_create:type_name -> runner.v1.FileToCreate
+	23, // 54: runner.v1.CreatePodCommand.sandbox_config:type_name -> runner.v1.SandboxConfig
+	21, // 55: runner.v1.CreatePodCommand.resources_to_download:type_name -> runner.v1.ResourceToDownload
+	73, // 56: runner.v1.CreatePodCommand.config_values:type_name -> runner.v1.CreatePodCommand.ConfigValuesEntry
+	74, // 57: runner.v1.CreatePodCommand.credentials:type_name -> runner.v1.CreatePodCommand.CredentialsEntry
+	33, // 58: runner.v1.QuerySandboxesCommand.queries:type_name -> runner.v1.SandboxQuery
+	35, // 59: runner.v1.SandboxesStatusEvent.sandboxes:type_name -> runner.v1.SandboxStatus
+	41, // 60: runner.v1.AutopilotStatusEvent.status:type_name -> runner.v1.AutopilotStatus
+	47, // 61: runner.v1.AutopilotControlCommand.pause:type_name -> runner.v1.AutopilotPauseAction
+	48, // 62: runner.v1.AutopilotControlCommand.resume:type_name -> runner.v1.AutopilotResumeAction
+	49, // 63: runner.v1.AutopilotControlCommand.stop:type_name -> runner.v1.AutopilotStopAction
+	44, // 64: runner.v1.AutopilotControlCommand.approve:type_name -> runner.v1.AutopilotApproveAction
+	45, // 65: runner.v1.AutopilotControlCommand.takeover:type_name -> runner.v1.AutopilotTakeoverAction
+	46, // 66: runner.v1.AutopilotControlCommand.handback:type_name -> runner.v1.AutopilotHandbackAction
+	20, // 67: runner.v1.CreateAutopilotCommand.pod_config:type_name -> runner.v1.CreatePodCommand
+	51, // 68: runner.v1.CreateAutopilotCommand.config:type_name -> runner.v1.AutopilotConfig
+	55, // 69: runner.v1.AutopilotThinkingEvent.action:type_name -> runner.v1.AutopilotAction
+	56, // 70: runner.v1.AutopilotThinkingEvent.progress:type_name -> runner.v1.AutopilotProgress
+	57, // 71: runner.v1.AutopilotThinkingEvent.help_request:type_name -> runner.v1.AutopilotHelpRequest
+	58, // 72: runner.v1.AutopilotHelpRequest.suggestions:type_name -> runner.v1.AutopilotHelpSuggestion
+	61, // 73: runner.v1.McpResponse.error:type_name -> runner.v1.McpError
+	70, // 74: runner.v1.TokenUsageReport.models:type_name -> runner.v1.TokenModelUsage
+	0,  // 75: runner.v1.RunnerService.Connect:input_type -> runner.v1.RunnerMessage
+	16, // 76: runner.v1.RunnerService.Connect:output_type -> runner.v1.ServerMessage
+	76, // [76:77] is the sub-list for method output_type
+	75, // [75:76] is the sub-list for method input_type
+	75, // [75:75] is the sub-list for extension type_name
+	75, // [75:75] is the sub-list for extension extendee
+	0,  // [0:75] is the sub-list for field type_name
 }
 
 func init() { file_runner_v1_runner_proto_init() }
@@ -6169,8 +6272,9 @@ func file_runner_v1_runner_proto_init() {
 		(*RunnerMessage_LogUploadStatus)(nil),
 		(*RunnerMessage_TokenUsage)(nil),
 		(*RunnerMessage_ObservePodResult)(nil),
+		(*RunnerMessage_PodRestarting)(nil),
 	}
-	file_runner_v1_runner_proto_msgTypes[15].OneofWrappers = []any{
+	file_runner_v1_runner_proto_msgTypes[16].OneofWrappers = []any{
 		(*ServerMessage_InitializeResult)(nil),
 		(*ServerMessage_CreatePod)(nil),
 		(*ServerMessage_TerminatePod)(nil),
@@ -6190,7 +6294,7 @@ func file_runner_v1_runner_proto_init() {
 		(*ServerMessage_UploadLogs)(nil),
 		(*ServerMessage_ObservePod)(nil),
 	}
-	file_runner_v1_runner_proto_msgTypes[42].OneofWrappers = []any{
+	file_runner_v1_runner_proto_msgTypes[43].OneofWrappers = []any{
 		(*AutopilotControlCommand_Pause)(nil),
 		(*AutopilotControlCommand_Resume)(nil),
 		(*AutopilotControlCommand_Stop)(nil),
@@ -6204,7 +6308,7 @@ func file_runner_v1_runner_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_runner_v1_runner_proto_rawDesc), len(file_runner_v1_runner_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   74,
+			NumMessages:   75,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

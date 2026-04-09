@@ -43,6 +43,7 @@ func (b *PodBuilder) buildACPPod(_ context.Context, sandboxRoot, workingDir, bra
 		LaunchArgs:      resolvedArgs,
 		WorkDir:         workingDir,
 		LaunchEnv:       envSlice,
+		Perpetual:       b.cmd.Perpetual,
 		StartedAt:       time.Now(),
 		Status:          PodStatusInitializing,
 		// ACPClient, IO are set by wireAndStartACPPod()
