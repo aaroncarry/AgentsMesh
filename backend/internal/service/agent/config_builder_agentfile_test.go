@@ -21,13 +21,13 @@ PROMPT_POSITION prepend')`)
 	builder := NewConfigBuilder(provider)
 
 	cmd, err := builder.BuildPodCommand(context.Background(), &ConfigBuildRequest{
-		AgentSlug:           "claude-code",
-		PodKey:              "pod-test-1",
+		AgentSlug:             "claude-code",
+		PodKey:                "pod-test-1",
 		MergedAgentfileSource: "AGENT claude\nMODE acp\nPROMPT_POSITION prepend",
-		Prompt:              "Hello",
-		MCPPort:             19000,
-		Cols:                80,
-		Rows:                24,
+		Prompt:                "Hello",
+		MCPPort:               19000,
+		Cols:                  80,
+		Rows:                  24,
 	})
 
 	require.NoError(t, err)
@@ -43,4 +43,74 @@ PROMPT_POSITION prepend')`)
 	for _, arg := range cmd.LaunchArgs {
 		assert.NotEqual(t, "Hello", arg, "Backend should not inject prompt into LaunchArgs")
 	}
+}
+
+func TestBuildFromAgentfile_SetupWithoutRepository(t *testing.T) {
+	db := setupConfigBuilderTestDB(t)
+
+	db.Exec(`INSERT INTO agents (slug, name, launch_command, is_builtin, is_active, agentfile_source)
+		VALUES ('claude-code', 'Claude Code', 'claude', 1, 1, 'AGENT claude
+EXECUTABLE claude
+MODE acp')`)
+
+	provider := createTestProvider(db)
+	builder := NewConfigBuilder(provider)
+
+	cmd, err := builder.BuildPodCommand(context.Background(), &ConfigBuildRequest{
+		AgentSlug: "claude-code",
+		PodKey:    "pod-setup-only",
+		MergedAgentfileSource: `AGENT claude
+EXECUTABLE claude
+MODE acp
+SETUP timeout=60 <<SCRIPT
+echo "hi"
+SCRIPT`,
+		MCPPort: 19000,
+		Cols:    80,
+		Rows:    24,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+	require.NotNil(t, cmd.SandboxConfig)
+	assert.Equal(t, `echo "hi"`, cmd.SandboxConfig.PreparationScript)
+	assert.Equal(t, int32(60), cmd.SandboxConfig.PreparationTimeout)
+	assert.Empty(t, cmd.SandboxConfig.HttpCloneUrl)
+	assert.Empty(t, cmd.SandboxConfig.SshCloneUrl)
+}
+
+func TestBuildFromAgentfile_SetupOverridesRepositoryFallback(t *testing.T) {
+	db := setupConfigBuilderTestDB(t)
+
+	db.Exec(`INSERT INTO agents (slug, name, launch_command, is_builtin, is_active, agentfile_source)
+		VALUES ('claude-code', 'Claude Code', 'claude', 1, 1, 'AGENT claude
+EXECUTABLE claude
+MODE acp')`)
+
+	provider := createTestProvider(db)
+	builder := NewConfigBuilder(provider)
+
+	cmd, err := builder.BuildPodCommand(context.Background(), &ConfigBuildRequest{
+		AgentSlug:          "claude-code",
+		PodKey:             "pod-setup-override",
+		HttpCloneURL:       "https://github.com/org/repo.git",
+		PreparationScript:  "npm install",
+		PreparationTimeout: 600,
+		MergedAgentfileSource: `AGENT claude
+EXECUTABLE claude
+MODE acp
+SETUP timeout=45 <<SCRIPT
+echo "from agentfile"
+SCRIPT`,
+		MCPPort: 19000,
+		Cols:    80,
+		Rows:    24,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+	require.NotNil(t, cmd.SandboxConfig)
+	assert.Equal(t, `echo "from agentfile"`, cmd.SandboxConfig.PreparationScript)
+	assert.Equal(t, int32(45), cmd.SandboxConfig.PreparationTimeout)
+	assert.Equal(t, "https://github.com/org/repo.git", cmd.SandboxConfig.HttpCloneUrl)
 }

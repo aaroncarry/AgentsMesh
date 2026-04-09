@@ -46,7 +46,7 @@ func TestLocalPathStrategy_WithWorkspace_ReturnsSandboxRoot(t *testing.T) {
 func TestGitWorktreeStrategy_DoesNotSetSandboxRoot(t *testing.T) {
 	// GitWorktreeStrategy should NOT set SandboxRoot (it creates its own workspace)
 	// This verifies only LocalPathStrategy triggers the override path.
-	strategy := NewEmptySandboxStrategy()
+	strategy := NewEmptySandboxStrategy(nil)
 	sandboxRoot := t.TempDir()
 
 	result, err := strategy.Setup(context.Background(), sandboxRoot, &runnerv1.SandboxConfig{})
@@ -54,4 +54,24 @@ func TestGitWorktreeStrategy_DoesNotSetSandboxRoot(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, result.SandboxRoot,
 		"EmptySandboxStrategy should not set SandboxRoot override")
+}
+
+func TestEmptySandboxStrategy_RunsPreparationScript(t *testing.T) {
+	sandboxRoot := t.TempDir()
+	builder := NewPodBuilder(PodBuilderDeps{}).WithCommand(&runnerv1.CreatePodCommand{
+		PodKey: "pod-setup-empty",
+	})
+	strategy := NewEmptySandboxStrategy(builder)
+
+	result, err := strategy.Setup(context.Background(), sandboxRoot, &runnerv1.SandboxConfig{
+		PreparationScript:  "printf 'hi' > setup.txt",
+		PreparationTimeout: 60,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(sandboxRoot, "workspace"), result.WorkingDir)
+
+	content, readErr := os.ReadFile(filepath.Join(result.WorkingDir, "setup.txt"))
+	require.NoError(t, readErr)
+	assert.Equal(t, "hi", string(content))
 }

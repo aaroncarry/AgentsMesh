@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	"github.com/anthropics/agentsmesh/agentfile/eval"
+	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
 
@@ -98,7 +98,7 @@ func buildResultToProto(
 
 // buildSandboxConfig builds sandbox config from request fields.
 func buildSandboxConfig(req *ConfigBuildRequest) *runnerv1.SandboxConfig {
-	if req.HttpCloneURL == "" && req.SshCloneURL == "" && req.LocalPath == "" {
+	if req.HttpCloneURL == "" && req.SshCloneURL == "" && req.LocalPath == "" && req.PreparationScript == "" {
 		return nil
 	}
 
