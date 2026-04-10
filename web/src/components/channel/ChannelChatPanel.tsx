@@ -6,6 +6,7 @@ import { ChannelDocument } from "./ChannelDocument";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface ChannelChatPanelProps {
   channelId: number;
@@ -14,8 +15,10 @@ interface ChannelChatPanelProps {
 
 export function ChannelChatPanel({ channelId, onClose }: ChannelChatPanelProps) {
   const chat = useChannelChat({ channelId });
+  const t = useTranslations();
+  const isMember = chat.currentChannel?.is_member ?? true;
+  const visibility = chat.currentChannel?.visibility ?? "public";
 
-  // Loading skeleton
   if (chat.channelLoading && !chat.currentChannel) {
     return (
       <div className="flex flex-col h-full bg-background">
@@ -36,6 +39,9 @@ export function ChannelChatPanel({ channelId, onClose }: ChannelChatPanelProps) 
         description={chat.currentChannel?.description}
         podCount={chat.podCount}
         channelId={channelId}
+        visibility={visibility}
+        isMember={isMember}
+        memberCount={chat.currentChannel?.member_count}
         onClose={onClose}
         onRefresh={chat.handleRefresh}
         loading={chat.messagesLoading}
@@ -46,24 +52,31 @@ export function ChannelChatPanel({ channelId, onClose }: ChannelChatPanelProps) 
         <ChannelDocument document={chat.currentChannel.document} />
       )}
 
-      <MessageList
-        messages={chat.transformedMessages}
-        loading={chat.messagesLoading}
-        loadingMore={chat.loadingMore}
-        hasMore={chat.hasMore}
-        error={chat.messagesError}
-        onLoadMore={chat.handleLoadMore}
-        onRetry={chat.handleRefresh}
-        currentUserId={chat.currentUserId}
-        onEditMessage={chat.handleEditMessage}
-        onDeleteMessage={chat.handleDeleteMessage}
-      />
-
-      <MessageInput
-        onSend={chat.handleSendMessage}
-        placeholder="Send a message to this channel..."
-        channelId={channelId}
-      />
+      {isMember ? (
+        <>
+          <MessageList
+            messages={chat.transformedMessages}
+            loading={chat.messagesLoading}
+            loadingMore={chat.loadingMore}
+            hasMore={chat.hasMore}
+            error={chat.messagesError}
+            onLoadMore={chat.handleLoadMore}
+            onRetry={chat.handleRefresh}
+            currentUserId={chat.currentUserId}
+            onEditMessage={chat.handleEditMessage}
+            onDeleteMessage={chat.handleDeleteMessage}
+          />
+          <MessageInput
+            onSend={chat.handleSendMessage}
+            placeholder="Send a message to this channel..."
+            channelId={channelId}
+          />
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          {t("channels.actions.joinToParticipate")}
+        </div>
+      )}
     </div>
   );
 }

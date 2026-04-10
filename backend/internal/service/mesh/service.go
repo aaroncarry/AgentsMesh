@@ -42,7 +42,7 @@ func NewService(
 }
 
 // GetTopology returns the complete Mesh topology for an organization
-func (s *Service) GetTopology(ctx context.Context, orgID int64) (*mesh.MeshTopology, error) {
+func (s *Service) GetTopology(ctx context.Context, orgID, userID int64) (*mesh.MeshTopology, error) {
 	// 1. Get active pods
 	pods, _, err := s.podService.ListPods(ctx, orgID, nil, 0, 100, 0)
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*mesh.MeshTopol
 	}
 
 	// 3. Get channels
-	channels, _, err := s.channelService.ListChannels(ctx, orgID, &channel.ChannelListFilter{
+	channels, _, err := s.channelService.ListChannels(ctx, orgID, userID, &channel.ChannelListFilter{
 		IncludeArchived: false,
 		Limit:           50,
 		Offset:          0,

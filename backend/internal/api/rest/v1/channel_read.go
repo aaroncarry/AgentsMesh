@@ -2,7 +2,6 @@ package v1
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
@@ -17,9 +16,8 @@ type ChannelMarkReadRequest struct {
 // MarkRead marks a channel as read up to a specific message
 // POST /api/v1/organizations/:slug/channels/:id/read
 func (h *ChannelHandler) MarkRead(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
@@ -29,20 +27,9 @@ func (h *ChannelHandler) MarkRead(c *gin.Context) {
 		return
 	}
 
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
 	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
-		return
-	}
-
-	if err := h.channelService.MarkRead(c.Request.Context(), channelID, tenant.UserID, req.MessageID); err != nil {
-		apierr.InternalError(c, "Failed to mark channel as read")
+	if err := h.channelService.MarkRead(c.Request.Context(), ch.ID, tenant.UserID, req.MessageID); err != nil {
+		handleChannelServiceError(c, err)
 		return
 	}
 
@@ -66,9 +53,8 @@ func (h *ChannelHandler) GetUnreadCounts(c *gin.Context) {
 // MuteChannel mutes/unmutes a channel for the current user
 // POST /api/v1/organizations/:slug/channels/:id/mute
 func (h *ChannelHandler) MuteChannel(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
@@ -80,20 +66,9 @@ func (h *ChannelHandler) MuteChannel(c *gin.Context) {
 		return
 	}
 
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
 	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
-		return
-	}
-
-	if err := h.channelService.SetMemberMuted(c.Request.Context(), channelID, tenant.UserID, req.Muted); err != nil {
-		apierr.InternalError(c, "Failed to update mute setting")
+	if err := h.channelService.SetMemberMuted(c.Request.Context(), ch.ID, tenant.UserID, req.Muted); err != nil {
+		handleChannelServiceError(c, err)
 		return
 	}
 

@@ -14,6 +14,8 @@ export type EventType =
   | "channel:message"
   | "channel:message_edited"
   | "channel:message_deleted"
+  | "channel:member_added"
+  | "channel:member_removed"
   | "ticket:created"
   | "ticket:updated"
   | "ticket:status_changed"
@@ -95,6 +97,7 @@ export type {
   ChannelMessageData,
   ChannelMessageEditedData,
   ChannelMessageDeletedData,
+  ChannelMemberChangedData,
 } from "./entityEventTypes";
 
 export type {

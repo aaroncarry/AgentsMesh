@@ -36,6 +36,15 @@ func (a *GRPCRunnerAdapter) validateChannelAccess(ctx context.Context, tc *middl
 	if ch.OrganizationID != tc.OrganizationID {
 		return nil, newMcpError(403, "access denied")
 	}
+	if !ch.IsPublic() {
+		ok, err := a.channelService.IsMember(ctx, ch.ID, tc.UserID)
+		if err != nil {
+			return nil, newMcpError(500, "failed to check membership")
+		}
+		if !ok {
+			return nil, newMcpError(403, "access denied")
+		}
+	}
 	return ch, nil
 }
 
@@ -70,7 +79,7 @@ func (a *GRPCRunnerAdapter) mcpSearchChannels(ctx context.Context, tc *middlewar
 		}
 	}
 
-	channels, _, mcpErr := a.channelService.ListChannels(ctx, tc.OrganizationID, &channelDomain.ChannelListFilter{
+	channels, _, mcpErr := a.channelService.ListChannels(ctx, tc.OrganizationID, tc.UserID, &channelDomain.ChannelListFilter{
 		IncludeArchived: includeArchived, RepositoryID: params.RepositoryID,
 		TicketID: ticketID, Limit: limit, Offset: params.Offset,
 	})

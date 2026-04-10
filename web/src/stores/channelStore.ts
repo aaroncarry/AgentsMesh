@@ -63,6 +63,7 @@ export const useChannelStore = create<ChannelState>((set, get) => {
       const response = await channelApi.create({
         name: data.name, description: data.description, document: data.document,
         repository_id: data.repositoryId, ticket_slug: data.ticketSlug,
+        visibility: data.visibility, member_ids: data.memberIds,
       });
       set((state) => ({ channels: [response.channel, ...state.channels] }));
       return response.channel;
@@ -127,4 +128,36 @@ export const useChannelStore = create<ChannelState>((set, get) => {
 
   setCurrentChannel: (channel) => set({ currentChannel: channel }),
   clearError: () => set({ error: null }),
+
+  joinUserChannel: async (channelId) => {
+    try {
+      await channelApi.joinChannel(channelId);
+      patchChannel(channelId, (ch) => ({ ...ch, is_member: true, member_count: ch.member_count + 1 }));
+      // Fetch messages now that user has access
+      useChannelMessageStore.getState().fetchMessages(channelId);
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, "Failed to join channel") });
+      throw error;
+    }
+  },
+
+  leaveUserChannel: async (channelId) => {
+    try {
+      await channelApi.leaveChannel(channelId);
+      patchChannel(channelId, (ch) => ({ ...ch, is_member: false, member_count: Math.max(0, ch.member_count - 1) }));
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, "Failed to leave channel") });
+      throw error;
+    }
+  },
+
+  inviteMembers: async (channelId, userIds) => {
+    try {
+      await channelApi.inviteMembers(channelId, userIds);
+      patchChannel(channelId, (ch) => ({ ...ch, member_count: ch.member_count + userIds.length }));
+    } catch (error: unknown) {
+      set({ error: getErrorMessage(error, "Failed to invite members") });
+      throw error;
+    }
+  },
 }; });

@@ -1,13 +1,7 @@
-/** Channel entity from backend */
-export interface Channel {
-  id: number;
-  organization_id: number;
-  name: string;
-  description?: string;
-  document?: string;
-  is_archived: boolean;
-  created_at: string;
-  updated_at: string;
+import type { ChannelData } from "@/lib/api/channel";
+
+/** Channel entity in store — extends API response with rich associations */
+export interface Channel extends ChannelData {
   repository?: {
     id: number;
     name: string;
@@ -29,19 +23,16 @@ export interface Channel {
 
 /** Channel store state and actions */
 export interface ChannelState {
-  // State
   channels: Channel[];
   currentChannel: Channel | null;
   loading: boolean;
   channelLoading: boolean;
   error: string | null;
 
-  // Channels Tab state
   selectedChannelId: number | null;
   searchQuery: string;
   showArchived: boolean;
 
-  // Actions
   setSelectedChannelId: (id: number | null) => void;
   setSearchQuery: (query: string) => void;
   setShowArchived: (show: boolean) => void;
@@ -53,6 +44,8 @@ export interface ChannelState {
     document?: string;
     repositoryId?: number;
     ticketSlug?: string;
+    visibility?: "public" | "private";
+    memberIds?: number[];
   }) => Promise<Channel>;
   updateChannel: (
     id: number,
@@ -62,6 +55,9 @@ export interface ChannelState {
   unarchiveChannel: (id: number) => Promise<void>;
   joinChannel: (channelId: number, podKey: string) => Promise<void>;
   leaveChannel: (channelId: number, podKey: string) => Promise<void>;
+  joinUserChannel: (channelId: number) => Promise<void>;
+  leaveUserChannel: (channelId: number) => Promise<void>;
+  inviteMembers: (channelId: number, userIds: number[]) => Promise<void>;
   setCurrentChannel: (channel: Channel | null) => void;
   clearError: () => void;
 }

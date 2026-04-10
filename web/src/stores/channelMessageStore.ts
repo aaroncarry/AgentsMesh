@@ -203,4 +203,8 @@ export const useChannelMessageStore = create<ChannelMessageState>((set, get) => 
       return { unreadCounts: counts };
     });
   },
+
+  totalUnreadCount: () => {
+    return Object.values(get().unreadCounts).reduce((sum, c) => sum + c, 0);
+  },
 }));

@@ -4,29 +4,15 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-gonic/gin"
 )
 
 // ListMembers returns members of a channel with pagination
-// GET /api/v1/organizations/:slug/channels/:id/members?limit=50&offset=0
+// GET /api/v1/organizations/:slug/channels/:id/members
 func (h *ChannelHandler) ListMembers(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
-		return
-	}
-
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
@@ -43,7 +29,7 @@ func (h *ChannelHandler) ListMembers(c *gin.Context) {
 		}
 	}
 
-	members, total, err := h.channelService.ListMembers(c.Request.Context(), channelID, limit, offset)
+	members, total, err := h.channelService.ListMembers(c.Request.Context(), ch.ID, limit, offset)
 	if err != nil {
 		apierr.InternalError(c, "Failed to list members")
 		return

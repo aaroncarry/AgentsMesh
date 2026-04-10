@@ -10,9 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
-import { Loader2 } from "lucide-react";
+import { Loader2, Globe, Lock } from "lucide-react";
 import { useChannelStore } from "@/stores/channel";
 import { useTranslations } from "next-intl";
+import { MemberSelector } from "./MemberSelector";
 
 interface CreateChannelDialogProps {
   open: boolean;
@@ -20,10 +21,6 @@ interface CreateChannelDialogProps {
   onCreated: (channelId: number) => void;
 }
 
-/**
- * CreateChannelDialog - Dialog for creating a new channel.
- * Supports name (required) and description (optional).
- */
 export function CreateChannelDialog({
   open,
   onOpenChange,
@@ -34,14 +31,17 @@ export function CreateChannelDialog({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       setName("");
       setDescription("");
+      setVisibility("public");
+      setSelectedMembers([]);
       setError(null);
       setSaving(false);
     }
@@ -53,14 +53,14 @@ export function CreateChannelDialog({
       setError(t("channels.createDialog.nameRequired"));
       return;
     }
-
     setSaving(true);
     setError(null);
-
     try {
       const channel = await createChannel({
         name: trimmedName,
         description: description.trim() || undefined,
+        visibility,
+        memberIds: visibility === "private" ? selectedMembers : undefined,
       });
       onCreated(channel.id);
     } catch (err) {
@@ -68,7 +68,7 @@ export function CreateChannelDialog({
     } finally {
       setSaving(false);
     }
-  }, [name, description, createChannel, onCreated, t]);
+  }, [name, description, visibility, selectedMembers, createChannel, onCreated, t]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,10 +80,7 @@ export function CreateChannelDialog({
             </div>
           )}
 
-          <FormField
-            label={t("channels.createDialog.name")}
-            htmlFor="channel-name"
-          >
+          <FormField label={t("channels.createDialog.name")} htmlFor="channel-name">
             <Input
               id="channel-name"
               value={name}
@@ -107,12 +104,39 @@ export function CreateChannelDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("channels.createDialog.descriptionPlaceholder")}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return;
-                if (e.key === "Enter" && !saving) handleSubmit();
-              }}
             />
           </FormField>
+
+          <FormField label={t("channels.createDialog.visibility")} htmlFor="channel-visibility">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={visibility === "public" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setVisibility("public")}
+                className="flex-1"
+              >
+                <Globe className="w-4 h-4 mr-1.5" />
+                {t("channels.visibility.public")}
+              </Button>
+              <Button
+                type="button"
+                variant={visibility === "private" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setVisibility("private")}
+                className="flex-1"
+              >
+                <Lock className="w-4 h-4 mr-1.5" />
+                {t("channels.visibility.private")}
+              </Button>
+            </div>
+          </FormField>
+
+          {visibility === "private" && (
+            <FormField label={t("channels.members.available")} htmlFor="member-search">
+              <MemberSelector selectedIds={selectedMembers} onChange={setSelectedMembers} />
+            </FormField>
+          )}
         </DialogBody>
 
         <DialogFooter>

@@ -18,7 +18,10 @@ export interface ChannelData {
   ticket_slug?: string;
   created_by_pod?: string;
   created_by_user_id?: number;
+  visibility: "public" | "private";
   is_archived: boolean;
+  is_member: boolean;
+  member_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +80,8 @@ export const channelApi = {
     document?: string;
     repository_id?: number;
     ticket_slug?: string;
+    visibility?: "public" | "private";
+    member_ids?: number[];
   }) =>
     request<{ channel: ChannelData }>(orgPath("/channels"), {
       method: "POST",
@@ -179,4 +184,35 @@ export const channelApi = {
     request<{ status: string }>(`${orgPath("/channels")}/${channelId}/messages/${messageId}`, {
       method: "DELETE",
     }),
+
+  // Join a public channel
+  joinChannel: (id: number) =>
+    request<{ message: string }>(`${orgPath("/channels")}/${id}/join`, {
+      method: "POST",
+    }),
+
+  // Leave a channel
+  leaveChannel: (id: number) =>
+    request<{ message: string }>(`${orgPath("/channels")}/${id}/leave`, {
+      method: "POST",
+    }),
+
+  // Invite members to a channel
+  inviteMembers: (id: number, userIds: number[]) =>
+    request<{ message: string }>(`${orgPath("/channels")}/${id}/members`, {
+      method: "POST",
+      body: { user_ids: userIds },
+    }),
+
+  // Remove a member from a channel
+  removeMember: (id: number, userId: number) =>
+    request<{ message: string }>(`${orgPath("/channels")}/${id}/members/${userId}`, {
+      method: "DELETE",
+    }),
+
+  // List members of a channel
+  listMembers: (id: number) =>
+    request<{ members: Array<{ channel_id: number; user_id: number; role: string; is_muted: boolean; joined_at: string }>; total: number }>(
+      `${orgPath("/channels")}/${id}/members`
+    ),
 };

@@ -41,6 +41,7 @@ export interface ChannelMessageState {
   muteChannel: (channelId: number, muted: boolean) => Promise<void>;
   incrementUnread: (channelId: number) => void;
   clearChannelUnread: (channelId: number) => void;
+  totalUnreadCount: () => number;
 }
 
 /** Get or create a channel cache entry */

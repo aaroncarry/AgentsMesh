@@ -20,7 +20,24 @@
       "description": "Descripción",
       "descriptionPlaceholder": "¿De qué trata este canal?",
       "descriptionHint": "Opcional",
+      "visibility": "Visibilidad",
       "failed": "Error al crear el canal"
+    },
+    "visibility": {
+      "public": "Público",
+      "private": "Privado"
+    },
+    "actions": {
+      "join": "Unirse",
+      "leave": "Salir",
+      "joinToParticipate": "Únete a este canal para ver mensajes y participar"
+    },
+    "members": {
+      "title": "Miembros del canal",
+      "current": "Miembros",
+      "available": "Añadir miembros",
+      "searchPlaceholder": "Buscar miembros...",
+      "empty": "Sin miembros"
     },
     "messages": {
       "today": "Hoy",

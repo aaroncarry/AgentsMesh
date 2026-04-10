@@ -20,7 +20,24 @@
       "description": "Description",
       "descriptionPlaceholder": "What is this channel about?",
       "descriptionHint": "Optional",
+      "visibility": "Visibility",
       "failed": "Failed to create channel"
+    },
+    "visibility": {
+      "public": "Public",
+      "private": "Private"
+    },
+    "actions": {
+      "join": "Join",
+      "leave": "Leave",
+      "joinToParticipate": "Join this channel to view messages and participate"
+    },
+    "members": {
+      "title": "Channel Members",
+      "current": "Members",
+      "available": "Add Members",
+      "searchPlaceholder": "Search members...",
+      "empty": "No members"
     },
     "messages": {
       "today": "Today",

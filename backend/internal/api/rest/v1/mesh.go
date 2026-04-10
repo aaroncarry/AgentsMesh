@@ -34,7 +34,7 @@ func (h *MeshHandler) GetTopology(c *gin.Context) {
 
 	slog.Debug("GetTopology called", "org_id", tenant.OrganizationID)
 
-	topology, err := h.meshService.GetTopology(c.Request.Context(), tenant.OrganizationID)
+	topology, err := h.meshService.GetTopology(c.Request.Context(), tenant.OrganizationID, tenant.UserID)
 	if err != nil {
 		slog.Error("Failed to get topology", "error", err, "org_id", tenant.OrganizationID)
 		apierr.InternalError(c, "Failed to get topology: "+err.Error())

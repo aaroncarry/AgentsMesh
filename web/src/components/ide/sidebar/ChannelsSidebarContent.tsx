@@ -50,10 +50,12 @@ export function ChannelsSidebarContent({ className }: ChannelsSidebarContentProp
     }
   }, [currentOrg, fetchChannels, fetchUnreadCounts]);
 
-  // Filter channels by search query and archived status
+  // Filter channels: show member channels by default, all visible when searching
   const filteredChannels = useMemo(() => {
     return channels.filter((channel) => {
       if (!showArchived && channel.is_archived) return false;
+      // When not searching, only show channels the user is a member of
+      if (!searchQuery && !channel.is_member) return false;
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesName = channel.name.toLowerCase().includes(query);

@@ -101,3 +101,12 @@ export interface ChannelMessageDeletedData {
   id: number;
   channel_id: number;
 }
+
+/**
+ * Channel member changed event payload
+ */
+export interface ChannelMemberChangedData {
+  channel_id: number;
+  user_id: number;
+  role?: string;
+}

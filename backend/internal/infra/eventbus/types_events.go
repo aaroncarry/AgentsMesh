@@ -210,3 +210,10 @@ type PipelineEventData struct {
 	PodID          *int64 `json:"pod_id,omitempty"`
 	RepositoryID   int64  `json:"repository_id"`
 }
+
+// ChannelMemberChangedData represents the payload for channel member add/remove events
+type ChannelMemberChangedData struct {
+	ChannelID int64  `json:"channel_id"`
+	UserID    int64  `json:"user_id"`
+	Role      string `json:"role,omitempty"`
+}

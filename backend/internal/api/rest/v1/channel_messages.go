@@ -15,21 +15,8 @@ import (
 // ListMessages lists channel messages
 // GET /api/v1/organizations/:slug/channels/:id/messages
 func (h *ChannelHandler) ListMessages(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
-		return
-	}
-
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
@@ -40,7 +27,6 @@ func (h *ChannelHandler) ListMessages(c *gin.Context) {
 		}
 	}
 
-	// Cursor-based pagination: before_id takes precedence over time-based before
 	var messages []*channelDomain.Message
 	var hasMore bool
 	if beforeIDStr := c.Query("before_id"); beforeIDStr != "" {
@@ -49,14 +35,14 @@ func (h *ChannelHandler) ListMessages(c *gin.Context) {
 			apierr.InvalidInput(c, "Invalid before_id")
 			return
 		}
-		messages, hasMore, err = h.channelService.GetMessagesByCursor(c.Request.Context(), channelID, beforeID, limit)
+		messages, hasMore, err = h.channelService.GetMessagesByCursor(c.Request.Context(), ch.ID, beforeID, limit)
 		if err != nil {
 			apierr.InternalError(c, "Failed to list messages")
 			return
 		}
 	} else {
 		var fetchErr error
-		messages, hasMore, fetchErr = h.channelService.GetMessages(c.Request.Context(), channelID, nil, nil, limit)
+		messages, hasMore, fetchErr = h.channelService.GetMessages(c.Request.Context(), ch.ID, nil, nil, limit)
 		if fetchErr != nil {
 			apierr.InternalError(c, "Failed to list messages")
 			return
@@ -76,9 +62,8 @@ type SendMessageRequest struct {
 // SendMessage sends a message to a channel
 // POST /api/v1/organizations/:slug/channels/:id/messages
 func (h *ChannelHandler) SendMessage(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
@@ -88,31 +73,23 @@ func (h *ChannelHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
-		return
-	}
-
 	if ch.IsArchived {
 		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot send messages to archived channel")
 		return
 	}
 
-	// Determine sender pod key from request body (for user-initiated messages)
+	tenant := middleware.GetTenant(c)
 	var podKey *string
 	if req.PodKey != "" {
 		podKey = &req.PodKey
 	}
 
-	msg, err := h.channelService.SendMessage(c.Request.Context(), channelID, podKey, &tenant.UserID, "text", req.Content, nil, req.Mentions)
+	msg, err := h.channelService.SendMessage(c.Request.Context(), ch.ID, podKey, &tenant.UserID, "text", req.Content, nil, req.Mentions)
 	if err != nil {
+		if errors.Is(err, channelService.ErrNotMember) {
+			apierr.ForbiddenAccess(c)
+			return
+		}
 		apierr.InternalError(c, "Failed to send message")
 		return
 	}
@@ -128,11 +105,11 @@ type EditMessageRequest struct {
 // EditMessage edits a channel message
 // PUT /api/v1/organizations/:slug/channels/:id/messages/:msg_id
 func (h *ChannelHandler) EditMessage(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
+
 	msgID, err := strconv.ParseInt(c.Param("msg_id"), 10, 64)
 	if err != nil {
 		apierr.InvalidInput(c, "Invalid message ID")
@@ -146,7 +123,7 @@ func (h *ChannelHandler) EditMessage(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	msg, err := h.channelService.EditMessage(c.Request.Context(), channelID, msgID, tenant.UserID, req.Content)
+	msg, err := h.channelService.EditMessage(c.Request.Context(), ch.ID, msgID, tenant.UserID, req.Content)
 	if err != nil {
 		switch {
 		case errors.Is(err, channelService.ErrMessageNotFound):
@@ -167,11 +144,11 @@ func (h *ChannelHandler) EditMessage(c *gin.Context) {
 // DeleteMessage soft-deletes a channel message
 // DELETE /api/v1/organizations/:slug/channels/:id/messages/:msg_id
 func (h *ChannelHandler) DeleteMessage(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
+
 	msgID, err := strconv.ParseInt(c.Param("msg_id"), 10, 64)
 	if err != nil {
 		apierr.InvalidInput(c, "Invalid message ID")
@@ -179,7 +156,7 @@ func (h *ChannelHandler) DeleteMessage(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	err = h.channelService.DeleteMessage(c.Request.Context(), channelID, msgID, tenant.UserID)
+	err = h.channelService.DeleteMessage(c.Request.Context(), ch.ID, msgID, tenant.UserID)
 	if err != nil {
 		switch {
 		case errors.Is(err, channelService.ErrMessageNotFound):

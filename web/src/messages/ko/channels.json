@@ -20,7 +20,24 @@
       "description": "설명",
       "descriptionPlaceholder": "이 채널의 목적은?",
       "descriptionHint": "선택 사항",
+      "visibility": "공개 설정",
       "failed": "채널 생성에 실패했습니다"
+    },
+    "visibility": {
+      "public": "공개",
+      "private": "비공개"
+    },
+    "actions": {
+      "join": "참여",
+      "leave": "나가기",
+      "joinToParticipate": "이 채널에 참여하여 메시지를 보고 참여하세요"
+    },
+    "members": {
+      "title": "채널 멤버",
+      "current": "멤버",
+      "available": "멤버 추가",
+      "searchPlaceholder": "멤버 검색...",
+      "empty": "멤버 없음"
     },
     "messages": {
       "today": "오늘",

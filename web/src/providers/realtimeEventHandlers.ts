@@ -1,12 +1,15 @@
 import { usePodStore } from "@/stores/pod";
 import { useRunnerStore } from "@/stores/runner";
 import { useTicketStore } from "@/stores/ticket";
+import { useChannelStore } from "@/stores/channel";
 import { useChannelMessageStore } from "@/stores/channel";
+import { useAuthStore } from "@/stores/auth";
 import { useAutopilotStore } from "@/stores/autopilot";
 import { useLoopStore } from "@/stores/loop";
 import type {
   RealtimeEvent, RunnerStatusData, TicketStatusChangedData,
   ChannelMessageData, ChannelMessageEditedData, ChannelMessageDeletedData,
+  ChannelMemberChangedData,
   AutopilotStatusChangedData, AutopilotIterationData,
   AutopilotTerminatedData, AutopilotThinkingData, MREventData, PipelineEventData,
   LoopRunEventData, LoopRunWarningData,
@@ -28,7 +31,14 @@ export function handleChannelEvent(event: RealtimeEvent) {
           sender_user: { id: data.sender_user_id, username: data.sender_name, name: data.sender_name },
         } : {}),
       });
-      msgState.incrementUnread(data.channel_id);
+      // Only increment unread if: not sent by current user AND not currently viewing this channel
+      const currentUserId = useAuthStore.getState().user?.id;
+      const viewingChannelId = useChannelStore.getState().selectedChannelId;
+      const isSelf = currentUserId != null && data.sender_user_id === currentUserId;
+      const isViewing = viewingChannelId === data.channel_id;
+      if (!isSelf && !isViewing) {
+        msgState.incrementUnread(data.channel_id);
+      }
       break;
     }
     case "channel:message_edited": {
@@ -39,6 +49,16 @@ export function handleChannelEvent(event: RealtimeEvent) {
     case "channel:message_deleted": {
       const data = event.data as ChannelMessageDeletedData;
       msgState.removeMessage(data.channel_id, data.id);
+      break;
+    }
+    case "channel:member_added":
+    case "channel:member_removed": {
+      const data = event.data as ChannelMemberChangedData;
+      const chState = useChannelStore.getState();
+      chState.fetchChannels?.();
+      if (chState.currentChannel?.id === data.channel_id) {
+        chState.fetchChannel?.(data.channel_id);
+      }
       break;
     }
   }

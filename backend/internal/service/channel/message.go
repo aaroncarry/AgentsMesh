@@ -49,6 +49,18 @@ func (s *Service) SendMessage(ctx context.Context, channelID int64, senderPod *s
 		mentionResult = &MentionResult{UserIDs: userIDs, PodKeys: podKeys}
 	}
 
+	// Membership enforcement BEFORE persistence: private channels require
+	// prior membership; public channels auto-join the sender.
+	if senderUserID != nil {
+		if ch.IsPublic() {
+			_ = s.repo.AddMemberWithRole(ctx, channelID, *senderUserID, channel.RoleMember)
+		} else {
+			if err := s.requireMembership(ctx, channelID, *senderUserID); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	msg := &channel.Message{
 		ChannelID:    channelID,
 		SenderPod:    senderPod,
@@ -60,11 +72,6 @@ func (s *Service) SendMessage(ctx context.Context, channelID int64, senderPod *s
 
 	if err := s.repo.CreateMessage(ctx, msg); err != nil {
 		return nil, err
-	}
-
-	// Auto-join human sender as channel member (idempotent)
-	if senderUserID != nil {
-		_ = s.repo.UpsertMember(ctx, channelID, *senderUserID)
 	}
 
 	// Update channel updated_at
