@@ -45,7 +45,14 @@ type StorageConfig struct {
 // EmailConfig holds email service configuration
 // Note: BaseURL is derived from Config.PrimaryDomain
 type EmailConfig struct {
-	Provider    string // "resend" or "console"
+	Provider    string // "resend", "smtp", or "console"
 	ResendKey   string
 	FromAddress string
+
+	// SMTP configuration (used when Provider == "smtp")
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
 }

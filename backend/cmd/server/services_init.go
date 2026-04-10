@@ -21,9 +21,6 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/channel"
 	extensionservice "github.com/anthropics/agentsmesh/backend/internal/service/extension"
 	fileservice "github.com/anthropics/agentsmesh/backend/internal/service/file"
-	ssoservice "github.com/anthropics/agentsmesh/backend/internal/service/sso"
-	supportticketservice "github.com/anthropics/agentsmesh/backend/internal/service/supportticket"
-	tokenusagesvc "github.com/anthropics/agentsmesh/backend/internal/service/tokenusage"
 	"github.com/anthropics/agentsmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentsmesh/backend/internal/service/license"
 	loop "github.com/anthropics/agentsmesh/backend/internal/service/loop"
@@ -33,7 +30,10 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/promocode"
 	"github.com/anthropics/agentsmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
+	ssoservice "github.com/anthropics/agentsmesh/backend/internal/service/sso"
+	supportticketservice "github.com/anthropics/agentsmesh/backend/internal/service/supportticket"
 	"github.com/anthropics/agentsmesh/backend/internal/service/ticket"
+	tokenusagesvc "github.com/anthropics/agentsmesh/backend/internal/service/tokenusage"
 	"github.com/anthropics/agentsmesh/backend/internal/service/user"
 	"github.com/anthropics/agentsmesh/backend/pkg/crypto"
 	"github.com/redis/go-redis/v9"
@@ -42,42 +42,42 @@ import (
 
 // serviceContainer holds all initialized services
 type serviceContainer struct {
-	auth              *auth.Service
-	user              *user.Service
-	org               *organization.Service
+	auth *auth.Service
+	user *user.Service
+	org  *organization.Service
 	// Agent services (split by responsibility per SRP)
-	agentType         *agent.AgentTypeService
-	credentialProfile *agent.CredentialProfileService
-	userConfig        *agent.UserConfigService
-	repository        *repository.Service
-	webhook           *repository.WebhookService
-	runner            *runner.Service
-	pod               *agentpod.PodService
-	autopilot         *agentpod.AutopilotControllerService
-	channel           *channel.Service
-	ticket            *ticket.Service
-	mrSync            *ticket.MRSyncService
-	billing           *billing.Service
-	binding           *binding.Service
-	mesh              *mesh.Service
-	invitation        *invitation.Service
-	file              *fileservice.Service
-	promoCode         *promocode.Service
+	agentType          *agent.AgentTypeService
+	credentialProfile  *agent.CredentialProfileService
+	userConfig         *agent.UserConfigService
+	repository         *repository.Service
+	webhook            *repository.WebhookService
+	runner             *runner.Service
+	pod                *agentpod.PodService
+	autopilot          *agentpod.AutopilotControllerService
+	channel            *channel.Service
+	ticket             *ticket.Service
+	mrSync             *ticket.MRSyncService
+	billing            *billing.Service
+	binding            *binding.Service
+	mesh               *mesh.Service
+	invitation         *invitation.Service
+	file               *fileservice.Service
+	promoCode          *promocode.Service
 	agentpodSettings   *agentpod.SettingsService
 	agentpodAIProvider *agentpod.AIProviderService
-	license           *license.Service
-	apikey            *apikeyservice.Service
-	apikeyAdapter     *apikeyservice.MiddlewareAdapter
-	email             email.Service
-	extension         *extensionservice.Service
-	extensionRepo     extension.Repository
-	skillImporter     *extensionservice.SkillImporter
-	marketplaceWorker *extensionservice.MarketplaceWorker
-	loop              *loop.LoopService
-	loopRun           *loop.LoopRunService
-	sso               *ssoservice.Service
-	supportTicket     *supportticketservice.Service
-	tokenUsage        *tokenusagesvc.Service
+	license            *license.Service
+	apikey             *apikeyservice.Service
+	apikeyAdapter      *apikeyservice.MiddlewareAdapter
+	email              email.Service
+	extension          *extensionservice.Service
+	extensionRepo      extension.Repository
+	skillImporter      *extensionservice.SkillImporter
+	marketplaceWorker  *extensionservice.MarketplaceWorker
+	loop               *loop.LoopService
+	loopRun            *loop.LoopRunService
+	sso                *ssoservice.Service
+	supportTicket      *supportticketservice.Service
+	tokenUsage         *tokenusagesvc.Service
 
 	// Notification services
 	notifDispatcher *notifService.Dispatcher
@@ -151,10 +151,15 @@ func initializeServices(cfg *config.Config, db *gorm.DB, redisClient *redis.Clie
 
 	// Initialize email service for invitations
 	emailSvc := email.NewService(email.Config{
-		Provider:    cfg.Email.Provider,
-		ResendKey:   cfg.Email.ResendKey,
-		FromAddress: cfg.Email.FromAddress,
-		BaseURL:     cfg.FrontendURL(),
+		Provider:     cfg.Email.Provider,
+		ResendKey:    cfg.Email.ResendKey,
+		FromAddress:  cfg.Email.FromAddress,
+		BaseURL:      cfg.FrontendURL(),
+		SMTPHost:     cfg.Email.SMTPHost,
+		SMTPPort:     cfg.Email.SMTPPort,
+		SMTPUsername: cfg.Email.SMTPUsername,
+		SMTPPassword: cfg.Email.SMTPPassword,
+		SMTPFrom:     cfg.Email.SMTPFrom,
 	})
 	invitationRepo := infra.NewInvitationRepository(db)
 	invitationSvc := invitation.NewService(invitationRepo, emailSvc)
