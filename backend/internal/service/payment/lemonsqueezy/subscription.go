@@ -3,6 +3,7 @@ package lemonsqueezy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	lemonsqueezy "github.com/NdoleStudio/lemonsqueezy-go"
@@ -16,6 +17,7 @@ func (p *Provider) CancelSubscription(ctx context.Context, subscriptionID string
 		// Cancel immediately
 		_, _, err := p.client.Subscriptions.Cancel(ctx, subscriptionID)
 		if err != nil {
+			slog.Error("failed to cancel lemonsqueezy subscription immediately", "subscription_id", subscriptionID, "error", err)
 			return fmt.Errorf("failed to cancel subscription: %w", err)
 		}
 	} else {
@@ -27,9 +29,11 @@ func (p *Provider) CancelSubscription(ctx context.Context, subscriptionID string
 			},
 		})
 		if err != nil {
+			slog.Error("failed to set lemonsqueezy cancel at period end", "subscription_id", subscriptionID, "error", err)
 			return fmt.Errorf("failed to set cancel at period end: %w", err)
 		}
 	}
+	slog.Info("lemonsqueezy subscription canceled", "subscription_id", subscriptionID, "immediate", immediate)
 	return nil
 }
 
@@ -38,10 +42,6 @@ func (p *Provider) GetCustomerPortalURL(ctx context.Context, req *types.Customer
 	// LemonSqueezy uses customer portal URLs from subscription data
 	// The SubscriptionID is required to get the portal URL
 	subscriptionID := req.SubscriptionID
-	if subscriptionID == "" {
-		// Fallback: some callers may pass subscription ID as CustomerID for backwards compatibility
-		subscriptionID = req.CustomerID
-	}
 	if subscriptionID == "" {
 		return nil, fmt.Errorf("subscription_id is required for LemonSqueezy customer portal")
 	}
@@ -69,6 +69,7 @@ func (p *Provider) UpdateSubscriptionSeats(ctx context.Context, subscriptionID s
 	// Get subscription to find the first subscription item
 	sub, _, err := p.client.Subscriptions.Get(ctx, subscriptionID)
 	if err != nil {
+		slog.Error("failed to get lemonsqueezy subscription for seat update", "subscription_id", subscriptionID, "error", err)
 		return fmt.Errorf("failed to get subscription: %w", err)
 	}
 
@@ -87,9 +88,11 @@ func (p *Provider) UpdateSubscriptionSeats(ctx context.Context, subscriptionID s
 		},
 	})
 	if err != nil {
+		slog.Error("failed to update lemonsqueezy subscription seats", "subscription_id", subscriptionID, "seats", seats, "error", err)
 		return fmt.Errorf("failed to update subscription seats: %w", err)
 	}
 
+	slog.Info("lemonsqueezy subscription seats updated", "subscription_id", subscriptionID, "seats", seats)
 	return nil
 }
 
@@ -107,9 +110,11 @@ func (p *Provider) UpdateSubscriptionPlan(ctx context.Context, subscriptionID st
 		},
 	})
 	if err != nil {
+		slog.Error("failed to update lemonsqueezy subscription plan", "subscription_id", subscriptionID, "variant_id", newVariantID, "error", err)
 		return fmt.Errorf("failed to update subscription plan: %w", err)
 	}
 
+	slog.Info("lemonsqueezy subscription plan updated", "subscription_id", subscriptionID, "variant_id", newVariantID)
 	return nil
 }
 

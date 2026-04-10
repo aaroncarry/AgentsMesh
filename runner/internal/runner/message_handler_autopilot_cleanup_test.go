@@ -8,7 +8,6 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/autopilot"
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/config"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
 // --- Test mocks for autopilot interfaces ---
@@ -22,7 +21,8 @@ func (s *stubPodController) SendInput(string) error                    { return 
 func (s *stubPodController) GetWorkDir() string                        { return s.workDir }
 func (s *stubPodController) GetPodKey() string                         { return s.podKey }
 func (s *stubPodController) GetAgentStatus() string                    { return "idle" }
-func (s *stubPodController) GetStateDetector() detector.StateDetector  { return nil }
+func (s *stubPodController) SubscribeStateChange(string, func(string)) {}
+func (s *stubPodController) UnsubscribeStateChange(string)             {}
 
 type stubEventReporter struct{}
 
@@ -69,9 +69,8 @@ func TestOnTerminatePodCleansUpAutopilot(t *testing.T) {
 
 	// Add pod to store
 	store.Put("pod-with-autopilot", &Pod{
-		ID:       "pod-with-autopilot",
-		PodKey:   "pod-with-autopilot",
-		Terminal: nil,
+		ID:     "pod-with-autopilot",
+		PodKey: "pod-with-autopilot",
 	})
 
 	// Terminate the pod
@@ -109,9 +108,8 @@ func TestExitHandlerCleansUpAutopilot(t *testing.T) {
 
 	// Add pod to store
 	store.Put("pod-exit-autopilot", &Pod{
-		ID:       "pod-exit-autopilot",
-		PodKey:   "pod-exit-autopilot",
-		Terminal: nil,
+		ID:     "pod-exit-autopilot",
+		PodKey: "pod-exit-autopilot",
 	})
 
 	// Create exit handler and invoke it
@@ -142,9 +140,8 @@ func TestOnTerminatePodWithoutAutopilot(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	store.Put("plain-pod", &Pod{
-		ID:       "plain-pod",
-		PodKey:   "plain-pod",
-		Terminal: nil,
+		ID:     "plain-pod",
+		PodKey: "plain-pod",
 	})
 
 	err := handler.OnTerminatePod(client.TerminatePodRequest{
@@ -177,9 +174,8 @@ func TestConcurrentTerminateWithAutopilot(t *testing.T) {
 		apKey := "ap-" + podKey
 
 		store.Put(podKey, &Pod{
-			ID:       podKey,
-			PodKey:   podKey,
-			Terminal: nil,
+			ID:     podKey,
+			PodKey: podKey,
 		})
 
 		ac := newTestAutopilotController(t, apKey, podKey)

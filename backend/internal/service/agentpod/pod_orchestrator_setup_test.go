@@ -67,6 +67,10 @@ func (m *mockRepoService) GetByID(_ context.Context, _ int64) (*gitprovider.Repo
 	return m.repo, m.err
 }
 
+func (m *mockRepoService) FindByOrgSlug(_ context.Context, _ int64, _ string) (*gitprovider.Repository, error) {
+	return m.repo, m.err
+}
+
 // mockTicketServiceForOrch implements TicketServiceForOrchestrator.
 type mockTicketServiceForOrch struct {
 	ticket *ticket.Ticket
@@ -83,26 +87,26 @@ func (m *mockTicketServiceForOrch) GetTicketBySlug(_ context.Context, _ int64, _
 
 // mockAgentConfigProvider implements agent.AgentConfigProvider for ConfigBuilder.
 type mockAgentConfigProvider struct {
-	agentType *agentDomain.AgentType
-	agentErr  error
-	config    agentDomain.ConfigValues
-	creds     agentDomain.EncryptedCredentials
-	isRunner  bool
-	credsErr  error
+	agentDef *agentDomain.Agent
+	agentErr error
+	config   agentDomain.ConfigValues
+	creds    agentDomain.EncryptedCredentials
+	isRunner bool
+	credsErr error
 }
 
-func (m *mockAgentConfigProvider) GetAgentType(_ context.Context, _ int64) (*agentDomain.AgentType, error) {
-	return m.agentType, m.agentErr
+func (m *mockAgentConfigProvider) GetAgent(_ context.Context, _ string) (*agentDomain.Agent, error) {
+	return m.agentDef, m.agentErr
 }
 
-func (m *mockAgentConfigProvider) GetUserEffectiveConfig(_ context.Context, _, _ int64, overrides agentDomain.ConfigValues) agentDomain.ConfigValues {
-	if m.config != nil {
-		return m.config
+func (m *mockAgentConfigProvider) GetEffectiveCredentialsForPod(_ context.Context, _ int64, _ string, _ *int64) (agentDomain.EncryptedCredentials, bool, error) {
+	return m.creds, m.isRunner, m.credsErr
+}
+
+func (m *mockAgentConfigProvider) ResolveCredentialsByName(_ context.Context, _ int64, _, profileName string) (agentDomain.EncryptedCredentials, bool, error) {
+	if profileName == "runner_host" {
+		return nil, true, nil
 	}
-	return overrides
-}
-
-func (m *mockAgentConfigProvider) GetEffectiveCredentialsForPod(_ context.Context, _, _ int64, _ *int64) (agentDomain.EncryptedCredentials, bool, error) {
 	return m.creds, m.isRunner, m.credsErr
 }
 
@@ -116,33 +120,35 @@ func (m *mockRunnerSelector) SelectAvailableRunnerForAgent(_ context.Context, _ 
 	return m.runner, m.err
 }
 
-// mockAgentTypeResolver implements AgentTypeResolverForOrchestrator for testing.
-type mockAgentTypeResolver struct {
-	agentType *agentDomain.AgentType
-	err       error
+// mockAgentResolver implements AgentResolverForOrchestrator for testing.
+type mockAgentResolver struct {
+	agentDef *agentDomain.Agent
+	err      error
 }
 
-func (m *mockAgentTypeResolver) GetAgentType(_ context.Context, _ int64) (*agentDomain.AgentType, error) {
-	return m.agentType, m.err
+func (m *mockAgentResolver) GetAgent(_ context.Context, _ string) (*agentDomain.Agent, error) {
+	return m.agentDef, m.err
 }
 
 // ==================== Helper Functions ====================
 
 // setupOrchestratorTestDB extends setupTestDB with additional tables required
-// by GORM Preload in GetPod (agent_types, repositories).
+// by GORM Preload in GetPod (agents, repositories).
 // We keep setupTestDB unchanged to avoid breaking existing tests.
 func setupOrchestratorTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupTestDB(t)
 
-	// agent_types table — needed by Preload("AgentType") when AgentTypeID is set
-	db.Exec(`CREATE TABLE IF NOT EXISTS agent_types (
+	// agents table — needed by Preload("Agent") when AgentSlug is set
+	db.Exec(`CREATE TABLE IF NOT EXISTS agents (
 		id INTEGER PRIMARY KEY,
 		slug TEXT,
 		name TEXT,
 		launch_command TEXT,
 		description TEXT,
 		config_schema TEXT DEFAULT '{}',
+		agentfile_source TEXT,
+		supported_modes TEXT NOT NULL DEFAULT 'pty',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`)
@@ -158,7 +164,7 @@ func setupOrchestratorTestDB(t *testing.T) *gorm.DB {
 		ssh_clone_url TEXT,
 		external_id TEXT,
 		name TEXT,
-		full_path TEXT,
+		slug TEXT,
 		default_branch TEXT DEFAULT 'main',
 		preparation_script TEXT,
 		preparation_timeout INTEGER DEFAULT 300,
@@ -170,12 +176,19 @@ func setupOrchestratorTestDB(t *testing.T) *gorm.DB {
 }
 
 func newTestProvider() *mockAgentConfigProvider {
+	agentfile := `
+AGENT claude
+EXECUTABLE claude
+MCP ON
+PROMPT_POSITION prepend
+`
 	return &mockAgentConfigProvider{
-		agentType: &agentDomain.AgentType{
-			ID:            1,
-			Slug:          "claude-code",
-			Name:          "Claude Code",
-			LaunchCommand: "claude",
+		agentDef: &agentDomain.Agent{
+			Slug:           "claude-code",
+			Name:           "Claude Code",
+			LaunchCommand:  "claude",
+			SupportedModes: "pty",
+			AgentfileSource:  &agentfile,
 		},
 		config:   agentDomain.ConfigValues{},
 		creds:    agentDomain.EncryptedCredentials{},
@@ -194,6 +207,7 @@ func setupOrchestrator(t *testing.T, opts ...func(*PodOrchestratorDeps)) (*PodOr
 	deps := &PodOrchestratorDeps{
 		PodService:    podSvc,
 		ConfigBuilder: configBuilder,
+		AgentResolver: &mockAgentResolver{agentDef: provider.agentDef},
 	}
 
 	for _, opt := range opts {
@@ -227,6 +241,8 @@ func withRunnerSelector(rs RunnerSelectorForOrchestrator) func(*PodOrchestratorD
 	return func(d *PodOrchestratorDeps) { d.RunnerSelector = rs }
 }
 
-func withAgentTypeResolver(atr AgentTypeResolverForOrchestrator) func(*PodOrchestratorDeps) {
-	return func(d *PodOrchestratorDeps) { d.AgentTypeResolver = atr }
+func withAgentResolver(ar AgentResolverForOrchestrator) func(*PodOrchestratorDeps) {
+	return func(d *PodOrchestratorDeps) { d.AgentResolver = ar }
 }
+
+func ptrStr(s string) *string { return &s }

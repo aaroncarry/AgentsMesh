@@ -3,6 +3,7 @@ package mesh
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
 	"github.com/anthropics/agentsmesh/backend/internal/domain/channel"
@@ -90,7 +91,7 @@ func (s *Service) GetTopology(ctx context.Context, orgID int64) (*mesh.MeshTopol
 	}
 
 	// 3. Get channels
-	channels, _, err := s.channelService.ListChannels(ctx, orgID, &channelService.ListChannelsFilter{
+	channels, _, err := s.channelService.ListChannels(ctx, orgID, &channel.ChannelListFilter{
 		IncludeArchived: false,
 		Limit:           50,
 		Offset:          0,
@@ -198,7 +199,7 @@ func (s *Service) CreatePodForTicket(ctx context.Context, req *mesh.CreatePodFor
 		RunnerID:       req.RunnerID,
 		TicketID:       &req.TicketID,
 		CreatedByID:    req.CreatedByID,
-		InitialPrompt:  req.InitialPrompt,
+		Prompt:         req.Prompt,
 		Model:          req.Model,
 		PermissionMode: req.PermissionMode,
 	})
@@ -272,12 +273,22 @@ func (s *Service) JoinChannel(ctx context.Context, channelID int64, podKey strin
 		ChannelID: channelID,
 		PodKey:    podKey,
 	}
-	return s.repo.CreateChannelPod(ctx, cp)
+	if err := s.repo.CreateChannelPod(ctx, cp); err != nil {
+		slog.Error("failed to join channel", "channel_id", channelID, "pod_key", podKey, "error", err)
+		return err
+	}
+	slog.Info("pod joined channel", "channel_id", channelID, "pod_key", podKey)
+	return nil
 }
 
 // LeaveChannel removes a pod from a channel
 func (s *Service) LeaveChannel(ctx context.Context, channelID int64, podKey string) error {
-	return s.repo.DeleteChannelPod(ctx, channelID, podKey)
+	if err := s.repo.DeleteChannelPod(ctx, channelID, podKey); err != nil {
+		slog.Error("failed to leave channel", "channel_id", channelID, "pod_key", podKey, "error", err)
+		return err
+	}
+	slog.Info("pod left channel", "channel_id", channelID, "pod_key", podKey)
+	return nil
 }
 
 // RecordChannelAccess records access to a channel

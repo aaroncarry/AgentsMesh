@@ -92,4 +92,5 @@ type TicketRepository interface {
 	GetChildTickets(ctx context.Context, parentTicketID int64) ([]*Ticket, error)
 	GetSubTicketCounts(ctx context.Context, parentIDs []int64) (map[int64]map[string]int64, error)
 	GetTicketStats(ctx context.Context, orgID int64, repoID *int64) (map[string]int64, error)
+	GetPriorityCounts(ctx context.Context, orgID int64, repoID *int64) (map[string]int64, error)
 }

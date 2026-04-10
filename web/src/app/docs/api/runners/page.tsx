@@ -412,8 +412,8 @@ export default function ApiRunnersPage() {
     {
       "key": "pod-abc123",
       "status": "running",
-      "agent_type_id": "claude-code",
-      "initial_prompt": "Fix the login bug",
+      "agent_slug": "claude-code",
+      "prompt": "Fix the login bug",
       "created_at": "2025-01-15T10:30:00Z"
     }
   ],

@@ -2,14 +2,12 @@ package channel
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/channel"
-	"github.com/anthropics/agentsmesh/backend/internal/infra/eventbus"
 )
 
 // SendMessage sends a message to a channel.
@@ -85,19 +83,29 @@ func (s *Service) SendMessage(ctx context.Context, channelID int64, senderPod *s
 	return msg, nil
 }
 
-// GetMessages returns messages for a channel
-func (s *Service) GetMessages(ctx context.Context, channelID int64, before *time.Time, limit int) ([]*channel.Message, error) {
-	messages, err := s.repo.GetMessages(ctx, channelID, before, limit)
+// GetMessages returns messages for a channel.
+// Returns (messages, hasMore, error).
+// When after is set without before: hasMore means newer messages exist beyond the limit.
+// Otherwise: hasMore means older messages exist (scroll-up / load-more).
+func (s *Service) GetMessages(ctx context.Context, channelID int64, before *time.Time, after *time.Time, limit int) ([]*channel.Message, bool, error) {
+	// Fetch limit+1 to determine if more messages exist
+	messages, err := s.repo.GetMessages(ctx, channelID, before, after, limit+1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	// Reverse to get chronological order
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
+	hasMore := len(messages) > limit
+	if hasMore {
+		messages = messages[:limit]
 	}
 
-	return messages, nil
+	// After-only queries return ASC from the repo (oldest-first); no reverse needed.
+	// All other cases return DESC and must be reversed to chronological order.
+	if after == nil || before != nil {
+		slices.Reverse(messages)
+	}
+
+	return messages, hasMore, nil
 }
 
 // SendSystemMessage sends a system message to a channel
@@ -117,23 +125,33 @@ func (s *Service) SendMessageAsPod(ctx context.Context, channelID int64, podKey 
 
 // GetMessagesMentioning returns messages mentioning a specific pod.
 // Uses JSONB query on structured metadata with text LIKE fallback for legacy messages.
-func (s *Service) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, error) {
-	return s.repo.GetMessagesMentioning(ctx, channelID, podKey, limit)
+// Returns (messages, hasMore, error) where hasMore indicates if more results exist beyond the limit.
+func (s *Service) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, bool, error) {
+	messages, hasMore, err := s.repo.GetMessagesMentioning(ctx, channelID, podKey, limit)
+	if err != nil {
+		return nil, false, err
+	}
+	slices.Reverse(messages)
+	return messages, hasMore, nil
 }
 
-// GetMessagesByCursor returns messages before a given message ID (cursor-based pagination)
-func (s *Service) GetMessagesByCursor(ctx context.Context, channelID int64, beforeID int64, limit int) ([]*channel.Message, error) {
-	messages, err := s.repo.GetMessagesBefore(ctx, channelID, beforeID, limit)
+// GetMessagesByCursor returns messages before a given message ID (cursor-based pagination).
+// Returns (messages, hasMore, error) where hasMore indicates if older messages exist.
+func (s *Service) GetMessagesByCursor(ctx context.Context, channelID int64, beforeID int64, limit int) ([]*channel.Message, bool, error) {
+	// Fetch limit+1 to determine if more messages exist
+	messages, err := s.repo.GetMessagesBefore(ctx, channelID, beforeID, limit+1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	// Reverse to get chronological order
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
+	hasMore := len(messages) > limit
+	if hasMore {
+		messages = messages[:limit]
 	}
 
-	return messages, nil
+	slices.Reverse(messages)
+
+	return messages, hasMore, nil
 }
 
 // GetRecentMessages returns the most recent messages from a channel
@@ -143,102 +161,6 @@ func (s *Service) GetRecentMessages(ctx context.Context, channelID int64, limit 
 		return nil, err
 	}
 
-	// Reverse to get chronological order
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
-	}
-
+	slices.Reverse(messages)
 	return messages, nil
-}
-
-// EditMessage edits a message's content. Only the original sender can edit.
-func (s *Service) EditMessage(ctx context.Context, channelID, messageID, senderUserID int64, newContent string) (*channel.Message, error) {
-	ch, err := s.GetChannel(ctx, channelID)
-	if err != nil {
-		return nil, err
-	}
-	if ch.IsArchived {
-		return nil, ErrChannelArchived
-	}
-
-	msg, err := s.repo.GetMessageByID(ctx, messageID)
-	if err != nil {
-		return nil, err
-	}
-	if msg == nil || msg.ChannelID != channelID {
-		return nil, ErrMessageNotFound
-	}
-	if msg.SenderUserID == nil || *msg.SenderUserID != senderUserID {
-		return nil, ErrNotMessageSender
-	}
-
-	if err := s.repo.UpdateMessageContent(ctx, messageID, newContent); err != nil {
-		return nil, err
-	}
-
-	// Publish edit event
-	s.publishMessageEvent(ch.OrganizationID, eventbus.EventChannelMessageEdited, map[string]interface{}{
-		"channel_id": channelID,
-		"id":         messageID,
-		"content":    newContent,
-		"edited_at":  time.Now().Format(time.RFC3339),
-	})
-
-	return s.repo.GetMessageByID(ctx, messageID)
-}
-
-// DeleteMessage soft-deletes a message. Only the original sender can delete.
-func (s *Service) DeleteMessage(ctx context.Context, channelID, messageID, senderUserID int64) error {
-	ch, err := s.GetChannel(ctx, channelID)
-	if err != nil {
-		return err
-	}
-	if ch.IsArchived {
-		return ErrChannelArchived
-	}
-
-	msg, err := s.repo.GetMessageByID(ctx, messageID)
-	if err != nil {
-		return err
-	}
-	if msg == nil || msg.ChannelID != channelID {
-		return ErrMessageNotFound
-	}
-	if msg.SenderUserID == nil || *msg.SenderUserID != senderUserID {
-		return ErrNotMessageSender
-	}
-
-	if err := s.repo.SoftDeleteMessage(ctx, messageID); err != nil {
-		return err
-	}
-
-	s.publishMessageEvent(ch.OrganizationID, eventbus.EventChannelMessageDeleted, map[string]interface{}{
-		"channel_id": channelID,
-		"id":         messageID,
-	})
-
-	return nil
-}
-
-// publishMessageEvent publishes a channel message event via the event bus
-func (s *Service) publishMessageEvent(orgID int64, eventType eventbus.EventType, data map[string]interface{}) {
-	if s.eventBus == nil {
-		return
-	}
-	payload, err := json.Marshal(data)
-	if err != nil {
-		slog.Error("failed to marshal message event", "error", err)
-		return
-	}
-	channelID, _ := data["channel_id"].(int64)
-	ctx := context.Background()
-	s.eventBus.Publish(ctx, &eventbus.Event{
-		Type:           eventType,
-		Category:       eventbus.CategoryEntity,
-		OrganizationID: orgID,
-		EntityType:     "channel",
-		EntityID:       fmt.Sprintf("%d", channelID),
-		Data:           payload,
-		Timestamp:      time.Now().UnixMilli(),
-	})
 }

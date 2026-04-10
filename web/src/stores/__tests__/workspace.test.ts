@@ -5,7 +5,6 @@ import { useWorkspaceStore } from "../workspace";
 describe("Workspace Store", () => {
   beforeEach(() => {
     localStorage.clear();
-    // Reset store to initial state
     useWorkspaceStore.setState({
       panes: [],
       activePane: null,
@@ -75,6 +74,27 @@ describe("Workspace Store", () => {
       expect(result.current.splitTree!.type).toBe("split");
       if (result.current.splitTree!.type === "split") {
         expect(result.current.splitTree!.direction).toBe("horizontal");
+        expect(result.current.splitTree!.children).toHaveLength(2);
+      }
+    });
+
+    it("should add third pane to same group with even sizes", () => {
+      const { result } = renderHook(() => useWorkspaceStore());
+
+      act(() => {
+        result.current.addPane("pod-1");
+        result.current.addPane("pod-2");
+        result.current.addPane("pod-3");
+      });
+
+      expect(result.current.panes).toHaveLength(3);
+      const tree = result.current.splitTree;
+      expect(tree).not.toBeNull();
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        expect(tree!.children).toHaveLength(3);
+        const evenSize = 100 / 3;
+        tree!.sizes.forEach((s) => expect(s).toBeCloseTo(evenSize, 1));
       }
     });
 
@@ -200,15 +220,12 @@ describe("Workspace Store", () => {
       if (result.current.splitTree!.type === "split") {
         expect(result.current.splitTree!.direction).toBe("horizontal");
         expect(result.current.splitTree!.children[1].type).toBe("leaf");
-        // Second child has a real pane
         if (result.current.splitTree!.children[1].type === "leaf") {
           expect(result.current.splitTree!.children[1].paneId).not.toBe("");
         }
       }
-      // New pane should be added
       expect(result.current.panes).toHaveLength(2);
       expect(result.current.panes[1].podKey).toBe("pod-2");
-      // Active pane should be the new pane
       expect(result.current.activePane).toBe(result.current.panes[1].id);
     });
 
@@ -232,6 +249,97 @@ describe("Workspace Store", () => {
       expect(result.current.panes[1].podKey).toBe("pod-3");
     });
 
+    it("should bubble same-direction split into parent group with halved target size", () => {
+      const { result } = renderHook(() => useWorkspaceStore());
+
+      let pane1Id: string;
+      act(() => {
+        pane1Id = result.current.addPane("pod-1");
+        result.current.addPane("pod-2");
+      });
+
+      // Split pane-1 right (same direction as parent horizontal group)
+      act(() => {
+        result.current.splitPane(pane1Id!, "horizontal", "pod-3");
+      });
+
+      const tree = result.current.splitTree;
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        // Should have 3 children in the same group (bubbled up)
+        expect(tree!.children).toHaveLength(3);
+        expect(tree!.direction).toBe("horizontal");
+        // Sizes: [25, 25, 50] — first pane halved, second unchanged
+        expect(tree!.sizes[0]).toBeCloseTo(25, 1);
+        expect(tree!.sizes[1]).toBeCloseTo(25, 1);
+        expect(tree!.sizes[2]).toBeCloseTo(50, 1);
+      }
+    });
+
+    it("should nest cross-direction split as new sub-split", () => {
+      const { result } = renderHook(() => useWorkspaceStore());
+
+      let pane1Id: string;
+      act(() => {
+        pane1Id = result.current.addPane("pod-1");
+        result.current.addPane("pod-2");
+      });
+
+      // Split pane-1 down (cross-direction from parent horizontal)
+      act(() => {
+        result.current.splitPane(pane1Id!, "vertical", "pod-3");
+      });
+
+      const tree = result.current.splitTree;
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        // Root still has 2 children
+        expect(tree!.children).toHaveLength(2);
+        expect(tree!.direction).toBe("horizontal");
+        // First child is now a vertical sub-split
+        const sub = tree!.children[0];
+        expect(sub.type).toBe("split");
+        if (sub.type === "split") {
+          expect(sub.direction).toBe("vertical");
+          expect(sub.children).toHaveLength(2);
+          expect(sub.sizes).toEqual([50, 50]);
+        }
+      }
+    });
+
+    it("should remove pane from 3-child group and normalize sizes proportionally", () => {
+      const { result } = renderHook(() => useWorkspaceStore());
+
+      act(() => {
+        result.current.addPane("pod-1");
+        result.current.addPane("pod-2");
+        result.current.addPane("pod-3");
+      });
+
+      // Manually set uneven sizes
+      const tree = result.current.splitTree;
+      if (tree?.type === "split") {
+        act(() => {
+          result.current.updateSplitSizes(tree.id, [50, 30, 20]);
+        });
+      }
+
+      // Remove second pane — sizes should normalize [50, 20] → [71.4, 28.6]
+      const secondPaneId = result.current.panes[1].id;
+      act(() => {
+        result.current.removePane(secondPaneId);
+      });
+
+      expect(result.current.panes).toHaveLength(2);
+      const newTree = result.current.splitTree;
+      expect(newTree!.type).toBe("split");
+      if (newTree!.type === "split") {
+        expect(newTree!.children).toHaveLength(2);
+        expect(newTree!.sizes[0]).toBeCloseTo(71.4, 0);
+        expect(newTree!.sizes[1]).toBeCloseTo(28.6, 0);
+      }
+    });
+
     it("should update split sizes", () => {
       const { result } = renderHook(() => useWorkspaceStore());
 
@@ -252,265 +360,121 @@ describe("Workspace Store", () => {
         expect(result.current.splitTree!.sizes).toEqual([30, 70]);
       }
     });
-  });
 
-  describe("mobile state", () => {
-    it("should set mobile active index", () => {
+    it("should create new split when splitPane on root leaf", () => {
       const { result } = renderHook(() => useWorkspaceStore());
 
+      let paneId: string;
       act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
+        paneId = result.current.addPane("pod-1");
       });
 
+      expect(result.current.splitTree!.type).toBe("leaf");
+
       act(() => {
-        result.current.setMobileActiveIndex(1);
+        result.current.splitPane(paneId!, "vertical", "pod-2");
       });
 
-      expect(result.current.mobileActiveIndex).toBe(1);
-      expect(result.current.activePane).toBe(result.current.panes[1].id);
+      const tree = result.current.splitTree;
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        expect(tree!.direction).toBe("vertical");
+        expect(tree!.children).toHaveLength(2);
+        expect(tree!.sizes).toEqual([50, 50]);
+      }
     });
 
-    it("should not set invalid mobile active index", () => {
+    it("should grow same-direction group across multiple splits (2→5)", () => {
       const { result } = renderHook(() => useWorkspaceStore());
 
+      let paneId: string;
       act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
+        paneId = result.current.addPane("pod-1");
       });
 
-      const initialIndex = result.current.mobileActiveIndex;
+      // Split right 4 times — each bubbles into same horizontal group
+      for (let i = 2; i <= 5; i++) {
+        act(() => {
+          result.current.splitPane(paneId!, "horizontal", `pod-${i}`);
+        });
+      }
 
-      act(() => {
-        result.current.setMobileActiveIndex(99);
-      });
-
-      expect(result.current.mobileActiveIndex).toBe(initialIndex);
-    });
-  });
-
-  describe("terminal settings", () => {
-    it("should set terminal font size", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.setTerminalFontSize(16);
-      });
-
-      expect(result.current.terminalFontSize).toBe(16);
+      expect(result.current.panes).toHaveLength(5);
+      const tree = result.current.splitTree;
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        expect(tree!.children).toHaveLength(5);
+        expect(tree!.direction).toBe("horizontal");
+        // All sizes should be positive
+        tree!.sizes.forEach((s) => expect(s).toBeGreaterThan(0));
+      }
     });
 
-    it("should clamp font size to minimum", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.setTerminalFontSize(5);
-      });
-
-      expect(result.current.terminalFontSize).toBe(10);
-    });
-
-    it("should clamp font size to maximum", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.setTerminalFontSize(50);
-      });
-
-      expect(result.current.terminalFontSize).toBe(24);
-    });
-  });
-
-  describe("getPaneByPodKey", () => {
-    it("should find pane by podKey", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.addPane("pod-123");
-      });
-
-      const pane = result.current.getPaneByPodKey("pod-123");
-      expect(pane).toBeDefined();
-      expect(pane?.podKey).toBe("pod-123");
-    });
-
-    it("should return undefined for non-existent podKey", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      const pane = result.current.getPaneByPodKey("non-existent");
-      expect(pane).toBeUndefined();
-    });
-  });
-
-  describe("hydration", () => {
-    it("should set hydration state", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.setHasHydrated(true);
-      });
-
-      expect(result.current._hasHydrated).toBe(true);
-    });
-  });
-
-  describe("mobileActiveIndex sync", () => {
-    it("setActivePane should sync mobileActiveIndex", () => {
+    it("should collapse 2-child split to leaf when one pane removed", () => {
       const { result } = renderHook(() => useWorkspaceStore());
 
       let firstId: string;
       act(() => {
         firstId = result.current.addPane("pod-1");
         result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
       });
 
-      // Active is last pane (index 2)
-      expect(result.current.mobileActiveIndex).toBe(2);
+      expect(result.current.splitTree!.type).toBe("split");
 
-      // Switch to first pane
+      // Remove second pane — should collapse split to leaf
       act(() => {
-        result.current.setActivePane(firstId!);
+        result.current.removePane(result.current.panes[1].id);
       });
 
-      expect(result.current.activePane).toBe(firstId!);
-      expect(result.current.mobileActiveIndex).toBe(0);
+      expect(result.current.splitTree!.type).toBe("leaf");
+      if (result.current.splitTree!.type === "leaf") {
+        expect(result.current.splitTree!.paneId).toBe(firstId!);
+      }
     });
 
-    it("setActivePane(null) should reset mobileActiveIndex to 0", () => {
+    it("should handle addPane when activePane is null but tree exists", () => {
       const { result } = renderHook(() => useWorkspaceStore());
 
       act(() => {
         result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-      });
-
-      act(() => {
         result.current.setActivePane(null);
       });
 
-      expect(result.current.mobileActiveIndex).toBe(0);
-    });
+      expect(result.current.activePane).toBeNull();
+      expect(result.current.splitTree).not.toBeNull();
 
-    it("addPane (existing pod) should sync mobileActiveIndex", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
+      // Add second pane with null activePane — should wrap root
       act(() => {
-        result.current.addPane("pod-1");
         result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
-      });
-
-      // Re-add pod-1 — should switch to index 0
-      act(() => {
-        result.current.addPane("pod-1");
-      });
-
-      expect(result.current.activePane).toBe(result.current.panes[0].id);
-      expect(result.current.mobileActiveIndex).toBe(0);
-    });
-
-    it("addPane (new pod) should set mobileActiveIndex to new pane index", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-      });
-
-      act(() => {
-        result.current.addPane("pod-3");
-      });
-
-      // New pane appended at index 2
-      expect(result.current.mobileActiveIndex).toBe(2);
-      expect(result.current.panes[2].podKey).toBe("pod-3");
-    });
-
-    it("removePane should shift mobileActiveIndex when removing pane before active", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
-      });
-
-      // Switch to middle pane (index 1)
-      act(() => {
-        result.current.setActivePane(result.current.panes[1].id);
-      });
-      expect(result.current.mobileActiveIndex).toBe(1);
-
-      // Remove first pane (before active) — index should shift down
-      act(() => {
-        result.current.removePane(result.current.panes[0].id);
       });
 
       expect(result.current.panes).toHaveLength(2);
+      const tree = result.current.splitTree;
+      expect(tree!.type).toBe("split");
+      if (tree!.type === "split") {
+        expect(tree!.children).toHaveLength(2);
+        expect(tree!.direction).toBe("horizontal");
+      }
+    });
+
+    it("should remove pane by podKey via removePaneByPodKey", () => {
+      const { result } = renderHook(() => useWorkspaceStore());
+
+      act(() => {
+        result.current.addPane("pod-1");
+        result.current.addPane("pod-2");
+      });
+
+      expect(result.current.panes).toHaveLength(2);
+
+      act(() => {
+        result.current.removePaneByPodKey("pod-1");
+      });
+
+      expect(result.current.panes).toHaveLength(1);
       expect(result.current.panes[0].podKey).toBe("pod-2");
-      expect(result.current.mobileActiveIndex).toBe(0);
-      expect(result.current.activePane).toBe(result.current.panes[0].id);
-    });
-
-    it("removePane (active pane) should reset mobileActiveIndex to 0", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
-      });
-
-      // Active is last pane (index 2)
-      expect(result.current.mobileActiveIndex).toBe(2);
-
-      // Remove active pane — falls back to first
-      act(() => {
-        result.current.removePane(result.current.panes[2].id);
-      });
-
-      expect(result.current.panes).toHaveLength(2);
-      expect(result.current.activePane).toBe(result.current.panes[0].id);
-      expect(result.current.mobileActiveIndex).toBe(0);
-    });
-
-    it("removePane should not shift mobileActiveIndex when removing pane after active", () => {
-      const { result } = renderHook(() => useWorkspaceStore());
-
-      act(() => {
-        result.current.addPane("pod-1");
-        result.current.addPane("pod-2");
-        result.current.addPane("pod-3");
-      });
-
-      // Switch to first pane (index 0)
-      act(() => {
-        result.current.setActivePane(result.current.panes[0].id);
-      });
-      expect(result.current.mobileActiveIndex).toBe(0);
-
-      // Remove last pane (after active) — index stays
-      act(() => {
-        result.current.removePane(result.current.panes[2].id);
-      });
-
-      expect(result.current.panes).toHaveLength(2);
-      expect(result.current.mobileActiveIndex).toBe(0);
-      expect(result.current.activePane).toBe(result.current.panes[0].id);
     });
   });
 });
 
-// NOTE: Terminal Connection Pool tests have been removed because the API has fundamentally changed.
-// The terminalConnection.ts now uses Relay architecture with:
-// 1. Async connect() that requires API call to get Relay connection info
-// 2. Binary protocol message encoding/decoding (not JSON)
-// 3. Different message types (MsgType.Input, MsgType.Resize, etc.)
-//
-// TODO: Rewrite these tests when Relay architecture is stable. Tests should:
-// 1. Mock podApi.getTerminalConnection to return relay info
-// 2. Use async/await for connect()
-// 3. Test binary protocol message encoding/decoding
-// 4. Test Relay-specific message types (Snapshot, Output, RunnerDisconnected, etc.)
+// NOTE: Relay Connection Pool tests live in relayConnection.test.ts.

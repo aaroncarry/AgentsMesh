@@ -55,7 +55,7 @@ func TestSendPodTerminated(t *testing.T) {
 
 	// Production code calls h.conn.SendPodTerminated directly (with exitCode and earlyOutput).
 	// Test the same path used by createExitHandler and OnTerminatePod.
-	if err := handler.conn.SendPodTerminated("pod-1", 0, ""); err != nil {
+	if err := handler.conn.SendPodTerminated("pod-1", 0, "", "completed"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -70,26 +70,7 @@ func TestSendPodTerminated(t *testing.T) {
 }
 
 // NOTE: TestSendTerminalOutput removed - output is exclusively streamed via Relay
-
-func TestSendPtyResized(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	handler.sendPtyResized("pod-1", 100, 30)
-
-	events := mockConn.GetEvents()
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-
-	if events[0].Type != client.MsgTypePtyResized {
-		t.Errorf("event type = %s, want pty_resized", events[0].Type)
-	}
-}
+// NOTE: TestSendPtyResized removed - resize flows through Relay, not gRPC
 
 func TestSendPodError(t *testing.T) {
 	store := NewInMemoryPodStore()
@@ -119,7 +100,7 @@ func TestSendMethodsWithNilConnection(t *testing.T) {
 	// These should not panic with nil connection
 	handler.sendPodCreated("pod-1", 123, "", "", 80, 24)
 	// NOTE: sendTerminalOutput removed - output is exclusively streamed via Relay
-	handler.sendPtyResized("pod-1", 80, 24)
+	// NOTE: sendPtyResized removed - resize flows through Relay
 	handler.sendPodError("pod-1", "error")
 }
 
@@ -172,11 +153,15 @@ func TestCreatePTYErrorHandler(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	// Create pod with aggregator to capture the error message
+	agg := aggregator.NewSmartAggregator(nil)
+	comps := &PTYComponents{Aggregator: agg}
 	pod := &Pod{
-		ID:         "pty-error-pod",
-		Status:     PodStatusRunning,
-		Aggregator: aggregator.NewSmartAggregator(nil, nil),
+		ID:     "pty-error-pod",
+		Status: PodStatusRunning,
 	}
+	pod.IO = NewPTYPodIO("pty-error-pod", comps, PTYPodIODeps{
+		GetPTYError: pod.GetPTYError,
+	})
 
 	ptyErrorHandler := handler.createPTYErrorHandler("pty-error-pod", pod)
 
@@ -208,7 +193,7 @@ func TestCreatePTYErrorHandler(t *testing.T) {
 	}
 
 	// Verify error message was buffered in aggregator (will be flushed to terminal via relay)
-	if pod.Aggregator.BufferLen() == 0 {
+	if agg.BufferLen() == 0 {
 		t.Error("PTY error handler should write visible error message to aggregator buffer")
 	}
 }
@@ -248,6 +233,9 @@ func TestCreateExitHandler_WithPTYError(t *testing.T) {
 		ID:     "pty-exit-pod",
 		Status: PodStatusRunning,
 	}
+	pod.IO = NewPTYPodIO("pty-exit-pod", &PTYComponents{}, PTYPodIODeps{
+		GetPTYError: pod.GetPTYError,
+	})
 	pod.SetPTYError("PTY read error: read /dev/ptmx: input/output error")
 	store.Put("pty-exit-pod", pod)
 
@@ -289,20 +277,22 @@ func TestCreateExitHandler_EarlyOutputTakesPriority(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	// Create pod with both a PTY error and an aggregator with early output
+	agg := aggregator.NewSmartAggregator(nil)
+	comps := &PTYComponents{Aggregator: agg}
 	pod := &Pod{
-		ID:         "priority-pod",
-		Status:     PodStatusRunning,
-		Aggregator: aggregator.NewSmartAggregator(nil, nil),
+		ID:     "priority-pod",
+		Status: PodStatusRunning,
 	}
+	pod.IO = NewPTYPodIO("priority-pod", comps, PTYPodIODeps{
+		GetPTYError: pod.GetPTYError,
+	})
 	pod.SetPTYError("PTY read error: something")
 	store.Put("priority-pod", pod)
 
 	exitHandler := handler.createExitHandler("priority-pod")
 	exitHandler(1)
 
-	// When early output is empty (relay was connected), PTY error should be used.
-	// The aggregator's DrainEarlyBuffer returns empty because relay was "connected"
-	// (no early buffer data), so PTY error should be the fallback.
+	// When there is no early output, PTY error should be used as the fallback.
 	events := mockConn.GetEvents()
 	for _, e := range events {
 		if e.Type == client.MsgTypePodTerminated {
@@ -346,189 +336,3 @@ func BenchmarkOnListPods(b *testing.B) {
 }
 
 // Note: BenchmarkMergeEnvVars moved to pod_builder_test.go since the method is now on PodBuilder.
-
-// --- Test OSC handler ---
-
-func TestCreateOSCHandler_OSC777Notify(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test OSC 777 notify
-	oscHandler(777, []string{"notify", "Build Complete", "Your project compiled successfully"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-
-	if events[0].Type != "osc_notification" {
-		t.Errorf("event type = %s, want osc_notification", events[0].Type)
-	}
-
-	data, ok := events[0].Data.(map[string]string)
-	if !ok {
-		t.Fatalf("event data should be map[string]string")
-	}
-	if data["pod_key"] != "test-pod" {
-		t.Errorf("pod_key = %s, want test-pod", data["pod_key"])
-	}
-	if data["title"] != "Build Complete" {
-		t.Errorf("title = %s, want Build Complete", data["title"])
-	}
-	if data["body"] != "Your project compiled successfully" {
-		t.Errorf("body = %s, want Your project compiled successfully", data["body"])
-	}
-}
-
-func TestCreateOSCHandler_OSC777NotNotify(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test OSC 777 with non-notify action (should be ignored)
-	oscHandler(777, []string{"file", "/path/to/file"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 0 {
-		t.Fatalf("expected 0 events for non-notify OSC 777, got %d", len(events))
-	}
-}
-
-func TestCreateOSCHandler_OSC9(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test OSC 9 (ConEmu/Windows Terminal format)
-	oscHandler(9, []string{"Task completed"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-
-	data, ok := events[0].Data.(map[string]string)
-	if !ok {
-		t.Fatalf("event data should be map[string]string")
-	}
-	if data["title"] != "Notification" {
-		t.Errorf("title = %s, want Notification (default)", data["title"])
-	}
-	if data["body"] != "Task completed" {
-		t.Errorf("body = %s, want Task completed", data["body"])
-	}
-}
-
-func TestCreateOSCHandler_OSC0Title(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test OSC 0 (window title)
-	oscHandler(0, []string{"My Terminal Title"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-
-	if events[0].Type != "osc_title" {
-		t.Errorf("event type = %s, want osc_title", events[0].Type)
-	}
-
-	data, ok := events[0].Data.(map[string]string)
-	if !ok {
-		t.Fatalf("event data should be map[string]string")
-	}
-	if data["title"] != "My Terminal Title" {
-		t.Errorf("title = %s, want My Terminal Title", data["title"])
-	}
-}
-
-func TestCreateOSCHandler_OSC2Title(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test OSC 2 (window title)
-	oscHandler(2, []string{"Another Title"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-
-	if events[0].Type != "osc_title" {
-		t.Errorf("event type = %s, want osc_title", events[0].Type)
-	}
-}
-
-func TestCreateOSCHandler_EmptyParams(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test with empty params (should be ignored)
-	oscHandler(777, []string{})
-	oscHandler(9, []string{})
-	oscHandler(0, []string{})
-
-	events := mockConn.GetEvents()
-	if len(events) != 0 {
-		t.Fatalf("expected 0 events for empty params, got %d", len(events))
-	}
-}
-
-func TestCreateOSCHandler_UnknownOSCType(t *testing.T) {
-	store := NewInMemoryPodStore()
-	mockConn := client.NewMockConnection()
-
-	runner := &Runner{cfg: &config.Config{}}
-
-	handler := NewRunnerMessageHandler(runner, store, mockConn)
-
-	oscHandler := handler.createOSCHandler("test-pod")
-
-	// Test unknown OSC type (should be ignored)
-	oscHandler(999, []string{"some", "params"})
-
-	events := mockConn.GetEvents()
-	if len(events) != 0 {
-		t.Fatalf("expected 0 events for unknown OSC type, got %d", len(events))
-	}
-}
-
-// Note: TestCreateOSCHandler_NilConnection removed - the implementation calls conn.SendOSC*
-// which will panic with nil connection. This is expected behavior since the connection
-// should always be set before createOSCHandler is called in normal operation.

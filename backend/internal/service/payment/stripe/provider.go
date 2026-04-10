@@ -4,14 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/stripe/stripe-go/v76"
-	portalsession "github.com/stripe/stripe-go/v76/billingportal/session"
 	checkoutsession "github.com/stripe/stripe-go/v76/checkout/session"
-	"github.com/stripe/stripe-go/v76/customer"
-	"github.com/stripe/stripe-go/v76/refund"
-	"github.com/stripe/stripe-go/v76/subscription"
 	"github.com/stripe/stripe-go/v76/webhook"
 
 	"github.com/anthropics/agentsmesh/backend/internal/config"
@@ -97,8 +94,11 @@ func (p *Provider) CreateCheckoutSession(ctx context.Context, req *types.Checkou
 
 	sess, err := checkoutsession.New(params)
 	if err != nil {
+		slog.Error("failed to create Stripe checkout session", "org_id", req.OrganizationID, "order_type", req.OrderType, "error", err)
 		return nil, fmt.Errorf("failed to create checkout session: %w", err)
 	}
+
+	slog.Info("Stripe checkout session created", "session_id", sess.ID, "org_id", req.OrganizationID, "order_type", req.OrderType)
 
 	return &types.CheckoutResponse{
 		SessionID:       sess.ID,
@@ -113,6 +113,7 @@ func (p *Provider) CreateCheckoutSession(ctx context.Context, req *types.Checkou
 func (p *Provider) GetCheckoutStatus(ctx context.Context, sessionID string) (string, error) {
 	sess, err := checkoutsession.Get(sessionID, nil)
 	if err != nil {
+		slog.Error("failed to get Stripe checkout session", "session_id", sessionID, "error", err)
 		return "", fmt.Errorf("failed to get checkout session: %w", err)
 	}
 
@@ -132,6 +133,7 @@ func (p *Provider) GetCheckoutStatus(ctx context.Context, sessionID string) (str
 func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature string) (*types.WebhookEvent, error) {
 	event, err := webhook.ConstructEvent(payload, signature, p.webhookSecret)
 	if err != nil {
+		slog.Error("failed to verify Stripe webhook signature", "error", err)
 		return nil, fmt.Errorf("failed to verify webhook signature: %w", err)
 	}
 
@@ -146,6 +148,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	case billing.WebhookEventCheckoutCompleted:
 		var sess stripe.CheckoutSession
 		if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
+			slog.Error("failed to parse Stripe checkout session", "event_id", event.ID, "error", err)
 			return nil, fmt.Errorf("failed to parse checkout session: %w", err)
 		}
 		result.ExternalOrderNo = sess.ID
@@ -165,6 +168,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	case billing.WebhookEventInvoicePaid:
 		var inv stripe.Invoice
 		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			slog.Error("failed to parse Stripe invoice", "event_id", event.ID, "error", err)
 			return nil, fmt.Errorf("failed to parse invoice: %w", err)
 		}
 		result.ExternalOrderNo = inv.ID
@@ -181,6 +185,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	case billing.WebhookEventInvoiceFailed:
 		var inv stripe.Invoice
 		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			slog.Error("failed to parse Stripe invoice", "event_id", event.ID, "error", err)
 			return nil, fmt.Errorf("failed to parse invoice: %w", err)
 		}
 		result.ExternalOrderNo = inv.ID
@@ -200,6 +205,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	case billing.WebhookEventSubscriptionDeleted:
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			slog.Error("failed to parse Stripe subscription", "event_id", event.ID, "error", err)
 			return nil, fmt.Errorf("failed to parse subscription: %w", err)
 		}
 		result.SubscriptionID = sub.ID
@@ -211,6 +217,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	case billing.WebhookEventSubscriptionUpdated:
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			slog.Error("failed to parse Stripe subscription", "event_id", event.ID, "error", err)
 			return nil, fmt.Errorf("failed to parse subscription: %w", err)
 		}
 		result.SubscriptionID = sub.ID
@@ -227,150 +234,3 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	return result, nil
 }
 
-// RefundPayment initiates a refund
-func (p *Provider) RefundPayment(ctx context.Context, req *types.RefundRequest) (*types.RefundResponse, error) {
-	params := &stripe.RefundParams{
-		Amount: stripe.Int64(int64(req.Amount * 100)),
-	}
-
-	// Set reason if provided
-	if req.Reason != "" {
-		params.Reason = stripe.String(req.Reason)
-	}
-
-	// Try to find the payment intent from checkout session
-	if req.ExternalOrderNo != "" {
-		sess, err := checkoutsession.Get(req.ExternalOrderNo, nil)
-		if err == nil && sess.PaymentIntent != nil {
-			params.PaymentIntent = stripe.String(sess.PaymentIntent.ID)
-		}
-	}
-
-	if req.IdempotencyKey != "" {
-		params.SetIdempotencyKey(req.IdempotencyKey)
-	}
-
-	r, err := refund.New(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create refund: %w", err)
-	}
-
-	return &types.RefundResponse{
-		RefundID: r.ID,
-		Status:   string(r.Status),
-		Amount:   float64(r.Amount) / 100,
-		Currency: string(r.Currency),
-	}, nil
-}
-
-// CancelSubscription cancels a Stripe subscription
-func (p *Provider) CancelSubscription(ctx context.Context, subscriptionID string, immediate bool) error {
-	if immediate {
-		_, err := subscription.Cancel(subscriptionID, nil)
-		if err != nil {
-			return fmt.Errorf("failed to cancel subscription: %w", err)
-		}
-	} else {
-		_, err := subscription.Update(subscriptionID, &stripe.SubscriptionParams{
-			CancelAtPeriodEnd: stripe.Bool(true),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set cancel at period end: %w", err)
-		}
-	}
-	return nil
-}
-
-// CreateCustomer creates a Stripe customer
-func (p *Provider) CreateCustomer(ctx context.Context, email string, name string, metadata map[string]string) (string, error) {
-	params := &stripe.CustomerParams{
-		Email: stripe.String(email),
-		Name:  stripe.String(name),
-	}
-	if metadata != nil {
-		params.Metadata = metadata
-	}
-
-	c, err := customer.New(params)
-	if err != nil {
-		return "", fmt.Errorf("failed to create customer: %w", err)
-	}
-
-	return c.ID, nil
-}
-
-// GetCustomerPortalURL returns a URL for the customer billing portal
-func (p *Provider) GetCustomerPortalURL(ctx context.Context, req *types.CustomerPortalRequest) (*types.CustomerPortalResponse, error) {
-	params := &stripe.BillingPortalSessionParams{
-		Customer:  stripe.String(req.CustomerID),
-		ReturnURL: stripe.String(req.ReturnURL),
-	}
-
-	sess, err := portalsession.New(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create portal session: %w", err)
-	}
-
-	return &types.CustomerPortalResponse{
-		URL: sess.URL,
-	}, nil
-}
-
-// UpdateSubscriptionSeats updates the seat count for a subscription
-func (p *Provider) UpdateSubscriptionSeats(ctx context.Context, subscriptionID string, seats int) error {
-	// Get current subscription
-	sub, err := subscription.Get(subscriptionID, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get subscription: %w", err)
-	}
-
-	if len(sub.Items.Data) == 0 {
-		return fmt.Errorf("subscription has no items")
-	}
-
-	// Update the first item's quantity
-	_, err = subscription.Update(subscriptionID, &stripe.SubscriptionParams{
-		Items: []*stripe.SubscriptionItemsParams{
-			{
-				ID:       stripe.String(sub.Items.Data[0].ID),
-				Quantity: stripe.Int64(int64(seats)),
-			},
-		},
-		ProrationBehavior: stripe.String(string(stripe.SubscriptionSchedulePhaseProrationBehaviorCreateProrations)),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update subscription seats: %w", err)
-	}
-
-	return nil
-}
-
-// GetSubscription retrieves subscription details
-func (p *Provider) GetSubscription(ctx context.Context, subscriptionID string) (*types.SubscriptionDetails, error) {
-	sub, err := subscription.Get(subscriptionID, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get subscription: %w", err)
-	}
-
-	result := &types.SubscriptionDetails{
-		ID:                 sub.ID,
-		Status:             string(sub.Status),
-		CurrentPeriodStart: time.Unix(sub.CurrentPeriodStart, 0),
-		CurrentPeriodEnd:   time.Unix(sub.CurrentPeriodEnd, 0),
-		CancelAtPeriodEnd:  sub.CancelAtPeriodEnd,
-	}
-
-	if sub.Customer != nil {
-		result.CustomerID = sub.Customer.ID
-	}
-
-	// Get seats from first item
-	if len(sub.Items.Data) > 0 {
-		result.Seats = int(sub.Items.Data[0].Quantity)
-		if sub.Items.Data[0].Price != nil {
-			result.PriceID = sub.Items.Data[0].Price.ID
-		}
-	}
-
-	return result, nil
-}

@@ -24,7 +24,7 @@ type SubscriptionRenewJob struct {
 func NewSubscriptionRenewJob(db *gorm.DB, cfg *config.Config, logger *slog.Logger) *SubscriptionRenewJob {
 	return &SubscriptionRenewJob{
 		db:             db,
-		paymentFactory: payment.NewFactoryWithDB(cfg, db),
+		paymentFactory: payment.NewFactoryWithLicenseRepo(cfg, nil),
 		logger:         logger,
 	}
 }
@@ -183,18 +183,12 @@ func (j *SubscriptionRenewJob) calculateRenewalAmount(ctx context.Context, sub *
 	if err := j.db.WithContext(ctx).
 		Where("plan_id = ? AND currency = ?", sub.PlanID, currency).
 		First(&planPrice).Error; err != nil {
-		// Fallback to plan's legacy price fields if plan_prices not found
-		j.logger.Warn("plan price not found, using legacy fields",
+		j.logger.Error("plan price not found",
 			"plan_id", sub.PlanID,
 			"currency", currency,
+			"error", err,
 		)
-		var amount float64
-		if sub.BillingCycle == billing.BillingCycleYearly {
-			amount = plan.PricePerSeatYearly * float64(sub.SeatCount)
-		} else {
-			amount = plan.PricePerSeatMonthly * float64(sub.SeatCount)
-		}
-		return amount, billing.CurrencyUSD // Legacy prices are in USD
+		return 0, currency
 	}
 
 	// Calculate renewal amount from plan_prices

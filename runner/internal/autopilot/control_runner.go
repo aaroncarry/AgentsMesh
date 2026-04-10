@@ -10,7 +10,7 @@ import (
 // ControlRunner executes the Control Process (Claude CLI).
 type ControlRunner struct {
 	workDir       string
-	agentType     string
+	agent         string
 	mcpConfigPath string // Path to MCP config file for Control Agent
 	log           *slog.Logger
 
@@ -26,7 +26,7 @@ type ControlRunner struct {
 // ControlRunnerConfig contains configuration for creating a ControlRunner.
 type ControlRunnerConfig struct {
 	WorkDir         string
-	AgentType       string
+	Agent           string
 	MCPConfigPath   string // Path to MCP config file for Control Agent
 	PromptBuilder   *PromptBuilder
 	DecisionParser  *DecisionParser
@@ -36,9 +36,9 @@ type ControlRunnerConfig struct {
 
 // NewControlRunner creates a new ControlRunner instance.
 func NewControlRunner(cfg ControlRunnerConfig) *ControlRunner {
-	agentType := cfg.AgentType
-	if agentType == "" {
-		agentType = DefaultAgentType
+	agent := cfg.Agent
+	if agent == "" {
+		agent = DefaultAgent
 	}
 
 	decisionParser := cfg.DecisionParser
@@ -53,7 +53,7 @@ func NewControlRunner(cfg ControlRunnerConfig) *ControlRunner {
 
 	return &ControlRunner{
 		workDir:         cfg.WorkDir,
-		agentType:       agentType,
+		agent:           agent,
 		mcpConfigPath:   cfg.MCPConfigPath,
 		log:             cfg.Logger,
 		promptBuilder:   cfg.PromptBuilder,
@@ -61,6 +61,9 @@ func NewControlRunner(cfg ControlRunnerConfig) *ControlRunner {
 		commandExecutor: commandExecutor,
 	}
 }
+
+// Stop is a no-op for exec-based control runner (process exits after each iteration).
+func (cr *ControlRunner) Stop() {}
 
 // RunControlProcess executes the control agent to make a single decision.
 // Handles both initial start and session resume.
@@ -84,7 +87,7 @@ func (cr *ControlRunner) SetSessionID(id string) {
 // startControlProcess starts a new Control process for the first iteration.
 // This creates a new session and saves the session_id for future resume.
 func (cr *ControlRunner) startControlProcess(ctx context.Context, iteration int) (*ControlDecision, error) {
-	prompt := cr.promptBuilder.BuildInitialPrompt()
+	prompt := cr.promptBuilder.BuildPrompt()
 
 	args := []string{
 		"--dangerously-skip-permissions",
@@ -99,12 +102,12 @@ func (cr *ControlRunner) startControlProcess(ctx context.Context, iteration int)
 
 	if cr.log != nil {
 		cr.log.Info("Starting control process (first iteration)",
-			"agent", cr.agentType,
+			"agent", cr.agent,
 			"work_dir", cr.workDir,
 			"iteration", iteration)
 	}
 
-	stdout, stderr, err := cr.commandExecutor.Execute(ctx, cr.agentType, args, cr.workDir)
+	stdout, stderr, err := cr.commandExecutor.Execute(ctx, cr.agent, args, cr.workDir)
 	if err != nil {
 		if errors.Is(err, errOutputTruncated) {
 			if cr.log != nil {
@@ -180,13 +183,13 @@ func (cr *ControlRunner) resumeControlProcess(ctx context.Context, iteration int
 
 	if cr.log != nil {
 		cr.log.Info("Resuming control process",
-			"agent", cr.agentType,
+			"agent", cr.agent,
 			"work_dir", cr.workDir,
 			"iteration", iteration,
 			"session_id", cr.sessionID)
 	}
 
-	stdout, stderr, err := cr.commandExecutor.Execute(ctx, cr.agentType, args, cr.workDir)
+	stdout, stderr, err := cr.commandExecutor.Execute(ctx, cr.agent, args, cr.workDir)
 	if err != nil {
 		if errors.Is(err, errOutputTruncated) {
 			if cr.log != nil {

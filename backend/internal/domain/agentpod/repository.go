@@ -15,9 +15,9 @@ var (
 type PodRepository interface {
 	// Create persists a new Pod. Returns ErrSandboxAlreadyResumed on unique constraint violation.
 	Create(ctx context.Context, pod *Pod) error
-	// GetByKey returns a Pod by its pod_key with Runner, AgentType, and Repository preloaded.
+	// GetByKey returns a Pod by its pod_key with Runner, Agent, and Repository preloaded.
 	GetByKey(ctx context.Context, podKey string) (*Pod, error)
-	// GetByID returns a Pod by its ID with Runner, AgentType, and Repository preloaded.
+	// GetByID returns a Pod by its ID with Runner, Agent, and Repository preloaded.
 	GetByID(ctx context.Context, podID int64) (*Pod, error)
 	// GetOrgAndCreator returns the organization_id and created_by_id for a pod.
 	GetOrgAndCreator(ctx context.Context, podKey string) (orgID, creatorID int64, err error)
@@ -49,6 +49,8 @@ type PodRepository interface {
 	DecrementRunnerPods(ctx context.Context, runnerID int64) error
 	// ListActiveByRunner returns active pods (running/initializing) for reconciliation.
 	ListActiveByRunner(ctx context.Context, runnerID int64) ([]*Pod, error)
+	// ListInitializingByRunner returns pods in "initializing" state for a runner.
+	ListInitializingByRunner(ctx context.Context, runnerID int64) ([]*Pod, error)
 	// MarkOrphaned marks a pod as orphaned.
 	MarkOrphaned(ctx context.Context, pod *Pod, finishedAt time.Time) error
 	// MarkStaleAsDisconnected marks initializing/running pods with stale activity as disconnected.
@@ -60,6 +62,12 @@ type PodRepository interface {
 	// UpdateTerminatedWithFallbackError updates a terminated pod, setting error_code
 	// only if not already set (uses COALESCE(NULLIF(error_code, ''), fallbackCode)).
 	UpdateTerminatedWithFallbackError(ctx context.Context, podKey string, updates map[string]interface{}, fallbackErrorCode string) error
+	// UpdateTerminatedIfActive is like UpdateTerminatedWithFallbackError but only
+	// updates pods that are still in an active state. Returns rows affected.
+	UpdateTerminatedIfActive(ctx context.Context, podKey string, updates map[string]interface{}, fallbackErrorCode string) (int64, error)
+	// UpdateByKeyAndActiveStatus updates a pod only if it's in an active state.
+	// Returns rows affected so the caller can detect if the pod was already terminal.
+	UpdateByKeyAndActiveStatus(ctx context.Context, podKey string, updates map[string]interface{}) (int64, error)
 	// GetByKeyAndRunner returns a pod by pod_key and runner_id (no preloads).
 	GetByKeyAndRunner(ctx context.Context, podKey string, runnerID int64) (*Pod, error)
 	// CountActiveByKeys counts how many of the given pod keys are in active status.

@@ -8,7 +8,7 @@ import {
   defaultFormState,
   defaultConfigOptions,
   mockRunner,
-  mockAgentType,
+  mockAgent,
   mockRepository,
   mockCredentialProfile,
   clearAllMocks,
@@ -45,7 +45,7 @@ vi.mock("@/components/ui/collapsible", () => ({
 
 vi.mock("@/stores/podCreation", () => ({
   usePodCreationStore: () => ({
-    lastAgentTypeId: null,
+    lastAgentSlug: null,
     lastRepositoryId: null,
     lastCredentialProfileId: null,
     lastBranchName: null,
@@ -73,14 +73,14 @@ describe("CreatePodForm - Agent Configuration", () => {
     vi.mocked(usePodCreationData).mockReturnValue({
       ...defaultPodCreationData,
       runners: [mockRunner],
-      repositories: [mockRepository, { ...mockRepository, id: 2, full_path: "org/repo2" }],
+      repositories: [mockRepository, { ...mockRepository, id: 2, slug: "org/repo2" }],
       selectedRunner: mockRunner,
-      availableAgentTypes: [mockAgentType],
+      availableAgents: [mockAgent],
     });
 
     vi.mocked(useCreatePodForm).mockReturnValue({
       ...defaultFormState,
-      selectedAgent: 1,
+      selectedAgent: "claude-code",
       credentialProfiles: [
         { ...mockCredentialProfile, id: 1, name: "My Credentials", is_default: false },
         { ...mockCredentialProfile, id: 2, name: "Default Creds", is_default: true },
@@ -200,7 +200,7 @@ describe("CreatePodForm - Agent Configuration", () => {
     it("should render prompt textarea when agent is selected", () => {
       setupAgentSelectedState();
       render(<CreatePodForm config={{ scenario: "workspace" }} />);
-      expect(screen.getByLabelText("ide.createPod.initialPrompt")).toBeInTheDocument();
+      expect(screen.getByLabelText("ide.createPod.prompt")).toBeInTheDocument();
     });
 
     it("should use custom placeholder when provided", () => {
@@ -212,7 +212,7 @@ describe("CreatePodForm - Agent Configuration", () => {
     it("should call setPrompt when changed", () => {
       setupAgentSelectedState();
       render(<CreatePodForm config={{ scenario: "workspace" }} />);
-      fireEvent.change(screen.getByLabelText("ide.createPod.initialPrompt"), { target: { value: "New prompt" } });
+      fireEvent.change(screen.getByLabelText("ide.createPod.prompt"), { target: { value: "New prompt" } });
       expect(mockSetPrompt).toHaveBeenCalledWith("New prompt");
     });
   });

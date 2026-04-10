@@ -2,8 +2,11 @@ package updater
 
 import (
 	"context"
+	"os"
 	"sync"
 	"time"
+
+	"github.com/anthropics/agentsmesh/runner/internal/logger"
 )
 
 // State represents the current update state.
@@ -67,6 +70,7 @@ type GracefulUpdater struct {
 	restartFunc   RestartFunc
 	healthChecker HealthChecker
 	healthTimeout time.Duration
+	exitFunc      func(code int) // defaults to os.Exit; override in tests
 
 	// State
 	mu          sync.RWMutex
@@ -132,6 +136,7 @@ func NewGracefulUpdater(updater *Updater, podCounter PodCounter, opts ...Gracefu
 		maxWaitTime:   30 * time.Minute, // Default: 30 minutes
 		pollInterval:  5 * time.Second,  // Default: check every 5 seconds
 		healthTimeout: 30 * time.Second, // Default: 30 seconds for health check
+		exitFunc:      os.Exit,
 		state:         StateIdle,
 	}
 
@@ -168,11 +173,16 @@ func (g *GracefulUpdater) PendingVersion() string {
 
 func (g *GracefulUpdater) setState(state State) {
 	g.mu.Lock()
+	prev := g.state
 	g.state = state
 	info := g.pendingInfo
-	cb := g.onStatus          // Copy callback reference
+	cb := g.onStatus           // Copy callback reference
 	podCounter := g.podCounter // Copy podCounter reference
 	g.mu.Unlock()
+
+	if prev != state {
+		logger.Updater().Info("Update state changed", "from", prev, "to", state)
+	}
 
 	// Callback executed outside lock (avoid deadlock), using snapshot from lock
 	if cb != nil {
@@ -192,6 +202,8 @@ func (g *GracefulUpdater) CancelPendingUpdate() {
 	if g.cancelDrain != nil {
 		g.cancelDrain()
 	}
+
+	logger.Updater().Info("Pending update cancelled", "was_draining", g.draining)
 
 	g.pendingInfo = nil
 	g.draining = false

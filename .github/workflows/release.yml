@@ -7,15 +7,51 @@ on:
       - "v*"
 
 env:
+  REGISTRY: registry.agentsmesh.ai
   DOCKERHUB_NAMESPACE: agentsmesh
   GO_VERSION: "1.25"
-  REGISTRY_PREFIX: "public.ecr.aws/docker/library/"
+  REGISTRY_PREFIX: "registry.agentsmesh.ai/library/"
 
 jobs:
   # ===========================================================================
-  # Build and push Docker images (server-side services)
-  # main push: backend, web, web-admin, relay (short sha tag)
-  # v* tag:    backend, web, web-admin, relay (semver tags)
+  # Detect which services have changed files
+  # ===========================================================================
+
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      web-admin: ${{ steps.filter.outputs.web-admin }}
+      relay: ${{ steps.filter.outputs.relay }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'proto/**'
+              - 'agentfile/**'
+              - 'ci/backend.Dockerfile'
+            web:
+              - 'web/**'
+              - 'ci/web.Dockerfile'
+            web-admin:
+              - 'web-admin/**'
+              - 'ci/web-admin.Dockerfile'
+            relay:
+              - 'relay/**'
+              - 'ci/relay.Dockerfile'
+            migrations:
+              - 'backend/migrations/**'
+
+  # ===========================================================================
+  # Build and push Docker images (only changed services)
   # ===========================================================================
 
   build-images:
@@ -32,20 +68,23 @@ jobs:
           - service: web
             dockerfile: ci/web.Dockerfile
             context: ./web
-            use_ecr: false
+            use_ecr: true
           - service: web-admin
             dockerfile: ci/web-admin.Dockerfile
             context: ./web-admin
-            use_ecr: false
+            use_ecr: true
           - service: relay
             dockerfile: ci/relay.Dockerfile
             context: .
             use_ecr: true
+    outputs:
+      version: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set version tag
+        id: version
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
@@ -53,14 +92,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Log in to AgentsMesh Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: |
+            image=registry.agentsmesh.ai/library/buildkit:buildx-stable-1
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.service }}
+          images: |
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.service }}
+            ${{ env.REGISTRY }}/agentsmesh/${{ matrix.service }}
           tags: |
-            # main branch: short sha only
+            # main branch: short sha + latest
             type=sha,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
             # version tags: v1.0.0, v1.0
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -78,7 +133,120 @@ jobs:
             REGISTRY_PREFIX=${{ matrix.use_ecr && env.REGISTRY_PREFIX || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
+
+  # ===========================================================================
+  # Deploy US West production (independent parallel jobs, changes-based)
+  # ===========================================================================
+
+  deploy-uswest-backend:
+    name: Deploy US West Backend
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.backend == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-us-west-001 "cd /opt/agentsmesh && ./deploy.sh uswest-prod --service backend --version ${VERSION}"
+
+  deploy-uswest-web:
+    name: Deploy US West Web
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.web == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-us-west-001 "cd /opt/agentsmesh && ./deploy.sh uswest-prod --service web --version ${VERSION}"
+
+  deploy-uswest-web-admin:
+    name: Deploy US West Web-Admin
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.web-admin == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-us-west-001 "cd /opt/agentsmesh && ./deploy.sh uswest-prod --service web-admin --version ${VERSION}"
+
+  deploy-uswest-relay-01:
+    name: Deploy US West Relay 01
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.relay == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          ssh aliyun-us-west-relay-001 "cd /opt/agentsmesh/relay && ./deploy.sh uswest-relay-01 --pull"
+
+  deploy-uswest-relay-beijing-02:
+    name: Deploy US West Relay Beijing 02
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.relay == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          ssh aliyun-agentsmesh-us-relay-beijing-002 "cd /opt/agentsmesh/relay && ./deploy.sh uswest-relay-beijing-02 --pull"
+
+  migrate-uswest:
+    name: Migrate US West
+    needs: [changes, deploy-uswest-backend]
+    if: always() && needs.changes.outputs.migrations == 'true' && needs.deploy-uswest-backend.result == 'success'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          ssh aliyun-us-west-001 "cd /opt/agentsmesh && ./migrate.sh uswest-prod --direction up"
+
+  # ===========================================================================
+  # Deploy China production (independent parallel jobs, changes-based)
+  # ===========================================================================
+
+  deploy-cn-backend:
+    name: Deploy CN Backend
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.backend == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service backend --version ${VERSION}"
+
+  deploy-cn-web:
+    name: Deploy CN Web
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.web == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service web --version ${VERSION}"
+
+  deploy-cn-web-admin:
+    name: Deploy CN Web-Admin
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.web-admin == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          VERSION="${{ needs.build-images.outputs.version }}"
+          ssh aliyun-s001 "cd /opt/agentsmesh && ./deploy.sh cn-prod --service web-admin --version ${VERSION}"
+
+  deploy-cn-relay-01:
+    name: Deploy CN Relay 01
+    needs: [changes, build-images]
+    if: always() && needs.changes.outputs.relay == 'true' && needs.build-images.result != 'failure'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          ssh aliyun-cn-relay-01 "cd /opt/agentsmesh/relay && ./deploy.sh cn-relay-01 --pull"
+
+  migrate-cn:
+    name: Migrate CN
+    needs: [changes, deploy-cn-backend]
+    if: always() && needs.changes.outputs.migrations == 'true' && needs.deploy-cn-backend.result == 'success'
+    runs-on: [self-hosted, deploy]
+    steps:
+      - run: |
+          ssh aliyun-s001 "cd /opt/agentsmesh && ./migrate.sh cn-prod --direction up"
 
   # ===========================================================================
   # Build Runner CLI + Create GitHub Release (tag only)

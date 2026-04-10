@@ -40,6 +40,7 @@ func TestPodBuilderBuildWithEmptyPodKey(t *testing.T) {
 
 	cmd := &runnerv1.CreatePodCommand{
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		// PodKey is empty
 	}
 
@@ -75,6 +76,7 @@ func TestPodBuilderBuildWithAllOptions(t *testing.T) {
 		PodKey:        "all-options-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"hello", "world"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"VAR1": "value1",
 			"VAR2": "value2",
@@ -83,7 +85,7 @@ func TestPodBuilderBuildWithAllOptions(t *testing.T) {
 
 	pod, err := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(100, 30). // (cols, rows)
+		WithPtySize(100, 30). // (cols, rows)
 		Build(context.Background())
 
 	if err != nil {
@@ -94,10 +96,11 @@ func TestPodBuilderBuildWithAllOptions(t *testing.T) {
 	if pod.PodKey != "all-options-pod" {
 		t.Errorf("pod key = %s, want all-options-pod", pod.PodKey)
 	}
-	if pod.Terminal == nil {
+	comps := testPTYComponents(pod)
+	if comps == nil || comps.Terminal == nil {
 		t.Error("terminal should not be nil")
 	} else {
-		pod.Terminal.Stop()
+		comps.Terminal.Stop()
 	}
 }
 
@@ -109,6 +112,7 @@ func TestPodBuilderMergeEnvVarsWithNilConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"POD_VAR": "pod_value",
 		},
@@ -116,7 +120,7 @@ func TestPodBuilderMergeEnvVarsWithNilConfig(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if len(result) != 1 {
 		t.Errorf("result length = %d, want 1", len(result))
@@ -139,6 +143,7 @@ func TestPodBuilderMergeEnvVarsOverride(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"SHARED_VAR": "pod_value",
 			"POD_VAR":    "pod_only",
@@ -147,7 +152,7 @@ func TestPodBuilderMergeEnvVarsOverride(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	// Command envVars should override config
 	if result["SHARED_VAR"] != "pod_value" {
@@ -161,7 +166,7 @@ func TestPodBuilderMergeEnvVarsOverride(t *testing.T) {
 	}
 }
 
-func TestPodBuilderTerminalSizeDefaults(t *testing.T) {
+func TestPodBuilderPtySizeDefaults(t *testing.T) {
 	runner := &Runner{
 		cfg: &config.Config{
 			WorkspaceRoot: "/tmp",
@@ -169,7 +174,7 @@ func TestPodBuilderTerminalSizeDefaults(t *testing.T) {
 	}
 
 	builder := NewPodBuilderFromRunner(runner).
-		WithTerminalSize(0, 0) // Zero values should use defaults
+		WithPtySize(0, 0) // Zero values should use defaults
 
 	if builder.rows != 24 {
 		t.Errorf("rows = %d, want 24 (default)", builder.rows)
@@ -192,6 +197,7 @@ func TestPodBuilderWithLocalPath(t *testing.T) {
 		PodKey:        "local-path-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			LocalPath: tempDir,
 		},
@@ -209,8 +215,8 @@ func TestPodBuilderWithLocalPath(t *testing.T) {
 	if pod.PodKey != "local-path-pod" {
 		t.Errorf("pod key = %s, want local-path-pod", pod.PodKey)
 	}
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if pod.IO != nil {
+		pod.IO.Stop()
 	}
 }
 
@@ -226,6 +232,7 @@ func TestPodBuilderWithFilesToCreate(t *testing.T) {
 		PodKey:        "files-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		FilesToCreate: []*runnerv1.FileToCreate{
 			{
 				Path:    "{{.sandbox.root_path}}/config.json",
@@ -244,8 +251,8 @@ func TestPodBuilderWithFilesToCreate(t *testing.T) {
 		return
 	}
 
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if pod.IO != nil {
+		pod.IO.Stop()
 	}
 }
 
@@ -262,6 +269,7 @@ func TestPodBuilderWithEmptySandboxConfig(t *testing.T) {
 		PodKey:        "empty-sandbox-pod",
 		LaunchCommand: "echo",
 		LaunchArgs:    []string{"test"},
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		SandboxConfig: &runnerv1.SandboxConfig{
 			// Empty sandbox config - creates empty workspace
 		},
@@ -276,8 +284,8 @@ func TestPodBuilderWithEmptySandboxConfig(t *testing.T) {
 		return
 	}
 
-	if pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if pod.IO != nil {
+		pod.IO.Stop()
 	}
 }
 
@@ -292,12 +300,13 @@ func TestPodBuilderCommandFields(t *testing.T) {
 		PodKey:        "command-fields-pod",
 		LaunchCommand: "test",
 		LaunchArgs:    []string{"arg1"},
+		AgentfileSource: "AGENT test\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"VAR1": "val1",
 			"VAR2": "val2",
 		},
 		SandboxConfig: &runnerv1.SandboxConfig{
-			RepositoryUrl:  "https://example.com/repo",
+			HttpCloneUrl:   "https://example.com/repo",
 			SourceBranch:   "develop",
 			CredentialType: "runner_local",
 		},
@@ -308,7 +317,7 @@ func TestPodBuilderCommandFields(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(120, 40) // (cols, rows)
+		WithPtySize(120, 40) // (cols, rows)
 
 	if builder.cmd.PodKey != "command-fields-pod" {
 		t.Error("podKey not set")
@@ -323,13 +332,13 @@ func TestPodBuilderCommandFields(t *testing.T) {
 		t.Error("envVars not set correctly")
 	}
 	if builder.rows != 40 || builder.cols != 120 {
-		t.Error("terminal size not set correctly")
+		t.Error("PTY size not set correctly")
 	}
 	if builder.cmd.SandboxConfig == nil {
 		t.Error("sandboxConfig not set")
 	} else {
-		if builder.cmd.SandboxConfig.RepositoryUrl != "https://example.com/repo" {
-			t.Error("sandboxConfig repositoryUrl not set correctly")
+		if builder.cmd.SandboxConfig.HttpCloneUrl != "https://example.com/repo" {
+			t.Error("sandboxConfig httpCloneUrl not set correctly")
 		}
 		if builder.cmd.SandboxConfig.SourceBranch != "develop" {
 			t.Error("sandboxConfig branch not set correctly")

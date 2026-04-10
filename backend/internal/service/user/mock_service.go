@@ -38,6 +38,7 @@ type MockService struct {
 	UpdatedUsers     []map[string]interface{}
 	DeletedUserIDs   []int64
 	AuthAttempts     []authAttempt
+	RecordLoginCalls []int64
 	SearchQueries    []string
 }
 
@@ -193,6 +194,14 @@ func (m *MockService) Authenticate(ctx context.Context, email, password string) 
 	return m.GetByEmail(ctx, email)
 }
 
+// RecordLogin implements Interface.
+func (m *MockService) RecordLogin(_ context.Context, userID int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.RecordLoginCalls = append(m.RecordLoginCalls, userID)
+}
+
 // GetOrCreateByOAuth implements Interface.
 func (m *MockService) GetOrCreateByOAuth(ctx context.Context, provider, providerUserID, providerUsername, email, name, avatarURL string) (*user.User, bool, error) {
 	if m.GetOrCreateByOAuthErr != nil {
@@ -344,6 +353,7 @@ func (m *MockService) Reset() {
 	m.UpdatedUsers = nil
 	m.DeletedUserIDs = nil
 	m.AuthAttempts = nil
+	m.RecordLoginCalls = nil
 	m.SearchQueries = nil
 }
 

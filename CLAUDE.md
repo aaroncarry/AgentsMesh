@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentsMesh is a multi-tenant AI Code Agent collaboration platform supporting Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of four main components:
+AgentsMesh is **The AI Agent Workforce Platform** — where teams scale beyond headcount. It supports Claude Code, Codex CLI, Gemini CLI, Aider, and more. It consists of four main components:
 
 - **Backend**: Go API server (Gin + GORM)
 - **Web**: Next.js frontend (App Router + TypeScript + Tailwind CSS)
@@ -286,11 +286,12 @@ runner/
 
 1. Runner registers via gRPC, receives mTLS certificate from PKI
 2. Runner connects via gRPC bidirectional stream with mTLS
-3. Backend sends `create_pod` → Runner creates Sandbox → Starts PTY
-4. Terminal output → PTYForwarder → `terminal_output` via gRPC → WebSocket to web
-5. User input from web → WebSocket → `terminal_input` via gRPC → Runner writes to PTY stdin
-6. Backend sends `terminate_pod` → Runner stops PTY → Cleans up Sandbox
-7. Certificate auto-renewal before expiry (checked every hour)
+3. Backend sends `create_pod` → Runner creates Sandbox → Starts PTY/ACP process
+4. Backend sends `subscribe_pod` → Runner connects to Relay WebSocket
+5. Terminal I/O (data plane): Browser ↔ Relay ↔ Runner (WebSocket binary protocol)
+6. Control commands (control plane): Backend → Runner via gRPC (`terminate_pod`, `send_prompt`, etc.)
+7. Runner events → Backend via gRPC (`pod_created`, `pod_terminated`, `agent_status`, etc.)
+8. Certificate auto-renewal before expiry (checked every hour)
 
 ## Configuration
 
@@ -347,4 +348,6 @@ Or use an existing admin to grant privileges via the Admin Console UI.
 
 
 ## Principles
-* Architecture must conform to SOLID, GRASP, and YAGNI; files should stay under 200 lines; balance cohesion and SRP — split by reason to change, not by line count. 
+* Architecture must conform to SOLID, GRASP, and YAGNI.
+* **Hard limit: every file must stay under 200 lines** (excluding test files, which should stay under 400 lines). When a file approaches this limit, proactively split it by SRP — extract types, helpers, hooks, or sub-components into separate files. A 210-line file is acceptable if splitting would break cohesion; a 300+ line file is never acceptable and must be split before committing.
+* **Minimal comments.** Do not add comments that restate what the code does — the code is the source of truth. Only comment to explain **why** something non-obvious is done (business constraints, dedup reasoning, cross-module contracts). No "creates a new X" on `NewX`, no "returns the Y" on `GetY`, no section banners like `// Create and publish event`. 

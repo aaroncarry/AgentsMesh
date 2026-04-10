@@ -9,7 +9,7 @@ import (
 
 func TestAutopilotController_Pause_Resume(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -23,11 +23,12 @@ func TestAutopilotController_Pause_Resume(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -45,7 +46,7 @@ func TestAutopilotController_Pause_Resume(t *testing.T) {
 
 func TestAutopilotController_Takeover_Handback(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -59,11 +60,12 @@ func TestAutopilotController_Takeover_Handback(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -81,7 +83,7 @@ func TestAutopilotController_Takeover_Handback(t *testing.T) {
 
 func TestAutopilotController_Approve(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 5,
 	}
 
@@ -95,11 +97,12 @@ func TestAutopilotController_Approve(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -117,7 +120,7 @@ func TestAutopilotController_Approve(t *testing.T) {
 
 func TestAutopilotController_Approve_Stop(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 5,
 	}
 
@@ -131,11 +134,12 @@ func TestAutopilotController_Approve_Stop(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -152,7 +156,7 @@ func TestAutopilotController_Approve_Stop(t *testing.T) {
 
 func TestAutopilotController_Approve_NotWaitingApproval(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 5,
 	}
 
@@ -166,11 +170,12 @@ func TestAutopilotController_Approve_NotWaitingApproval(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()

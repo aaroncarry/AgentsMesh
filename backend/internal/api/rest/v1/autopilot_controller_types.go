@@ -11,7 +11,7 @@ type CreateAutopilotControllerRequest struct {
 	PodKey string `json:"pod_key" binding:"required"`
 
 	// Task
-	InitialPrompt string `json:"initial_prompt,omitempty"`
+	Prompt string `json:"prompt,omitempty"`
 
 	// Configuration (all optional with defaults)
 	MaxIterations         int32  `json:"max_iterations,omitempty"`
@@ -19,7 +19,7 @@ type CreateAutopilotControllerRequest struct {
 	NoProgressThreshold   int32  `json:"no_progress_threshold,omitempty"`
 	SameErrorThreshold    int32  `json:"same_error_threshold,omitempty"`
 	ApprovalTimeoutMin    int32  `json:"approval_timeout_min,omitempty"`
-	ControlAgentType      string `json:"control_agent_type,omitempty"`
+	ControlAgentSlug      string `json:"control_agent_slug,omitempty"`
 	ControlPromptTemplate string `json:"control_prompt_template,omitempty"`
 	MCPConfigJSON         string `json:"mcp_config_json,omitempty"`
 }
@@ -37,7 +37,7 @@ type AutopilotControllerResponse struct {
 		Reason string `json:"reason,omitempty"`
 	} `json:"circuit_breaker"`
 	UserTakeover    bool       `json:"user_takeover"`
-	InitialPrompt   string     `json:"initial_prompt,omitempty"`
+	Prompt          string     `json:"prompt,omitempty"`
 	StartedAt       *time.Time `json:"started_at,omitempty"`
 	LastIterationAt *time.Time `json:"last_iteration_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -53,7 +53,7 @@ func toAutopilotControllerResponse(rp *agentpod.AutopilotController) *AutopilotC
 		CurrentIteration:       rp.CurrentIteration,
 		MaxIterations:          rp.MaxIterations,
 		UserTakeover:           rp.UserTakeover,
-		InitialPrompt:          rp.InitialPrompt,
+		Prompt:          rp.Prompt,
 		StartedAt:              rp.StartedAt,
 		LastIterationAt:        rp.LastIterationAt,
 		CreatedAt:              rp.CreatedAt,

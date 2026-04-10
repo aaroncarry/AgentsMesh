@@ -49,15 +49,14 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "survive")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	// Phase 1: Create session (simulates Runner A creating a pod)
 	opts := CreateOpts{
 		PodKey:      "persist",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -71,8 +70,8 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 
 	daemonPID := state.DaemonPID
 	childPID := dpty.Pid()
-	ipcPath := state.IPCPath
-	t.Logf("daemon PID: %d, child PID: %d, IPC: %s", daemonPID, childPID, ipcPath)
+	ipcAddr := state.IPCAddr
+	t.Logf("daemon PID: %d, child PID: %d, IPC: %s", daemonPID, childPID, ipcAddr)
 
 	t.Cleanup(func() {
 		// Final cleanup: kill daemon if still alive
@@ -109,8 +108,7 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 
 	// Phase 4: Fresh manager recovers sessions (simulates Runner B starting)
 	mgr2 := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
@@ -118,7 +116,7 @@ func TestDaemonSurvivesParentDeath(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sessions, 1, "should find exactly one recoverable session")
 	assert.Equal(t, "persist", sessions[0].PodKey)
-	assert.Equal(t, ipcPath, sessions[0].IPCPath)
+	assert.Equal(t, ipcAddr, sessions[0].IPCAddr)
 
 	// Phase 5: Attach to surviving daemon
 	dpty2, err := mgr2.AttachSession(sessions[0])
@@ -154,14 +152,13 @@ func TestDaemonSurvivesMultipleReattachCycles(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "multi")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "multi",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -231,14 +228,13 @@ func TestRecoveredSessionResize(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "rsz")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "rsz",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "cat",
 		WorkDir:     sandbox,
 		Env:         os.Environ(),
@@ -292,14 +288,13 @@ func TestRecoveredSessionGracefulStop(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "gstop")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
 	opts := CreateOpts{
 		PodKey:      "gstop",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "sleep",
 		Args:        []string{"3600"},
 		WorkDir:     sandbox,
@@ -353,8 +348,7 @@ func TestOrphanCleanupAfterRecovery(t *testing.T) {
 	workspace, sandbox := shortWorkspace(t, "orph")
 
 	mgr := &PodDaemonManager{
-		sandboxesDir: workspace,
-		socketDir:     workspace,
+		sandboxesDir:  workspace,
 		runnerBinPath: binPath,
 	}
 
@@ -363,7 +357,7 @@ func TestOrphanCleanupAfterRecovery(t *testing.T) {
 
 	opts := CreateOpts{
 		PodKey:      "orph",
-		AgentType:   "test",
+		Agent:       "test",
 		Command:     "sleep",
 		Args:        []string{"3600"},
 		WorkDir:     sandbox,

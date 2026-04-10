@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock API modules
 const mockList = vi.fn();
-const mockListTypes = vi.fn();
+const mockListAgents = vi.fn();
+const mockGetConfigSchema = vi.fn();
 const mockApiCreate = vi.fn();
 const mockApiUpdate = vi.fn();
 
@@ -14,10 +15,11 @@ vi.mock("@/lib/api", () => ({
     update: (...args: unknown[]) => mockApiUpdate(...args),
     delete: vi.fn(),
     setDefault: vi.fn(),
-    listForAgentType: vi.fn(),
+    listForAgent: vi.fn(),
   },
   agentApi: {
-    listTypes: (...args: unknown[]) => mockListTypes(...args),
+    list: (...args: unknown[]) => mockListAgents(...args),
+    getConfigSchema: (...args: unknown[]) => mockGetConfigSchema(...args),
   },
 }));
 
@@ -30,7 +32,17 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockList.mockResolvedValue({ items: [] });
-    mockListTypes.mockResolvedValue({ agent_types: [{ id: 1, name: "Claude", slug: "claude-code" }] });
+    mockListAgents.mockResolvedValue({ agents: [{ name: "Claude", slug: "claude-code" }] });
+    mockGetConfigSchema.mockResolvedValue({
+      schema: {
+        fields: [],
+        credential_fields: [
+          { name: "ANTHROPIC_API_KEY", type: "secret", optional: true },
+          { name: "ANTHROPIC_AUTH_TOKEN", type: "secret", optional: true },
+          { name: "ANTHROPIC_BASE_URL", type: "text", optional: true },
+        ],
+      },
+    });
   });
 
   it("should propagate API errors from create to caller", async () => {
@@ -39,7 +51,6 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
 
     const { result } = renderHook(() => useAgentCredentials(mockTranslate));
 
-    // Wait for initial load
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
     });
@@ -47,16 +58,12 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
     const formData: CredentialFormData = {
       name: "Test Profile",
       description: "",
-      baseUrl: "",
-      apiKey: "sk-test",
-      authToken: "",
-      credentialMethod: "api_key",
+      credentials: { ANTHROPIC_API_KEY: "sk-test" },
     };
 
-    // handleSaveProfile should throw the API error
     await expect(
       act(async () => {
-        await result.current.handleSaveProfile(1, formData, null);
+        await result.current.handleSaveProfile("claude-code", formData, null);
       })
     ).rejects.toThrow("Network error");
   });
@@ -74,7 +81,7 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
     const editingProfile = {
       id: 5,
       user_id: 1,
-      agent_type_id: 1,
+      agent_slug: "claude-code",
       name: "Existing",
       is_runner_host: false,
       is_default: false,
@@ -86,15 +93,12 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
     const formData: CredentialFormData = {
       name: "Updated",
       description: "",
-      baseUrl: "",
-      apiKey: "sk-new",
-      authToken: "",
-      credentialMethod: "api_key",
+      credentials: { ANTHROPIC_API_KEY: "sk-new" },
     };
 
     await expect(
       act(async () => {
-        await result.current.handleSaveProfile(1, formData, editingProfile);
+        await result.current.handleSaveProfile("claude-code", formData, editingProfile);
       })
     ).rejects.toThrow("Unauthorized");
   });
@@ -111,14 +115,11 @@ describe("useAgentCredentials - handleSaveProfile error handling", () => {
     const formData: CredentialFormData = {
       name: "New Profile",
       description: "",
-      baseUrl: "",
-      apiKey: "sk-test",
-      authToken: "",
-      credentialMethod: "api_key",
+      credentials: { ANTHROPIC_API_KEY: "sk-test" },
     };
 
     await act(async () => {
-      await result.current.handleSaveProfile(1, formData, null);
+      await result.current.handleSaveProfile("claude-code", formData, null);
     });
 
     expect(mockApiCreate).toHaveBeenCalledTimes(1);

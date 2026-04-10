@@ -7,7 +7,7 @@
     "noRunnersOnline": "No runners online",
     "selectAgent": "Select Agent",
     "selectRepository": "Select Repository",
-    "initialPrompt": "Initial Prompt",
+    "prompt": "Initial Prompt",
     "status": {
       "initializing": "Initializing",
       "running": "Running",
@@ -118,7 +118,11 @@
     "view": "View",
     "filters": {
       "status": "Status",
-      "priority": "Priority"
+      "priority": "Priority",
+      "repository": "Repository",
+      "noRepository": "No repository",
+      "showMore": "Show more",
+      "showLess": "Show less"
     },
     "emptyState": {
       "title": "No tickets yet",
@@ -222,8 +226,8 @@
       "permissionDefault": "Default",
       "permissionPlan": "Plan Mode",
       "permissionAutoApprove": "Auto-approve (Dangerous)",
-      "initialPrompt": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Work on ticket: {title}",
+      "prompt": "Initial Prompt (optional)",
+      "promptPlaceholder": "Work on ticket: {title}",
       "creating": "Creating...",
       "createPod": "Create Pod",
       "createFailed": "Failed to create pod",
@@ -296,15 +300,15 @@
     },
     "modal": {
       "title": "Create New Pod",
-      "agentType": "Agent Type",
+      "agent": "Agent",
       "selectAgent": "Select an agent...",
       "selectRunner": "Select a runner...",
       "repositoryOptional": "Repository (optional)",
       "selectRepository": "Select a repository...",
       "branch": "Branch",
       "branchPlaceholder": "Enter branch name (e.g., main)",
-      "initialPromptOptional": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Enter an initial prompt for the agent...",
+      "promptOptional": "Initial Prompt (optional)",
+      "promptPlaceholder": "Enter an initial prompt for the agent...",
       "creating": "Creating...",
       "createPod": "Create Pod"
     }
@@ -340,11 +344,14 @@
     "toOpen": "to open"
   },
   "relayStatus": {
-    "connected": "Relay Connected",
-    "connecting": "Connecting to Relay...",
-    "disconnected": "Relay Disconnected",
-    "error": "Relay Connection Error",
-    "runnerDisconnected": "Runner Disconnected"
+    "web": "Web",
+    "relay": "Relay",
+    "runner": "Runner",
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "disconnected": "Disconnected",
+    "error": "Error",
+    "unknown": "Unknown"
   },
   "terminalTabs": {
     "singleView": "Single view",

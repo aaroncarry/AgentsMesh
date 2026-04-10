@@ -21,7 +21,7 @@ preconditions:
 setup:
   sql: |
     -- 清理可能存在的测试数据
-    DELETE FROM agent_pods WHERE initial_prompt LIKE 'E2E Full Binding Flow%';
+    DELETE FROM agent_pods WHERE prompt LIKE 'E2E Full Binding Flow%';
 
 steps:
   - id: step-1
@@ -65,15 +65,15 @@ steps:
       type: api
       request:
         method: GET
-        url: /api/v1/orgs/dev-org/agents/types
+        url: /api/v1/orgs/dev-org/agents
         headers:
           Authorization: Bearer {access_token}
       expected:
         status: 200
         body:
-          agent_types: not_empty
+          agents: not_empty
       save:
-        agent_type_id: body.agent_types[0].id
+        agent_slug: body.agents[0].slug
 
   - id: step-4
     action: 创建 Pod A
@@ -87,8 +87,8 @@ steps:
           Content-Type: application/json
         body:
           runner_id: "{runner_id}"
-          agent_type_id: "{agent_type_id}"
-          initial_prompt: "E2E Full Binding Flow Pod A"
+          agent_slug: "{agent_slug}"
+          prompt: "E2E Full Binding Flow Pod A"
       expected:
         status: 201
       save:
@@ -106,8 +106,8 @@ steps:
           Content-Type: application/json
         body:
           runner_id: "{runner_id}"
-          agent_type_id: "{agent_type_id}"
-          initial_prompt: "E2E Full Binding Flow Pod B"
+          agent_slug: "{agent_slug}"
+          prompt: "E2E Full Binding Flow Pod B"
       expected:
         status: 201
       save:

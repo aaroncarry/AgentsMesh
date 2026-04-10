@@ -5,7 +5,10 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace";
 import type { SplitTreeNode } from "@/stores/workspace";
+import { usePodStore } from "@/stores/pod";
+import { POD_MODE_ACP } from "@/lib/pod-modes";
 import { TerminalPane } from "./TerminalPane";
+import { AgentPanel } from "./AgentPanel";
 
 interface SplitTreeRendererProps {
   node: SplitTreeNode;
@@ -40,8 +43,8 @@ export function SplitTreeRenderer({ node, onPopout }: SplitTreeRendererProps) {
   const handleLayoutChange = useCallback(
     (splitId: string, layout: Record<string, number>) => {
       const values = Object.values(layout);
-      if (values.length === 2) {
-        updateSplitSizes(splitId, [values[0], values[1]]);
+      if (values.length >= 2) {
+        updateSplitSizes(splitId, values);
       }
     },
     [updateSplitSizes]
@@ -58,7 +61,7 @@ export function SplitTreeRenderer({ node, onPopout }: SplitTreeRendererProps) {
     );
   }
 
-  // Split node
+  // Split node — render N children with resize handles between them
   const orientation = node.direction === "horizontal" ? "horizontal" : "vertical";
 
   return (
@@ -67,19 +70,14 @@ export function SplitTreeRenderer({ node, onPopout }: SplitTreeRendererProps) {
       className="h-full"
       onLayoutChange={(layout) => handleLayoutChange(node.id, layout)}
     >
-      <Panel defaultSize={node.sizes[0]} minSize={10}>
-        <SplitTreeRenderer
-          node={node.children[0]}
-          onPopout={onPopout}
-        />
-      </Panel>
-      <ResizeHandle direction={node.direction} />
-      <Panel defaultSize={node.sizes[1]} minSize={10}>
-        <SplitTreeRenderer
-          node={node.children[1]}
-          onPopout={onPopout}
-        />
-      </Panel>
+      {node.children.map((child, i) => (
+        <React.Fragment key={child.id}>
+          {i > 0 && <ResizeHandle direction={node.direction} />}
+          <Panel defaultSize={node.sizes[i]} minSize={10}>
+            <SplitTreeRenderer node={child} onPopout={onPopout} />
+          </Panel>
+        </React.Fragment>
+      ))}
     </Group>
   );
 }
@@ -100,18 +98,24 @@ function LeafPane({
   onPopout?: (paneId: string) => void;
 }) {
   const podKey = useWorkspaceStore((s) => s.panes.find((p) => p.id === paneId)?.podKey);
+  const interactionMode = usePodStore(
+    (s) => s.pods.find((p) => p.pod_key === podKey)?.interaction_mode
+  );
   if (!podKey) return null;
 
-  return (
-    <TerminalPane
-      paneId={paneId}
-      podKey={podKey}
-      isActive={paneId === activePane}
-      onClose={() => onClose(paneId)}
-      onPopout={onPopout ? () => onPopout(paneId) : undefined}
-      showHeader={true}
-    />
-  );
+  const sharedProps = {
+    paneId,
+    podKey,
+    isActive: paneId === activePane,
+    onClose: () => onClose(paneId),
+    onPopout: onPopout ? () => onPopout(paneId) : undefined,
+    showHeader: true,
+  };
+
+  if (interactionMode === POD_MODE_ACP) {
+    return <AgentPanel {...sharedProps} />;
+  }
+  return <TerminalPane {...sharedProps} />;
 }
 
 export default SplitTreeRenderer;

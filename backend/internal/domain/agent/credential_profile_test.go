@@ -13,27 +13,32 @@ func TestUserAgentCredentialProfileTableName(t *testing.T) {
 	}
 }
 
+// agentfileWithEnv is a helper that returns an AgentFile source with ENV declarations.
+func agentfileWithEnv() string {
+	return `AGENT "claude"
+ENV api_key SECRET OPTIONAL
+ENV auth_token SECRET OPTIONAL
+ENV base_url TEXT OPTIONAL
+`
+}
+
 func TestToResponse_SecretFieldsNotExposed(t *testing.T) {
 	// secret fields (api_key, auth_token) must appear in ConfiguredFields
 	// but NEVER in ConfiguredValues
+	pf := agentfileWithEnv()
 	profile := &UserAgentCredentialProfile{
-		ID:          1,
+		ID: 1,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "work",
 		CredentialsEncrypted: EncryptedCredentials{
 			"api_key":  "sk-secret-key-123",
 			"base_url": "https://proxy.example.com",
 		},
-		AgentType: &AgentType{
-			ID:   1,
-			Slug: "claude-code",
-			Name: "Claude Code",
-			CredentialSchema: CredentialSchema{
-				{Name: "api_key", Type: "secret", EnvVar: "ANTHROPIC_API_KEY", Required: false},
-				{Name: "auth_token", Type: "secret", EnvVar: "ANTHROPIC_AUTH_TOKEN", Required: false},
-				{Name: "base_url", Type: "text", EnvVar: "ANTHROPIC_BASE_URL", Required: false},
-			},
+		Agent: &Agent{
+			Slug:          "claude-code",
+			Name:          "Claude Code",
+			AgentfileSource: &pf,
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -64,24 +69,20 @@ func TestToResponse_SecretFieldsNotExposed(t *testing.T) {
 
 func TestToResponse_AuthTokenNotExposed(t *testing.T) {
 	// Verify auth_token (secret) is never exposed in ConfiguredValues
+	pf := agentfileWithEnv()
 	profile := &UserAgentCredentialProfile{
-		ID:          2,
+		ID: 2,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "token-config",
 		CredentialsEncrypted: EncryptedCredentials{
 			"auth_token": "my-secret-token",
 			"base_url":   "https://custom.api.com",
 		},
-		AgentType: &AgentType{
-			ID:   1,
-			Slug: "claude-code",
-			Name: "Claude Code",
-			CredentialSchema: CredentialSchema{
-				{Name: "api_key", Type: "secret", EnvVar: "ANTHROPIC_API_KEY", Required: false},
-				{Name: "auth_token", Type: "secret", EnvVar: "ANTHROPIC_AUTH_TOKEN", Required: false},
-				{Name: "base_url", Type: "text", EnvVar: "ANTHROPIC_BASE_URL", Required: false},
-			},
+		Agent: &Agent{
+			Slug:          "claude-code",
+			Name:          "Claude Code",
+			AgentfileSource: &pf,
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -109,13 +110,13 @@ func TestToResponse_AuthTokenNotExposed(t *testing.T) {
 	}
 }
 
-func TestToResponse_NoAgentType(t *testing.T) {
-	// Without AgentType loaded, all fields go to ConfiguredFields only
-	// (no schema to determine type, so nothing goes to ConfiguredValues)
+func TestToResponse_NoAgent(t *testing.T) {
+	// Without Agent loaded, all fields go to ConfiguredFields only
+	// (no AgentFile to determine type, so nothing goes to ConfiguredValues)
 	profile := &UserAgentCredentialProfile{
 		ID:          3,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "no-schema",
 		CredentialsEncrypted: EncryptedCredentials{
 			"api_key":  "sk-key",
@@ -131,7 +132,7 @@ func TestToResponse_NoAgentType(t *testing.T) {
 		t.Errorf("expected 2 configured fields, got %d", len(resp.ConfiguredFields))
 	}
 	if resp.ConfiguredValues != nil {
-		t.Errorf("expected nil ConfiguredValues without AgentType, got %v", resp.ConfiguredValues)
+		t.Errorf("expected nil ConfiguredValues without Agent, got %v", resp.ConfiguredValues)
 	}
 }
 
@@ -139,11 +140,10 @@ func TestToResponse_NilCredentials(t *testing.T) {
 	profile := &UserAgentCredentialProfile{
 		ID:          4,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "runner-host",
 		IsRunnerHost: true,
-		AgentType: &AgentType{
-			ID:   1,
+		Agent: &Agent{
 			Slug: "claude-code",
 			Name: "Claude Code",
 		},
@@ -166,23 +166,20 @@ func TestToResponse_NilCredentials(t *testing.T) {
 
 func TestToResponse_EmptyTextValueNotExposed(t *testing.T) {
 	// Empty text values should NOT appear in ConfiguredValues
+	pf := agentfileWithEnv()
 	profile := &UserAgentCredentialProfile{
 		ID:          5,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "empty-url",
 		CredentialsEncrypted: EncryptedCredentials{
 			"api_key":  "sk-key",
 			"base_url": "",
 		},
-		AgentType: &AgentType{
-			ID:   1,
-			Slug: "claude-code",
-			Name: "Claude Code",
-			CredentialSchema: CredentialSchema{
-				{Name: "api_key", Type: "secret", EnvVar: "ANTHROPIC_API_KEY", Required: false},
-				{Name: "base_url", Type: "text", EnvVar: "ANTHROPIC_BASE_URL", Required: false},
-			},
+		Agent: &Agent{
+			Slug:          "claude-code",
+			Name:          "Claude Code",
+			AgentfileSource: &pf,
 		},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -195,14 +192,13 @@ func TestToResponse_EmptyTextValueNotExposed(t *testing.T) {
 	}
 }
 
-func TestToResponse_AgentTypeInfo(t *testing.T) {
+func TestToResponse_AgentInfo(t *testing.T) {
 	profile := &UserAgentCredentialProfile{
 		ID:          6,
 		UserID:      10,
-		AgentTypeID: 1,
+		AgentSlug: "claude-code",
 		Name:        "test",
-		AgentType: &AgentType{
-			ID:   1,
+		Agent: &Agent{
 			Slug: "claude-code",
 			Name: "Claude Code",
 		},
@@ -212,10 +208,7 @@ func TestToResponse_AgentTypeInfo(t *testing.T) {
 
 	resp := profile.ToResponse()
 
-	if resp.AgentTypeName != "Claude Code" {
-		t.Errorf("expected AgentTypeName 'Claude Code', got %s", resp.AgentTypeName)
-	}
-	if resp.AgentTypeSlug != "claude-code" {
-		t.Errorf("expected AgentTypeSlug 'claude-code', got %s", resp.AgentTypeSlug)
+	if resp.AgentName != "Claude Code" {
+		t.Errorf("expected AgentName 'Claude Code', got %s", resp.AgentName)
 	}
 }

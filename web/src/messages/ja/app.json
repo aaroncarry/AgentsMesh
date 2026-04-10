@@ -7,7 +7,7 @@
     "noRunnersOnline": "オンラインのランナーがありません",
     "selectAgent": "エージェントを選択",
     "selectRepository": "リポジトリを選択",
-    "initialPrompt": "初期プロンプト",
+    "prompt": "初期プロンプト",
     "status": {
       "initializing": "初期化中",
       "running": "実行中",
@@ -112,7 +112,11 @@
     "view": "表示",
     "filters": {
       "status": "ステータス",
-      "priority": "優先度"
+      "priority": "優先度",
+      "repository": "リポジトリ",
+      "noRepository": "リポジトリなし",
+      "showMore": "もっと見る",
+      "showLess": "折りたたむ"
     },
     "emptyState": {
       "title": "チケットがありません",
@@ -205,8 +209,8 @@
       "permissionDefault": "Default",
       "permissionPlan": "Plan Mode",
       "permissionAutoApprove": "Auto-approve (Dangerous)",
-      "initialPrompt": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Work on ticket: {title}",
+      "prompt": "Initial Prompt (optional)",
+      "promptPlaceholder": "Work on ticket: {title}",
       "creating": "Creating...",
       "createPod": "Create Pod",
       "createFailed": "Failed to create pod",
@@ -279,15 +283,15 @@
     },
     "modal": {
       "title": "Create New Pod",
-      "agentType": "Agent Type",
+      "agent": "Agent",
       "selectAgent": "Select an agent...",
       "selectRunner": "Select a runner...",
       "repositoryOptional": "Repository (optional)",
       "selectRepository": "Select a repository...",
       "branch": "Branch",
       "branchPlaceholder": "Enter branch name (e.g., main)",
-      "initialPromptOptional": "Initial Prompt (optional)",
-      "initialPromptPlaceholder": "Enter an initial prompt for the agent...",
+      "promptOptional": "Initial Prompt (optional)",
+      "promptPlaceholder": "Enter an initial prompt for the agent...",
       "creating": "Creating...",
       "createPod": "Create Pod"
     }
@@ -323,11 +327,14 @@
     "toOpen": "で開く"
   },
   "relayStatus": {
-    "connected": "Relay 接続済み",
-    "connecting": "Relay に接続中...",
-    "disconnected": "Relay 切断",
-    "error": "Relay 接続エラー",
-    "runnerDisconnected": "Runner 切断"
+    "web": "Web",
+    "relay": "Relay",
+    "runner": "Runner",
+    "connected": "接続済み",
+    "connecting": "接続中",
+    "disconnected": "切断",
+    "error": "エラー",
+    "unknown": "不明"
   },
   "terminalTabs": {
     "singleView": "シングルビュー",

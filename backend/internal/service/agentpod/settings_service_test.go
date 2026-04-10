@@ -5,42 +5,10 @@ import (
 	"testing"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
-func setupSettingsTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		DisableForeignKeyConstraintWhenMigrating: true,
-	})
-	if err != nil {
-		t.Fatalf("failed to connect database: %v", err)
-	}
-
-	// Create tables manually for SQLite compatibility
-	// Note: PreparationScript and PreparationTimeout have been moved to Repository
-	err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS user_agentpod_settings (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL UNIQUE,
-			default_agent_type_id INTEGER,
-			default_model TEXT,
-			default_perm_mode TEXT,
-			terminal_font_size INTEGER,
-			terminal_theme TEXT,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)
-	`).Error
-	if err != nil {
-		t.Fatalf("failed to create user_agentpod_settings table: %v", err)
-	}
-
-	return db
-}
-
 func TestNewSettingsService(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 
 	if service == nil {
@@ -52,7 +20,7 @@ func TestNewSettingsService(t *testing.T) {
 }
 
 func TestGetUserSettings_NewUser(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
@@ -79,7 +47,7 @@ func TestGetUserSettings_NewUser(t *testing.T) {
 }
 
 func TestGetUserSettings_ExistingUser(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
@@ -104,7 +72,7 @@ func TestGetUserSettings_ExistingUser(t *testing.T) {
 }
 
 func TestUpdateUserSettings(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
@@ -147,7 +115,7 @@ func TestUpdateUserSettings(t *testing.T) {
 }
 
 func TestUpdateUserSettings_PartialUpdate(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
@@ -183,7 +151,7 @@ func TestUpdateUserSettings_PartialUpdate(t *testing.T) {
 }
 
 func TestDeleteUserSettings(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
@@ -208,17 +176,16 @@ func TestDeleteUserSettings(t *testing.T) {
 }
 
 func TestGetDefaultAgentConfig(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 
 	// Create settings with agent config
-	agentTypeID := int64(5)
 	model := "claude-3-sonnet"
 	permMode := "accept-edits"
 	existing := &agentpod.UserAgentPodSettings{
 		UserID:             20,
-		DefaultAgentTypeID: &agentTypeID,
+		DefaultAgentSlug: strPtr("claude-code"),
 		DefaultModel:       &model,
 		DefaultPermMode:    &permMode,
 	}
@@ -231,8 +198,8 @@ func TestGetDefaultAgentConfig(t *testing.T) {
 		t.Fatalf("failed to get default agent config: %v", err)
 	}
 
-	if config.AgentTypeID == nil || *config.AgentTypeID != 5 {
-		t.Errorf("expected AgentTypeID 5")
+	if config.AgentSlug == nil || *config.AgentSlug != "claude-code" {
+		t.Errorf("expected AgentSlug 5")
 	}
 	if config.Model == nil || *config.Model != "claude-3-sonnet" {
 		t.Errorf("expected Model 'claude-3-sonnet'")
@@ -243,7 +210,7 @@ func TestGetDefaultAgentConfig(t *testing.T) {
 }
 
 func TestGetTerminalPreferences(t *testing.T) {
-	db := setupSettingsTestDB(t)
+	db := setupTestDB(t)
 	service := newTestSettingsService(db)
 	ctx := context.Background()
 

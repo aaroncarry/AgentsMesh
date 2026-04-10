@@ -52,7 +52,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	// Register core services
 	supervisor.Add(&lifecycle.ConnectionService{Conn: r.conn})
 
-	for _, svc := range r.components.Services() {
+	for _, svc := range r.sidecars.Services() {
 		supervisor.Add(svc)
 	}
 
@@ -81,7 +81,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		log.Info("Shutting down runner...")
-		r.stopAllPods()    // Pods stop while gRPC still connected
+		r.stopAllPods() // Pods stop while gRPC still connected
 		close(shutdownDone)
 		supervisorCancel() // Now tear down gRPC + other services
 	}()
@@ -144,25 +144,21 @@ func (r *Runner) stopAllPods() {
 
 			// Capture metadata before cleanup for token usage collection.
 			podKey := p.PodKey
-			agentType := p.AgentType
+			agent := p.Agent
 			sandboxPath := p.SandboxPath
 			podStartedAt := p.StartedAt
 
 			p.StopStateDetector()
-			// Stop aggregator BEFORE disconnecting relay, so the final flush
-			// can still be sent through the relay (matches createExitHandler order).
-			// Close PTYLogger AFTER Aggregator.Stop() to avoid silent data loss.
-			if p.Aggregator != nil {
-				p.Aggregator.Stop()
-			}
-			if p.PTYLogger != nil {
-				p.PTYLogger.Close()
+			// Mode-specific infrastructure cleanup (aggregator, loggers).
+			// Must happen BEFORE DisconnectRelay so the final flush reaches the browser.
+			if p.IO != nil {
+				p.IO.Teardown()
 			}
 			p.DisconnectRelay()
-			if p.Terminal != nil {
+			if p.IO != nil {
 				// Detach instead of Stop: daemon + child process stay alive
 				// so the session can be recovered after Runner restart.
-				p.Terminal.Detach()
+				p.IO.Detach()
 			}
 			r.podStore.Delete(p.PodKey)
 
@@ -170,7 +166,7 @@ func (r *Runner) stopAllPods() {
 			// Token files live in HOME (~/.claude/, ~/.codex/), not in sandbox,
 			// so they survive Terminal.Detach(). gRPC is still alive at this point.
 			if r.messageHandler != nil {
-				r.messageHandler.collectAndSendTokenUsage(podKey, agentType, sandboxPath, podStartedAt)
+				r.messageHandler.collectAndSendTokenUsage(podKey, agent, sandboxPath, podStartedAt)
 			}
 		}(pod)
 	}
@@ -191,44 +187,4 @@ func (r *Runner) stopAllPods() {
 	case <-timer.C:
 		log.Warn("Timeout waiting for pods to stop — some token usage data may be lost", "count", len(pods))
 	}
-}
-
-// --- Delegation to UpgradeCoordinator ---
-
-// IsDraining returns true if the runner is waiting for pods to finish before update.
-func (r *Runner) IsDraining() bool {
-	if r.upgradeCoord == nil {
-		return false
-	}
-	return r.upgradeCoord.IsDraining()
-}
-
-// SetDraining sets the draining state.
-func (r *Runner) SetDraining(draining bool) {
-	if r.upgradeCoord == nil {
-		return
-	}
-	r.upgradeCoord.SetDraining(draining)
-}
-
-// CanAcceptPod returns true if the runner can accept new pods.
-func (r *Runner) CanAcceptPod() bool {
-	if r.IsDraining() {
-		logger.Runner().Debug("Cannot accept pod: runner is draining")
-		return false
-	}
-
-	currentCount := r.GetActivePodCount()
-	if currentCount >= r.cfg.MaxConcurrentPods {
-		logger.Runner().Debug("Cannot accept pod: max capacity reached",
-			"current", currentCount, "max", r.cfg.MaxConcurrentPods)
-		return false
-	}
-
-	return true
-}
-
-// GetActivePodCount returns the number of currently active pods.
-func (r *Runner) GetActivePodCount() int {
-	return r.podStore.Count()
 }

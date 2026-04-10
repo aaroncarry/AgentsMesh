@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { getDemoFrames } from "./demoFrames";
-import type { DemoFrame } from "./types";
 
 /**
  * Custom hook for managing kanban + terminal animation state

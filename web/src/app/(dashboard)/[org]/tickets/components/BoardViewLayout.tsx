@@ -1,6 +1,7 @@
 "use client";
 
 import { Ticket, TicketStatus } from "@/stores/ticket";
+import { useTicketStore } from "@/stores/ticket";
 import { KanbanBoard } from "@/components/tickets";
 
 interface BoardViewLayoutProps {
@@ -11,8 +12,8 @@ interface BoardViewLayoutProps {
 }
 
 /**
- * Board view - full height kanban board.
- * Clicking a ticket navigates directly to the detail page.
+ * Board view layout — bridges store state to KanbanBoard props.
+ * KanbanBoard is a pure rendering component; all store access is here.
  */
 export function BoardViewLayout({
   tickets,
@@ -20,11 +21,22 @@ export function BoardViewLayout({
   onTicketClick,
   onCreatePodRequest,
 }: BoardViewLayoutProps) {
+  const boardColumns = useTicketStore((s) => s.boardColumns);
+  const columnPagination = useTicketStore((s) => s.columnPagination);
+  const doneCollapsed = useTicketStore((s) => s.doneCollapsed);
+  const loadMoreColumn = useTicketStore((s) => s.loadMoreColumn);
+  const setDoneCollapsed = useTicketStore((s) => s.setDoneCollapsed);
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 p-4">
         <KanbanBoard
           tickets={tickets}
+          boardColumns={boardColumns.length > 0 ? boardColumns : undefined}
+          columnPagination={columnPagination}
+          doneCollapsed={doneCollapsed}
+          onLoadMoreColumn={loadMoreColumn}
+          onSetDoneCollapsed={setDoneCollapsed}
           onStatusChange={onStatusChange}
           onTicketClick={onTicketClick}
           onCreatePodRequest={onCreatePodRequest}

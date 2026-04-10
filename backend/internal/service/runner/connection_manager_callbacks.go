@@ -34,11 +34,6 @@ func (cm *RunnerConnectionManager) SetAgentStatusCallback(fn func(runnerID int64
 	cm.onAgentStatus = fn
 }
 
-// SetPtyResizedCallback sets the PTY resized callback (Proto type)
-func (cm *RunnerConnectionManager) SetPtyResizedCallback(fn func(runnerID int64, data *runnerv1.PtyResizedEvent)) {
-	cm.onPtyResized = fn
-}
-
 // SetPodInitProgressCallback sets the pod init progress callback (Proto type)
 func (cm *RunnerConnectionManager) SetPodInitProgressCallback(fn func(runnerID int64, data *runnerv1.PodInitProgressEvent)) {
 	cm.onPodInitProgress = fn
@@ -91,9 +86,9 @@ func (cm *RunnerConnectionManager) SetPingInterval(interval time.Duration) {
 	cm.pingInterval = interval
 }
 
-// SetAgentTypesProvider sets the agent types provider for initialization handshake
-func (cm *RunnerConnectionManager) SetAgentTypesProvider(provider interfaces.AgentTypesProvider) {
-	cm.agentTypesProvider = provider
+// SetAgentsProvider sets the agent types provider for initialization handshake
+func (cm *RunnerConnectionManager) SetAgentsProvider(provider interfaces.AgentsProvider) {
+	cm.agentsProvider = provider
 }
 
 // SetServerVersion sets the server version for initialization handshake
@@ -111,11 +106,11 @@ func (cm *RunnerConnectionManager) GetDisconnectCallback() func(runnerID int64) 
 	return cm.onDisconnect
 }
 
-// ==================== Terminal Observation Callback Setter ====================
+// ==================== Pod Observation Callback Setter ====================
 
-// SetObserveTerminalResultCallback sets the observe terminal result callback (Proto type)
-func (cm *RunnerConnectionManager) SetObserveTerminalResultCallback(fn func(runnerID int64, data *runnerv1.ObserveTerminalResult)) {
-	cm.onObserveTerminalResult = fn
+// SetObservePodResultCallback sets the observe pod result callback (Proto type)
+func (cm *RunnerConnectionManager) SetObservePodResultCallback(fn func(runnerID int64, data *runnerv1.ObservePodResult)) {
+	cm.onObservePodResult = fn
 }
 
 // ==================== Token Usage Callback Setter ====================
@@ -135,6 +130,11 @@ func (cm *RunnerConnectionManager) SetUpgradeStatusCallback(fn func(runnerID int
 // SetLogUploadStatusCallback sets the log upload status callback (Proto type)
 func (cm *RunnerConnectionManager) SetLogUploadStatusCallback(fn func(runnerID int64, data *runnerv1.LogUploadStatusEvent)) {
 	cm.onLogUploadStatus = fn
+}
+
+// SetPodRestartingCallback sets the perpetual pod restart callback (Proto type)
+func (cm *RunnerConnectionManager) SetPodRestartingCallback(fn func(runnerID int64, data *runnerv1.PodRestartingEvent)) {
+	cm.onPodRestarting = fn
 }
 
 // ==================== AutopilotController Callback Setters ====================

@@ -20,10 +20,10 @@ func TestCreate(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		DefaultBranch:   "main",
 		Visibility:      "organization",
 	}
@@ -46,10 +46,10 @@ func TestCreateDuplicateIsIdempotent(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 	}
 	original, err := service.Create(ctx, req)
@@ -80,10 +80,10 @@ func TestCreateAfterSoftDelete(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 	}
 
@@ -119,10 +119,10 @@ func TestCreateWithDefaultBranch(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 		// No DefaultBranch - should default to "main"
 	}
@@ -146,10 +146,10 @@ func TestCreateWithTicketPrefix(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		TicketPrefix:    &prefix,
 		Visibility:      "organization",
 	}
@@ -172,10 +172,10 @@ func TestGetByID(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
@@ -209,10 +209,10 @@ func TestUpdate(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
@@ -249,10 +249,10 @@ func TestDelete(t *testing.T) {
 		OrganizationID:  1,
 		ProviderType:    "gitlab",
 		ProviderBaseURL: "https://gitlab.com",
-		CloneURL:        "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:    "https://gitlab.com/org/test-repo.git",
 		ExternalID:      "12345",
 		Name:            "test-repo",
-		FullPath:        "org/test-repo",
+		Slug:        "org/test-repo",
 		Visibility:      "organization",
 	}
 	created, _ := service.Create(ctx, req)
