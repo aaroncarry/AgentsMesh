@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/internal"
-	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1"
+	v1 "github.com/anthropics/agentsmesh/backend/internal/api/rest/v1"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1/admin"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/v1/webhooks"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest/ws"
@@ -13,8 +13,8 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/database"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/email"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
-	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	adminservice "github.com/anthropics/agentsmesh/backend/internal/service/admin"
+	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -68,10 +68,15 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 	// Initialize email service
 	// BaseURL is derived from PrimaryDomain
 	emailSvc := email.NewService(email.Config{
-		Provider:    cfg.Email.Provider,
-		ResendKey:   cfg.Email.ResendKey,
-		FromAddress: cfg.Email.FromAddress,
-		BaseURL:     cfg.FrontendURL(), // Derived from PrimaryDomain
+		Provider:     cfg.Email.Provider,
+		ResendKey:    cfg.Email.ResendKey,
+		FromAddress:  cfg.Email.FromAddress,
+		BaseURL:      cfg.FrontendURL(), // Derived from PrimaryDomain
+		SMTPHost:     cfg.Email.SMTPHost,
+		SMTPPort:     cfg.Email.SMTPPort,
+		SMTPUsername: cfg.Email.SMTPUsername,
+		SMTPPassword: cfg.Email.SMTPPassword,
+		SMTPFrom:     cfg.Email.SMTPFrom,
 	})
 
 	// API v1

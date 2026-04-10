@@ -7,19 +7,19 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	OAuth    OAuthConfig
-	Webhook  WebhookConfig
-	Log      LogConfig
-	Email    EmailConfig
-	Storage  StorageConfig
-	Payment  PaymentConfig
-	PKI      PKIConfig
-	GRPC     GRPCConfig
-	Admin    AdminConfig
+	Server      ServerConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	JWT         JWTConfig
+	OAuth       OAuthConfig
+	Webhook     WebhookConfig
+	Log         LogConfig
+	Email       EmailConfig
+	Storage     StorageConfig
+	Payment     PaymentConfig
+	PKI         PKIConfig
+	GRPC        GRPCConfig
+	Admin       AdminConfig
 	Relay       RelayConfig
 	Marketplace MarketplaceConfig
 
@@ -119,9 +119,14 @@ func Load() (*Config, error) {
 
 		// Email Configuration
 		Email: EmailConfig{
-			Provider:    getEnv("EMAIL_PROVIDER", "console"),
-			ResendKey:   getEnv("RESEND_API_KEY", ""),
-			FromAddress: getEnv("EMAIL_FROM_ADDRESS", "AgentsMesh <noreply@agentsmesh.ai>"),
+			Provider:     getEnv("EMAIL_PROVIDER", "console"),
+			ResendKey:    getEnv("RESEND_API_KEY", ""),
+			FromAddress:  getEnv("EMAIL_FROM_ADDRESS", "AgentsMesh <noreply@agentsmesh.ai>"),
+			SMTPHost:     getEnv("SMTP_HOST", ""),
+			SMTPPort:     getEnvInt("SMTP_PORT", 587),
+			SMTPUsername: getEnv("SMTP_USERNAME", ""),
+			SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+			SMTPFrom:     getEnv("SMTP_FROM", ""),
 		},
 
 		// Storage Configuration
