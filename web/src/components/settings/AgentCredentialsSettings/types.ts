@@ -1,4 +1,4 @@
-import type { CredentialProfileData, AgentTypeData, CredentialProfilesByAgentType } from "@/lib/api";
+import type { CredentialProfileData, AgentData, CredentialProfilesByAgent, CredentialField } from "@/lib/api";
 
 /**
  * State returned by useAgentCredentials hook
@@ -7,52 +7,46 @@ export interface AgentCredentialsState {
   loading: boolean;
   error: string | null;
   success: string | null;
-  profilesByAgentType: CredentialProfilesByAgentType[];
-  agentTypes: AgentTypeData[];
-  expandedAgentTypes: Set<number>;
-  runnerHostDefaults: Set<number>;
+  profilesByAgent: CredentialProfilesByAgent[];
+  agents: AgentData[];
+  expandedAgents: Set<string>;
+  runnerHostDefaults: Set<string>;
+  credentialFieldsByAgent: Map<string, CredentialField[]>;
 }
 
 /**
  * Actions returned by useAgentCredentials hook
  */
 export interface AgentCredentialsActions {
-  toggleAgentType: (agentTypeId: number) => void;
-  handleSetRunnerHostDefault: (agentTypeId: number) => Promise<void>;
+  toggleAgent: (agentSlug: string) => void;
+  handleSetRunnerHostDefault: (agentSlug: string) => Promise<void>;
   handleSetDefault: (profileId: number) => Promise<void>;
   handleDelete: (profileId: number) => Promise<void>;
   handleSaveProfile: (
-    agentTypeId: number,
+    agentSlug: string,
     data: CredentialFormData,
     editingProfile: CredentialProfileData | null
   ) => Promise<void>;
-  getProfilesForAgentType: (agentTypeId: number) => CredentialProfileData[];
+  getProfilesForAgent: (agentSlug: string) => CredentialProfileData[];
   setError: (error: string | null) => void;
   setSuccess: (success: string | null) => void;
 }
 
 /**
- * Credential method type - api_key and auth_token are mutually exclusive
- */
-export type CredentialMethod = "api_key" | "auth_token";
-
-/**
- * Credential form data for add/edit dialog
+ * Credential form data for add/edit dialog.
+ * credentials key = full ENV name (e.g. "ANTHROPIC_API_KEY"), value = user input.
  */
 export interface CredentialFormData {
   name: string;
   description: string;
-  baseUrl: string;
-  apiKey: string;
-  authToken: string;
-  credentialMethod: CredentialMethod;
+  credentials: Record<string, string>;
 }
 
 /**
- * Props for AgentTypeItem component
+ * Props for AgentItem component
  */
-export interface AgentTypeItemProps {
-  agentType: AgentTypeData;
+export interface AgentItemProps {
+  agent: AgentData;
   profiles: CredentialProfileData[];
   isExpanded: boolean;
   isRunnerHostDefault: boolean;
@@ -66,11 +60,12 @@ export interface AgentTypeItemProps {
 }
 
 /**
- * Props for CredentialProfileDialog component (shared)
+ * Props for CredentialProfileDialog component
  */
 export interface CredentialProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  credentialFields: CredentialField[];
   editingProfile: CredentialProfileData | null;
   onSubmit: (data: CredentialFormData) => Promise<void>;
   t: (key: string) => string;

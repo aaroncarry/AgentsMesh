@@ -30,7 +30,7 @@ var _ detector.StateDetector = (*ManagedStateDetector)(nil)
 // NewManagedStateDetector creates a new managed state detector.
 // It starts a background goroutine to periodically run detection for timeout-based transitions.
 func NewManagedStateDetector(vt *vt.VirtualTerminal) *ManagedStateDetector {
-	detector := detector.NewMultiSignalDetector(detector.MultiSignalConfig{
+	d := detector.NewMultiSignalDetector(detector.MultiSignalConfig{
 		// Responsive detection thresholds
 		IdleThreshold:    500 * time.Millisecond,
 		ConfirmThreshold: 500 * time.Millisecond,
@@ -40,13 +40,20 @@ func NewManagedStateDetector(vt *vt.VirtualTerminal) *ManagedStateDetector {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &ManagedStateDetector{
-		detector: detector,
+		detector: d,
 		vt:       vt,
 		ctx:      ctx,
 		cancel:   cancel,
 	}
 
+	// Subscribe to state changes for structured logging of transitions.
+	d.Subscribe("logger", func(event detector.StateChangeEvent) {
+		logger.Terminal().Info("Agent state changed",
+			"from", event.PrevState, "to", event.NewState)
+	})
+
 	// Start background detection loop
+	logger.Terminal().Info("State detector started")
 	safego.Go("state-detector", m.runDetectionLoop)
 
 	return m
@@ -96,12 +103,6 @@ func (m *ManagedStateDetector) GetState() detector.AgentState {
 	return m.detector.GetState()
 }
 
-// SetCallback sets the state change callback.
-// Deprecated: Use Subscribe for multiple subscribers support.
-func (m *ManagedStateDetector) SetCallback(cb detector.StateChangeCallback) {
-	m.detector.SetCallback(cb)
-}
-
 // Subscribe adds a subscriber for state change events.
 // The subscriber ID must be unique; duplicate IDs will replace existing subscriptions.
 func (m *ManagedStateDetector) Subscribe(id string, cb func(detector.StateChangeEvent)) {
@@ -120,5 +121,6 @@ func (m *ManagedStateDetector) Reset() {
 
 // Stop stops the background detection loop.
 func (m *ManagedStateDetector) Stop() {
+	logger.Terminal().Info("State detector stopping")
 	m.cancel()
 }

@@ -1,61 +1,63 @@
 package runner
 
 import (
+	"fmt"
+
 	"github.com/anthropics/agentsmesh/runner/internal/autopilot"
-	"github.com/anthropics/agentsmesh/runner/internal/terminal/detector"
 )
 
-// PodControllerImpl implements autopilot.TargetPodController interface.
-// It provides the AutopilotController with the ability to interact with the target Pod.
-type PodControllerImpl struct {
+// PodController implements autopilot.TargetPodController interface.
+// It delegates to PodIO for mode-agnostic Pod interaction (PTY and ACP).
+type PodController struct {
 	pod    *Pod
 	runner *Runner
 }
 
 // NewPodController creates a new PodController.
-func NewPodController(pod *Pod, runner *Runner) *PodControllerImpl {
-	return &PodControllerImpl{
+func NewPodController(pod *Pod, runner *Runner) *PodController {
+	return &PodController{
 		pod:    pod,
 		runner: runner,
 	}
 }
 
-// SendInput sends text to the pod's terminal.
-func (c *PodControllerImpl) SendInput(text string) error {
-	if c.pod.Terminal == nil {
-		return nil
+// SendInput sends text to the pod via PodIO.
+func (c *PodController) SendInput(text string) error {
+	if c.pod.IO == nil {
+		return fmt.Errorf("pod IO not available for pod %s", c.pod.PodKey)
 	}
-	// Add newline to send the command
-	return c.pod.Terminal.Write([]byte(text + "\n"))
+	return c.pod.IO.SendInput(text + "\n")
 }
 
 // GetWorkDir returns the pod's working directory.
-func (c *PodControllerImpl) GetWorkDir() string {
+func (c *PodController) GetWorkDir() string {
 	return c.pod.SandboxPath
 }
 
 // GetPodKey returns the pod's key.
-func (c *PodControllerImpl) GetPodKey() string {
+func (c *PodController) GetPodKey() string {
 	return c.pod.PodKey
 }
 
-// GetAgentStatus returns the pod's agent status.
-func (c *PodControllerImpl) GetAgentStatus() string {
+// GetAgentStatus returns the pod's agent status via PodIO.
+func (c *PodController) GetAgentStatus() string {
 	agentStatus, _, _, _ := c.runner.GetPodStatus(c.pod.PodKey)
 	return agentStatus
 }
 
-// GetStateDetector returns the StateDetector for the pod.
-// Returns nil if the virtual terminal is not available.
-// Returns the same instance across multiple calls to ensure state continuity.
-// The StateDetector interface is defined in terminal/detector package,
-// which is a foundational service independent of Autopilot.
-func (c *PodControllerImpl) GetStateDetector() detector.StateDetector {
-	if c.pod.VirtualTerminal == nil {
-		return nil
+// SubscribeStateChange delegates to PodIO for mode-agnostic state change events.
+func (c *PodController) SubscribeStateChange(id string, cb func(newStatus string)) {
+	if c.pod.IO != nil {
+		c.pod.IO.SubscribeStateChange(id, cb)
 	}
-	return c.pod.GetOrCreateStateDetector()
+}
+
+// UnsubscribeStateChange removes a state change subscription.
+func (c *PodController) UnsubscribeStateChange(id string) {
+	if c.pod.IO != nil {
+		c.pod.IO.UnsubscribeStateChange(id)
+	}
 }
 
 // Compile-time interface check
-var _ autopilot.TargetPodController = (*PodControllerImpl)(nil)
+var _ autopilot.TargetPodController = (*PodController)(nil)

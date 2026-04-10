@@ -120,8 +120,8 @@
     "status_paused": "已暂停",
     "status_terminated": "已终止",
     "status_failed": "已失败",
-    "agent_type": "Agent 类型",
-    "initial_prompt": "初始提示",
+    "agent": "智能体",
+    "prompt": "提示",
     "branch_name": "分支名称",
     "pod_created": "Pod 创建成功",
     "pod_terminated": "Pod 已终止"

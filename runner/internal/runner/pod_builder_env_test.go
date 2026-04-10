@@ -22,6 +22,7 @@ func TestPodBuilderMergeEnvVars(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"BUILDER_VAR": "builder_value",
 			"SHARED_VAR":  "builder_shared",
@@ -30,7 +31,7 @@ func TestPodBuilderMergeEnvVars(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if result["CONFIG_VAR"] != "config_value" {
 		t.Errorf("CONFIG_VAR: got %v, want config_value", result["CONFIG_VAR"])
@@ -53,6 +54,7 @@ func TestPodBuilderMergeEnvVarsNilConfig(t *testing.T) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"BUILDER_VAR": "builder_value",
 		},
@@ -60,7 +62,7 @@ func TestPodBuilderMergeEnvVarsNilConfig(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).WithCommand(cmd)
 
-	result := builder.mergeEnvVars("", "")
+	result := builder.mergeEnvVars("")
 
 	if result["BUILDER_VAR"] != "builder_value" {
 		t.Errorf("BUILDER_VAR: got %v, want builder_value", result["BUILDER_VAR"])
@@ -81,12 +83,13 @@ func TestPodBuilderWithAllOptions(t *testing.T) {
 		PodKey:        "pod-key",
 		LaunchCommand: "claude",
 		LaunchArgs:    []string{"--headless"},
+		AgentfileSource: "AGENT claude\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"ENV1": "value1",
 			"ENV2": "value2",
 		},
 		SandboxConfig: &runnerv1.SandboxConfig{
-			RepositoryUrl:  "https://github.com/test/repo.git",
+			HttpCloneUrl:   "https://github.com/test/repo.git",
 			SourceBranch:   "main",
 			CredentialType: "runner_local",
 		},
@@ -97,7 +100,7 @@ func TestPodBuilderWithAllOptions(t *testing.T) {
 
 	builder := NewPodBuilderFromRunner(runner).
 		WithCommand(cmd).
-		WithTerminalSize(120, 40) // (cols, rows)
+		WithPtySize(120, 40) // (cols, rows)
 
 	if builder.cmd.PodKey != "pod-key" {
 		t.Errorf("podKey = %v, want pod-key", builder.cmd.PodKey)
@@ -112,7 +115,7 @@ func TestPodBuilderWithAllOptions(t *testing.T) {
 		t.Errorf("envVars[ENV2] = %v, want value2", builder.cmd.EnvVars["ENV2"])
 	}
 	if builder.rows != 40 || builder.cols != 120 {
-		t.Errorf("terminal size = %dx%d, want 40x120", builder.rows, builder.cols)
+		t.Errorf("PTY size = %dx%d, want 40x120", builder.rows, builder.cols)
 	}
 	if builder.cmd.SandboxConfig == nil {
 		t.Error("sandboxConfig should not be nil")
@@ -142,11 +145,12 @@ func BenchmarkPodBuilderFluentAPI(b *testing.B) {
 			PodKey:        "pod-1",
 			LaunchCommand: "claude",
 			LaunchArgs:    []string{"--headless"},
+			AgentfileSource: "AGENT claude\nPROMPT_POSITION prepend\n",
 			EnvVars:       map[string]string{"KEY": "VALUE"},
 		}
 		NewPodBuilderFromRunner(runner).
 			WithCommand(cmd).
-			WithTerminalSize(120, 40) // (cols, rows)
+			WithPtySize(120, 40) // (cols, rows)
 	}
 }
 
@@ -163,6 +167,7 @@ func BenchmarkPodBuilderMergeEnvVars(b *testing.B) {
 	cmd := &runnerv1.CreatePodCommand{
 		PodKey:        "test-pod",
 		LaunchCommand: "echo",
+		AgentfileSource: "AGENT echo\nPROMPT_POSITION prepend\n",
 		EnvVars: map[string]string{
 			"POD_VAR1": "pod_value1",
 		},
@@ -172,6 +177,6 @@ func BenchmarkPodBuilderMergeEnvVars(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		builder.mergeEnvVars("", "")
+		builder.mergeEnvVars("")
 	}
 }

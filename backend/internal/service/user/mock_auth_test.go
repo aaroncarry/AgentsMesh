@@ -78,6 +78,30 @@ func TestMockServiceGetOrCreateByOAuth(t *testing.T) {
 	})
 }
 
+func TestMockServiceRecordLogin(t *testing.T) {
+	ctx := context.Background()
+	mock := NewMockService()
+
+	u, _ := mock.Create(ctx, &CreateRequest{Email: "test@example.com", Username: "test"})
+
+	t.Run("records login call", func(t *testing.T) {
+		mock.RecordLogin(ctx, u.ID)
+		if len(mock.RecordLoginCalls) != 1 {
+			t.Errorf("RecordLoginCalls count = %d, want 1", len(mock.RecordLoginCalls))
+		}
+		if mock.RecordLoginCalls[0] != u.ID {
+			t.Errorf("RecordLoginCalls[0] = %d, want %d", mock.RecordLoginCalls[0], u.ID)
+		}
+	})
+
+	t.Run("records multiple calls", func(t *testing.T) {
+		mock.RecordLogin(ctx, u.ID)
+		if len(mock.RecordLoginCalls) != 2 {
+			t.Errorf("RecordLoginCalls count = %d, want 2", len(mock.RecordLoginCalls))
+		}
+	})
+}
+
 func TestMockServiceUpdateIdentityTokens(t *testing.T) {
 	ctx := context.Background()
 	mock := NewMockService()

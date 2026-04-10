@@ -15,11 +15,12 @@ import (
 // - Frame boundary detection with complete frame preservation:
 //   - Primary: Synchronized Output (ESC[?2026h / ESC[?2026l) - used by Claude Code
 //   - Fallback: Clear screen (ESC[2J) - used by traditional apps
+//
 // - Frame-aware flushing: incomplete frames are kept in buffer until complete
 // - Adaptive delay based on queue pressure (50ms → 500ms)
 // - Backpressure: pauses when consumer signals overload
 // - ttyd-style flow control: propagates backpressure to PTY layer
-// - Relay output: optional callback for sending output to Relay in addition to gRPC
+// - Relay output: sends flushed data via WebSocket to connected terminal viewers
 // - Serialize mode: use VirtualTerminal.Serialize() for bandwidth optimization
 // - Full redraw throttling: detects high-frequency redraws and reduces transmission rate
 //
@@ -55,19 +56,18 @@ type SmartAggregator struct {
 // NewSmartAggregator creates a new smart aggregator.
 //
 // Parameters:
-// - onFlush: callback invoked with aggregated data
 // - queueUsageFn: returns queue usage ratio (0.0 to 1.0), used for adaptive delay
-func NewSmartAggregator(onFlush func([]byte), queueUsageFn func() float64, opts ...SmartAggregatorOption) *SmartAggregator {
+func NewSmartAggregator(queueUsageFn func() float64, opts ...SmartAggregatorOption) *SmartAggregator {
 	// Default configuration
-	baseDelay := 50 * time.Millisecond  // 20 FPS - more aggressive aggregation
-	maxDelay := 500 * time.Millisecond  // 2 FPS - allow more buffering under load
-	maxSize := 1024 * 1024              // 1MB - generous buffer to avoid any truncation issues
+	baseDelay := 50 * time.Millisecond // 20 FPS - more aggressive aggregation
+	maxDelay := 500 * time.Millisecond // 2 FPS - allow more buffering under load
+	maxSize := 1024 * 1024             // 1MB - generous buffer to avoid any truncation issues
 
 	a := &SmartAggregator{
 		buffer:       NewFrameBuffer(maxSize),
 		delay:        NewAdaptiveDelay(baseDelay, maxDelay, queueUsageFn),
 		backpressure: NewBackpressureController(nil, nil),
-		router:       NewOutputRouter(onFlush),
+		router:       NewOutputRouter(),
 	}
 
 	for _, opt := range opts {
@@ -224,8 +224,8 @@ func (a *SmartAggregator) BufferLen() int {
 }
 
 // SetRelayClient sets the relay client reference for output routing.
-// When set and connected, flushed data is sent through Relay instead of gRPC.
-// When disconnected, output automatically falls back to gRPC.
+// When set and connected, flushed data is sent through Relay WebSocket.
+// When not connected, output is dropped (no one is observing the terminal).
 // Pass nil to disable relay output.
 // Thread-safe: can be called from any goroutine.
 func (a *SmartAggregator) SetRelayClient(client RelayWriter) {
@@ -238,13 +238,6 @@ func (a *SmartAggregator) SetPTYLogger(logger *PTYLogger) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.ptyLogger = logger
-}
-
-// DrainEarlyBuffer returns any buffered early output from the router.
-// This is used by the exit handler to retrieve output that was generated
-// before the relay connected (e.g., fast-exiting processes).
-func (a *SmartAggregator) DrainEarlyBuffer() []byte {
-	return a.router.DrainEarlyBuffer()
 }
 
 // calculateDelay is kept for backward compatibility with tests.

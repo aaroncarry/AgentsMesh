@@ -69,6 +69,7 @@ func TestOnListPodsWithTerminalPID(t *testing.T) {
 		PodKey:        "list-pid-pod",
 		LaunchCommand: "sleep",
 		LaunchArgs:    []string{"60"},
+		AgentfileSource: "AGENT sleep\nPROMPT_POSITION prepend\n",
 	}
 
 	err := handler.OnCreatePod(cmd)
@@ -89,8 +90,10 @@ func TestOnListPodsWithTerminalPID(t *testing.T) {
 
 	// Clean up
 	pod, ok := store.Get("list-pid-pod")
-	if ok && pod.Terminal != nil {
-		pod.Terminal.Stop()
+	if ok {
+		if comps := testPTYComponents(pod); comps != nil && comps.Terminal != nil {
+			comps.Terminal.Stop()
+		}
 	}
 }
 

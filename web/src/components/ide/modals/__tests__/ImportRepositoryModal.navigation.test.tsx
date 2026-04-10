@@ -36,8 +36,8 @@ describe("ImportRepositoryModal - Navigation Flow", () => {
       createRepositoryResponse({
         ...mockCreatedRepository,
         name: "test-repo",
-        full_path: "test/repo",
-        clone_url: "https://github.com/test/repo.git",
+        slug: "test/repo",
+        http_clone_url: "https://github.com/test/repo.git",
       })
     );
 
@@ -78,9 +78,9 @@ describe("ImportRepositoryModal - Navigation Flow", () => {
       expect(repositoryApi.create).toHaveBeenCalledWith(
         expect.objectContaining({
           provider_type: "github",
-          clone_url: "https://github.com/test/repo.git",
+          http_clone_url: "https://github.com/test/repo.git",
           name: "test-repo",
-          full_path: "test/repo",
+          slug: "test/repo",
         })
       );
       expect(mockOnImported).toHaveBeenCalled();

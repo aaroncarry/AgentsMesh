@@ -121,10 +121,10 @@ func TestCreateWithWebhook_NoWebhookService(t *testing.T) {
 		OrganizationID:   1,
 		ProviderType:     "gitlab",
 		ProviderBaseURL:  "https://gitlab.com",
-		CloneURL:         "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:     "https://gitlab.com/org/test-repo.git",
 		ExternalID:       "12345",
 		Name:             "test-repo",
-		FullPath:         "org/test-repo-nowh",
+		Slug:         "org/test-repo-nowh",
 		Visibility:       "organization",
 		ImportedByUserID: &userID,
 	}
@@ -160,10 +160,10 @@ func TestCreateWithWebhook_NoUserID(t *testing.T) {
 		OrganizationID:   1,
 		ProviderType:     "gitlab",
 		ProviderBaseURL:  "https://gitlab.com",
-		CloneURL:         "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:     "https://gitlab.com/org/test-repo.git",
 		ExternalID:       "67890",
 		Name:             "test-repo",
-		FullPath:         "org/test-repo-nouser",
+		Slug:         "org/test-repo-nouser",
 		Visibility:       "organization",
 		ImportedByUserID: nil, // No user ID
 	}
@@ -199,10 +199,10 @@ func TestCreateWithWebhook_WithWebhookService(t *testing.T) {
 		OrganizationID:   1,
 		ProviderType:     "gitlab",
 		ProviderBaseURL:  "https://gitlab.com",
-		CloneURL:         "https://gitlab.com/org/test-repo.git",
+		HttpCloneURL:     "https://gitlab.com/org/test-repo.git",
 		ExternalID:       "11111",
 		Name:             "test-repo",
-		FullPath:         "org/test-repo-withwh",
+		Slug:         "org/test-repo-withwh",
 		Visibility:       "organization",
 		ImportedByUserID: &userID,
 	}

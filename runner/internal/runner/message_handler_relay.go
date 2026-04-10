@@ -8,17 +8,16 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/relay"
-	"github.com/anthropics/agentsmesh/runner/internal/safego"
 )
 
-// OnSubscribeTerminal handles subscribe terminal command from server.
+// OnSubscribePod handles subscribe PTY command from server.
 // The channel is identified by PodKey (not session ID).
 // If already connected to the same Relay URL, just update the token without reconnecting.
 // This allows multiple clients (Web + Mobile) to share the same connection.
 //
 // Lock strategy: relayMu is held ONLY for the pointer check/swap to avoid
 // blocking on network I/O or cross-module locks (vt.mu via GetSnapshot).
-func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalRequest) error {
+func (h *RunnerMessageHandler) OnSubscribePod(req client.SubscribePodRequest) error {
 	log := logger.Pod()
 
 	// Rewrite relay URL origin if RELAY_BASE_URL is configured (Docker dev environment)
@@ -31,7 +30,7 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 		req.RelayURL = relayURL
 	}
 
-	log.Info("Subscribing to terminal via Relay",
+	log.Info("Subscribing to pod via Relay",
 		"pod_key", req.PodKey,
 		"relay_url", relayURL)
 
@@ -39,6 +38,8 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 	if !ok {
 		return fmt.Errorf("pod not found: %s", req.PodKey)
 	}
+
+	log.Debug("Pod interaction mode", "pod_key", req.PodKey, "mode", pod.InteractionMode)
 
 	// Phase 1: Under lock — check existing client and extract/clear if needed.
 	// Keep lock scope minimal to avoid blocking on network I/O or cross-module locks.
@@ -106,73 +107,40 @@ func (h *RunnerMessageHandler) OnSubscribeTerminal(req client.SubscribeTerminalR
 
 	// Phase 4: Outside lock — set up relay output and send snapshot.
 	// These operations may acquire other locks (vt.mu) but relayMu is NOT held.
-	if pod.Aggregator != nil {
-		pod.Aggregator.SetRelayClient(relayClient)
+	if pod.Relay != nil {
+		pod.Relay.OnRelayConnected(relayClient)
+		pod.Relay.SendSnapshot(relayClient)
 	}
 
-	// Send terminal snapshot so late subscribers see existing content.
-	// Use TryGetSnapshot to avoid blocking if Feed() holds the VT write lock.
-	if pod.VirtualTerminal != nil {
-		snapshot := pod.VirtualTerminal.TryGetSnapshot()
-		if snapshot != nil {
-			relayClient.SendSnapshot(snapshot)
-		} else {
-			log.Info("VT lock busy during subscribe, snapshot will be sent on next frame",
-				"pod_key", req.PodKey)
-		}
-	}
-
-	// Trigger TUI redraw if needed
-	if pod.VirtualTerminal != nil && pod.VirtualTerminal.IsAltScreen() && pod.Terminal != nil {
-		safego.Go("relay-subscribe-redraw", func() {
-			time.Sleep(100 * time.Millisecond)
-			if err := pod.Terminal.Redraw(); err != nil {
-				log.Warn("Failed to redraw terminal after relay connect", "pod_key", req.PodKey, "error", err)
-			}
-		})
-	}
-
-	log.Info("Successfully subscribed to terminal via Relay", "pod_key", req.PodKey)
+	log.Info("Successfully subscribed to pod via Relay", "pod_key", req.PodKey, "mode", pod.InteractionMode)
 	return nil
 }
 
-// setupRelayClientHandlers sets up all handlers for a relay client
-func (h *RunnerMessageHandler) setupRelayClientHandlers(relayClient relay.RelayClient, pod *Pod, req client.SubscribeTerminalRequest) {
+// setupRelayClientHandlers sets up all handlers for a relay client.
+// Mode-specific behavior is delegated to PodRelay; shared handlers are wired directly.
+func (h *RunnerMessageHandler) setupRelayClientHandlers(relayClient relay.RelayClient, pod *Pod, req client.SubscribePodRequest) {
 	log := logger.Pod()
 	podKey := req.PodKey
 
-	relayClient.SetInputHandler(func(data []byte) {
-		if pod.Terminal != nil {
-			if err := pod.Terminal.Write(data); err != nil {
-				log.Error("Failed to write relay input to terminal", "pod_key", podKey, "error", err)
-			}
-		}
-	})
+	// Mode-specific handlers — delegated to PodRelay
+	if pod.Relay != nil {
+		pod.Relay.SetupHandlers(relayClient)
+	}
 
-	relayClient.SetResizeHandler(func(cols, rows uint16) {
-		log.Info("Received resize from relay", "pod_key", podKey, "cols", cols, "rows", rows)
-		if pod.Terminal != nil {
-			pod.Terminal.Resize(int(cols), int(rows))
-		}
-		if pod.VirtualTerminal != nil {
-			pod.VirtualTerminal.Resize(int(cols), int(rows))
-		}
-	})
-
+	// Shared: CloseHandler
 	relayClient.SetCloseHandler(func() {
 		log.Info("Relay connection closed permanently", "pod_key", podKey)
-		// Only clear if this client is still the active one.
-		// Prevents a stale close handler from clearing a newer client's references.
 		if pod.GetRelayClient() == relayClient {
 			pod.SetRelayClient(nil)
-			if pod.Aggregator != nil {
-				pod.Aggregator.SetRelayClient(nil)
+			if pod.Relay != nil {
+				pod.Relay.OnRelayDisconnected()
 			}
 		} else {
 			log.Debug("Relay close handler skipped: client already replaced", "pod_key", podKey)
 		}
 	})
 
+	// Shared: TokenExpiredHandler
 	relayClient.SetTokenExpiredHandler(func() string {
 		log.Info("Relay token expired, requesting new token", "pod_key", podKey)
 		if err := h.conn.SendRequestRelayToken(podKey, relayClient.GetRelayURL()); err != nil {
@@ -186,34 +154,17 @@ func (h *RunnerMessageHandler) setupRelayClientHandlers(relayClient relay.RelayC
 		return newToken
 	})
 
+	// Shared: ReconnectHandler
 	relayClient.SetReconnectHandler(func() {
 		log.Info("Relay reconnected, sending snapshot", "pod_key", podKey)
-		// No need to re-register relay output — OutputRouter holds the client reference
-		// and checks IsConnected() at Route() time. When relay reconnects,
-		// output automatically flows through it again.
-		// Use TryGetSnapshot to avoid blocking if Feed() holds the VT write lock.
-		if pod.VirtualTerminal != nil {
-			snapshot := pod.VirtualTerminal.TryGetSnapshot()
-			if snapshot != nil {
-				relayClient.SendSnapshot(snapshot)
-			} else {
-				log.Info("VT lock busy during reconnect, snapshot will be sent on next frame",
-					"pod_key", podKey)
-			}
-		}
-		if pod.VirtualTerminal != nil && pod.VirtualTerminal.IsAltScreen() && pod.Terminal != nil {
-			safego.Go("relay-reconnect-redraw", func() {
-				time.Sleep(100 * time.Millisecond)
-				if err := pod.Terminal.Redraw(); err != nil {
-					log.Warn("Failed to redraw terminal after relay reconnect", "pod_key", podKey, "error", err)
-				}
-			})
+		if pod.Relay != nil {
+			pod.Relay.SendSnapshot(relayClient)
 		}
 	})
 }
 
-// OnUnsubscribeTerminal handles unsubscribe terminal command from server.
-func (h *RunnerMessageHandler) OnUnsubscribeTerminal(req client.UnsubscribeTerminalRequest) error {
+// OnUnsubscribePod handles unsubscribe PTY command from server.
+func (h *RunnerMessageHandler) OnUnsubscribePod(req client.UnsubscribePodRequest) error {
 	log := logger.Pod()
 	log.Info("Unsubscribing from terminal relay", "pod_key", req.PodKey)
 

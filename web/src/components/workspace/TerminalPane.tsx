@@ -9,7 +9,7 @@ import { usePodStore } from "@/stores/pod";
 import { useAutopilotStore } from "@/stores/autopilot";
 import { usePodStatus, useTerminal, useTouchScroll } from "@/hooks";
 import { TerminalPaneHeader } from "./TerminalPaneHeader";
-import { TerminalLoadingState, TerminalErrorState, TerminalReconnectingState } from "./TerminalStateViews";
+import { PaneLoadingState, PaneErrorState, PaneReconnectingState } from "./PaneStateViews";
 import { RelayStatusOverlay } from "./RelayStatusOverlay";
 import { AutopilotOverlay } from "./AutopilotOverlay";
 import { AutopilotStartButton } from "./AutopilotStartButton";
@@ -23,6 +23,7 @@ interface TerminalPaneProps {
   onMaximize?: () => void;
   onPopout?: () => void;
   showHeader?: boolean;
+  allowSplit?: boolean;
   className?: string;
 }
 
@@ -34,20 +35,18 @@ export function TerminalPane({
   onMaximize,
   onPopout,
   showHeader = true,
+  allowSplit = true,
   className,
 }: TerminalPaneProps) {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isTerminating, setIsTerminating] = useState(false);
   const [pendingSplitDirection, setPendingSplitDirection] = useState<SplitDirection | null>(null);
   const triggerAutopilotRef = useRef<(() => void) | null>(null);
   const maximizeRafRef = useRef<number | undefined>(undefined);
   const terminalFontSize = useWorkspaceStore((s) => s.terminalFontSize);
   const setActivePane = useWorkspaceStore((s) => s.setActivePane);
   const splitPane = useWorkspaceStore((s) => s.splitPane);
-  const removePaneByPodKey = useWorkspaceStore((s) => s.removePaneByPodKey);
   const panes = useWorkspaceStore((s) => s.panes);
   const initProgress = usePodStore((state) => state.initProgress[podKey]);
-  const terminatePod = usePodStore((state) => state.terminatePod);
   const hasAutopilot = useAutopilotStore((state) => !!state.getAutopilotControllerByPodKey(podKey));
 
   const openPodKeys = useMemo(() => panes.map((p) => p.podKey), [panes]);
@@ -58,11 +57,11 @@ export function TerminalPane({
   // "Sticky ready" flag: once the terminal has been shown, don't unmount it
   // due to transient status changes (e.g., stale WebSocket events causing
   // status to temporarily revert to "initializing").
-  const wasEverReady = useRef(false);
-  if (isPodReady) {
-    wasEverReady.current = true;
+  // Uses the React-recommended "adjusting state during render" pattern.
+  const [showTerminal, setShowTerminal] = useState(false);
+  if (isPodReady && !showTerminal) {
+    setShowTerminal(true);
   }
-  const showTerminal = wasEverReady.current;
 
   // Terminal initialization and management
   const {
@@ -84,25 +83,13 @@ export function TerminalPane({
     setIsMaximized((prev) => !prev);
     onMaximize?.();
     // ResizeObserver in useTerminal will auto-fit after layout change.
-    // Use syncSize as a fallback to ensure PTY size is updated.
+    // Use syncSize as a fallback to ensure pod size is updated.
     if (maximizeRafRef.current !== undefined) cancelAnimationFrame(maximizeRafRef.current);
     maximizeRafRef.current = requestAnimationFrame(() => {
       maximizeRafRef.current = undefined;
       syncSize();
     });
   }, [onMaximize, syncSize]);
-
-  const handleTerminate = useCallback(async () => {
-    setIsTerminating(true);
-    try {
-      await terminatePod(podKey);
-      removePaneByPodKey(podKey);
-    } catch (error) {
-      console.error("Failed to terminate pod:", error);
-    } finally {
-      setIsTerminating(false);
-    }
-  }, [podKey, terminatePod, removePaneByPodKey]);
 
   // Cancel pending maximize RAF on unmount
   useEffect(() => {
@@ -126,14 +113,15 @@ export function TerminalPane({
         <TerminalPaneHeader
           podKey={podKey}
           connectionStatus={connectionStatus}
+          isRunnerDisconnected={isRunnerDisconnected}
           isMaximized={isMaximized}
           isPodReady={isPodReady}
           hasAutopilot={hasAutopilot}
           onSyncSize={syncSize}
           onStartAutopilot={() => triggerAutopilotRef.current?.()}
           onPopout={onPopout}
-          onSplitRight={() => setPendingSplitDirection("horizontal")}
-          onSplitDown={() => setPendingSplitDirection("vertical")}
+          onSplitRight={allowSplit ? () => setPendingSplitDirection("horizontal") : undefined}
+          onSplitDown={allowSplit ? () => setPendingSplitDirection("vertical") : undefined}
           onMaximize={handleMaximize}
           onClose={onClose}
         />
@@ -142,15 +130,13 @@ export function TerminalPane({
       {/* Terminal or Loading/Error/Reconnecting State */}
       {!showTerminal ? (
         podError ? (
-          <TerminalErrorState error={podError} onClose={onClose} />
+          <PaneErrorState error={podError} onClose={onClose} />
         ) : podStatus === "orphaned" ? (
-          <TerminalReconnectingState onClose={onClose} />
+          <PaneReconnectingState onClose={onClose} />
         ) : (
-          <TerminalLoadingState
+          <PaneLoadingState
             podStatus={podStatus}
             initProgress={initProgress}
-            isTerminating={isTerminating}
-            onTerminate={handleTerminate}
             onClose={onClose}
           />
         )

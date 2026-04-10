@@ -1,61 +1,17 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { podApi, PodData, AgentTypeData, RepositoryData } from "@/lib/api";
-import { userAgentCredentialApi, CredentialProfileData } from "@/lib/api";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { PodData, AgentData, RepositoryData } from "@/lib/api";
 import { usePodCreationStore } from "@/stores/podCreation";
+import { buildAgentfileLayer } from "@/lib/agentfile-layer";
+import { POD_MODE_PTY } from "@/lib/pod-modes";
+import type { PodMode } from "@/lib/pod-modes";
+import { submitCreatePod } from "./useCreatePodFormSubmit";
+import { usePrefsAutoFill, useCredentialProfiles } from "./useCreatePodFormEffects";
+import type { CreatePodFormState, FormValidationErrors } from "./useCreatePodFormTypes";
+import { RUNNER_HOST_PROFILE_ID } from "./useCreatePodFormTypes";
 
-/**
- * Validation errors for the form
- */
-export interface FormValidationErrors {
-  runner?: string;
-  agent?: string;
-  repository?: string;
-  branch?: string;
-  prompt?: string;
-}
-
-// Special value for RunnerHost (use Runner's local environment)
-export const RUNNER_HOST_PROFILE_ID = 0;
-
-export interface CreatePodFormState {
-  // Selection state (order: Runner -> Agent -> Others)
-  selectedAgent: number | null;
-  selectedRepository: number | null;
-  selectedBranch: string;
-  selectedCredentialProfile: number; // 0 = RunnerHost, >0 = custom profile ID
-  prompt: string;
-  alias: string;
-
-  // Credential profiles for selected agent
-  credentialProfiles: CredentialProfileData[];
-  loadingCredentials: boolean;
-
-  // Actions
-  setSelectedAgent: (id: number | null) => void;
-  setSelectedRepository: (id: number | null) => void;
-  setSelectedBranch: (branch: string) => void;
-  setSelectedCredentialProfile: (id: number) => void;
-  setPrompt: (prompt: string) => void;
-  setAlias: (alias: string) => void;
-
-  // Computed
-  selectedAgentSlug: string;
-
-  // Form state
-  loading: boolean;
-  error: string | null;
-  validationErrors: FormValidationErrors;
-  isValid: boolean;
-
-  // Actions
-  reset: () => void;
-  validate: () => boolean;
-  submit: (
-    selectedRunnerId: number | null | undefined,
-    pluginConfig: Record<string, unknown>,
-    options?: { ticketSlug?: string; initialPrompt?: string; cols?: number; rows?: number }
-  ) => Promise<PodData | null>;
-}
+// Re-export types for consumers
+export { RUNNER_HOST_PROFILE_ID } from "./useCreatePodFormTypes";
+export type { CreatePodFormState, FormValidationErrors } from "./useCreatePodFormTypes";
 
 /**
  * Hook to manage Create Pod form state and submission
@@ -63,117 +19,77 @@ export interface CreatePodFormState {
  * This hook manages agent selection and other form fields
  */
 export function useCreatePodForm(
-  availableAgentTypes: AgentTypeData[],
+  availableAgents: AgentData[],
   repositories: RepositoryData[],
-  onSuccess?: (pod: PodData) => void
+  onSuccess?: (pod: PodData) => void,
+  configValues?: Record<string, unknown>
 ): CreatePodFormState {
-  // Read saved preferences for auto-fill
-  const { lastAgentTypeId, lastRepositoryId, lastCredentialProfileId, lastBranchName, setLastChoices } = usePodCreationStore();
-  const prefsInitializedRef = useRef(false);
+  const { setLastChoices } = usePodCreationStore();
 
-  const [selectedAgent, setSelectedAgent] = useState<number | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedRepository, setSelectedRepository] = useState<number | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
-  const [selectedCredentialProfile, setSelectedCredentialProfile] = useState<number>(RUNNER_HOST_PROFILE_ID);
+  const [interactionMode, setInteractionMode] = useState<PodMode>(POD_MODE_PTY);
   const [prompt, setPrompt] = useState<string>("");
   const [alias, setAlias] = useState<string>("");
+  const [perpetual, setPerpetual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<FormValidationErrors>({});
 
-  // Credential profiles state
-  const [credentialProfiles, setCredentialProfiles] = useState<CredentialProfileData[]>([]);
-  const [loadingCredentials, setLoadingCredentials] = useState(false);
+  // AgentFile Layer state
+  const [rawLayerMode, setRawLayerModeState] = useState(false);
+  const [rawLayerText, setRawLayerText] = useState("");
 
-  // Auto-fill from saved preferences when agent types become available
-  useEffect(() => {
-    if (prefsInitializedRef.current || availableAgentTypes.length === 0) return;
+  // Credential profiles (extracted hook)
+  const creds = useCredentialProfiles(selectedAgent);
 
-    if (lastAgentTypeId && availableAgentTypes.find(a => a.id === lastAgentTypeId)) {
-      setSelectedAgent(lastAgentTypeId);
-    }
-    if (lastRepositoryId && repositories.find(r => r.id === lastRepositoryId)) {
-      setSelectedRepository(lastRepositoryId);
-    }
-    if (lastBranchName) {
-      setSelectedBranch(lastBranchName);
-    }
-
-    prefsInitializedRef.current = true;
-  }, [availableAgentTypes, repositories, lastAgentTypeId, lastRepositoryId, lastBranchName]);
+  // Auto-fill from saved preferences
+  const prefsInitializedRef = usePrefsAutoFill(
+    availableAgents, repositories, setSelectedAgent, setSelectedRepository, setSelectedBranch,
+  );
 
   // Compute agent slug from selected agent
   const selectedAgentSlug = useMemo(() => {
     if (!selectedAgent) return "";
-    const agent = availableAgentTypes.find((a) => a.id === selectedAgent);
-    return agent?.slug || "";
-  }, [selectedAgent, availableAgentTypes]);
+    return availableAgents.find((a) => a.slug === selectedAgent)?.slug || "";
+  }, [selectedAgent, availableAgents]);
 
-  // Compute form validity (runner validation is done externally)
-  const isValid = useMemo(() => {
-    return selectedAgent !== null;
-  }, [selectedAgent]);
+  // Parse supported modes from selected agent type
+  const supportedModes = useMemo(() => {
+    if (!selectedAgent) return [POD_MODE_PTY];
+    const agent = availableAgents.find((a) => a.slug === selectedAgent);
+    const modes = agent?.supported_modes?.split(",").map((m) => m.trim()).filter(Boolean) || [];
+    return modes.length > 0 ? modes : [POD_MODE_PTY];
+  }, [selectedAgent, availableAgents]);
 
-  // Reset agent selection when available agent types change (e.g., when runner changes)
+  const isValid = useMemo(() => selectedAgent !== null && selectedAgent !== "", [selectedAgent]);
+
+  // Reset agent selection when available agents change
   useEffect(() => {
-    // If current selection is not in available types, reset it
-    if (selectedAgent && !availableAgentTypes.find(a => a.id === selectedAgent)) {
+    if (selectedAgent && !availableAgents.find(a => a.slug === selectedAgent)) {
       setSelectedAgent(null);
-      setCredentialProfiles([]);
-      setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+      creds.setCredentialProfiles([]);
+      creds.setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+      setInteractionMode(POD_MODE_PTY);
     }
-  }, [availableAgentTypes, selectedAgent]);
+  }, [availableAgents, selectedAgent, creds]);
+
+  // Auto-set interaction mode when agent changes based on supported modes
+  useEffect(() => {
+    if (!selectedAgent) { setInteractionMode(POD_MODE_PTY); return; }
+    if (!supportedModes.includes(interactionMode)) {
+      setInteractionMode(supportedModes[0] as PodMode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent, supportedModes]);
 
   // Auto-select default branch when repository is selected
   useEffect(() => {
-    if (!selectedRepository) {
-      setSelectedBranch("");
-      return;
-    }
-
+    if (!selectedRepository) { setSelectedBranch(""); return; }
     const repo = repositories.find((r) => r.id === selectedRepository);
-    if (repo?.default_branch) {
-      setSelectedBranch(repo.default_branch);
-    }
+    if (repo?.default_branch) setSelectedBranch(repo.default_branch);
   }, [selectedRepository, repositories]);
-
-  // Load credential profiles when agent is selected
-  useEffect(() => {
-    if (!selectedAgent) {
-      setCredentialProfiles([]);
-      setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
-      return;
-    }
-
-    const loadCredentials = async () => {
-      setLoadingCredentials(true);
-      try {
-        const res = await userAgentCredentialApi.listForAgentType(selectedAgent);
-        const profiles = res.profiles || [];
-        setCredentialProfiles(profiles);
-
-        // Auto-select: prefer saved preference, then default profile, then RunnerHost
-        const savedProfile = lastCredentialProfileId && profiles.find(p => p.id === lastCredentialProfileId);
-        const defaultProfile = profiles.find((p) => p.is_default);
-        if (savedProfile) {
-          setSelectedCredentialProfile(savedProfile.id);
-        } else if (defaultProfile) {
-          setSelectedCredentialProfile(defaultProfile.id);
-        } else {
-          setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
-        }
-      } catch (err) {
-        console.error("Failed to load credential profiles:", err);
-        setCredentialProfiles([]);
-        setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
-      } finally {
-        setLoadingCredentials(false);
-      }
-    };
-
-    loadCredentials();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAgent]);
 
   // Clear validation error when field changes
   useEffect(() => {
@@ -182,102 +98,89 @@ export function useCreatePodForm(
     }
   }, [selectedAgent, validationErrors.agent]);
 
-  // Validate form (runner is optional - backend auto-selects when not provided)
   const validate = useCallback((): boolean => {
     const errors: FormValidationErrors = {};
-
-    if (!selectedAgent) {
-      errors.agent = "Please select an agent type";
-    }
-
-    // Branch validation: if repository is selected but branch is empty, warn
+    if (!selectedAgent) errors.agent = "Please select an agent";
     if (selectedRepository && !selectedBranch.trim()) {
       errors.branch = "Branch name is recommended when using a repository";
     }
-
-    // Validate branch name format (optional, only if provided)
-    if (selectedBranch.trim()) {
-      const branchRegex = /^[a-zA-Z0-9._/-]+$/;
-      if (!branchRegex.test(selectedBranch)) {
-        errors.branch = "Branch name contains invalid characters";
-      }
+    if (selectedBranch.trim() && !/^[a-zA-Z0-9._/-]+$/.test(selectedBranch)) {
+      errors.branch = "Branch name contains invalid characters";
     }
-
     setValidationErrors(errors);
     return Object.keys(errors).filter(k => errors[k as keyof FormValidationErrors]).length === 0;
   }, [selectedAgent, selectedRepository, selectedBranch]);
 
-  // Reset form
   const reset = useCallback(() => {
     setSelectedAgent(null);
     setSelectedRepository(null);
     setSelectedBranch("");
-    setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
-    setCredentialProfiles([]);
+    creds.setSelectedCredentialProfile(RUNNER_HOST_PROFILE_ID);
+    creds.setCredentialProfiles([]);
+    setInteractionMode(POD_MODE_PTY);
     setPrompt("");
     setAlias("");
+    setPerpetual(false);
     setError(null);
     setValidationErrors({});
+    setRawLayerModeState(false);
+    setRawLayerText("");
     prefsInitializedRef.current = false;
-  }, []);
+  }, [creds, prefsInitializedRef]);
 
-  // Submit form (runner_id is optional - backend auto-selects when not provided)
+  // AgentFile Layer: compute from form fields
+  const generatedLayer = useMemo(() => {
+    const repoSlug = selectedRepository
+      ? repositories.find((r) => r.id === selectedRepository)?.slug
+      : undefined;
+    const credProfileName = creds.selectedCredentialProfile === RUNNER_HOST_PROFILE_ID
+      ? undefined
+      : creds.credentialProfiles.find(
+          (p) => p.id === creds.selectedCredentialProfile
+        )?.name;
+    return buildAgentfileLayer({
+      configValues: configValues ?? {},
+      repositorySlug: repoSlug,
+      branchName: selectedBranch || undefined,
+      interactionMode,
+      credentialProfileName: credProfileName,
+      prompt: prompt || undefined,
+    });
+  }, [configValues, selectedRepository, repositories, selectedBranch, creds.selectedCredentialProfile, creds.credentialProfiles, interactionMode, prompt]);
+
+  const agentfileLayer = rawLayerMode ? rawLayerText : generatedLayer;
+
+  const setRawLayerMode = useCallback((enabled: boolean) => {
+    if (enabled && !rawLayerText) {
+      setRawLayerText(generatedLayer);
+    }
+    setRawLayerModeState(enabled);
+  }, [generatedLayer, rawLayerText]);
+
   const submit = useCallback(
     async (
       selectedRunnerId: number | null | undefined,
       pluginConfig: Record<string, unknown>,
-      options?: { ticketSlug?: string; initialPrompt?: string; cols?: number; rows?: number }
+      options?: { ticketSlug?: string; cols?: number; rows?: number }
     ): Promise<PodData | null> => {
-      // Validate before submission
-      if (!validate()) {
-        return null;
-      }
-
-      if (!selectedAgent) {
-        setError("Please select an agent");
-        return null;
-      }
-
+      if (!validate()) return null;
+      if (!selectedAgent) { setError("Please select an agent"); return null; }
       setLoading(true);
       setError(null);
-
       try {
-        // Build plugin config for API
-        const config: Record<string, unknown> = {
-          agent_type: selectedAgentSlug,
-          ...pluginConfig,
-        };
-
-        // Use provided initialPrompt (from options) or form prompt
-        const finalPrompt = options?.initialPrompt ?? prompt;
-
-        const response = await podApi.create({
-          agent_type_id: selectedAgent,
-          runner_id: selectedRunnerId || undefined, // omit when not manually selected
-          repository_id: selectedRepository || undefined,
-          branch_name: selectedBranch || undefined,
-          initial_prompt: finalPrompt,
-          alias: alias.trim() || undefined,
-          config_overrides: config,
-          credential_profile_id: selectedCredentialProfile,
-          ticket_slug: options?.ticketSlug,
-          cols: options?.cols,
-          rows: options?.rows,
+        const pod = await submitCreatePod({
+          selectedAgent, alias, perpetual, selectedRunnerId,
+          agentfileLayer: agentfileLayer || undefined, options,
         });
-
-        if (response.pod) {
-          // Save choices for next time
+        if (pod) {
           setLastChoices({
-            lastAgentTypeId: selectedAgent,
-            lastRepositoryId: selectedRepository,
-            lastCredentialProfileId: selectedCredentialProfile > 0 ? selectedCredentialProfile : null,
+            lastAgentSlug: selectedAgent, lastRepositoryId: selectedRepository,
+            lastCredentialProfileId: creds.selectedCredentialProfile > 0 ? creds.selectedCredentialProfile : null,
             lastBranchName: selectedBranch || null,
           });
-
-          onSuccess?.(response.pod);
-          return response.pod;
+          onSuccess?.(pod);
         }
-        return null;
+        return pod;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to create pod";
         setError(message);
@@ -287,31 +190,19 @@ export function useCreatePodForm(
         setLoading(false);
       }
     },
-    [selectedAgent, selectedAgentSlug, selectedRepository, selectedBranch, selectedCredentialProfile, prompt, alias, onSuccess, validate, setLastChoices]
+    [selectedAgent, selectedRepository, selectedBranch, creds.selectedCredentialProfile, alias, perpetual, agentfileLayer, onSuccess, validate, setLastChoices]
   );
 
   return {
-    selectedAgent,
-    selectedRepository,
-    selectedBranch,
-    selectedCredentialProfile,
-    prompt,
-    alias,
-    credentialProfiles,
-    loadingCredentials,
-    setSelectedAgent,
-    setSelectedRepository,
-    setSelectedBranch,
-    setSelectedCredentialProfile,
-    setPrompt,
-    setAlias,
-    selectedAgentSlug,
-    loading,
-    error,
-    validationErrors,
-    isValid,
-    reset,
-    validate,
-    submit,
+    selectedAgent, selectedRepository, selectedBranch,
+    selectedCredentialProfile: creds.selectedCredentialProfile,
+    interactionMode, prompt, alias, perpetual,
+    credentialProfiles: creds.credentialProfiles, loadingCredentials: creds.loadingCredentials,
+    setSelectedAgent, setSelectedRepository, setSelectedBranch,
+    setSelectedCredentialProfile: creds.setSelectedCredentialProfile,
+    setInteractionMode, setPrompt, setAlias, setPerpetual, selectedAgentSlug, supportedModes,
+    loading, error, validationErrors, isValid, reset, validate, submit,
+    // AgentFile Layer
+    rawLayerMode, rawLayerText, agentfileLayer, setRawLayerMode, setRawLayerText,
   };
 }

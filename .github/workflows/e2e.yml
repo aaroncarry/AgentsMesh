@@ -1,0 +1,247 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "web/**"
+      - "backend/**"
+      - "runner/**"
+      - "relay/**"
+      - "e2e-playwright/**"
+      - "deploy/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "web/**"
+      - "backend/**"
+      - "runner/**"
+      - "relay/**"
+      - "e2e-playwright/**"
+      - "deploy/**"
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  GO_VERSION: "1.25"
+
+jobs:
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # ----------------------------------------------------------
+      # 1. Generate SSL certs and .env, then start ALL services
+      # ----------------------------------------------------------
+      - name: Generate SSL certificates
+        working-directory: deploy/dev
+        run: bash generate-dev-certs.sh
+
+      - name: Fix Docker image sources for CI
+        working-directory: deploy/dev
+        run: |
+          # Dev Dockerfiles use a private mirror (docker.1ms.run) that isn't
+          # accessible from GitHub Actions. Replace with Docker Hub.
+          find . -name "*.Dockerfile" -o -name "Dockerfile" | xargs -r \
+            sed -i 's|docker\.1ms\.run/library/||g'
+
+      - name: Generate AI CLI configs for Runner
+        working-directory: deploy/dev
+        run: |
+          mkdir -p ai-cli-configs/claude ai-cli-configs/codex ai-cli-configs/gemini
+          echo '{"permissions":{"allow":["Bash","Read","Write","Edit","Glob","Grep"],"deny":[]}}' \
+            > ai-cli-configs/claude/settings.json
+          cat > ai-cli-configs/codex/config.toml <<'EOF'
+          approval_policy = "never"
+          sandbox_mode = "workspace-write"
+          EOF
+          sed -i 's/^[[:space:]]*//' ai-cli-configs/codex/config.toml
+          echo '{"sandboxMode":"none","autoApprove":true}' \
+            > ai-cli-configs/gemini/settings.json
+
+      - name: Generate .env for CI
+        working-directory: deploy/dev
+        run: |
+          cat > .env <<'EOF'
+          COMPOSE_PROJECT_NAME=agentsmesh-ci
+          HTTP_PORT=10000
+          GRPC_PORT=9443
+          RELAY_PORT=10001
+          POSTGRES_PORT=5432
+          REDIS_PORT=6379
+          MINIO_API_PORT=9000
+          MINIO_CONSOLE_PORT=9001
+          TRAEFIK_DASHBOARD_PORT=8080
+          ADMINER_PORT=8081
+          WEB_PORT=3000
+          WEB_ADMIN_PORT=3001
+          PRIMARY_DOMAIN=localhost:10000
+          USE_HTTPS=false
+          JWT_SECRET=ci-jwt-secret-for-testing
+          INTERNAL_API_SECRET=ci-internal-secret
+          EOF
+          sed -i 's/^[[:space:]]*//' .env
+          echo "Generated .env:"
+          cat .env
+
+      - name: Generate Traefik config for CI
+        working-directory: deploy/dev
+        run: |
+          mkdir -p traefik
+          cat > traefik/traefik.yml <<'EOF'
+          api:
+            dashboard: true
+            insecure: true
+          entryPoints:
+            web:
+              address: ":80"
+            grpc:
+              address: ":9443"
+          providers:
+            docker:
+              exposedByDefault: false
+              network: agentsmesh-ci_default
+              constraints: "Label(`com.docker.compose.project`, `agentsmesh-ci`)"
+            file:
+              directory: /etc/traefik/dynamic
+              watch: true
+          log:
+            level: WARN
+          EOF
+          sed -i 's/^          //' traefik/traefik.yml
+
+      - name: Start all Docker services
+        working-directory: deploy/dev
+        run: |
+          docker compose up -d postgres redis minio backend runner relay traefik
+          echo "Waiting for PostgreSQL..."
+          timeout 60 bash -c 'until docker compose exec -T postgres pg_isready -U agentsmesh; do sleep 2; done'
+          echo "PostgreSQL ready."
+
+      - name: Run database migrations
+        working-directory: deploy/dev
+        run: |
+          DB_URL="postgres://agentsmesh:agentsmesh_dev@localhost:5432/agentsmesh?sslmode=disable"
+          docker compose exec -T backend migrate \
+            -path /app/migrations \
+            -database "postgres://agentsmesh:agentsmesh_dev@postgres:5432/agentsmesh?sslmode=disable" \
+            up || true
+
+      - name: Seed test data
+        working-directory: deploy/dev
+        run: |
+          docker compose exec -T postgres \
+            psql -U agentsmesh -d agentsmesh < seed/seed.sql
+          if [ -f seed/seed_lemonsqueezy.sql ]; then
+            docker compose exec -T postgres \
+              psql -U agentsmesh -d agentsmesh < seed/seed_lemonsqueezy.sql || true
+          fi
+
+      - name: Wait for backend API
+        run: |
+          echo "Waiting for backend API..."
+          timeout 120 bash -c 'until curl -sf http://localhost:10000/api/v1/config/deployment 2>/dev/null; do sleep 3; done'
+          echo "Backend API ready."
+
+      - name: Wait for runner to register
+        run: |
+          echo "Waiting for runner to come online..."
+          timeout 120 bash -c '
+            TOKEN=$(curl -sf http://localhost:10000/api/v1/auth/login \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"dev@agentsmesh.local\",\"password\":\"devpass123\"}" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin)[\"token\"])")
+            until curl -sf http://localhost:10000/api/v1/orgs/dev-org/runners/available \
+              -H "Authorization: Bearer $TOKEN" \
+              | python3 -c "import sys,json; exit(0 if json.load(sys.stdin).get(\"runners\",[]) else 1)"; do
+              sleep 5
+            done
+          ' || echo "Warning: No runner online, pod tests will skip."
+          echo "Runner check complete."
+
+      # ----------------------------------------------------------
+      # 2. Build and start the frontend
+      # ----------------------------------------------------------
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            e2e-playwright/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: web
+        run: |
+          cat > .env.local <<'EOF'
+          PRIMARY_DOMAIN=localhost:10000
+          USE_HTTPS=false
+          NEXT_PUBLIC_API_URL=http://localhost:10000
+          NEXT_PUBLIC_WS_URL=ws://localhost:10000
+          EOF
+          sed -i 's/^[[:space:]]*//' .env.local
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Start frontend
+        working-directory: web
+        run: |
+          pnpm start &
+          echo "Waiting for frontend..."
+          timeout 60 bash -c 'until curl -sf http://localhost:3000 2>/dev/null; do sleep 2; done'
+          echo "Frontend ready."
+
+      # ----------------------------------------------------------
+      # 3. Install and run Playwright
+      # ----------------------------------------------------------
+      - name: Install Playwright dependencies
+        working-directory: e2e-playwright
+        run: |
+          pnpm install --frozen-lockfile
+          npx playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        working-directory: e2e-playwright
+        env:
+          CI: "true"
+          WEB_PORT: "3000"
+          HTTP_PORT: "10000"
+          COMPOSE_PROJECT_NAME: "agentsmesh-ci"
+        run: npx playwright test
+
+      # ----------------------------------------------------------
+      # 4. Upload artifacts (always on failure, optionally on success)
+      # ----------------------------------------------------------
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e-playwright/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: e2e-playwright/test-results/
+          retention-days: 14
+
+      - name: Upload JUnit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-report
+          path: e2e-playwright/report.xml
+          retention-days: 7

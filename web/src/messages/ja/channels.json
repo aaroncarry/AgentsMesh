@@ -32,6 +32,7 @@
       "copyMessage": "コピー",
       "editMessage": "編集",
       "deleteMessage": "削除",
+      "metadata": "メタデータ",
       "edited": "編集済み",
       "save": "保存",
       "cancel": "キャンセル",

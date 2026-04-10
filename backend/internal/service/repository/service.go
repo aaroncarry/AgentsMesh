@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/gitprovider"
-	"github.com/anthropics/agentsmesh/backend/internal/infra/git"
 )
 
 var (
@@ -48,178 +48,16 @@ type CreateRequest struct {
 	OrganizationID   int64
 	ProviderType     string // github, gitlab, gitee, generic
 	ProviderBaseURL  string // https://github.com, https://gitlab.company.com
-	CloneURL         string // Full clone URL
+	CloneURL         string // Full clone URL (deprecated, still accepted for backward compat)
 	HttpCloneURL     string // HTTPS clone URL
 	SshCloneURL      string // SSH clone URL
 	ExternalID       string
 	Name             string
-	FullPath         string
+	Slug             string
 	DefaultBranch    string
 	TicketPrefix     *string
 	Visibility       string // "organization" or "private"
 	ImportedByUserID *int64 // User who imported this repo
-}
-
-// Create creates a new repository configuration.
-// If the same repository already exists, it updates provider metadata
-// (idempotent import) so that re-importing after a provider reconnect
-// does not fail.
-func (s *Service) Create(ctx context.Context, req *CreateRequest) (*gitprovider.Repository, error) {
-	// Check if repository already exists (unique: org + provider_type + provider_base_url + full_path)
-	existing, err := s.repo.FindByOrgAndPath(ctx, req.OrganizationID, req.ProviderType, req.ProviderBaseURL, req.FullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Idempotent import: update provider-sourced metadata, preserve user-configured fields
-	if existing != nil {
-		updates := map[string]interface{}{
-			"name":        req.Name,
-			"external_id": req.ExternalID,
-			"is_active":   true,
-		}
-		if req.DefaultBranch != "" {
-			updates["default_branch"] = req.DefaultBranch
-		}
-		if req.ImportedByUserID != nil {
-			updates["imported_by_user_id"] = *req.ImportedByUserID
-		}
-		if req.CloneURL != "" {
-			updates["clone_url"] = req.CloneURL
-		}
-		if req.HttpCloneURL != "" {
-			updates["http_clone_url"] = req.HttpCloneURL
-		}
-		if req.SshCloneURL != "" {
-			updates["ssh_clone_url"] = req.SshCloneURL
-		}
-		return s.Update(ctx, existing.ID, updates)
-	}
-
-	repo := &gitprovider.Repository{
-		OrganizationID:   req.OrganizationID,
-		ProviderType:     req.ProviderType,
-		ProviderBaseURL:  req.ProviderBaseURL,
-		CloneURL:         req.CloneURL,
-		HttpCloneURL:     req.HttpCloneURL,
-		SshCloneURL:      req.SshCloneURL,
-		ExternalID:       req.ExternalID,
-		Name:             req.Name,
-		FullPath:         req.FullPath,
-		DefaultBranch:    req.DefaultBranch,
-		TicketPrefix:     req.TicketPrefix,
-		Visibility:       req.Visibility,
-		ImportedByUserID: req.ImportedByUserID,
-		IsActive:         true,
-	}
-
-	if repo.DefaultBranch == "" {
-		repo.DefaultBranch = "main"
-	}
-	if repo.Visibility == "" {
-		repo.Visibility = "organization"
-	}
-
-	// Generate clone URLs if not provided
-	if repo.HttpCloneURL == "" || repo.SshCloneURL == "" {
-		httpURL, sshURL := generateCloneURLs(repo.ProviderType, repo.ProviderBaseURL, repo.FullPath)
-		if repo.HttpCloneURL == "" {
-			repo.HttpCloneURL = httpURL
-		}
-		if repo.SshCloneURL == "" {
-			repo.SshCloneURL = sshURL
-		}
-	}
-
-	// Keep legacy clone_url populated for backwards compatibility
-	if repo.CloneURL == "" {
-		repo.CloneURL = repo.HttpCloneURL
-	}
-
-	if err := s.repo.Create(ctx, repo); err != nil {
-		return nil, err
-	}
-
-	return repo, nil
-}
-
-// CreateWithWebhook creates a repository and registers a webhook
-// orgSlug is required for building the webhook URL
-func (s *Service) CreateWithWebhook(ctx context.Context, req *CreateRequest, orgSlug string) (*gitprovider.Repository, *WebhookResult, error) {
-	repo, err := s.Create(ctx, req)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// If webhook service is configured and user ID is available, try to register webhook
-	var webhookResult *WebhookResult
-	if s.webhookService != nil && req.ImportedByUserID != nil {
-		// Register webhook asynchronously to not block repository creation
-		go func() {
-			bgCtx := context.Background()
-			result, err := s.webhookService.RegisterWebhookForRepository(bgCtx, repo, orgSlug, *req.ImportedByUserID)
-			if err != nil {
-				// Log error but don't fail - webhook can be registered manually later
-				if s.webhookService.logger != nil {
-					s.webhookService.logger.Error("Failed to register webhook during repository creation",
-						"repo_id", repo.ID,
-						"error", err)
-				}
-			} else if result.NeedsManualSetup {
-				if s.webhookService.logger != nil {
-					s.webhookService.logger.Info("Webhook requires manual setup",
-						"repo_id", repo.ID,
-						"webhook_url", result.ManualWebhookURL)
-				}
-			}
-		}()
-
-		// Return a placeholder result indicating webhook registration is in progress
-		webhookResult = &WebhookResult{
-			RepoID: repo.ID,
-			Error:  "Webhook registration in progress",
-		}
-	}
-
-	return repo, webhookResult, nil
-}
-
-// generateCloneURLs generates both HTTP and SSH clone URLs based on provider type
-func generateCloneURLs(providerType, baseURL, fullPath string) (httpURL, sshURL string) {
-	switch providerType {
-	case "github":
-		httpURL = "https://github.com/" + fullPath + ".git"
-		sshURL = "git@github.com:" + fullPath + ".git"
-	case "gitlab":
-		httpURL = baseURL + "/" + fullPath + ".git"
-		host := extractHost(baseURL)
-		sshURL = "git@" + host + ":" + fullPath + ".git"
-	case "gitee":
-		httpURL = "https://gitee.com/" + fullPath + ".git"
-		sshURL = "git@gitee.com:" + fullPath + ".git"
-	default:
-		httpURL = baseURL + "/" + fullPath + ".git"
-		host := extractHost(baseURL)
-		sshURL = "git@" + host + ":" + fullPath + ".git"
-	}
-	return
-}
-
-// extractHost extracts the host from a URL (e.g., "https://gitlab.company.com" -> "gitlab.company.com")
-func extractHost(baseURL string) string {
-	host := baseURL
-	// Remove protocol prefix
-	for _, prefix := range []string{"https://", "http://"} {
-		if len(host) > len(prefix) && host[:len(prefix)] == prefix {
-			host = host[len(prefix):]
-			break
-		}
-	}
-	// Remove trailing slash
-	if len(host) > 0 && host[len(host)-1] == '/' {
-		host = host[:len(host)-1]
-	}
-	return host
 }
 
 // GetByID returns a repository by ID
@@ -254,8 +92,10 @@ func (s *Service) GetByIDForUser(ctx context.Context, id int64, userID int64) (*
 // Update updates a repository
 func (s *Service) Update(ctx context.Context, id int64, updates map[string]interface{}) (*gitprovider.Repository, error) {
 	if err := s.repo.Update(ctx, id, updates); err != nil {
+		slog.Error("failed to update repository", "repo_id", id, "error", err)
 		return nil, err
 	}
+	slog.Info("repository updated", "repo_id", id)
 	return s.GetByID(ctx, id)
 }
 
@@ -269,7 +109,12 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	if loopCount > 0 {
 		return ErrRepositoryHasLoopRefs
 	}
-	return s.repo.SoftDelete(ctx, id)
+	if err := s.repo.SoftDelete(ctx, id); err != nil {
+		slog.Error("failed to soft-delete repository", "repo_id", id, "error", err)
+		return err
+	}
+	slog.Info("repository soft-deleted", "repo_id", id)
+	return nil
 }
 
 // HardDelete permanently deletes a repository.
@@ -282,7 +127,12 @@ func (s *Service) HardDelete(ctx context.Context, id int64) error {
 	if loopCount > 0 {
 		return ErrRepositoryHasLoopRefs
 	}
-	return s.repo.HardDelete(ctx, id)
+	if err := s.repo.HardDelete(ctx, id); err != nil {
+		slog.Error("failed to hard-delete repository", "repo_id", id, "error", err)
+		return err
+	}
+	slog.Info("repository hard-deleted", "repo_id", id)
+	return nil
 }
 
 // ListByOrganization returns repositories for an organization
@@ -307,9 +157,9 @@ func (s *Service) GetByExternalID(ctx context.Context, providerType, providerBas
 	return repo, nil
 }
 
-// GetByFullPath returns a repository by organization, provider, and full path
-func (s *Service) GetByFullPath(ctx context.Context, orgID int64, providerType, providerBaseURL, fullPath string) (*gitprovider.Repository, error) {
-	repo, err := s.repo.GetByFullPath(ctx, orgID, providerType, providerBaseURL, fullPath)
+// GetBySlug returns a repository by organization, provider, and slug
+func (s *Service) GetBySlug(ctx context.Context, orgID int64, providerType, providerBaseURL, slug string) (*gitprovider.Repository, error) {
+	repo, err := s.repo.GetBySlug(ctx, orgID, providerType, providerBaseURL, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -319,83 +169,22 @@ func (s *Service) GetByFullPath(ctx context.Context, orgID int64, providerType, 
 	return repo, nil
 }
 
+// FindByOrgSlug looks up a repository by org + slug (ignoring provider).
+// Used by AgentFile REPO slug resolution.
+func (s *Service) FindByOrgSlug(ctx context.Context, orgID int64, slug string) (*gitprovider.Repository, error) {
+	repo, err := s.repo.FindByOrgSlug(ctx, orgID, slug)
+	if err != nil {
+		return nil, err
+	}
+	return repo, nil // nil = not found (no error)
+}
+
 // GetCloneURL returns the clone URL for a repository
-// Prefers http_clone_url, falls back to clone_url for backward compatibility
 func (s *Service) GetCloneURL(ctx context.Context, repoID int64) (string, error) {
 	repo, err := s.GetByID(ctx, repoID)
 	if err != nil {
 		return "", err
 	}
-	if repo.HttpCloneURL != "" {
-		return repo.HttpCloneURL, nil
-	}
-	return repo.CloneURL, nil
+	return repo.HttpCloneURL, nil
 }
 
-// SyncFromProvider syncs repository info from git provider using user's token
-func (s *Service) SyncFromProvider(ctx context.Context, repoID int64, accessToken string) (*gitprovider.Repository, error) {
-	repo, err := s.GetByID(ctx, repoID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create git provider client using repo's self-contained info
-	client, err := git.NewProvider(repo.ProviderType, repo.ProviderBaseURL, accessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := client.GetProject(ctx, repo.ExternalID)
-	if err != nil {
-		return nil, err
-	}
-
-	updates := map[string]interface{}{
-		"name":           project.Name,
-		"full_path":      project.FullPath,
-		"default_branch": project.DefaultBranch,
-	}
-	if project.CloneURL != "" {
-		updates["clone_url"] = project.CloneURL
-		updates["http_clone_url"] = project.CloneURL
-	}
-	if project.SSHCloneURL != "" {
-		updates["ssh_clone_url"] = project.SSHCloneURL
-	}
-
-	return s.Update(ctx, repoID, updates)
-}
-
-// ListBranches lists branches for a repository using user's token
-func (s *Service) ListBranches(ctx context.Context, repoID int64, accessToken string) ([]string, error) {
-	repo, err := s.GetByID(ctx, repoID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create git provider client using repo's self-contained info
-	client, err := git.NewProvider(repo.ProviderType, repo.ProviderBaseURL, accessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	branches, err := client.ListBranches(ctx, repo.ExternalID)
-	if err != nil {
-		return nil, err
-	}
-
-	var names []string
-	for _, b := range branches {
-		names = append(names, b.Name)
-	}
-	return names, nil
-}
-
-// GetNextTicketNumber returns the next ticket number for a repository
-func (s *Service) GetNextTicketNumber(ctx context.Context, repoID int64) (int, error) {
-	maxNumber, err := s.repo.GetMaxTicketNumber(ctx, repoID)
-	if err != nil {
-		return 0, err
-	}
-	return maxNumber + 1, nil
-}

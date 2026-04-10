@@ -34,14 +34,14 @@ echo "All done successfully."
 	require.NoError(t, err)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt: "Test task",
+		Prompt: "Test task",
 		MCPPort:       19000,
-		PodKey:  "worker-123",
+		PodKey:        "worker-123",
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
 		WorkDir:       tmpDir,
-		AgentType:     scriptPath,
+		Agent:         scriptPath,
 		PromptBuilder: pb,
 	})
 
@@ -76,14 +76,14 @@ echo "Done."
 	require.NoError(t, err)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt: "Test task",
+		Prompt: "Test task",
 		MCPPort:       19000,
-		PodKey:  "worker-123",
+		PodKey:        "worker-123",
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
 		WorkDir:       tmpDir,
-		AgentType:     scriptPath,
+		Agent:         scriptPath,
 		PromptBuilder: pb,
 	})
 
@@ -110,15 +110,15 @@ func TestControlRunner_ResumeControlProcess_Timeout(t *testing.T) {
 	require.NoError(t, err)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt:    "Test task",
+		Prompt:    "Test task",
 		MCPPort:          19000,
-		PodKey:     "worker-123",
+		PodKey:           "worker-123",
 		GetMaxIterations: func() int { return 10 },
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
 		WorkDir:       tmpDir,
-		AgentType:     scriptPath,
+		Agent:         scriptPath,
 		PromptBuilder: pb,
 	})
 
@@ -148,14 +148,14 @@ func TestControlRunner_StartControlProcess_ProcessError(t *testing.T) {
 	require.NoError(t, err)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt: "Test task",
+		Prompt: "Test task",
 		MCPPort:       19000,
-		PodKey:  "worker-123",
+		PodKey:        "worker-123",
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
 		WorkDir:       tmpDir,
-		AgentType:     scriptPath,
+		Agent:         scriptPath,
 		PromptBuilder: pb,
 	})
 
@@ -184,15 +184,15 @@ func TestControlRunner_ResumeControlProcess_ProcessError(t *testing.T) {
 	require.NoError(t, err)
 
 	pb := NewPromptBuilder(PromptBuilderConfig{
-		InitialPrompt:    "Test task",
+		Prompt:    "Test task",
 		MCPPort:          19000,
-		PodKey:     "worker-123",
+		PodKey:           "worker-123",
 		GetMaxIterations: func() int { return 10 },
 	})
 
 	cr := NewControlRunner(ControlRunnerConfig{
 		WorkDir:       tmpDir,
-		AgentType:     scriptPath,
+		Agent:         scriptPath,
 		PromptBuilder: pb,
 	})
 

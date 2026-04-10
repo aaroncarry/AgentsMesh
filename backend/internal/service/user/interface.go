@@ -21,6 +21,7 @@ type Interface interface {
 	// Authentication
 	Authenticate(ctx context.Context, email, password string) (*user.User, error)
 	UpdatePassword(ctx context.Context, id int64, password string) error
+	RecordLogin(ctx context.Context, userID int64)
 
 	// OAuth
 	GetOrCreateByOAuth(ctx context.Context, provider, providerUserID, providerUsername, email, name, avatarURL string) (*user.User, bool, error)

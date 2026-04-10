@@ -35,6 +35,21 @@ func (r *Runner) recoverDaemonSessions() {
 	for _, state := range states {
 		pod, err := r.recoverSingleSession(state)
 		if err != nil {
+			// Perpetual pod: daemon died → re-create it from the existing sandbox
+			if state.Perpetual {
+				pod, restartErr := r.restartDeadPerpetualDaemon(state)
+				if restartErr != nil {
+					log.Warn("failed to restart perpetual daemon, cleaning up",
+						"pod_key", state.PodKey, "error", restartErr)
+					_ = r.podDaemonManager.CleanupSession(state.SandboxPath)
+					continue
+				}
+				r.podStore.Put(pod.PodKey, pod)
+				log.Info("perpetual daemon restarted",
+					"pod_key", pod.PodKey, "sandbox", pod.SandboxPath)
+				continue
+			}
+
 			log.Warn("failed to recover session, cleaning up",
 				"pod_key", state.PodKey, "error", err)
 			_ = r.podDaemonManager.CleanupSession(state.SandboxPath)
@@ -44,7 +59,7 @@ func (r *Runner) recoverDaemonSessions() {
 		r.podStore.Put(pod.PodKey, pod)
 		log.Info("session recovered",
 			"pod_key", pod.PodKey,
-			"pid", pod.Terminal.PID(),
+			"pid", pod.IO.GetPID(),
 			"sandbox", pod.SandboxPath)
 	}
 }
@@ -77,15 +92,11 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 		return nil, fmt.Errorf("create terminal: %w", err)
 	}
 
-	// Create VirtualTerminal and Aggregator (fresh state after recovery)
 	virtualTerm := vt.NewVirtualTerminal(state.Cols, state.Rows, state.VTHistoryLimit)
 	virtualTerm.SetOSCHandler(r.messageHandler.createOSCHandler(state.PodKey))
 
-	agg := aggregator.NewSmartAggregator(nil, nil,
-		aggregator.WithFullRedrawThrottling(),
-	)
+	agg := aggregator.NewSmartAggregator(nil, aggregator.WithFullRedrawThrottling())
 
-	// Enable PTY logging if configured (same as pod_builder_build.go)
 	var ptyLogger *aggregator.PTYLogger
 	cfg := r.GetConfig()
 	if cfg.LogPTY {
@@ -100,40 +111,51 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 	}
 
 	// Build Pod
+	podKey := state.PodKey
 	pod := &Pod{
-		ID:            state.PodKey,
-		PodKey:        state.PodKey,
-		AgentType:     state.AgentType,
-		RepositoryURL: state.RepositoryURL,
-		Branch:        state.Branch,
-		SandboxPath:   state.SandboxPath,
-		LaunchCommand: state.Command,
-		LaunchArgs:    state.Args,
-		WorkDir:       state.WorkDir,
-		TicketSlug:    state.TicketSlug,
-		Terminal:      term,
-		VirtualTerminal: virtualTerm,
-		Aggregator:      agg,
-		PTYLogger:       ptyLogger,
+		ID:              podKey,
+		PodKey:          podKey,
+		Agent:           state.Agent,
+		InteractionMode: InteractionModePTY,
+		RepositoryURL:   state.RepositoryURL,
+		Branch:          state.Branch,
+		SandboxPath:     state.SandboxPath,
+		LaunchCommand:   state.Command,
+		LaunchArgs:      state.Args,
+		WorkDir:         state.WorkDir,
+		LaunchEnv:       state.Env,
+		Perpetual:       state.Perpetual,
+		TicketSlug:      state.TicketSlug,
 		StartedAt:       state.StartedAt,
-		Status:        PodStatusInitializing,
+		Status:          PodStatusInitializing,
+		vtProvider:      func() *vt.VirtualTerminal { return virtualTerm },
 	}
 
+	comps := &PTYComponents{Terminal: term, VirtualTerminal: virtualTerm, Aggregator: agg, PTYLogger: ptyLogger}
+
 	// Wire up output handler (shared implementation with circuit breaker + inline recover)
-	podKey := state.PodKey
-	term.SetOutputHandler(pod.CreateOutputHandler())
+	term.SetOutputHandler(NewPTYOutputHandler(podKey, comps, pod.NotifyStateDetectorWithScreen))
 
-	// Set exit handler
-	term.SetExitHandler(r.messageHandler.createExitHandler(podKey))
+	// Create PodIO before Start so consumers can use it immediately
+	ptyIO := NewPTYPodIO(podKey, comps, PTYPodIODeps{
+		GetOrCreateDetector: pod.GetOrCreateStateDetector,
+		SubscribeState:      pod.SubscribeStateChange,
+		UnsubscribeState:    pod.UnsubscribeStateChange,
+		GetPTYError:         pod.GetPTYError,
+	})
+	pod.IO = ptyIO
 
-	// Set PTY error handler (same as OnCreatePod)
-	term.SetPTYErrorHandler(r.messageHandler.createPTYErrorHandler(podKey, pod))
+	// Wire PodRelay for mode-specific relay behavior
+	pod.Relay = NewPTYPodRelay(podKey, pod.IO, comps)
+
+	// Set exit and error handlers via PodIO
+	pod.IO.SetExitHandler(r.messageHandler.createExitHandler(podKey))
+	pod.IO.SetIOErrorHandler(r.messageHandler.createPTYErrorHandler(podKey, pod))
 
 	// Start Terminal I/O (readOutput + waitExit goroutines)
-	if err := term.Start(); err != nil {
-		agg.Stop() // Aggregator first (consistent with all other cleanup paths)
-		if ptyLogger != nil {
-			ptyLogger.Close()
+	if err := pod.IO.Start(); err != nil {
+		if pod.IO != nil {
+			pod.IO.Teardown()
 		}
 		dpty.Close()
 		return nil, fmt.Errorf("start terminal: %w", err)
@@ -143,14 +165,42 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 
 	// Register with MCP and monitor
 	if mcpSrv := r.GetMCPServer(); mcpSrv != nil {
-		mcpSrv.RegisterPod(podKey, r.conn.GetOrgSlug(), nil, nil, state.AgentType)
+		mcpSrv.RegisterPod(podKey, r.conn.GetOrgSlug(), nil, nil, state.Agent)
 	}
 	if agentMon := r.GetAgentMonitor(); agentMon != nil {
-		agentMon.RegisterPod(podKey, term.PID())
+		agentMon.RegisterPod(podKey, pod.IO.GetPID())
 	}
 
 	// Subscribe to VT state detection events, bridge to gRPC (shared with OnCreatePod)
 	pod.SubscribeAgentStatusBridge(r.conn.SendAgentStatus)
 
 	return pod, nil
+}
+
+// restartDeadPerpetualDaemon re-creates a daemon session for a perpetual pod
+// whose daemon died. Uses the existing sandbox and state to spawn a new daemon.
+func (r *Runner) restartDeadPerpetualDaemon(state *poddaemon.PodDaemonState) (*Pod, error) {
+	_, updatedState, err := r.podDaemonManager.CreateSession(poddaemon.CreateOpts{
+		PodKey:         state.PodKey,
+		Agent:          state.Agent,
+		Command:        state.Command,
+		Args:           state.Args,
+		WorkDir:        state.WorkDir,
+		Env:            state.Env,
+		Cols:           state.Cols,
+		Rows:           state.Rows,
+		SandboxPath:    state.SandboxPath,
+		RepositoryURL:  state.RepositoryURL,
+		Branch:         state.Branch,
+		TicketSlug:     state.TicketSlug,
+		VTHistoryLimit: state.VTHistoryLimit,
+		Perpetual:      true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create daemon session: %w", err)
+	}
+
+	// recoverSingleSession will AttachSession (new TCP conn). The CreateSession
+	// connection is implicitly replaced by daemon's single-client model.
+	return r.recoverSingleSession(updatedState)
 }

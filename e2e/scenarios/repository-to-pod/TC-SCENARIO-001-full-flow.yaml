@@ -31,7 +31,7 @@ test_data:
 setup:
   sql: |
     -- 清理可能存在的测试数据
-    DELETE FROM agent_pods WHERE initial_prompt LIKE 'E2E Scenario Test%';
+    DELETE FROM agent_pods WHERE prompt LIKE 'E2E Scenario Test%';
     DELETE FROM tickets WHERE title LIKE 'E2E Test Ticket%';
     DELETE FROM repositories WHERE name = 'mockrepo' AND full_path = 'aio/agents/mockrepo';
     DELETE FROM user_git_credentials WHERE name = 'E2E GitLab PAT';
@@ -109,7 +109,7 @@ steps:
         body:
           provider_type: gitlab
           provider_base_url: https://gitlab.corp.signalrender.com
-          clone_url: https://gitlab.corp.signalrender.com/aio/agents/mockrepo.git
+          http_clone_url: https://gitlab.corp.signalrender.com/aio/agents/mockrepo.git
           external_id: aio/agents/mockrepo
           name: mockrepo
           full_path: aio/agents/mockrepo
@@ -208,15 +208,15 @@ steps:
       type: api
       request:
         method: GET
-        url: /api/v1/orgs/dev-org/agents/types
+        url: /api/v1/orgs/dev-org/agents
         headers:
           Authorization: Bearer {access_token}
       expected:
         status: 200
         body:
-          agent_types: not_empty
+          agents: not_empty
       save:
-        agent_type_id: body.agent_types[0].id
+        agent_slug: body.agents[0].slug
 
   # ========== Step 6: 从 Ticket 创建 Pod（带 Repository）==========
   - id: step-6
@@ -231,11 +231,11 @@ steps:
           Content-Type: application/json
         body:
           runner_id: "{runner_id}"
-          agent_type_id: "{agent_type_id}"
+          agent_slug: "{agent_slug}"
           repository_id: "{repository_id}"
           ticket_id: "{ticket_id}"
           branch_name: main
-          initial_prompt: "E2E Scenario Test - Repository Pod Flow - Ticket: {ticket_slug}"
+          prompt: "E2E Scenario Test - Repository Pod Flow - Ticket: {ticket_slug}"
       expected:
         status: 201
         body:
@@ -307,7 +307,7 @@ steps:
     verification:
       type: database
       query: |
-        SELECT pod_key, status, repository_id, ticket_id, initial_prompt
+        SELECT pod_key, status, repository_id, ticket_id, prompt
         FROM agent_pods WHERE pod_key = '{pod_key}'
       expected:
         pod_key: "{pod_key}"

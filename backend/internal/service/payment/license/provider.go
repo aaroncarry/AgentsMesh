@@ -2,16 +2,11 @@ package license
 
 import (
 	"context"
-	"crypto"
 	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
+	"log/slog"
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/config"
@@ -102,6 +97,7 @@ func (p *Provider) RefundPayment(ctx context.Context, req *types.RefundRequest) 
 func (p *Provider) CancelSubscription(ctx context.Context, licenseKey string, immediate bool) error {
 	license, err := p.repo.GetByKey(ctx, licenseKey)
 	if err != nil {
+		slog.Error("failed to get license for cancellation", "license_key", licenseKey, "error", err)
 		return err
 	}
 	if license == nil {
@@ -114,7 +110,12 @@ func (p *Provider) CancelSubscription(ctx context.Context, licenseKey string, im
 	license.RevokedAt = &now
 	license.RevocationReason = &reason
 
-	return p.repo.Save(ctx, license)
+	if err := p.repo.Save(ctx, license); err != nil {
+		slog.Error("failed to save revoked license", "license_key", licenseKey, "error", err)
+		return err
+	}
+	slog.Info("license canceled", "license_key", licenseKey)
+	return nil
 }
 
 // VerifyLicense verifies a license file/key and returns the license if valid
@@ -122,18 +123,21 @@ func (p *Provider) VerifyLicense(ctx context.Context, licenseData []byte) (*bill
 	// Parse license data
 	var data LicenseData
 	if err := json.Unmarshal(licenseData, &data); err != nil {
+		slog.Error("failed to parse license data", "error", err)
 		return nil, fmt.Errorf("%w: failed to parse license data", ErrInvalidLicense)
 	}
 
 	// Verify signature if public key is available
 	if p.publicKey != nil {
 		if err := p.verifySignature(&data); err != nil {
+			slog.Warn("license signature verification failed", "license_key", data.LicenseKey, "error", err)
 			return nil, err
 		}
 	}
 
 	// Check expiration
 	if data.ExpiresAt != nil && time.Now().After(*data.ExpiresAt) {
+		slog.Warn("license expired", "license_key", data.LicenseKey, "expires_at", data.ExpiresAt)
 		return nil, ErrLicenseExpired
 	}
 
@@ -163,215 +167,3 @@ func (p *Provider) VerifyLicense(ctx context.Context, licenseData []byte) (*bill
 	return license, nil
 }
 
-// GetLicenseStatus returns the current license status
-func (p *Provider) GetLicenseStatus(ctx context.Context) (*types.LicenseStatus, error) {
-	// Try to load from database first (if license was activated)
-	license, err := p.repo.GetActiveLicense(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if license != nil {
-		return p.licenseToStatus(license), nil
-	}
-
-	// Try to load from file if configured
-	if p.config.LicenseFilePath != "" {
-		licenseData, err := os.ReadFile(p.config.LicenseFilePath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return &types.LicenseStatus{
-					IsValid: false,
-					Message: "No license found",
-				}, nil
-			}
-			return nil, fmt.Errorf("failed to read license file: %w", err)
-		}
-
-		verifiedLicense, err := p.VerifyLicense(ctx, licenseData)
-		if err != nil {
-			return &types.LicenseStatus{
-				IsValid: false,
-				Message: err.Error(),
-			}, nil
-		}
-
-		return p.licenseToStatus(verifiedLicense), nil
-	}
-
-	return &types.LicenseStatus{
-		IsValid: false,
-		Message: "No license configured",
-	}, nil
-}
-
-// ActivateLicense activates a license for an organization
-func (p *Provider) ActivateLicense(ctx context.Context, licenseKey string, orgID int64) error {
-	// Find the license by key
-	license, err := p.repo.GetByKey(ctx, licenseKey)
-	if err != nil {
-		return err
-	}
-	if license == nil {
-		return ErrLicenseNotFound
-	}
-
-	// Check if license is valid
-	if !license.IsValid() {
-		if license.RevokedAt != nil {
-			return ErrLicenseRevoked
-		}
-		if license.ExpiresAt != nil && time.Now().After(*license.ExpiresAt) {
-			return ErrLicenseExpired
-		}
-		return ErrInvalidLicense
-	}
-
-	// Check if already activated for another org
-	if license.IsActivated() && *license.ActivatedOrgID != orgID {
-		return ErrAlreadyActivated
-	}
-
-	// Activate the license
-	now := time.Now()
-	license.ActivatedAt = &now
-	license.ActivatedOrgID = &orgID
-	license.LastVerifiedAt = &now
-
-	return p.repo.Save(ctx, license)
-}
-
-// ActivateLicenseFromFile activates a license from file data
-func (p *Provider) ActivateLicenseFromFile(ctx context.Context, licenseData []byte, orgID int64) (*billing.License, error) {
-	// Verify the license first
-	license, err := p.VerifyLicense(ctx, licenseData)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if this license key already exists
-	existing, err := p.repo.GetByKey(ctx, license.LicenseKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if existing != nil {
-		// License exists - check if it can be activated
-		if existing.IsActivated() && *existing.ActivatedOrgID != orgID {
-			return nil, ErrAlreadyActivated
-		}
-		// Update existing license
-		now := time.Now()
-		existing.ActivatedAt = &now
-		existing.ActivatedOrgID = &orgID
-		existing.LastVerifiedAt = &now
-		if err := p.repo.Save(ctx, existing); err != nil {
-			return nil, err
-		}
-		return existing, nil
-	}
-
-	// Create new license record
-	now := time.Now()
-	license.ActivatedAt = &now
-	license.ActivatedOrgID = &orgID
-	license.LastVerifiedAt = &now
-
-	if err := p.repo.Create(ctx, license); err != nil {
-		return nil, err
-	}
-
-	return license, nil
-}
-
-// verifySignature verifies the license signature
-func (p *Provider) verifySignature(data *LicenseData) error {
-	if p.publicKey == nil {
-		return ErrNoPublicKey
-	}
-
-	// Create the data to verify (all fields except signature)
-	dataToSign := LicenseData{
-		LicenseKey:        data.LicenseKey,
-		OrganizationName:  data.OrganizationName,
-		ContactEmail:      data.ContactEmail,
-		PlanName:          data.PlanName,
-		MaxUsers:          data.MaxUsers,
-		MaxRunners:        data.MaxRunners,
-		MaxRepositories:   data.MaxRepositories,
-		MaxConcurrentPods: data.MaxConcurrentPods,
-		Features:          data.Features,
-		IssuedAt:          data.IssuedAt,
-		ExpiresAt:         data.ExpiresAt,
-	}
-
-	jsonData, err := json.Marshal(dataToSign)
-	if err != nil {
-		return fmt.Errorf("%w: failed to marshal data for verification", ErrInvalidSignature)
-	}
-
-	// Decode signature
-	sigBytes, err := base64.StdEncoding.DecodeString(data.Signature)
-	if err != nil {
-		return fmt.Errorf("%w: failed to decode signature", ErrInvalidSignature)
-	}
-
-	// Hash the data
-	hash := sha256.Sum256(jsonData)
-
-	// Verify signature
-	if err := rsa.VerifyPKCS1v15(p.publicKey, crypto.SHA256, hash[:], sigBytes); err != nil {
-		return ErrInvalidSignature
-	}
-
-	return nil
-}
-
-// licenseToStatus converts a License to LicenseStatus
-func (p *Provider) licenseToStatus(license *billing.License) *types.LicenseStatus {
-	status := &types.LicenseStatus{
-		IsValid:         license.IsValid(),
-		DaysUntilExpiry: license.DaysUntilExpiry(),
-		License:         license,
-	}
-
-	if !status.IsValid {
-		if license.RevokedAt != nil {
-			status.Message = "License revoked"
-		} else if license.ExpiresAt != nil && time.Now().After(*license.ExpiresAt) {
-			status.Message = "License expired"
-		} else {
-			status.Message = "License inactive"
-		}
-	} else if status.DaysUntilExpiry >= 0 && status.DaysUntilExpiry <= 30 {
-		status.Message = fmt.Sprintf("License expires in %d days", status.DaysUntilExpiry)
-	} else {
-		status.Message = "License active"
-	}
-
-	return status
-}
-
-// loadPublicKey loads an RSA public key from a PEM file
-func loadPublicKey(path string) (*rsa.PublicKey, error) {
-	keyData, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ := pem.Decode(keyData)
-	if block == nil {
-		return nil, errors.New("failed to decode PEM block")
-	}
-
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	rsaPub, ok := pub.(*rsa.PublicKey)
-	if !ok {
-		return nil, errors.New("not an RSA public key")
-	}
-
-	return rsaPub, nil
-}

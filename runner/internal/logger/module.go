@@ -41,16 +41,6 @@ func Workspace() *slog.Logger {
 	return Module("workspace")
 }
 
-// Sandbox returns a logger for sandbox operations.
-func Sandbox() *slog.Logger {
-	return Module("sandbox")
-}
-
-// Tray returns a logger for system tray operations.
-func Tray() *slog.Logger {
-	return Module("tray")
-}
-
 // Service returns a logger for system service operations.
 func Service() *slog.Logger {
 	return Module("service")
@@ -71,14 +61,14 @@ func Pod() *slog.Logger {
 	return Module("pod")
 }
 
-// Plugin returns a logger for plugin operations.
-func Plugin() *slog.Logger {
-	return Module("plugin")
-}
-
 // Autopilot returns a logger for AutopilotController operations.
 func Autopilot() *slog.Logger {
 	return Module("autopilot")
+}
+
+// Updater returns a logger for update/upgrade operations.
+func Updater() *slog.Logger {
+	return Module("updater")
 }
 
 // Trace logs a message at Trace level using the default logger.

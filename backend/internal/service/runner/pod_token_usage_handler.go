@@ -60,17 +60,15 @@ func (pc *PodCoordinator) handleTokenUsage(runnerID int64, data *runnerv1.TokenU
 		return
 	}
 
-	// Determine agent type slug from the pod's association.
-	agentTypeSlug := "unknown"
-	if pod.AgentType != nil {
-		agentTypeSlug = pod.AgentType.Slug
-	} else if pod.CustomAgentType != nil {
-		agentTypeSlug = pod.CustomAgentType.Slug
+	// Determine agent slug from the pod.
+	agentSlug := pod.AgentSlug
+	if agentSlug == "" {
+		agentSlug = "unknown"
 	}
 	// Enforce DB column length limit (VARCHAR(50)).
 	const maxSlugLen = 50
-	if len(agentTypeSlug) > maxSlugLen {
-		agentTypeSlug = agentTypeSlug[:maxSlugLen]
+	if len(agentSlug) > maxSlugLen {
+		agentSlug = agentSlug[:maxSlugLen]
 	}
 
 	// Pass a report with the (possibly truncated) model list.
@@ -85,7 +83,7 @@ func (pc *PodCoordinator) handleTokenUsage(runnerID int64, data *runnerv1.TokenU
 		data.PodKey,
 		pod.CreatedByID,
 		runnerID,
-		agentTypeSlug,
+		agentSlug,
 		report,
 	)
 }

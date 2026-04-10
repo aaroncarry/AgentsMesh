@@ -40,7 +40,7 @@ func TestGetBoard(t *testing.T) {
 	}
 
 	t.Run("returns board with all columns", func(t *testing.T) {
-		filter := &ListTicketsFilter{
+		filter := &ticket.TicketListFilter{
 			OrganizationID: 1,
 			Limit:          50,
 			Offset:         0,
@@ -59,7 +59,7 @@ func TestGetBoard(t *testing.T) {
 	})
 
 	t.Run("returns empty columns for new organization", func(t *testing.T) {
-		filter := &ListTicketsFilter{
+		filter := &ticket.TicketListFilter{
 			OrganizationID: 999,
 			Limit:          50,
 			Offset:         0,
@@ -145,3 +145,131 @@ func TestGetSubTicketCounts(t *testing.T) {
 }
 
 // Note: TestGetActiveTickets is defined in service_extended_test.go
+
+func TestGetBoard_PriorityCounts(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestDB(t)
+	service := newTestService(db)
+
+	// Create tickets with different priorities
+	priorities := []struct {
+		priority string
+		count    int
+	}{
+		{ticket.TicketPriorityHigh, 3},
+		{ticket.TicketPriorityMedium, 2},
+		{ticket.TicketPriorityLow, 1},
+	}
+
+	idx := 0
+	for _, p := range priorities {
+		for j := 0; j < p.count; j++ {
+			db.Create(&ticket.Ticket{
+				OrganizationID: 1,
+				Slug:           fmt.Sprintf("PRI-%d", idx),
+				Title:          "Ticket",
+				Status:         ticket.TicketStatusBacklog,
+				Priority:       p.priority,
+			})
+			idx++
+		}
+	}
+
+	board, err := service.GetBoard(ctx, &ticket.TicketListFilter{
+		OrganizationID: 1, Limit: 50,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, board.PriorityCounts)
+
+	assert.Equal(t, int64(3), board.PriorityCounts[ticket.TicketPriorityHigh])
+	assert.Equal(t, int64(2), board.PriorityCounts[ticket.TicketPriorityMedium])
+	assert.Equal(t, int64(1), board.PriorityCounts[ticket.TicketPriorityLow])
+	assert.Equal(t, int64(0), board.PriorityCounts[ticket.TicketPriorityNone])
+}
+
+func TestGetBoard_FilterNotMutated(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestDB(t)
+	service := newTestService(db)
+
+	filter := &ticket.TicketListFilter{
+		OrganizationID: 1,
+		Priority:       ticket.TicketPriorityHigh,
+		Limit:          50,
+	}
+	originalStatus := filter.Status // should be ""
+
+	_, err := service.GetBoard(ctx, filter)
+	require.NoError(t, err)
+
+	// Filter should not be mutated by GetBoard's internal loop
+	assert.Equal(t, originalStatus, filter.Status, "GetBoard must not mutate the caller's filter.Status")
+	assert.Equal(t, ticket.TicketPriorityHigh, filter.Priority)
+}
+
+func TestGetPriorityCounts(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestDB(t)
+	service := newTestService(db)
+
+	tickets := []*ticket.Ticket{
+		{OrganizationID: 1, Slug: "PC-1", Title: "T", Status: ticket.TicketStatusBacklog, Priority: ticket.TicketPriorityHigh},
+		{OrganizationID: 1, Slug: "PC-2", Title: "T", Status: ticket.TicketStatusTodo, Priority: ticket.TicketPriorityHigh},
+		{OrganizationID: 1, Slug: "PC-3", Title: "T", Status: ticket.TicketStatusDone, Priority: ticket.TicketPriorityLow},
+		{OrganizationID: 2, Slug: "PC-4", Title: "T", Status: ticket.TicketStatusBacklog, Priority: ticket.TicketPriorityUrgent},
+	}
+	for _, tk := range tickets {
+		db.Create(tk)
+	}
+
+	t.Run("counts for org 1", func(t *testing.T) {
+		counts, err := service.GetTicketStats(ctx, 1, nil) // using stats as proxy
+		require.NoError(t, err)
+		assert.NotNil(t, counts)
+
+		// Direct repo test
+		board, err := service.GetBoard(ctx, &ticket.TicketListFilter{OrganizationID: 1, Limit: 50})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), board.PriorityCounts[ticket.TicketPriorityHigh])
+		assert.Equal(t, int64(1), board.PriorityCounts[ticket.TicketPriorityLow])
+		assert.Equal(t, int64(0), board.PriorityCounts[ticket.TicketPriorityUrgent]) // org 2's ticket
+	})
+
+	t.Run("isolates by organization", func(t *testing.T) {
+		board, err := service.GetBoard(ctx, &ticket.TicketListFilter{OrganizationID: 2, Limit: 50})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), board.PriorityCounts[ticket.TicketPriorityUrgent])
+		assert.Equal(t, int64(0), board.PriorityCounts[ticket.TicketPriorityHigh])
+	})
+}
+
+func TestGetPriorityCounts_WithRepoID(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestDB(t)
+	service := newTestService(db)
+
+	repo1 := int64(100)
+	repo2 := int64(200)
+	tks := []*ticket.Ticket{
+		{OrganizationID: 1, RepositoryID: &repo1, Slug: "R-1", Title: "T", Status: ticket.TicketStatusBacklog, Priority: ticket.TicketPriorityHigh},
+		{OrganizationID: 1, RepositoryID: &repo1, Slug: "R-2", Title: "T", Status: ticket.TicketStatusTodo, Priority: ticket.TicketPriorityHigh},
+		{OrganizationID: 1, RepositoryID: &repo2, Slug: "R-3", Title: "T", Status: ticket.TicketStatusBacklog, Priority: ticket.TicketPriorityLow},
+	}
+	for _, tk := range tks {
+		db.Create(tk)
+	}
+
+	t.Run("filters by repoID", func(t *testing.T) {
+		board, err := service.GetBoard(ctx, &ticket.TicketListFilter{OrganizationID: 1, RepositoryID: &repo1, Limit: 50})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), board.PriorityCounts[ticket.TicketPriorityHigh])
+		assert.Equal(t, int64(0), board.PriorityCounts[ticket.TicketPriorityLow]) // repo2 only
+	})
+
+	t.Run("nil repoID returns all", func(t *testing.T) {
+		board, err := service.GetBoard(ctx, &ticket.TicketListFilter{OrganizationID: 1, Limit: 50})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), board.PriorityCounts[ticket.TicketPriorityHigh])
+		assert.Equal(t, int64(1), board.PriorityCounts[ticket.TicketPriorityLow])
+	})
+}

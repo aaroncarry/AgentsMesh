@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/sso"
+	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	ssoservice "github.com/anthropics/agentsmesh/backend/internal/service/sso"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-gonic/gin"
@@ -94,7 +95,7 @@ func (h *SSOAuthHandler) SAMLACS(c *gin.Context) {
 	if err != nil {
 		slog.Error("SAML user authentication failed", "domain", domain, "error", err)
 		errorCode := "authentication_failed"
-		if errors.Is(err, errAccountDisabled) {
+		if errors.Is(err, auth.ErrUserDisabled) {
 			errorCode = "account_disabled"
 		}
 		h.redirectWithError(c, redirectTo, errorCode)

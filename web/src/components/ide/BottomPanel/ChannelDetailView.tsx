@@ -7,67 +7,32 @@ import { ChannelDocument } from "@/components/channel/ChannelDocument";
 import { MessageList } from "@/components/channel/MessageList";
 import { MessageInput } from "@/components/channel/MessageInput";
 import { ChevronLeft } from "lucide-react";
-import { useAuthStore } from "@/stores/auth";
-import { useChannelMessageStore } from "@/stores/channel";
-import type { ChannelInfo, MeshTopology } from "@/stores/mesh";
-import type { TransformedMessage } from "./types";
-import type { MentionPayload } from "@/lib/api/channel";
+import { useChannelChat } from "@/hooks/useChannelChat";
 
 interface ChannelDetailViewProps {
   channelId: number;
-  topology: MeshTopology | null;
-  currentChannel: {
-    name?: string;
-    description?: string;
-    document?: string;
-    pods?: { pod_key: string }[];
-  } | null;
-  messages: TransformedMessage[];
-  messagesLoading: boolean;
   onBack: () => void;
-  onSendMessage: (content: string, mentions?: MentionPayload[]) => Promise<void>;
-  onLoadMore: () => void;
-  onRefresh: () => void;
   onPodsChanged?: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 /**
- * Channel detail view with messages and input
+ * Channel detail view with messages and input.
+ * Uses useChannelChat hook internally — no props drilling for message state.
  */
 export function ChannelDetailView({
   channelId,
-  topology,
-  currentChannel,
-  messages,
-  messagesLoading,
   onBack,
-  onSendMessage,
-  onLoadMore,
-  onRefresh,
   onPodsChanged,
   t,
 }: ChannelDetailViewProps) {
-  const currentUserId = useAuthStore((s) => s.user?.id);
-  const editMessage = useChannelMessageStore((s) => s.editMessage);
-  const deleteMessage = useChannelMessageStore((s) => s.deleteMessage);
+  const chat = useChannelChat({ channelId });
+  const { handlePodsChanged: chatPodsChanged } = chat;
 
-  const handleEditMessage = useCallback(
-    async (messageId: number, content: string) => {
-      await editMessage(channelId, messageId, content);
-    },
-    [channelId, editMessage]
-  );
-
-  const handleDeleteMessage = useCallback(
-    async (messageId: number) => {
-      await deleteMessage(channelId, messageId);
-    },
-    [channelId, deleteMessage]
-  );
-
-  const channelInfo = topology?.channels.find((c: ChannelInfo) => c.id === channelId);
-  const podCount = channelInfo?.pod_keys.length || currentChannel?.pods?.length || 0;
+  const handlePodsChanged = useCallback(() => {
+    chatPodsChanged();
+    onPodsChanged?.();
+  }, [chatPodsChanged, onPodsChanged]);
 
   return (
     <div className="flex flex-col h-full">
@@ -83,41 +48,44 @@ export function ChannelDetailView({
         </Button>
         <div className="flex-1 min-w-0">
           <ChannelHeader
-            name={currentChannel?.name || channelInfo?.name || "Channel"}
-            description={currentChannel?.description}
-            podCount={podCount}
+            name={chat.channelName}
+            description={chat.currentChannel?.description}
+            podCount={chat.podCount}
             channelId={channelId}
             onClose={onBack}
-            onRefresh={onRefresh}
-            loading={messagesLoading}
+            onRefresh={chat.handleRefresh}
+            loading={chat.messagesLoading}
             compact
-            onPodsChanged={onPodsChanged}
+            onPodsChanged={handlePodsChanged}
           />
         </div>
       </div>
 
       {/* Document section - collapsible markdown preview */}
-      {currentChannel?.document && (
-        <ChannelDocument document={currentChannel.document} />
+      {chat.currentChannel?.document && (
+        <ChannelDocument document={chat.currentChannel.document} />
       )}
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden">
         <MessageList
-          messages={messages}
-          loading={messagesLoading}
-          hasMore={messages.length >= 50 && messages.length % 50 === 0}
-          onLoadMore={onLoadMore}
-          currentUserId={currentUserId}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
+          messages={chat.transformedMessages}
+          loading={chat.messagesLoading}
+          loadingMore={chat.loadingMore}
+          hasMore={chat.hasMore}
+          error={chat.messagesError}
+          onLoadMore={chat.handleLoadMore}
+          onRetry={chat.handleRefresh}
+          currentUserId={chat.currentUserId}
+          onEditMessage={chat.handleEditMessage}
+          onDeleteMessage={chat.handleDeleteMessage}
         />
       </div>
 
       {/* Input - softer top border */}
       <div className="flex-shrink-0 bg-muted/20">
         <MessageInput
-          onSend={onSendMessage}
+          onSend={chat.handleSendMessage}
           placeholder={t("ide.bottomPanel.sendMessagePlaceholder")}
           channelId={channelId}
         />

@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
-
-	"github.com/anthropics/agentsmesh/runner/internal/mcp/tools"
 )
 
 func TestHTTPServerMCPToolsCallCreatePod(t *testing.T) {
@@ -49,10 +48,10 @@ func TestHTTPServerMCPToolsCallCreatePodWithAllParams(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"agent_type_id": 1,
+				"agent_slug": "claude-code",
 				"runner_id": 2,
 				"ticket_slug": "AM-123",
-				"initial_prompt": "Hello, start working on this task",
+				"prompt": "Hello, start working on this task",
 				"model": "claude-opus-4",
 				"repository_id": 456,
 				"branch_name": "feature/new-feature",
@@ -88,7 +87,7 @@ func TestHTTPServerMCPToolsCallCreatePodWithRepositoryURL(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"agent_type_id": 1,
+				"agent_slug": "claude-code",
 				"repository_url": "https://github.com/example/repo.git",
 				"branch_name": "main"
 			}
@@ -117,7 +116,7 @@ func TestHTTPServerMCPToolsCallCreatePodWithBypassPermissions(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"agent_type_id": 1,
+				"agent_slug": "claude-code",
 				"permission_mode": "bypassPermissions"
 			}
 		}
@@ -145,7 +144,7 @@ func TestHTTPServerMCPToolsCallCreatePodWithEmptyConfigOverrides(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"agent_type_id": 1,
+				"agent_slug": "claude-code",
 				"config_overrides": {}
 			}
 		}
@@ -162,54 +161,75 @@ func TestHTTPServerMCPToolsCallCreatePodWithEmptyConfigOverrides(t *testing.T) {
 	// Tool should be found
 }
 
-func TestMergeModelIntoConfigOverrides(t *testing.T) {
-	t.Run("merges model into nil config_overrides", func(t *testing.T) {
-		req := &tools.PodCreateRequest{}
-		mergeModelIntoConfigOverrides(req, "sonnet")
+func TestBuildAgentfileLayerFromArgs(t *testing.T) {
+	t.Run("generates CONFIG declarations from args", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("opus", "bypassPermissions", "", map[string]interface{}{"timeout": float64(300)}, "", "")
 
-		if req.ConfigOverrides == nil {
-			t.Fatal("ConfigOverrides should not be nil")
+		if !strings.Contains(layer, `CONFIG model = "opus"`) {
+			t.Errorf("missing model CONFIG, got: %s", layer)
 		}
-		if req.ConfigOverrides["model"] != "sonnet" {
-			t.Errorf("model = %v, want sonnet", req.ConfigOverrides["model"])
+		if !strings.Contains(layer, `CONFIG permission_mode = "bypassPermissions"`) {
+			t.Errorf("missing permission_mode CONFIG, got: %s", layer)
 		}
-	})
-
-	t.Run("merges model into existing config_overrides without model", func(t *testing.T) {
-		req := &tools.PodCreateRequest{
-			ConfigOverrides: map[string]interface{}{
-				"timeout": 300,
-			},
-		}
-		mergeModelIntoConfigOverrides(req, "opus")
-
-		if req.ConfigOverrides["model"] != "opus" {
-			t.Errorf("model = %v, want opus", req.ConfigOverrides["model"])
-		}
-		if req.ConfigOverrides["timeout"] != 300 {
-			t.Errorf("timeout = %v, want 300 (should be preserved)", req.ConfigOverrides["timeout"])
+		if !strings.Contains(layer, `CONFIG timeout = 300`) {
+			t.Errorf("missing timeout CONFIG, got: %s", layer)
 		}
 	})
 
-	t.Run("does not override model already in config_overrides", func(t *testing.T) {
-		req := &tools.PodCreateRequest{
-			ConfigOverrides: map[string]interface{}{
-				"model": "haiku",
-			},
-		}
-		mergeModelIntoConfigOverrides(req, "opus")
+	t.Run("generates PROMPT declaration", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("", "", "fix the bug", nil, "", "")
 
-		if req.ConfigOverrides["model"] != "haiku" {
-			t.Errorf("model = %v, want haiku (should not be overridden)", req.ConfigOverrides["model"])
+		if !strings.Contains(layer, `PROMPT "fix the bug"`) {
+			t.Errorf("missing PROMPT, got: %s", layer)
 		}
 	})
 
-	t.Run("skips merge when model is empty string", func(t *testing.T) {
-		req := &tools.PodCreateRequest{}
-		mergeModelIntoConfigOverrides(req, "")
+	t.Run("skips empty args", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("", "", "", nil, "", "")
+		if layer != "" {
+			t.Errorf("expected empty layer, got: %s", layer)
+		}
+	})
 
-		if req.ConfigOverrides != nil {
-			t.Errorf("ConfigOverrides should remain nil when model is empty, got %v", req.ConfigOverrides)
+	t.Run("deduplicates model and permission_mode from config_overrides", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("opus", "plan", "", map[string]interface{}{
+			"model":           "haiku",
+			"permission_mode": "default",
+			"mcp_enabled":     true,
+		}, "", "")
+
+		modelCount := strings.Count(layer, "CONFIG model")
+		if modelCount != 1 {
+			t.Errorf("expected 1 CONFIG model, got %d in: %s", modelCount, layer)
+		}
+		if !strings.Contains(layer, `CONFIG mcp_enabled = true`) {
+			t.Errorf("missing mcp_enabled, got: %s", layer)
+		}
+	})
+
+	t.Run("escapes newlines and tabs in prompt", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("", "", "line1\nline2\ttab", nil, "", "")
+		if !strings.Contains(layer, `PROMPT "line1\nline2\ttab"`) {
+			t.Errorf("prompt escape failed, got: %s", layer)
+		}
+	})
+
+	t.Run("escapes newlines and tabs in config string values", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("", "", "", map[string]interface{}{
+			"custom": "val\nwith\tnewline",
+		}, "", "")
+		if !strings.Contains(layer, `CONFIG custom = "val\nwith\tnewline"`) {
+			t.Errorf("config escape failed, got: %s", layer)
+		}
+	})
+
+	t.Run("generates REPO and BRANCH declarations", func(t *testing.T) {
+		layer := buildAgentfileLayerFromArgs("", "", "", nil, "https://github.com/example/repo.git", "main")
+		if !strings.Contains(layer, `REPO "https://github.com/example/repo.git"`) {
+			t.Errorf("missing REPO, got: %s", layer)
+		}
+		if !strings.Contains(layer, `BRANCH "main"`) {
+			t.Errorf("missing BRANCH, got: %s", layer)
 		}
 	})
 }
@@ -225,10 +245,10 @@ func TestHTTPServerMCPToolsCallCreatePodWithAlias(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"agent_type_id": 1,
+				"agent_slug": "claude-code",
 				"runner_id": 2,
 				"alias": "my-feature-pod",
-				"initial_prompt": "Work on feature X"
+				"prompt": "Work on feature X"
 			}
 		}
 	}`)
@@ -247,7 +267,7 @@ func TestHTTPServerMCPToolsCallCreatePodWithAlias(t *testing.T) {
 	}
 }
 
-func TestHTTPServerMCPToolsCallCreatePodMissingAgentTypeID(t *testing.T) {
+func TestHTTPServerMCPToolsCallCreatePodMissingAgentSlug(t *testing.T) {
 	server := NewHTTPServer(nil, 9090)
 	server.RegisterPod("test-pod", "test-org", nil, nil, "claude")
 
@@ -258,7 +278,7 @@ func TestHTTPServerMCPToolsCallCreatePodMissingAgentTypeID(t *testing.T) {
 		"params": {
 			"name": "create_pod",
 			"arguments": {
-				"initial_prompt": "Hello"
+				"prompt": "Hello"
 			}
 		}
 	}`)

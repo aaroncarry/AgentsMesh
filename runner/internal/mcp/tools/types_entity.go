@@ -29,16 +29,16 @@ type PodTicket struct {
 
 // AvailablePod represents a pod available for collaboration.
 type AvailablePod struct {
-	ID          int            `json:"id"`
-	PodKey      string         `json:"pod_key"`
-	Title       *string        `json:"title,omitempty"`
-	CreatedByID int            `json:"created_by_id"`
-	CreatedBy   *PodCreator    `json:"created_by,omitempty"`
-	Status      PodStatus      `json:"status"`
-	TicketID    *int           `json:"ticket_id,omitempty"`
-	Ticket      *PodTicket     `json:"ticket,omitempty"`
-	AgentType   AgentTypeField `json:"agent_type,omitempty"`
-	CreatedAt   string         `json:"created_at"`
+	ID          int         `json:"id"`
+	PodKey      string      `json:"pod_key"`
+	Title       *string     `json:"title,omitempty"`
+	CreatedByID int         `json:"created_by_id"`
+	CreatedBy   *PodCreator `json:"created_by,omitempty"`
+	Status      PodStatus   `json:"status"`
+	TicketID    *int        `json:"ticket_id,omitempty"`
+	Ticket      *PodTicket  `json:"ticket,omitempty"`
+	Agent       AgentField  `json:"agent,omitempty"`
+	CreatedAt   string      `json:"created_at"`
 }
 
 // GetUsername returns the username of the pod creator.
@@ -134,9 +134,8 @@ type ConfigFieldSummary struct {
 	Required bool        `json:"required,omitempty"`
 }
 
-// AgentTypeSummary is a simplified AgentType for LLM consumption.
-type AgentTypeSummary struct {
-	ID          int64                  `json:"id"`
+// AgentSummary is a simplified Agent for LLM consumption.
+type AgentSummary struct {
 	Slug        string                 `json:"slug"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
@@ -147,13 +146,13 @@ type AgentTypeSummary struct {
 // RunnerSummary is a simplified Runner with nested Agent details.
 // Optimized for LLM token efficiency - removes host_info, timestamps, etc.
 type RunnerSummary struct {
-	ID                int64              `json:"id"`
-	NodeID            string             `json:"node_id"`
-	Description       string             `json:"description,omitempty"`
-	Status            string             `json:"status"`
-	CurrentPods       int                `json:"current_pods"`
-	MaxConcurrentPods int                `json:"max_concurrent_pods"`
-	AvailableAgents   []AgentTypeSummary `json:"available_agents"`
+	ID                int64          `json:"id"`
+	NodeID            string         `json:"node_id"`
+	Description       string         `json:"description,omitempty"`
+	Status            string         `json:"status"`
+	CurrentPods       int            `json:"current_pods"`
+	MaxConcurrentPods int            `json:"max_concurrent_pods"`
+	AvailableAgents   []AgentSummary `json:"available_agents"`
 }
 
 // Repository represents a Git repository configuration.
@@ -161,10 +160,10 @@ type Repository struct {
 	ID              int64  `json:"id"`
 	ProviderType    string `json:"provider_type"`
 	ProviderBaseURL string `json:"provider_base_url"`
-	CloneURL        string `json:"clone_url,omitempty"`
+	HttpCloneURL    string `json:"http_clone_url,omitempty"`
 	ExternalID      string `json:"external_id"`
 	Name            string `json:"name"`
-	FullPath        string `json:"full_path"`
+	Slug            string `json:"slug"`
 	DefaultBranch   string `json:"default_branch"`
 	TicketPrefix    string `json:"ticket_prefix,omitempty"`
 	Visibility      string `json:"visibility"`
@@ -175,18 +174,15 @@ type Repository struct {
 
 // PodCreateRequest represents a request to create a new pod.
 type PodCreateRequest struct {
-	RunnerID            int                    `json:"runner_id,omitempty"`
-	AgentTypeID         *int64                 `json:"agent_type_id,omitempty"` // Required by backend API
-	TicketSlug          *string                `json:"ticket_slug,omitempty"`
-	InitialPrompt       string                 `json:"initial_prompt,omitempty"`
-	Alias               *string                `json:"alias,omitempty"` // User-defined display name (max 100 chars)
-	Model               string                 `json:"model,omitempty"`
-	RepositoryID        *int64                 `json:"repository_id,omitempty"`        // Repository ID (mutually exclusive with repository_url)
-	RepositoryURL       *string                `json:"repository_url,omitempty"`       // Direct repository URL (takes precedence over repository_id)
-	BranchName          *string                `json:"branch_name,omitempty"`          // Git branch name
-	CredentialProfileID *int64                 `json:"credential_profile_id,omitempty"` // Credential profile ID (0 or nil = RunnerHost mode)
-	ConfigOverrides     map[string]interface{} `json:"config_overrides,omitempty"`     // Override agent type default configuration
-	PermissionMode      *string                `json:"permission_mode,omitempty"`      // "plan", "default", or "bypassPermissions"
+	RunnerID            int     `json:"runner_id,omitempty"`
+	AgentSlug           string  `json:"agent_slug,omitempty"`
+	TicketSlug          *string `json:"ticket_slug,omitempty"`
+	Alias               *string `json:"alias,omitempty"`
+	RepositoryID        *int64  `json:"repository_id,omitempty"`
+	RepositoryURL       *string `json:"repository_url,omitempty"`
+	BranchName          *string `json:"branch_name,omitempty"`
+	CredentialProfileID *int64  `json:"credential_profile_id,omitempty"`
+	AgentfileLayer      *string `json:"agentfile_layer,omitempty"` // AgentFile Layer — SSOT for all CONFIG values
 }
 
 // PodCreateResponse represents the response from creating a pod.
@@ -198,19 +194,19 @@ type PodCreateResponse struct {
 
 // LoopSummary represents a Loop in list results (token-efficient).
 type LoopSummary struct {
-	Slug           string  `json:"slug"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description,omitempty"`
-	Status         string  `json:"status"`
-	ExecutionMode  string  `json:"execution_mode"`
-	CronExpression string  `json:"cron_expression,omitempty"`
-	TotalRuns      int     `json:"total_runs"`
-	SuccessfulRuns int     `json:"successful_runs"`
-	FailedRuns     int     `json:"failed_runs"`
-	ActiveRunCount int     `json:"active_run_count"`
-	LastRunAt      string  `json:"last_run_at,omitempty"`
-	NextRunAt      string  `json:"next_run_at,omitempty"`
-	CreatedAt      string  `json:"created_at"`
+	Slug           string `json:"slug"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	Status         string `json:"status"`
+	ExecutionMode  string `json:"execution_mode"`
+	CronExpression string `json:"cron_expression,omitempty"`
+	TotalRuns      int    `json:"total_runs"`
+	SuccessfulRuns int    `json:"successful_runs"`
+	FailedRuns     int    `json:"failed_runs"`
+	ActiveRunCount int    `json:"active_run_count"`
+	LastRunAt      string `json:"last_run_at,omitempty"`
+	NextRunAt      string `json:"next_run_at,omitempty"`
+	CreatedAt      string `json:"created_at"`
 }
 
 // LoopRunSummary represents a LoopRun result.

@@ -34,12 +34,11 @@ export interface RepositoryData {
   organization_id: number;
   provider_type: string; // github, gitlab, gitee, generic
   provider_base_url: string; // https://github.com
-  clone_url: string;
   http_clone_url?: string;
   ssh_clone_url?: string;
   external_id: string;
   name: string;
-  full_path: string;
+  slug: string;
   default_branch: string;
   ticket_prefix?: string;
   visibility: string; // "organization" or "private"
@@ -61,12 +60,11 @@ export interface RepositoryData {
 export interface CreateRepositoryRequest {
   provider_type: string;
   provider_base_url: string;
-  clone_url?: string;
   http_clone_url?: string;
   ssh_clone_url?: string;
   external_id: string;
   name: string;
-  full_path: string;
+  slug: string;
   default_branch?: string;
   ticket_prefix?: string;
   visibility?: string;
@@ -163,10 +161,4 @@ export const repositoryApi = {
       }>;
     }>(`${orgPath("/repositories")}/${id}/merge-requests${query}`);
   },
-
-  // Deprecated: Use registerWebhook instead
-  setupWebhook: (id: number) =>
-    request<{ result: WebhookResult }>(`${orgPath("/repositories")}/${id}/webhook`, {
-      method: "POST",
-    }),
 };

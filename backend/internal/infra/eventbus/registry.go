@@ -109,6 +109,12 @@ func (r *EventRegistry) registerBuiltinEvents() {
 		EntityType:  "pod",
 		Description: "Pod has been terminated",
 	}
+	r.definitions[EventPodRestarting] = &EventDefinition{
+		Type:        EventPodRestarting,
+		Category:    CategoryEntity,
+		EntityType:  "pod",
+		Description: "Perpetual pod is restarting",
+	}
 
 	// Ticket events
 	r.definitions[EventTicketCreated] = &EventDefinition{
@@ -160,32 +166,6 @@ func (r *EventRegistry) registerBuiltinEvents() {
 		Category:    CategoryEntity,
 		EntityType:  "runner",
 		Description: "Runner has been updated",
-	}
-
-	// Notification events
-	r.definitions[EventTerminalNotification] = &EventDefinition{
-		Type:        EventTerminalNotification,
-		Category:    CategoryNotification,
-		EntityType:  "pod",
-		Description: "Terminal notification (OSC 777)",
-	}
-	r.definitions[EventTaskCompleted] = &EventDefinition{
-		Type:        EventTaskCompleted,
-		Category:    CategoryNotification,
-		EntityType:  "pod",
-		Description: "Agent task has completed",
-	}
-	r.definitions[EventMentionNotification] = &EventDefinition{
-		Type:        EventMentionNotification,
-		Category:    CategoryNotification,
-		EntityType:  "channel",
-		Description: "User was mentioned in a channel",
-	}
-	r.definitions[EventNotification] = &EventDefinition{
-		Type:        EventNotification,
-		Category:    CategoryNotification,
-		EntityType:  "notification",
-		Description: "Unified notification (via dispatcher)",
 	}
 
 	// System events

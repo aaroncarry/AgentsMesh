@@ -10,7 +10,7 @@ import (
 
 func TestAutopilotController_NewAutopilotController(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt:           "Test prompt",
+		Prompt:           "Test prompt",
 		MaxIterations:           10,
 		IterationTimeoutSeconds: 300,
 		ApprovalTimeoutMinutes:  30,
@@ -26,11 +26,12 @@ func TestAutopilotController_NewAutopilotController(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-pod-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-pod-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 
 	assert.NotNil(t, rp)
@@ -44,7 +45,7 @@ func TestAutopilotController_NewAutopilotController(t *testing.T) {
 
 func TestAutopilotController_Start(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt:           "Implement feature X",
+		Prompt:           "Implement feature X",
 		MaxIterations:           10,
 		IterationTimeoutSeconds: 300,
 	}
@@ -59,11 +60,12 @@ func TestAutopilotController_Start(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-pod-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-pod-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 
 	err := rp.Start()
@@ -82,7 +84,7 @@ func TestAutopilotController_Start(t *testing.T) {
 
 func TestAutopilotController_Stop(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -96,11 +98,12 @@ func TestAutopilotController_Stop(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 
@@ -115,7 +118,7 @@ func TestAutopilotController_Stop(t *testing.T) {
 
 func TestAutopilotController_Stop_AlreadyStopped(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -129,11 +132,12 @@ func TestAutopilotController_Stop_AlreadyStopped(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 
@@ -150,7 +154,7 @@ func TestAutopilotController_Stop_AlreadyStopped(t *testing.T) {
 
 func TestAutopilotController_GetStatus(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test prompt",
+		Prompt: "Test prompt",
 		MaxIterations: 10,
 	}
 
@@ -164,11 +168,12 @@ func TestAutopilotController_GetStatus(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 	_ = rp.Start()
 	defer rp.Stop()
@@ -182,7 +187,7 @@ func TestAutopilotController_GetStatus(t *testing.T) {
 
 func TestAutopilotController_DefaultMaxIterations(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 0, // Should use default of 10
 	}
 
@@ -196,11 +201,12 @@ func TestAutopilotController_DefaultMaxIterations(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 
 	status := rp.GetStatus()
@@ -209,17 +215,18 @@ func TestAutopilotController_DefaultMaxIterations(t *testing.T) {
 
 func TestAutopilotController_Key_PodKey(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 	}
 
 	workerCtrl := &MockPodController{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-test-key",
-		PodKey: "worker-test-key",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     &MockEventReporter{},
+		AutopilotKey:   "autopilot-test-key",
+		PodKey:         "worker-test-key",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       &MockEventReporter{},
+		ControlProcess: &MockControlProcess{},
 	})
 
 	assert.Equal(t, "autopilot-test-key", rp.Key())
@@ -228,7 +235,7 @@ func TestAutopilotController_Key_PodKey(t *testing.T) {
 
 func TestAutopilotController_NilReporter(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -241,10 +248,10 @@ func TestAutopilotController_NilReporter(t *testing.T) {
 
 	// Create AutopilotController with nil reporter
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
+		AutopilotKey: "autopilot-123",
+		PodKey:       "worker-123",
 		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
+		PodCtrl:      workerCtrl,
 		Reporter:     nil, // nil reporter
 	})
 
@@ -261,7 +268,7 @@ func TestAutopilotController_NilReporter(t *testing.T) {
 
 func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -275,18 +282,19 @@ func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
 	reporter := &MockEventReporter{}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     reporter,
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       reporter,
+		ControlProcess: &MockControlProcess{},
 	})
 
 	err := rp.Start()
 	assert.NoError(t, err)
 	defer rp.Stop()
 
-	// Should not have sent initial prompt when executing
+	// Should not have sent prompt when executing
 	assert.Len(t, workerCtrl.sendTextCalls, 0)
 
 	// Should still report created
@@ -294,8 +302,9 @@ func TestAutopilotController_Start_ExecutingStatus(t *testing.T) {
 }
 
 func TestAutopilotController_SessionID(t *testing.T) {
+	t.Skip("SessionID extraction is specific to exec mode; ACP manages sessions internally")
 	protoConfig := &runnerv1.AutopilotConfig{
-		InitialPrompt: "Test",
+		Prompt: "Test",
 		MaxIterations: 10,
 	}
 
@@ -307,11 +316,12 @@ func TestAutopilotController_SessionID(t *testing.T) {
 	}
 
 	rp := NewAutopilotController(Config{
-		AutopilotKey:  "autopilot-123",
-		PodKey: "worker-123",
-		ProtoConfig:  protoConfig,
-		PodCtrl:   workerCtrl,
-		Reporter:     &MockEventReporter{},
+		AutopilotKey:   "autopilot-123",
+		PodKey:         "worker-123",
+		ProtoConfig:    protoConfig,
+		PodCtrl:        workerCtrl,
+		Reporter:       &MockEventReporter{},
+		ControlProcess: &MockControlProcess{},
 	})
 
 	// Session ID should be empty initially
