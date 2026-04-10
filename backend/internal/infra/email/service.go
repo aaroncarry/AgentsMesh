@@ -13,11 +13,6 @@ import (
 	"time"
 )
 
-import (
-	"time"
-)
-
-
 // Service defines the email service interface
 type Service interface {
 	// SendVerificationEmail sends an email verification link
