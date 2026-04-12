@@ -274,6 +274,7 @@
     },
     "contextMenu": {
       "rename": "Rename",
+      "share": "Share",
       "terminate": "Terminate",
       "enablePerpetual": "Enable Perpetual",
       "disablePerpetual": "Disable Perpetual"

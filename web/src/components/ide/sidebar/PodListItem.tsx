@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { SidebarPodContextMenu } from "./SidebarPodContextMenu";
 
-// Status badge colors - matches PodData status type
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
   initializing: { bg: "bg-yellow-500/10", text: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500" },
   running: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
@@ -53,20 +52,18 @@ interface PodListItemProps {
   onClick: () => void;
   onTerminate: () => void;
   onRename: () => void;
+  onShare: () => void;
   onTogglePerpetual: (perpetual: boolean) => void;
 }
 
-/**
- * Single pod item in the workspace sidebar list.
- * Right-click opens context menu with Rename / Terminate.
- */
-export function PodListItem({ pod, isOpen, onClick, onTerminate, onRename, onTogglePerpetual }: PodListItemProps) {
+export function PodListItem({ pod, isOpen, onClick, onTerminate, onRename, onShare, onTogglePerpetual }: PodListItemProps) {
   const status = statusColors[pod.status] || statusColors.terminated;
 
   return (
     <SidebarPodContextMenu
       pod={pod}
       onRename={onRename}
+      onShare={onShare}
       onTerminate={onTerminate}
       onTogglePerpetual={onTogglePerpetual}
     >
@@ -77,12 +74,10 @@ export function PodListItem({ pod, isOpen, onClick, onTerminate, onRename, onTog
         )}
         onClick={onClick}
       >
-        {/* Status indicator */}
         <div className={cn("flex items-center justify-center", status.text)}>
           {getStatusIcon(pod.status)}
         </div>
 
-        {/* Pod info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm truncate font-mono">

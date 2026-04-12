@@ -28,7 +28,7 @@ type mockPodService struct {
 	updatePerpetualFn func(ctx context.Context, podKey string, perpetual bool) error
 }
 
-func (m *mockPodService) ListPods(context.Context, int64, []string, int64, int, int) ([]*agentpod.Pod, int64, error) {
+func (m *mockPodService) ListPods(context.Context, int64, agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
 	return nil, 0, nil
 }
 
@@ -146,6 +146,7 @@ func TestSendPodPrompt_Success(t *testing.T) {
 			return &agentpod.Pod{
 				PodKey:         key,
 				OrganizationID: 1,
+				CreatedByID:    10,
 				RunnerID:       42,
 				Status:         agentpod.StatusRunning,
 			}, nil
@@ -209,7 +210,7 @@ func TestSendPodPrompt_MissingBody(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	handler := newPodCommandHandler(podSvc, &mockCommandSender{})
@@ -254,7 +255,7 @@ func TestSendPodPrompt_CommandSenderNil(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	handler := &PodHandler{podService: podSvc, commandSender: nil}
@@ -277,7 +278,7 @@ func TestSendPodPrompt_SendError(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	sender := &mockCommandSender{

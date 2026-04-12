@@ -1,17 +1,21 @@
 package v1
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
+	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/service/geo"
 	"github.com/anthropics/agentsmesh/backend/internal/service/relay"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/policy"
 )
 
 // PodConnectHandler handles pod connection requests via Relay
@@ -21,6 +25,7 @@ type PodConnectHandler struct {
 	tokenGenerator *relay.TokenGenerator
 	commandSender  runner.RunnerCommandSender
 	geoResolver    geo.Resolver
+	grantService   *grantservice.Service
 }
 
 // NewPodConnectHandler creates a new pod connect handler
@@ -30,14 +35,30 @@ func NewPodConnectHandler(
 	tokenGenerator *relay.TokenGenerator,
 	commandSender runner.RunnerCommandSender,
 	geoResolver geo.Resolver,
+	grantSvc ...*grantservice.Service,
 ) *PodConnectHandler {
-	return &PodConnectHandler{
+	h := &PodConnectHandler{
 		podService:     podService,
 		relayManager:   relayManager,
 		tokenGenerator: tokenGenerator,
 		commandSender:  commandSender,
 		geoResolver:    geoResolver,
 	}
+	if len(grantSvc) > 0 {
+		h.grantService = grantSvc[0]
+	}
+	return h
+}
+
+func (h *PodConnectHandler) podResourceWithGrants(ctx context.Context, podKey string, orgID, createdByID int64) policy.ResourceContext {
+	rc := policy.PodResource(orgID, createdByID)
+	if h.grantService == nil {
+		return rc
+	}
+	if ids, err := h.grantService.GetGrantedUserIDs(ctx, grant.TypePod, podKey); err == nil && len(ids) > 0 {
+		return rc.WithGrants(ids)
+	}
+	return rc
 }
 
 // PodConnectResponse is the response for pod connect request
@@ -77,7 +98,10 @@ func (h *PodConnectHandler) GetPodConnection(c *gin.Context) {
 		apierr.Unauthorized(c, apierr.AUTH_REQUIRED, "Unauthorized")
 		return
 	}
-	if pod.OrganizationID != tenant.OrganizationID {
+	if !policy.PodPolicy.AllowRead(
+		policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole),
+		h.podResourceWithGrants(c.Request.Context(), podKey, pod.OrganizationID, pod.CreatedByID),
+	) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -174,7 +198,8 @@ func RegisterPodConnectRoutes(
 	tokenGenerator *relay.TokenGenerator,
 	commandSender runner.RunnerCommandSender,
 	geoResolver geo.Resolver,
+	grantSvc *grantservice.Service,
 ) {
-	handler := NewPodConnectHandler(podService, relayManager, tokenGenerator, commandSender, geoResolver)
+	handler := NewPodConnectHandler(podService, relayManager, tokenGenerator, commandSender, geoResolver, grantSvc)
 	router.GET("/pods/:key/relay/connect", handler.GetPodConnection)
 }

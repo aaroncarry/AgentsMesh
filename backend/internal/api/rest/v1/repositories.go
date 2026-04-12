@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/billing"
+	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/service/repository"
 )
 
@@ -9,17 +10,35 @@ import (
 type RepositoryHandler struct {
 	repositoryService repository.RepositoryServiceInterface
 	billingService    *billing.Service
+	grantService      *grantservice.Service
 }
 
 // NewRepositoryHandler creates a new repository handler
-func NewRepositoryHandler(repositoryService repository.RepositoryServiceInterface, billingService ...*billing.Service) *RepositoryHandler {
+func NewRepositoryHandler(repositoryService repository.RepositoryServiceInterface, opts ...RepositoryHandlerOption) *RepositoryHandler {
 	h := &RepositoryHandler{
 		repositoryService: repositoryService,
 	}
-	if len(billingService) > 0 {
-		h.billingService = billingService[0]
+	for _, opt := range opts {
+		opt(h)
 	}
 	return h
+}
+
+// RepositoryHandlerOption is a functional option for configuring RepositoryHandler
+type RepositoryHandlerOption func(*RepositoryHandler)
+
+// WithBillingService sets the billing service for quota checks
+func WithBillingService(bs *billing.Service) RepositoryHandlerOption {
+	return func(h *RepositoryHandler) {
+		h.billingService = bs
+	}
+}
+
+// WithGrantServiceForRepo sets the grant service for resource sharing
+func WithGrantServiceForRepo(gs *grantservice.Service) RepositoryHandlerOption {
+	return func(h *RepositoryHandler) {
+		h.grantService = gs
+	}
 }
 
 // CreateRepositoryRequest represents repository creation request

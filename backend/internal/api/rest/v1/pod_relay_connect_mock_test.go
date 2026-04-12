@@ -18,7 +18,7 @@ type mockRelayPodService struct {
 	getPodFn func(ctx context.Context, podKey string) (*agentpod.Pod, error)
 }
 
-func (m *mockRelayPodService) ListPods(context.Context, int64, []string, int64, int, int) ([]*agentpod.Pod, int64, error) {
+func (m *mockRelayPodService) ListPods(context.Context, int64, agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
 	return nil, 0, nil
 }
 func (m *mockRelayPodService) CreatePod(context.Context, *agentpodSvc.CreatePodRequest) (*agentpod.Pod, error) {

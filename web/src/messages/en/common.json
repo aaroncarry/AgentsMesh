@@ -63,6 +63,20 @@
     "INVALID_TOKEN": "Invalid or expired authentication token",
     "TOKEN_EXPIRED": "Your session has expired. Please log in again."
   },
+  "share": {
+    "title": "Share",
+    "selectUser": "User",
+    "selectUserPlaceholder": "Select a team member...",
+    "share": "Share",
+    "revoke": "Revoke",
+    "revokeConfirmTitle": "Revoke access?",
+    "revokeConfirmDescription": "This user will no longer have access to this resource.",
+    "sharedWith": "Shared with",
+    "noShares": "Not shared with anyone yet.",
+    "loadFailed": "Failed to load sharing info",
+    "grantFailed": "Failed to share",
+    "revokeFailed": "Failed to revoke access"
+  },
   "nav": {
     "agentpod": "AgentPod",
     "mesh": "Mesh",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Pencil, Square, RefreshCw } from "lucide-react";
+import { Pencil, Share2, Square, RefreshCw } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,6 +14,7 @@ import type { Pod } from "@/stores/pod";
 interface SidebarPodContextMenuProps {
   pod: Pod;
   onRename: () => void;
+  onShare: () => void;
   onTerminate: () => void;
   onTogglePerpetual: (perpetual: boolean) => void;
   children: React.ReactNode;
@@ -22,6 +23,7 @@ interface SidebarPodContextMenuProps {
 export function SidebarPodContextMenu({
   pod,
   onRename,
+  onShare,
   onTerminate,
   onTogglePerpetual,
   children,
@@ -36,6 +38,10 @@ export function SidebarPodContextMenu({
         <ContextMenuItem onClick={onRename}>
           <Pencil className="mr-2 h-4 w-4" />
           {t("contextMenu.rename")}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onShare}>
+          <Share2 className="mr-2 h-4 w-4" />
+          {t("contextMenu.share")}
         </ContextMenuItem>
 
         {isActive && (

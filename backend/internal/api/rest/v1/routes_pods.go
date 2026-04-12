@@ -16,6 +16,9 @@ func registerPodRoutes(rg *gin.RouterGroup, svc *Services) {
 	if svc.PodCoordinator != nil {
 		podOpts = append(podOpts, WithCommandSender(svc.PodCoordinator.GetCommandSender()))
 	}
+	if svc.Grant != nil {
+		podOpts = append(podOpts, WithGrantServiceForPod(svc.Grant))
+	}
 	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.PodOrchestrator, podOpts...)
 	pods := rg.Group("/pods")
 	{
@@ -27,6 +30,9 @@ func registerPodRoutes(rg *gin.RouterGroup, svc *Services) {
 		pods.PATCH("/:key/perpetual", podHandler.UpdatePodPerpetual)
 		pods.GET("/:key/connect", podHandler.GetConnectionInfo)
 		pods.POST("/:key/prompt", podHandler.SendPodPrompt)
+		pods.GET("/:key/grants", podHandler.ListPodGrants)
+		pods.POST("/:key/grants", podHandler.GrantPodAccess)
+		pods.DELETE("/:key/grants/:grant_id", podHandler.RevokePodGrant)
 	}
 
 	// Relay connection endpoint
@@ -35,7 +41,7 @@ func registerPodRoutes(rg *gin.RouterGroup, svc *Services) {
 		if svc.PodCoordinator != nil {
 			commandSender = svc.PodCoordinator.GetCommandSender()
 		}
-		RegisterPodConnectRoutes(rg, svc.Pod, svc.RelayManager, svc.RelayTokenGenerator, commandSender, svc.GeoResolver)
+		RegisterPodConnectRoutes(rg, svc.Pod, svc.RelayManager, svc.RelayTokenGenerator, commandSender, svc.GeoResolver, svc.Grant)
 	}
 
 	// AutopilotControllers

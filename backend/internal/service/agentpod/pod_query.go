@@ -62,8 +62,8 @@ func (s *PodService) GetPodsByTicket(ctx context.Context, ticketID int64) ([]*ag
 }
 
 // ListPods returns pods for an organization
-func (s *PodService) ListPods(ctx context.Context, orgID int64, statuses []string, createdByID int64, limit, offset int) ([]*agentpod.Pod, int64, error) {
-	pods, total, err := s.repo.ListByOrg(ctx, orgID, statuses, createdByID, limit, offset)
+func (s *PodService) ListPods(ctx context.Context, orgID int64, q agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
+	pods, total, err := s.repo.ListByOrg(ctx, orgID, q)
 	if err != nil {
 		slog.Error("failed to list pods", "org_id", orgID, "error", err)
 		return nil, 0, err
@@ -88,9 +88,9 @@ func (s *PodService) ListByTicket(ctx context.Context, ticketID int64) ([]*agent
 	return s.repo.ListByTicket(ctx, ticketID)
 }
 
-// ListPodsByRunner returns pods for a runner with pagination and optional status filter
-func (s *PodService) ListPodsByRunner(ctx context.Context, runnerID int64, status string, limit, offset int) ([]*agentpod.Pod, int64, error) {
-	return s.repo.ListByRunnerPaginated(ctx, runnerID, status, limit, offset)
+// ListPodsByRunner returns pods for a runner with optional filters.
+func (s *PodService) ListPodsByRunner(ctx context.Context, runnerID int64, q agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
+	return s.repo.ListByRunnerPaginated(ctx, runnerID, q)
 }
 
 // GetActivePodBySourcePodKey returns an active pod that was resumed from the given source pod key

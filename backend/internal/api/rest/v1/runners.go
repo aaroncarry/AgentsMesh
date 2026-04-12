@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
+	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	runner "github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	runnerlogservice "github.com/anthropics/agentsmesh/backend/internal/service/runnerlog"
 )
@@ -16,6 +17,7 @@ type RunnerHandler struct {
 	upgradeCommandSender runner.UpgradeCommandSender
 	logUploadSender      runner.LogUploadCommandSender
 	logUploadService     *runnerlogservice.Service
+	grantService         *grantservice.Service
 }
 
 // NewRunnerHandler creates a new runner handler
@@ -78,6 +80,13 @@ func WithLogUploadSender(sender runner.LogUploadCommandSender) RunnerHandlerOpti
 func WithLogUploadService(svc *runnerlogservice.Service) RunnerHandlerOption {
 	return func(h *RunnerHandler) {
 		h.logUploadService = svc
+	}
+}
+
+// WithGrantServiceForRunner sets the grant service for resource sharing
+func WithGrantServiceForRunner(gs *grantservice.Service) RunnerHandlerOption {
+	return func(h *RunnerHandler) {
+		h.grantService = gs
 	}
 }
 

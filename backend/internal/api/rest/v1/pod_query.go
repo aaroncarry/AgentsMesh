@@ -5,8 +5,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/policy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,13 +42,23 @@ func (h *PodHandler) ListPods(c *gin.Context) {
 		statuses = strings.Split(req.Status, ",")
 	}
 
+	// Members can only list their own pods; override any user-supplied created_by_id.
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	filter := policy.PodPolicy.ListFilter(sub)
+	if filter.OwnerOnly > 0 {
+		req.CreatedByID = filter.OwnerOnly
+	}
+
 	pods, total, err := h.podService.ListPods(
 		c.Request.Context(),
 		tenant.OrganizationID,
-		statuses,
-		req.CreatedByID,
-		limit,
-		req.Offset,
+		agentpod.PodListQuery{
+			Statuses:      statuses,
+			CreatedByID:   req.CreatedByID,
+			GrantedUserID: filter.GrantUserID,
+			Limit:         limit,
+			Offset:        req.Offset,
+		},
 	)
 	if err != nil {
 		apierr.InternalError(c, "Failed to list pods")
@@ -72,12 +85,12 @@ func (h *PodHandler) GetPod(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	if !policy.PodPolicy.AllowRead(sub, h.podResourceWithGrants(c.Request.Context(), podKey, pod.OrganizationID, pod.CreatedByID)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
 
-	// All organization members can access pods (Team-based access control removed)
 	c.JSON(http.StatusOK, gin.H{"pod": pod})
 }
 
@@ -93,7 +106,8 @@ func (h *PodHandler) GetPodConnection(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	if !policy.PodPolicy.AllowRead(sub, h.podResourceWithGrants(c.Request.Context(), podKey, pod.OrganizationID, pod.CreatedByID)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -111,7 +125,7 @@ func (h *PodHandler) GetPodConnection(c *gin.Context) {
 	})
 }
 
-// ListPodsByTicket lists pods for a ticket
+// ListPodsByTicket lists pods for a ticket, filtered by the requester's pod visibility.
 // GET /api/v1/organizations/:slug/tickets/:id/pods
 func (h *PodHandler) ListPodsByTicket(c *gin.Context) {
 	ticketID, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -124,6 +138,28 @@ func (h *PodHandler) ListPodsByTicket(c *gin.Context) {
 	if err != nil {
 		apierr.InternalError(c, "Failed to list pods")
 		return
+	}
+
+	tenant := middleware.GetTenant(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	filter := policy.PodPolicy.ListFilter(sub)
+	if filter.OwnerOnly > 0 {
+		var grantedKeys map[string]bool
+		if h.grantService != nil && filter.GrantUserID > 0 {
+			if ids, err := h.grantService.GetGrantedResourceIDs(c.Request.Context(), grant.TypePod, filter.GrantUserID, tenant.OrganizationID); err == nil && len(ids) > 0 {
+				grantedKeys = make(map[string]bool, len(ids))
+				for _, id := range ids {
+					grantedKeys[id] = true
+				}
+			}
+		}
+		filtered := make([]*agentpod.Pod, 0, len(pods))
+		for _, p := range pods {
+			if p.CreatedByID == filter.OwnerOnly || grantedKeys[p.PodKey] {
+				filtered = append(filtered, p)
+			}
+		}
+		pods = filtered
 	}
 
 	c.JSON(http.StatusOK, gin.H{"pods": pods})

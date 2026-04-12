@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/domain/runner"
 	"gorm.io/gorm"
 )
@@ -88,12 +89,14 @@ func (r *runnerRepository) Delete(ctx context.Context, runnerID int64) error {
 
 // --- Runner Queries ---
 
-const visibilityFilter = "(visibility = 'organization' OR (visibility = 'private' AND registered_by_user_id = ?))"
+// visibilityWithGrantsFilter is a SQL fragment for visibility + grant access.
+// Bind params: (userID, grantResourceType, userID, orgID).
+const visibilityWithGrantsFilter = "(visibility = 'organization' OR (visibility = 'private' AND registered_by_user_id = ?) OR CAST(id AS TEXT) IN (SELECT resource_id FROM resource_grants WHERE resource_type = ? AND user_id = ? AND organization_id = ?))"
 
 func (r *runnerRepository) ListByOrg(ctx context.Context, orgID, userID int64) ([]*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := r.db.WithContext(ctx).
-		Where("organization_id = ? AND "+visibilityFilter, orgID, userID).
+		Where("organization_id = ? AND "+visibilityWithGrantsFilter, orgID, userID, grant.TypeRunner, userID, orgID).
 		Find(&runners).Error; err != nil {
 		return nil, err
 	}
@@ -103,8 +106,8 @@ func (r *runnerRepository) ListByOrg(ctx context.Context, orgID, userID int64) (
 func (r *runnerRepository) ListAvailable(ctx context.Context, orgID, userID int64) ([]*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := r.db.WithContext(ctx).
-		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND "+visibilityFilter,
-			orgID, runner.RunnerStatusOnline, true, userID).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND "+visibilityWithGrantsFilter,
+			orgID, runner.RunnerStatusOnline, true, userID, grant.TypeRunner, userID, orgID).
 		Find(&runners).Error; err != nil {
 		return nil, err
 	}
@@ -114,8 +117,8 @@ func (r *runnerRepository) ListAvailable(ctx context.Context, orgID, userID int6
 func (r *runnerRepository) ListAvailableOrdered(ctx context.Context, orgID, userID int64) ([]*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := r.db.WithContext(ctx).
-		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND "+visibilityFilter,
-			orgID, runner.RunnerStatusOnline, true, userID).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND "+visibilityWithGrantsFilter,
+			orgID, runner.RunnerStatusOnline, true, userID, grant.TypeRunner, userID, orgID).
 		Order("current_pods ASC").
 		Find(&runners).Error; err != nil {
 		return nil, err
@@ -126,8 +129,8 @@ func (r *runnerRepository) ListAvailableOrdered(ctx context.Context, orgID, user
 func (r *runnerRepository) ListAvailableForAgent(ctx context.Context, orgID, userID int64, agentJSON string) ([]*runner.Runner, error) {
 	var runners []*runner.Runner
 	if err := r.db.WithContext(ctx).
-		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND available_agents @> ? AND "+visibilityFilter,
-			orgID, runner.RunnerStatusOnline, true, agentJSON, userID).
+		Where("organization_id = ? AND status = ? AND is_enabled = ? AND current_pods < max_concurrent_pods AND available_agents @> ? AND "+visibilityWithGrantsFilter,
+			orgID, runner.RunnerStatusOnline, true, agentJSON, userID, grant.TypeRunner, userID, orgID).
 		Order("current_pods ASC").
 		Find(&runners).Error; err != nil {
 		return nil, err

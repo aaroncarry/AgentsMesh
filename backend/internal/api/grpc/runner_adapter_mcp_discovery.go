@@ -14,7 +14,10 @@ import (
 
 // mcpListAvailablePods handles the "list_available_pods" MCP method.
 func (a *GRPCRunnerAdapter) mcpListAvailablePods(ctx context.Context, tc *middleware.TenantContext) (interface{}, *mcpError) {
-	pods, _, err := a.mcpPodService.ListPods(ctx, tc.OrganizationID, agentpod.ActiveStatuses(), 0, 100, 0)
+	pods, _, err := a.mcpPodService.ListPods(ctx, tc.OrganizationID, agentpod.PodListQuery{
+		Statuses: agentpod.ActiveStatuses(),
+		Limit:    100,
+	})
 	if err != nil {
 		return nil, newMcpError(500, "failed to list pods")
 	}

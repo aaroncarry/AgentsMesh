@@ -17,6 +17,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/geo"
 	extensionservice "github.com/anthropics/agentsmesh/backend/internal/service/extension"
 	fileservice "github.com/anthropics/agentsmesh/backend/internal/service/file"
+	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/service/invitation"
 	"github.com/anthropics/agentsmesh/backend/internal/service/license"
 	loop "github.com/anthropics/agentsmesh/backend/internal/service/loop"
@@ -121,4 +122,7 @@ type Services struct {
 
 	// Token usage service
 	TokenUsage *tokenusagesvc.Service
+
+	// Resource grant/sharing service
+	Grant *grantservice.Service
 }
