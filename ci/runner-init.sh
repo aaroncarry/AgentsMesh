@@ -8,6 +8,7 @@ TOKEN_URL="${AGENTSMESH_TOKEN_URL:-${SERVER_URL}/api/v1/orgs/${ORG_SLUG}/runners
 LOGIN_EMAIL="${RUNNER_AGENTSMESH_LOGIN_EMAIL:-admin@localhost.local}"
 LOGIN_PASSWORD="${RUNNER_AGENTSMESH_LOGIN_PASSWORD:-Admin@123}"
 CONFIG_FILE="${HOME}/.agentsmesh/config.yaml"
+GIT_TOKEN="${GIT_TOKEN:-}"
 
 echo "========================================"
 echo "  AgentsMesh Runner Init"
@@ -16,6 +17,22 @@ echo "Server URL: ${SERVER_URL}"
 echo "Org Slug:   ${ORG_SLUG}"
 echo "Login URL:  ${LOGIN_URL}"
 echo "Token URL:  ${TOKEN_URL}"
+
+# --- 新增: 配置 Git 环境 ---
+if [ -n "${GIT_TOKEN}" ]; then
+    echo "Configuring Git environment with token..."
+    
+    # 直接使用硬编码的域名 git.ringcentral.com
+    git config --global url."https://${GIT_TOKEN}@git.ringcentral.com/".insteadOf "https://git.ringcentral.com/"
+    
+    # 配置 SSH 免交互（预防万一有脚本走 SSH）
+    mkdir -p ~/.ssh
+    echo -e "Host git.ringcentral.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+    
+    echo "Git configuration for git.ringcentral.com completed."
+else
+    echo "Warning: GIT_TOKEN is not set. Git operations may require manual authentication."
+fi
 
 if [ -f "${CONFIG_FILE}" ]; then
     echo "Existing runner config found at ${CONFIG_FILE}, skipping registration."

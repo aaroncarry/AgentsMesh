@@ -67,6 +67,8 @@ RUN curl -fsSL https://agentsmesh.int.rclabenv.com/install.sh | sh
 #     chmod +x /usr/local/bin/agentsmesh-runner && \
 #     rm -f /tmp/agentsmesh-runner.tar.gz
 
+RUN mkdir -p ~/.ssh && ssh-keyscan git.ringcentral.com >> ~/.ssh/known_hosts
+
 # Ensure PATH includes installers' default locations
 ENV PATH="/home/node/.local/bin:/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
 
