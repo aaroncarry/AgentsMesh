@@ -54,10 +54,17 @@ func (h *InvitationHandler) RegisterOrgRoutes(rg *gin.RouterGroup) {
 	rg.POST("/invitations", h.CreateInvitation)
 	rg.DELETE("/invitations/:id", h.RevokeInvitation)
 	rg.POST("/invitations/:id/resend", h.ResendInvitation)
+	rg.POST("/members/direct", h.AddMemberDirect)
 }
 
 // CreateInvitationRequest represents an invitation creation request
 type CreateInvitationRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Role  string `json:"role" binding:"required,oneof=admin member"`
+}
+
+// AddMemberDirectRequest represents a direct member addition request (no email invitation)
+type AddMemberDirectRequest struct {
 	Email string `json:"email" binding:"required,email"`
 	Role  string `json:"role" binding:"required,oneof=admin member"`
 }

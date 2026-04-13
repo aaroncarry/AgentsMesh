@@ -13,6 +13,7 @@ import type { TranslationFn } from "./GeneralSettings";
 import { MembersList, type Member } from "./MembersList";
 import { PendingInvitations } from "./PendingInvitations";
 import { InviteDialog } from "./InviteDialog";
+import { AddMemberDirectDialog } from "./AddMemberDirectDialog";
 
 interface MembersSettingsProps {
   t: TranslationFn;
@@ -24,9 +25,13 @@ export function MembersSettings({ t }: MembersSettingsProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showAddDirectDialog, setShowAddDirectDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [addDirectEmail, setAddDirectEmail] = useState("");
+  const [addDirectRole, setAddDirectRole] = useState<"admin" | "member">("member");
   const [inviting, setInviting] = useState(false);
+  const [addingDirect, setAddingDirect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<"generic" | "no_seats" | "subscription_frozen">("generic");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -110,6 +115,34 @@ export function MembersSettings({ t }: MembersSettingsProps) {
     } finally { setInviting(false); }
   };
 
+  const handleAddDirect = async () => {
+    if (!currentOrg || !addDirectEmail) return;
+    setAddingDirect(true);
+    setError(null);
+    try {
+      await invitationApi.addMemberDirect(addDirectEmail, addDirectRole);
+      setShowAddDirectDialog(false);
+      setAddDirectEmail("");
+      setAddDirectRole("member");
+      setSuccessMessage(t("settings.members.memberAdded", { email: addDirectEmail }));
+      await loadMembers();
+    } catch (err) {
+      console.error("Failed to add member directly:", err);
+      setErrorType("generic");
+      if (isApiErrorCode(err, "NO_AVAILABLE_SEATS")) {
+        setError(t("settings.members.noSeats")); setErrorType("no_seats");
+      } else if (isApiErrorCode(err, "SUBSCRIPTION_FROZEN")) {
+        setError(t("settings.members.subscriptionFrozen")); setErrorType("subscription_frozen");
+      } else if (isApiErrorCode(err, "ALREADY_EXISTS")) {
+        setError(t("settings.members.alreadyMember"));
+      } else if (isApiErrorCode(err, "NOT_FOUND")) {
+        setError(t("settings.members.userNotFound"));
+      } else {
+        setError(t("settings.members.failedToAdd"));
+      }
+    } finally { setAddingDirect(false); }
+  };
+
   const handleRevoke = async (invitationId: number) => {
     const confirmed = await revokeInvitationDialog.confirm();
     if (!confirmed) return;
@@ -145,7 +178,10 @@ export function MembersSettings({ t }: MembersSettingsProps) {
           <h2 className="text-lg font-semibold">{t("settings.members.title")}</h2>
           <p className="text-sm text-muted-foreground">{t("settings.members.description")}</p>
         </div>
-        <Button onClick={() => setShowInviteDialog(true)}>{t("settings.members.inviteMember")}</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowAddDirectDialog(true)}>{t("settings.members.addMemberDirect")}</Button>
+          <Button onClick={() => setShowInviteDialog(true)} hidden>{t("settings.members.inviteMember")}</Button>
+        </div>
       </div>
 
       {error && (
@@ -172,6 +208,14 @@ export function MembersSettings({ t }: MembersSettingsProps) {
           inviteRole={inviteRole} setInviteRole={setInviteRole} inviting={inviting}
           onInvite={handleInvite}
           onClose={() => { setShowInviteDialog(false); setInviteEmail(""); setInviteRole("member"); setError(null); }}
+          t={t} />
+      )}
+
+      {showAddDirectDialog && (
+        <AddMemberDirectDialog email={addDirectEmail} setEmail={setAddDirectEmail}
+          role={addDirectRole} setRole={setAddDirectRole} adding={addingDirect}
+          onAdd={handleAddDirect}
+          onClose={() => { setShowAddDirectDialog(false); setAddDirectEmail(""); setAddDirectRole("member"); setError(null); }}
           t={t} />
       )}
 

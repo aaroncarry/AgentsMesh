@@ -226,3 +226,75 @@ func (h *InvitationHandler) ResendInvitation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Invitation resent successfully"})
 }
+
+// AddMemberDirect adds a user directly to the organization (without sending invitation email)
+// POST /api/v1/organizations/:org/members/direct
+func (h *InvitationHandler) AddMemberDirect(c *gin.Context) {
+	var req AddMemberDirectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apierr.ValidationError(c, err.Error())
+		return
+	}
+
+	tc := middleware.GetTenant(c)
+	if tc == nil {
+		apierr.Unauthorized(c, apierr.AUTH_REQUIRED, "Tenant context not found")
+		return
+	}
+
+	// Only admins and owners can add members
+	if tc.UserRole != organization.RoleOwner && tc.UserRole != organization.RoleAdmin {
+		apierr.ForbiddenAdmin(c)
+		return
+	}
+
+	// Check seat availability before adding
+	if h.billingService != nil {
+		if err := h.billingService.CheckSeatAvailability(c.Request.Context(), tc.OrganizationID, 1); err != nil {
+			if err == billingSvc.ErrQuotaExceeded {
+				apierr.PaymentRequired(c, apierr.NO_AVAILABLE_SEATS, "No available seats. Please purchase more seats to add members.")
+				return
+			}
+			if err == billingSvc.ErrSubscriptionFrozen {
+				apierr.PaymentRequired(c, apierr.SUBSCRIPTION_FROZEN, "Your subscription has expired. Please renew to continue.")
+				return
+			}
+			apierr.InternalError(c, "Failed to check seat availability")
+			return
+		}
+	}
+
+	// Get user by email
+	user, err := h.userService.GetByEmail(c.Request.Context(), req.Email)
+	if err != nil {
+		apierr.ResourceNotFound(c, "User not found with this email")
+		return
+	}
+
+	// Check if user is already a member
+	isMember, err := h.orgService.IsMember(c.Request.Context(), tc.OrganizationID, user.ID)
+	if err != nil {
+		apierr.InternalError(c, "Failed to check membership")
+		return
+	}
+	if isMember {
+		apierr.Conflict(c, apierr.ALREADY_EXISTS, "User is already a member of this organization")
+		return
+	}
+
+	// Add user directly to organization
+	if err := h.orgService.AddMember(c.Request.Context(), tc.OrganizationID, user.ID, req.Role); err != nil {
+		apierr.InternalError(c, "Failed to add member")
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Member added successfully",
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"username": user.Username,
+			"role":     req.Role,
+		},
+	})
+}
