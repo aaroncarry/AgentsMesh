@@ -25,6 +25,14 @@ if [ -n "${GIT_TOKEN}" ]; then
     # 直接使用硬编码的域名 git.ringcentral.com
     git config --global url."https://${GIT_TOKEN}@git.ringcentral.com/".insteadOf "https://git.ringcentral.com/"
     git config --global url."https://${GIT_TOKEN}@git.ringcentral.com/".insteadOf "git@git.ringcentral.com:"
+
+    # 配置 .netrc: 让 curl -n 能够自动免密调用 GitLab API
+    cat << EOF > "${HOME}/.netrc"
+machine git.ringcentral.com
+login oauth2
+password ${GIT_TOKEN}
+EOF
+    chmod 600 "${HOME}/.netrc"
     
     # 配置 SSH 免交互（预防万一有脚本走 SSH）
     mkdir -p ~/.ssh
