@@ -31,6 +31,8 @@ RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_a
 # Install AI CLI Tools (as root, before user switch)
 # ============================================
 
+RUN npm install -g openskills
+
 # 1. Claude Code - Anthropic's AI coding assistant
 RUN npm install -g @anthropic-ai/claude-code
 
