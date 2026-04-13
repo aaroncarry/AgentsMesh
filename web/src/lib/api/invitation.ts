@@ -55,6 +55,16 @@ export const invitationApi = {
       method: "POST",
     }),
 
+  // Add member directly (without sending email invitation)
+  addMemberDirect: (email: string, role: "admin" | "member") =>
+    request<{
+      message: string;
+      user: { id: number; email: string; username: string; role: string }
+    }>(orgPath("/members/direct"), {
+      method: "POST",
+      body: { email, role },
+    }),
+
   // Public/auth routes
   getByToken: (token: string) =>
     request<{ invitation: InvitationInfo }>(`/api/v1/invitations/${token}`),

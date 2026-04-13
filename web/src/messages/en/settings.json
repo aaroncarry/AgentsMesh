@@ -251,6 +251,20 @@
         "cancel": "Cancel",
         "inviting": "Inviting...",
         "sendInvite": "Send Invite"
+      },
+      "addMemberDirect": "Add User",
+      "memberAdded": "Member {email} added successfully",
+      "userNotFound": "User with this email not found. They need to register first.",
+      "failedToAdd": "Failed to add member. Please try again.",
+      "addDirectDialog": {
+        "title": "Add User",
+        "description": "Add a user who already has an account to this organization directly (no email invitation required).",
+        "emailLabel": "User Email",
+        "emailPlaceholder": "user@example.com",
+        "roleLabel": "Role",
+        "cancel": "Cancel",
+        "adding": "Adding...",
+        "addMember": "Add Member"
       }
     },
     "agentConfig": {

@@ -251,6 +251,20 @@
         "cancel": "取消",
         "inviting": "邀请中...",
         "sendInvite": "发送邀请"
+      },
+      "addMemberDirect": "添加用户",
+      "memberAdded": "成功添加成员 {email}",
+      "userNotFound": "未找到此邮箱对应的用户，该用户需要先注册。",
+      "failedToAdd": "添加成员失败，请重试。",
+      "addDirectDialog": {
+        "title": "添加用户",
+        "description": "直接将已注册的用户添加到此组织（无需发送邮件邀请）。",
+        "emailLabel": "用户邮箱",
+        "emailPlaceholder": "user@example.com",
+        "roleLabel": "角色",
+        "cancel": "取消",
+        "adding": "添加中...",
+        "addMember": "添加成员"
       }
     },
     "agentConfig": {
