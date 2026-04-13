@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/eventbus"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
+	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
 )
 
@@ -17,6 +18,7 @@ type PodHandler struct {
 	orchestrator         *agentpod.PodOrchestrator       // Unified Pod creation logic
 	eventBus             *eventbus.EventBus              // Event bus for real-time events
 	commandSender        runner.RunnerCommandSender      // Unified command sender (PTY + ACP)
+	grantService         *grantservice.Service           // Resource grant/sharing service
 }
 
 // PodHandlerOption is a functional option for configuring PodHandler
@@ -54,6 +56,13 @@ func WithEventBus(eb *eventbus.EventBus) PodHandlerOption {
 func WithCommandSender(sender runner.RunnerCommandSender) PodHandlerOption {
 	return func(h *PodHandler) {
 		h.commandSender = sender
+	}
+}
+
+// WithGrantServiceForPod sets the grant service for resource sharing
+func WithGrantServiceForPod(gs *grantservice.Service) PodHandlerOption {
+	return func(h *PodHandler) {
+		h.grantService = gs
 	}
 }
 

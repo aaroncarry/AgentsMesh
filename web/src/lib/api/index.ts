@@ -95,6 +95,10 @@ export type {
 export { bindingApi } from "./binding";
 export type { PodBinding } from "./binding";
 
+// Grant (Resource Sharing)
+export { grantApi } from "./grant";
+export type { ResourceGrant } from "./grant";
+
 // Mesh
 export { meshApi } from "./mesh";
 export type {

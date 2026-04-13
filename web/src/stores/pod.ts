@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { reconnectRegistry } from "@/lib/realtime";
 import type { PodState } from "./podTypes";
 import { upsertPod } from "./podTypes";
 import { createPodApiActions } from "./podApiActions";
@@ -71,6 +72,15 @@ export const usePodStore = create<PodState>((set, get) => ({
     });
   },
 
+  updatePodPerpetualFromEvent: (podKey, perpetual) => {
+    set((state) => {
+      const result = upsertPod(state, podKey, (existing) =>
+        existing ? { ...existing, perpetual } : undefined,
+      );
+      return result ?? state;
+    });
+  },
+
   updatePodInitProgress: (podKey, phase, progress, message) => {
     set((state) => ({
       initProgress: {
@@ -92,3 +102,12 @@ export const usePodStore = create<PodState>((set, get) => ({
     set({ error: null });
   },
 }));
+
+reconnectRegistry.register({
+  name: "pod:sidebar",
+  fn: () => {
+    const s = usePodStore.getState();
+    s.fetchSidebarPods?.(s.currentSidebarFilter);
+  },
+  priority: "immediate",
+});

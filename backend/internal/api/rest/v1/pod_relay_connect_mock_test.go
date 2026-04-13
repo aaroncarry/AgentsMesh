@@ -18,7 +18,7 @@ type mockRelayPodService struct {
 	getPodFn func(ctx context.Context, podKey string) (*agentpod.Pod, error)
 }
 
-func (m *mockRelayPodService) ListPods(context.Context, int64, []string, int64, int, int) ([]*agentpod.Pod, int64, error) {
+func (m *mockRelayPodService) ListPods(context.Context, int64, agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
 	return nil, 0, nil
 }
 func (m *mockRelayPodService) CreatePod(context.Context, *agentpodSvc.CreatePodRequest) (*agentpod.Pod, error) {
@@ -30,11 +30,11 @@ func (m *mockRelayPodService) GetPod(ctx context.Context, podKey string) (*agent
 	}
 	return nil, errors.New("not found")
 }
-func (m *mockRelayPodService) TerminatePod(context.Context, string) error { return nil }
 func (m *mockRelayPodService) GetPodsByTicket(context.Context, int64) ([]*agentpod.Pod, error) {
 	return nil, nil
 }
 func (m *mockRelayPodService) UpdateAlias(context.Context, string, *string) error { return nil }
+func (m *mockRelayPodService) UpdatePerpetual(context.Context, string, bool) error { return nil }
 func (m *mockRelayPodService) GetActivePodBySourcePodKey(context.Context, string) (*agentpod.Pod, error) {
 	return nil, nil
 }
@@ -65,6 +65,9 @@ func (m *mockRelayCommandSender) SendCreateAutopilot(int64, *runnerv1.CreateAuto
 	return nil
 }
 func (m *mockRelayCommandSender) SendAutopilotControl(int64, *runnerv1.AutopilotControlCommand) error {
+	return nil
+}
+func (m *mockRelayCommandSender) SendUpdatePodPerpetual(context.Context, int64, string, bool) error {
 	return nil
 }
 
@@ -101,6 +104,9 @@ func (m *mockRelayCommandSenderConfigurable) SendCreateAutopilot(int64, *runnerv
 	return nil
 }
 func (m *mockRelayCommandSenderConfigurable) SendAutopilotControl(int64, *runnerv1.AutopilotControlCommand) error {
+	return nil
+}
+func (m *mockRelayCommandSenderConfigurable) SendUpdatePodPerpetual(context.Context, int64, string, bool) error {
 	return nil
 }
 

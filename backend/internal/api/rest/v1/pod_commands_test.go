@@ -24,10 +24,11 @@ import (
 
 // mockPodService implements PodServiceForHandler for testing.
 type mockPodService struct {
-	getPodFn func(ctx context.Context, podKey string) (*agentpod.Pod, error)
+	getPodFn          func(ctx context.Context, podKey string) (*agentpod.Pod, error)
+	updatePerpetualFn func(ctx context.Context, podKey string, perpetual bool) error
 }
 
-func (m *mockPodService) ListPods(context.Context, int64, []string, int64, int, int) ([]*agentpod.Pod, int64, error) {
+func (m *mockPodService) ListPods(context.Context, int64, agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
 	return nil, 0, nil
 }
 
@@ -42,13 +43,18 @@ func (m *mockPodService) GetPod(ctx context.Context, podKey string) (*agentpod.P
 	return nil, errors.New("not found")
 }
 
-func (m *mockPodService) TerminatePod(context.Context, string) error { return nil }
-
 func (m *mockPodService) GetPodsByTicket(context.Context, int64) ([]*agentpod.Pod, error) {
 	return nil, nil
 }
 
 func (m *mockPodService) UpdateAlias(context.Context, string, *string) error { return nil }
+
+func (m *mockPodService) UpdatePerpetual(ctx context.Context, podKey string, perpetual bool) error {
+	if m.updatePerpetualFn != nil {
+		return m.updatePerpetualFn(ctx, podKey, perpetual)
+	}
+	return nil
+}
 
 func (m *mockPodService) GetActivePodBySourcePodKey(context.Context, string) (*agentpod.Pod, error) {
 	return nil, nil
@@ -56,7 +62,8 @@ func (m *mockPodService) GetActivePodBySourcePodKey(context.Context, string) (*a
 
 // mockCommandSender implements runner.RunnerCommandSender for testing.
 type mockCommandSender struct {
-	sendPromptFn func(ctx context.Context, runnerID int64, podKey, prompt string) error
+	sendPromptFn              func(ctx context.Context, runnerID int64, podKey, prompt string) error
+	sendUpdatePodPerpetualFn  func(ctx context.Context, runnerID int64, podKey string, perpetual bool) error
 }
 
 func (m *mockCommandSender) SendCreatePod(context.Context, int64, *runnerv1.CreatePodCommand) error {
@@ -83,6 +90,12 @@ func (m *mockCommandSender) SendCreateAutopilot(int64, *runnerv1.CreateAutopilot
 	return nil
 }
 func (m *mockCommandSender) SendAutopilotControl(int64, *runnerv1.AutopilotControlCommand) error {
+	return nil
+}
+func (m *mockCommandSender) SendUpdatePodPerpetual(ctx context.Context, runnerID int64, podKey string, perpetual bool) error {
+	if m.sendUpdatePodPerpetualFn != nil {
+		return m.sendUpdatePodPerpetualFn(ctx, runnerID, podKey, perpetual)
+	}
 	return nil
 }
 
@@ -133,6 +146,7 @@ func TestSendPodPrompt_Success(t *testing.T) {
 			return &agentpod.Pod{
 				PodKey:         key,
 				OrganizationID: 1,
+				CreatedByID:    10,
 				RunnerID:       42,
 				Status:         agentpod.StatusRunning,
 			}, nil
@@ -196,7 +210,7 @@ func TestSendPodPrompt_MissingBody(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	handler := newPodCommandHandler(podSvc, &mockCommandSender{})
@@ -241,7 +255,7 @@ func TestSendPodPrompt_CommandSenderNil(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	handler := &PodHandler{podService: podSvc, commandSender: nil}
@@ -264,7 +278,7 @@ func TestSendPodPrompt_SendError(t *testing.T) {
 
 	podSvc := &mockPodService{
 		getPodFn: func(_ context.Context, key string) (*agentpod.Pod, error) {
-			return &agentpod.Pod{PodKey: key, OrganizationID: 1, RunnerID: 42, Status: agentpod.StatusRunning}, nil
+			return &agentpod.Pod{PodKey: key, OrganizationID: 1, CreatedByID: 10, RunnerID: 42, Status: agentpod.StatusRunning}, nil
 		},
 	}
 	sender := &mockCommandSender{

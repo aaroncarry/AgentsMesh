@@ -20,7 +20,24 @@
       "description": "説明",
       "descriptionPlaceholder": "このチャンネルの目的は？",
       "descriptionHint": "任意",
+      "visibility": "可視性",
       "failed": "チャンネルの作成に失敗しました"
+    },
+    "visibility": {
+      "public": "パブリック",
+      "private": "プライベート"
+    },
+    "actions": {
+      "join": "参加",
+      "leave": "退出",
+      "joinToParticipate": "このチャンネルに参加してメッセージを閲覧・参加してください"
+    },
+    "members": {
+      "title": "チャンネルメンバー",
+      "current": "メンバー",
+      "available": "メンバーを追加",
+      "searchPlaceholder": "メンバーを検索...",
+      "empty": "メンバーなし"
     },
     "messages": {
       "today": "今日",

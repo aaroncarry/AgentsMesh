@@ -8,6 +8,7 @@ func channelTableDDLs() []string {
 			organization_id INTEGER NOT NULL, name TEXT NOT NULL, description TEXT,
 			document TEXT, repository_id INTEGER, ticket_id INTEGER,
 			created_by_pod TEXT, created_by_user_id INTEGER,
+			visibility TEXT NOT NULL DEFAULT 'public',
 			is_archived INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,13 +27,15 @@ func channelTableDDLs() []string {
 			channel_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
 			role TEXT NOT NULL DEFAULT 'member',
 			is_muted INTEGER NOT NULL DEFAULT 0,
-			joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(channel_id, user_id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS channel_read_states (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
-			last_read_message_id INTEGER NOT NULL DEFAULT 0,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			last_read_message_id INTEGER,
+			last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(channel_id, user_id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS channel_pods (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,

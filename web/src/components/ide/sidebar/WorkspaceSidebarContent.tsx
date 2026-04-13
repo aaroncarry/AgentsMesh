@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Terminal, Loader2, Plus, RefreshCw, Search, ChevronDown } from "lucide-
 import { useTranslations } from "next-intl";
 import { PodListItem } from "./PodListItem";
 import { RenameDialog } from "@/components/shared/RenameDialog";
+import { ShareDialog } from "@/components/shared/ShareDialog";
 import { RunnerSection } from "./RunnerSection";
 import { WorkspaceFilters } from "./WorkspaceFilters";
 import { useWorkspaceSidebar } from "./useWorkspaceSidebar";
@@ -22,6 +23,7 @@ interface WorkspaceSidebarContentProps {
 export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod }: WorkspaceSidebarContentProps) {
   const t = useTranslations();
   const s = useWorkspaceSidebar(t, onTerminatePod);
+  const [sharePodKey, setSharePodKey] = useState<string | null>(null);
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -42,7 +44,7 @@ export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod
         </Button>
       </div>
 
-      <WorkspaceFilters filter={s.filter} onFilterChange={s.handleFilterChange} t={t} />
+      <WorkspaceFilters filter={s.filter} onFilterChange={s.handleFilterChange} t={t} isAdmin={s.isAdmin} />
 
       <div className="flex-1 overflow-y-auto">
         {s.loading ? (
@@ -68,7 +70,8 @@ export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod
             {s.sortedPods.map((pod) => (
               <PodListItem key={pod.pod_key} pod={pod} isOpen={s.isPodOpen(pod.pod_key)}
                 onClick={() => s.handleOpenTerminal(pod)} onTerminate={() => s.handleTerminateClick(pod.pod_key)}
-                onRename={() => s.setRenamePod(pod)} />
+                onRename={() => s.setRenamePod(pod)} onShare={() => setSharePodKey(pod.pod_key)}
+                onTogglePerpetual={(perpetual) => s.handleTogglePerpetual(pod.pod_key, perpetual)} />
             ))}
             {s.podHasMore && (
               <div className="px-3 py-2">
@@ -90,6 +93,13 @@ export function WorkspaceSidebarContent({ className, onCreatePod, onTerminatePod
         currentName={s.renamePod?.alias || ""} onConfirm={s.handleRenameConfirm} />
 
       <ConfirmDialog {...s.dialogProps} />
+
+      <ShareDialog
+        open={sharePodKey !== null}
+        onOpenChange={(open) => { if (!open) setSharePodKey(null); }}
+        resourceType="pod"
+        resourceId={sharePodKey || ""}
+      />
     </div>
   );
 }

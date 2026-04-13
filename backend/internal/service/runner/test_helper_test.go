@@ -81,6 +81,7 @@ type MockCommandSender struct {
 	mu                        sync.Mutex
 	CreatePodCalls            int
 	TerminatePodCalls         int
+	TerminatePodErr           error
 	PodInputCalls        int
 	SendPromptCalls           int
 	SubscribePodCalls    int
@@ -98,7 +99,7 @@ func (m *MockCommandSender) SendTerminatePod(ctx context.Context, runnerID int64
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.TerminatePodCalls++
-	return nil
+	return m.TerminatePodErr
 }
 
 func (m *MockCommandSender) SendPodInput(ctx context.Context, runnerID int64, podKey string, data []byte) error {
@@ -142,5 +143,9 @@ func (m *MockCommandSender) SendCreateAutopilot(runnerID int64, cmd *runnerv1.Cr
 func (m *MockCommandSender) SendAutopilotControl(runnerID int64, cmd *runnerv1.AutopilotControlCommand) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return nil
+}
+
+func (m *MockCommandSender) SendUpdatePodPerpetual(ctx context.Context, runnerID int64, podKey string, perpetual bool) error {
 	return nil
 }

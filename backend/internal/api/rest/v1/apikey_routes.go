@@ -113,7 +113,7 @@ func RegisterExtRoutes(rg *gin.RouterGroup, svc *Services) {
 	}
 
 	// Repository routes (read-only)
-	repositoryHandler := NewRepositoryHandler(svc.Repository, svc.Billing)
+	repositoryHandler := NewRepositoryHandler(svc.Repository, WithBillingService(svc.Billing))
 
 	reposRead := rg.Group("/repositories")
 	reposRead.Use(middleware.RequireScope("repos:read"))

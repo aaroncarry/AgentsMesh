@@ -194,6 +194,33 @@ describe("Channel Message Store", () => {
       act(() => { useChannelMessageStore.getState().clearChannelUnread(999); });
       expect(useChannelMessageStore.getState().unreadCounts).toEqual({});
     });
+
+    it("totalUnreadCount should sum all channels", () => {
+      act(() => {
+        useChannelMessageStore.getState().incrementUnread(1);
+        useChannelMessageStore.getState().incrementUnread(1);
+        useChannelMessageStore.getState().incrementUnread(2);
+        useChannelMessageStore.getState().incrementUnread(3);
+        useChannelMessageStore.getState().incrementUnread(3);
+        useChannelMessageStore.getState().incrementUnread(3);
+      });
+      expect(useChannelMessageStore.getState().totalUnreadCount()).toBe(6);
+    });
+
+    it("totalUnreadCount should return 0 when no unread", () => {
+      expect(useChannelMessageStore.getState().totalUnreadCount()).toBe(0);
+    });
+
+    it("totalUnreadCount should update when channel is cleared", () => {
+      act(() => {
+        useChannelMessageStore.getState().incrementUnread(1);
+        useChannelMessageStore.getState().incrementUnread(2);
+        useChannelMessageStore.getState().incrementUnread(2);
+      });
+      expect(useChannelMessageStore.getState().totalUnreadCount()).toBe(3);
+      act(() => { useChannelMessageStore.getState().clearChannelUnread(2); });
+      expect(useChannelMessageStore.getState().totalUnreadCount()).toBe(1);
+    });
   });
 
   describe("LRU eviction", () => {

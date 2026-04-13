@@ -118,77 +118,65 @@ func (r *channelRepository) GetByTicketID(ctx context.Context, ticketID int64) (
 	return channels, nil
 }
 
-// --- Messages ---
+func (r *channelRepository) ListVisibleForUser(ctx context.Context, orgID, userID int64, filter *channel.ChannelListFilter) ([]*channel.Channel, int64, error) {
+	type row struct {
+		channel.Channel
+		IsMember    bool  `gorm:"column:is_member"`
+		MemberCount int64 `gorm:"column:member_count"`
+	}
 
-func (r *channelRepository) CreateMessage(ctx context.Context, msg *channel.Message) error {
-	return r.db.WithContext(ctx).Create(msg).Error
-}
+	baseWhere := "c.organization_id = ?"
+	args := []interface{}{orgID}
 
-func (r *channelRepository) TouchChannel(ctx context.Context, channelID int64) error {
-	return r.db.WithContext(ctx).Model(&channel.Channel{}).
-		Where("id = ?", channelID).
-		Update("updated_at", time.Now()).Error
-}
+	if !filter.IncludeArchived {
+		baseWhere += " AND c.is_archived = FALSE"
+	}
+	if filter.RepositoryID != nil {
+		baseWhere += " AND c.repository_id = ?"
+		args = append(args, *filter.RepositoryID)
+	}
+	if filter.TicketID != nil {
+		baseWhere += " AND c.ticket_id = ?"
+		args = append(args, *filter.TicketID)
+	}
+	if filter.Visibility != nil {
+		baseWhere += " AND c.visibility = ?"
+		args = append(args, *filter.Visibility)
+	}
 
-func (r *channelRepository) GetMessages(ctx context.Context, channelID int64, before *time.Time, after *time.Time, limit int) ([]*channel.Message, error) {
-	query := r.db.WithContext(ctx).Where("channel_id = ? AND is_deleted = FALSE", channelID)
-	if before != nil {
-		query = query.Where("created_at < ?", *before)
-	}
-	if after != nil {
-		query = query.Where("created_at > ?", *after)
-	}
-	// After-only: return oldest-first so hasMore means "newer messages exist beyond the limit".
-	// All other cases: newest-first so hasMore means "older messages exist" (load-more / scroll-up).
-	// Use "id" as tiebreaker to guarantee stable ordering when created_at has identical values
-	// (e.g., SQLite CURRENT_TIMESTAMP has only second-level precision).
-	order := "created_at DESC, id DESC"
-	if after != nil && before == nil {
-		order = "created_at ASC, id ASC"
-	}
-	var messages []*channel.Message
-	if err := query.
-		Preload("SenderUser").
-		Preload("SenderPodInfo").
-		Preload("SenderPodInfo.Agent").
-		Order(order).
-		Limit(limit).
-		Find(&messages).Error; err != nil {
-		return nil, err
-	}
-	return messages, nil
-}
+	// Visibility gate: public OR user is member
+	visibilityClause := " AND (c.visibility = 'public' OR EXISTS (SELECT 1 FROM channel_members cm3 WHERE cm3.channel_id = c.id AND cm3.user_id = ?))"
+	args = append(args, userID)
 
-func (r *channelRepository) GetMessagesMentioning(ctx context.Context, channelID int64, podKey string, limit int) ([]*channel.Message, bool, error) {
-	var messages []*channel.Message
-	// Require BOTH "mentioned_pods" key AND exact pod key value in metadata.
-	// Using two LIKE conditions scopes the match to the mentioned_pods field, avoiding false
-	// positives from pod keys appearing elsewhere in the JSON (e.g. reply_to, sender context).
-	// Works cross-database (PostgreSQL JSONB cast to text and SQLite text no-op).
-	podValuePattern := `%"` + podKey + `"%`
-	if err := r.db.WithContext(ctx).
-		Where(`channel_id = ? AND is_deleted = FALSE AND CAST(metadata AS TEXT) LIKE '%mentioned_pods%' AND CAST(metadata AS TEXT) LIKE ?`,
-			channelID, podValuePattern).
-		Order("created_at DESC, id DESC").
-		Limit(limit + 1).
-		Find(&messages).Error; err != nil {
-		return nil, false, err
-	}
-	hasMore := len(messages) > limit
-	if hasMore {
-		messages = messages[:limit]
-	}
-	return messages, hasMore, nil
-}
+	fullWhere := baseWhere + visibilityClause
 
-func (r *channelRepository) GetRecentMessages(ctx context.Context, channelID int64, limit int) ([]*channel.Message, error) {
-	var messages []*channel.Message
-	if err := r.db.WithContext(ctx).
-		Where("channel_id = ? AND is_deleted = FALSE", channelID).
-		Order("created_at DESC, id DESC").
-		Limit(limit).
-		Find(&messages).Error; err != nil {
-		return nil, err
+	var total int64
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	r.db.WithContext(ctx).Raw("SELECT COUNT(*) FROM channels c WHERE "+fullWhere, countArgs...).Scan(&total)
+
+	selectSQL := `SELECT c.*,
+		EXISTS(SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = ?) as is_member,
+		(SELECT COUNT(*) FROM channel_members cm2 WHERE cm2.channel_id = c.id) as member_count
+		FROM channels c WHERE ` + fullWhere + " ORDER BY c.updated_at DESC"
+
+	selectArgs := append([]interface{}{userID}, args...)
+	if filter.Limit > 0 {
+		selectSQL += " LIMIT ? OFFSET ?"
+		selectArgs = append(selectArgs, filter.Limit, filter.Offset)
 	}
-	return messages, nil
+
+	var rows []row
+	if err := r.db.WithContext(ctx).Raw(selectSQL, selectArgs...).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	channels := make([]*channel.Channel, len(rows))
+	for i := range rows {
+		ch := rows[i].Channel
+		ch.IsMember = rows[i].IsMember
+		ch.MemberCount = rows[i].MemberCount
+		channels[i] = &ch
+	}
+	return channels, total, nil
 }

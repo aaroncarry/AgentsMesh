@@ -14,12 +14,14 @@ export function useWorkspaceSidebar(
 ) {
   const currentOrg = useAuthStore((s) => s.currentOrg);
   const user = useAuthStore((s) => s.user);
+  const isAdmin = currentOrg?.role === "owner" || currentOrg?.role === "admin";
   const pods = usePodStore((s) => s.pods);
   const loading = usePodStore((s) => s.loading);
   const fetchSidebarPods = usePodStore((s) => s.fetchSidebarPods);
   const loadMorePods = usePodStore((s) => s.loadMorePods);
   const terminatePod = usePodStore((s) => s.terminatePod);
   const updatePodAlias = usePodStore((s) => s.updatePodAlias);
+  const updatePodPerpetual = usePodStore((s) => s.updatePodPerpetual);
   const podHasMore = usePodStore((s) => s.podHasMore);
   const loadingMore = usePodStore((s) => s.loadingMore);
   const runners = useRunnerStore((s) => s.runners);
@@ -95,11 +97,15 @@ export function useWorkspaceSidebar(
     setRenamePod(null);
   }, [renamePod, updatePodAlias]);
 
+  const handleTogglePerpetual = useCallback(async (podKey: string, perpetual: boolean) => {
+    try { await updatePodPerpetual(podKey, perpetual); } catch (error) { console.error("Failed to toggle perpetual:", error); }
+  }, [updatePodPerpetual]);
+
   return {
-    currentOrg, loading, runners, runnersLoading,
+    currentOrg, loading, runners, runnersLoading, isAdmin,
     filter, searchQuery, setSearchQuery, runnersExpanded, setRunnersExpanded, refreshing,
     renamePod, setRenamePod, dialogProps, sortedPods, podHasMore, loadingMore,
     handleFilterChange, handleRefresh, isPodOpen, handleOpenTerminal,
-    handleTerminateClick, handleRenameConfirm, loadMorePods,
+    handleTerminateClick, handleRenameConfirm, handleTogglePerpetual, loadMorePods,
   };
 }

@@ -3,8 +3,11 @@ package v1
 import (
 	"net/http"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
+	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/policy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,24 +23,23 @@ func (h *PodHandler) TerminatePod(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	if pod.OrganizationID != tenant.OrganizationID {
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	if !policy.PodPolicy.AllowWrite(sub, h.podResourceWithGrants(c.Request.Context(), podKey, pod.OrganizationID, pod.CreatedByID)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
 
-	// Only creator or admin can terminate
-	if pod.CreatedByID != tenant.UserID && tenant.UserRole == "member" {
-		apierr.ForbiddenAdmin(c)
-		return
-	}
-
-	if err := h.podService.TerminatePod(c.Request.Context(), podKey); err != nil {
-		if err == ErrPodTerminated {
+	if err := h.podCoordinator.TerminatePod(c.Request.Context(), podKey); err != nil {
+		if err == runner.ErrPodAlreadyTerminated {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Pod already terminated")
 			return
 		}
 		apierr.InternalError(c, "Failed to terminate pod")
 		return
+	}
+
+	if h.grantService != nil {
+		_ = h.grantService.CleanupByResource(c.Request.Context(), grant.TypePod, podKey)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pod terminated"})

@@ -16,7 +16,14 @@ func registerAgentRoutes(rg *gin.RouterGroup, svc *Services) {
 }
 
 func registerRepositoryRoutes(rg *gin.RouterGroup, svc *Services) {
-	repositoryHandler := NewRepositoryHandler(svc.Repository, svc.Billing)
+	var repoOpts []RepositoryHandlerOption
+	if svc.Billing != nil {
+		repoOpts = append(repoOpts, WithBillingService(svc.Billing))
+	}
+	if svc.Grant != nil {
+		repoOpts = append(repoOpts, WithGrantServiceForRepo(svc.Grant))
+	}
+	repositoryHandler := NewRepositoryHandler(svc.Repository, repoOpts...)
 	repositories := rg.Group("/repositories")
 	{
 		repositories.GET("", repositoryHandler.ListRepositories)
@@ -34,6 +41,10 @@ func registerRepositoryRoutes(rg *gin.RouterGroup, svc *Services) {
 		repositories.POST("/:id/webhook/configured", repositoryHandler.MarkRepositoryWebhookConfigured)
 
 		repositories.GET("/:id/merge-requests", repositoryHandler.ListRepositoryMergeRequests)
+
+		repositories.GET("/:id/grants", repositoryHandler.ListRepositoryGrants)
+		repositories.POST("/:id/grants", repositoryHandler.GrantRepositoryAccess)
+		repositories.DELETE("/:id/grants/:grant_id", repositoryHandler.RevokeRepositoryGrant)
 	}
 }
 
@@ -60,6 +71,9 @@ func registerRunnerRoutes(rg *gin.RouterGroup, svc *Services) {
 	if svc.LogUploadService != nil {
 		runnerOpts = append(runnerOpts, WithLogUploadService(svc.LogUploadService))
 	}
+	if svc.Grant != nil {
+		runnerOpts = append(runnerOpts, WithGrantServiceForRunner(svc.Grant))
+	}
 	runnerHandler := NewRunnerHandler(svc.Runner, runnerOpts...)
 	runners := rg.Group("/runners")
 	{
@@ -73,6 +87,10 @@ func registerRunnerRoutes(rg *gin.RouterGroup, svc *Services) {
 		runners.POST("/:id/upgrade", runnerHandler.UpgradeRunner)
 		runners.POST("/:id/logs/upload", runnerHandler.RequestLogUpload)
 		runners.GET("/:id/logs", runnerHandler.ListRunnerLogs)
+
+		runners.GET("/:id/grants", runnerHandler.ListRunnerGrants)
+		runners.POST("/:id/grants", runnerHandler.GrantRunnerAccess)
+		runners.DELETE("/:id/grants/:grant_id", runnerHandler.RevokeRunnerGrant)
 
 		if svc.GRPCRunnerHandler != nil {
 			RegisterOrgGRPCRunnerRoutes(runners, svc.GRPCRunnerHandler)

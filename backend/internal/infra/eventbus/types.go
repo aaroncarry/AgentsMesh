@@ -27,7 +27,8 @@ const (
 	EventPodTitleChanged  EventType = "pod:title_changed"
 	EventPodAliasChanged  EventType = "pod:alias_changed"
 	EventPodInitProgress  EventType = "pod:init_progress"
-	EventPodRestarting    EventType = "pod:restarting"
+	EventPodRestarting        EventType = "pod:restarting"
+	EventPodPerpetualChanged  EventType = "pod:perpetual_changed"
 
 	// Channel events
 	EventChannelMessage        EventType = "channel:message"
@@ -67,6 +68,9 @@ const (
 	EventLoopRunCompleted EventType = "loop_run:completed"
 	EventLoopRunFailed    EventType = "loop_run:failed"
 	EventLoopRunWarning   EventType = "loop_run:warning"
+	// Channel membership events
+	EventChannelMemberAdded   EventType = "channel:member_added"
+	EventChannelMemberRemoved EventType = "channel:member_removed"
 )
 
 // ===== System Events (Category: system) =====
@@ -93,8 +97,11 @@ type Event struct {
 	// Timestamp is the Unix millisecond timestamp when the event was created
 	Timestamp int64 `json:"timestamp"`
 
+	// TargetUserIDs restricts delivery to specific users instead of broadcasting to the org.
+	// When non-empty, HubEventSubscriber uses SendToUser per user instead of BroadcastToOrg.
+	TargetUserIDs []int64 `json:"target_user_ids,omitempty"`
+
 	// SourceInstanceID identifies the server instance that published this event
-	// Used to prevent duplicate dispatch when receiving from Redis
 	SourceInstanceID string `json:"source_instance_id,omitempty"`
 }
 

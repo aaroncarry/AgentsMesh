@@ -10,11 +10,15 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/eventbus"
 )
 
+// MemberIDProvider resolves member user IDs for a channel.
+// Used by the event hook to attach TargetUserIDs for member-only delivery.
+type MemberIDProvider interface {
+	GetMemberUserIDs(ctx context.Context, channelID int64) ([]int64, error)
+}
+
 // NewEventPublishHook creates a hook that publishes channel:message events.
-// userNames is optional — when provided the sender display name is resolved
-// and included in the event payload so that realtime consumers can render it
-// without a separate lookup.
-func NewEventPublishHook(eb *eventbus.EventBus, userNames UserNameResolver) PostSendHook {
+// members is used to resolve channel member IDs for targeted WebSocket delivery.
+func NewEventPublishHook(eb *eventbus.EventBus, userNames UserNameResolver, members MemberIDProvider) PostSendHook {
 	return func(ctx context.Context, mc *MessageContext) error {
 		if eb == nil {
 			return nil
@@ -37,6 +41,11 @@ func NewEventPublishHook(eb *eventbus.EventBus, userNames UserNameResolver) Post
 			return err
 		}
 
+		var targetUserIDs []int64
+		if members != nil {
+			targetUserIDs, _ = members.GetMemberUserIDs(ctx, mc.Channel.ID)
+		}
+
 		eb.Publish(ctx, &eventbus.Event{
 			Type:           eventbus.EventChannelMessage,
 			Category:       eventbus.CategoryEntity,
@@ -44,6 +53,7 @@ func NewEventPublishHook(eb *eventbus.EventBus, userNames UserNameResolver) Post
 			EntityType:     "channel",
 			EntityID:       strconv.FormatInt(mc.Message.ChannelID, 10),
 			Data:           data,
+			TargetUserIDs:  targetUserIDs,
 		})
 
 		return nil

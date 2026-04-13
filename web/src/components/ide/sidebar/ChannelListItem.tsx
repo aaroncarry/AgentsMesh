@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { Channel } from "@/stores/channel";
-import { Hash, Archive } from "lucide-react";
+import { Hash, Archive, Lock } from "lucide-react";
 
 interface ChannelListItemProps {
   channel: Channel;
@@ -20,17 +20,25 @@ export function ChannelListItem({ channel, isSelected, unreadCount = 0, onClick 
     channel.pods?.filter((p) => p.status === "running" || p.status === "initializing").length ?? 0;
   const hasActivePods = runningPodCount > 0;
 
+  const isPrivate = channel.visibility === "private";
+  const isNonMember = !channel.is_member;
+
   return (
     <div
       className={cn(
         "flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md mx-1 transition-colors",
         "hover:bg-muted/50",
-        isSelected && "bg-muted"
+        isSelected && "bg-muted",
+        isNonMember && "opacity-60"
       )}
       onClick={onClick}
     >
       <div className="relative shrink-0">
-        <Hash className="w-4 h-4 text-muted-foreground" />
+        {isPrivate ? (
+          <Lock className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <Hash className="w-4 h-4 text-muted-foreground" />
+        )}
         {/* Green dot for active pods */}
         {hasActivePods && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full ring-1 ring-background" />

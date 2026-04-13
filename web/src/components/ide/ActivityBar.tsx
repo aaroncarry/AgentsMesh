@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIDEStore, ACTIVITIES, type ActivityType } from "@/stores/ide";
 import { useAuthStore } from "@/stores/auth";
+import { useChannelMessageStore } from "@/stores/channelMessageStore";
 import { useTranslations } from "next-intl";
 import {
   Terminal,
@@ -52,6 +53,7 @@ export function ActivityBar({ className }: ActivityBarProps) {
   const pathname = usePathname();
   const orgSlug = currentOrg?.slug || (params.org as string) || "";
   const t = useTranslations();
+  const totalChannelUnread = useChannelMessageStore((s) => s.totalUnreadCount());
 
   // Map activity to route
   const getActivityRoute = (activity: ActivityType): string => {
@@ -124,6 +126,7 @@ export function ActivityBar({ className }: ActivityBarProps) {
           {mainActivities.map((activity) => {
             const Icon = ICON_MAP[activity.icon] || Terminal;
             const isActive = activeActivity === activity.id;
+            const showBadge = activity.id === "channels" && totalChannelUnread > 0;
 
             return (
               <Tooltip key={activity.id}>
@@ -143,6 +146,11 @@ export function ActivityBar({ className }: ActivityBarProps) {
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-r" />
                     )}
                     <Icon className="w-5 h-5" />
+                    {showBadge && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-0.5 text-[9px] font-bold rounded-full bg-destructive text-destructive-foreground flex items-center justify-center leading-none">
+                        {totalChannelUnread > 99 ? "99+" : totalChannelUnread}
+                      </span>
+                    )}
                   </Link>
                 </TooltipTrigger>
                 <TooltipPortal>

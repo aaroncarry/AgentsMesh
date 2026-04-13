@@ -16,10 +16,6 @@ interface ChannelDetailViewProps {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-/**
- * Channel detail view with messages and input.
- * Uses useChannelChat hook internally — no props drilling for message state.
- */
 export function ChannelDetailView({
   channelId,
   onBack,
@@ -28,6 +24,8 @@ export function ChannelDetailView({
 }: ChannelDetailViewProps) {
   const chat = useChannelChat({ channelId });
   const { handlePodsChanged: chatPodsChanged } = chat;
+  const isMember = chat.currentChannel?.is_member ?? true;
+  const visibility = chat.currentChannel?.visibility ?? "public";
 
   const handlePodsChanged = useCallback(() => {
     chatPodsChanged();
@@ -36,7 +34,6 @@ export function ChannelDetailView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Channel Header with back button - softer styling */}
       <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/30">
         <Button
           variant="ghost"
@@ -52,6 +49,9 @@ export function ChannelDetailView({
             description={chat.currentChannel?.description}
             podCount={chat.podCount}
             channelId={channelId}
+            visibility={visibility}
+            isMember={isMember}
+            memberCount={chat.currentChannel?.member_count}
             onClose={onBack}
             onRefresh={chat.handleRefresh}
             loading={chat.messagesLoading}
@@ -61,35 +61,39 @@ export function ChannelDetailView({
         </div>
       </div>
 
-      {/* Document section - collapsible markdown preview */}
       {chat.currentChannel?.document && (
         <ChannelDocument document={chat.currentChannel.document} />
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-hidden">
-        <MessageList
-          messages={chat.transformedMessages}
-          loading={chat.messagesLoading}
-          loadingMore={chat.loadingMore}
-          hasMore={chat.hasMore}
-          error={chat.messagesError}
-          onLoadMore={chat.handleLoadMore}
-          onRetry={chat.handleRefresh}
-          currentUserId={chat.currentUserId}
-          onEditMessage={chat.handleEditMessage}
-          onDeleteMessage={chat.handleDeleteMessage}
-        />
-      </div>
-
-      {/* Input - softer top border */}
-      <div className="flex-shrink-0 bg-muted/20">
-        <MessageInput
-          onSend={chat.handleSendMessage}
-          placeholder={t("ide.bottomPanel.sendMessagePlaceholder")}
-          channelId={channelId}
-        />
-      </div>
+      {isMember ? (
+        <>
+          <div className="flex-1 overflow-hidden">
+            <MessageList
+              messages={chat.transformedMessages}
+              loading={chat.messagesLoading}
+              loadingMore={chat.loadingMore}
+              hasMore={chat.hasMore}
+              error={chat.messagesError}
+              onLoadMore={chat.handleLoadMore}
+              onRetry={chat.handleRefresh}
+              currentUserId={chat.currentUserId}
+              onEditMessage={chat.handleEditMessage}
+              onDeleteMessage={chat.handleDeleteMessage}
+            />
+          </div>
+          <div className="flex-shrink-0 bg-muted/20">
+            <MessageInput
+              onSend={chat.handleSendMessage}
+              placeholder={t("ide.bottomPanel.sendMessagePlaceholder")}
+              channelId={channelId}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+          {t("channels.actions.joinToParticipate")}
+        </div>
+      )}
     </div>
   );
 }

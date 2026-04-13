@@ -84,7 +84,7 @@ func TestMesh_GetTopology_RequiresSubServices(t *testing.T) {
 	// GetTopology depends on podService which is nil — should panic or error.
 	// This confirms that topology aggregation requires full wiring.
 	assert.Panics(t, func() {
-		_, _ = svc.GetTopology(ctx, 1)
+		_, _ = svc.GetTopology(ctx, 1, 1)
 	})
 }
 

@@ -19,19 +19,23 @@ var (
 
 // Service handles channel operations
 type Service struct {
-	repo          channel.ChannelRepository
-	eventBus      *eventbus.EventBus
-	postSendHooks []PostSendHook
+	repo               channel.ChannelRepository
+	eventBus           *eventbus.EventBus
+	postSendHooks      []PostSendHook
+	podCreatorResolver PodCreatorResolver
+	userLookup         UserLookup
 }
 
-// NewService creates a new channel service
 func NewService(repo channel.ChannelRepository) *Service {
 	return &Service{repo: repo}
 }
 
-// SetEventBus sets the event bus for publishing channel events
 func (s *Service) SetEventBus(eb *eventbus.EventBus) {
 	s.eventBus = eb
+}
+
+func (s *Service) SetUserLookup(lookup UserLookup) {
+	s.userLookup = lookup
 }
 
 // AddPostSendHook registers a hook to be called after message persistence
@@ -41,16 +45,18 @@ func (s *Service) AddPostSendHook(hook PostSendHook) {
 
 // CreateChannelRequest represents a channel creation request
 type CreateChannelRequest struct {
-	OrganizationID  int64
-	Name            string
-	Description     *string
-	RepositoryID    *int64
-	TicketID        *int64
-	CreatedByPod    *string
-	CreatedByUserID *int64
+	OrganizationID   int64
+	Name             string
+	Description      *string
+	RepositoryID     *int64
+	TicketID         *int64
+	CreatedByPod     *string
+	CreatedByUserID  *int64
+	Visibility       string
+	InitialMemberIDs []int64
 }
 
-// CreateChannel creates a new channel
+// CreateChannel creates a new channel with explicit membership
 func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) (*channel.Channel, error) {
 	existing, err := s.repo.GetByOrgAndName(ctx, req.OrganizationID, req.Name)
 	if err != nil {
@@ -58,6 +64,11 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 	}
 	if existing != nil {
 		return nil, ErrDuplicateName
+	}
+
+	visibility := req.Visibility
+	if visibility == "" {
+		visibility = channel.VisibilityPublic
 	}
 
 	ch := &channel.Channel{
@@ -68,6 +79,7 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 		TicketID:        req.TicketID,
 		CreatedByPod:    req.CreatedByPod,
 		CreatedByUserID: req.CreatedByUserID,
+		Visibility:      visibility,
 		IsArchived:      false,
 	}
 
@@ -76,7 +88,19 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 		return nil, err
 	}
 
-	slog.Info("channel created", "channel_id", ch.ID, "org_id", req.OrganizationID, "name", req.Name)
+	// Creator auto-joins with creator role
+	if req.CreatedByUserID != nil {
+		_ = s.repo.AddMemberWithRole(ctx, ch.ID, *req.CreatedByUserID, channel.RoleCreator)
+	}
+	validMembers := s.validateOrgMembers(ctx, req.OrganizationID, req.InitialMemberIDs)
+	for _, uid := range validMembers {
+		if req.CreatedByUserID != nil && uid == *req.CreatedByUserID {
+			continue
+		}
+		_ = s.repo.AddMemberWithRole(ctx, ch.ID, uid, channel.RoleMember)
+	}
+
+	slog.Info("channel created", "channel_id", ch.ID, "org_id", req.OrganizationID, "name", req.Name, "visibility", visibility)
 	return ch, nil
 }
 
@@ -92,6 +116,18 @@ func (s *Service) GetChannel(ctx context.Context, channelID int64) (*channel.Cha
 	return ch, nil
 }
 
+// GetChannelForUser returns a channel by ID with membership info populated.
+func (s *Service) GetChannelForUser(ctx context.Context, channelID, userID int64) (*channel.Channel, error) {
+	ch, err := s.GetChannel(ctx, channelID)
+	if err != nil {
+		return nil, err
+	}
+	ch.IsMember, _ = s.repo.IsMember(ctx, channelID, userID)
+	memberIDs, _ := s.repo.GetMemberUserIDs(ctx, channelID)
+	ch.MemberCount = int64(len(memberIDs))
+	return ch, nil
+}
+
 // GetChannelByName returns a channel by name within an organization
 func (s *Service) GetChannelByName(ctx context.Context, orgID int64, name string) (*channel.Channel, error) {
 	ch, err := s.repo.GetByOrgAndName(ctx, orgID, name)
@@ -104,9 +140,10 @@ func (s *Service) GetChannelByName(ctx context.Context, orgID int64, name string
 	return ch, nil
 }
 
-// ListChannels returns channels for an organization with optional filters.
-func (s *Service) ListChannels(ctx context.Context, orgID int64, filter *channel.ChannelListFilter) ([]*channel.Channel, int64, error) {
-	return s.repo.ListByOrg(ctx, orgID, filter)
+// ListChannels returns channels visible to a user within an organization.
+// Public channels are always visible; private channels require membership.
+func (s *Service) ListChannels(ctx context.Context, orgID, userID int64, filter *channel.ChannelListFilter) ([]*channel.Channel, int64, error) {
+	return s.repo.ListVisibleForUser(ctx, orgID, userID, filter)
 }
 
 // UpdateChannel updates a channel
@@ -140,55 +177,4 @@ func (s *Service) UpdateChannel(ctx context.Context, channelID int64, name, desc
 	}
 
 	return s.GetChannel(ctx, channelID)
-}
-
-// ArchiveChannel archives a channel
-func (s *Service) ArchiveChannel(ctx context.Context, channelID int64) error {
-	if err := s.repo.SetArchived(ctx, channelID, true); err != nil {
-		slog.Error("failed to archive channel", "channel_id", channelID, "error", err)
-		return err
-	}
-	slog.Info("channel archived", "channel_id", channelID)
-	return nil
-}
-
-// UnarchiveChannel unarchives a channel
-func (s *Service) UnarchiveChannel(ctx context.Context, channelID int64) error {
-	if err := s.repo.SetArchived(ctx, channelID, false); err != nil {
-		slog.Error("failed to unarchive channel", "channel_id", channelID, "error", err)
-		return err
-	}
-	slog.Info("channel unarchived", "channel_id", channelID)
-	return nil
-}
-
-// DeleteChannel permanently deletes a channel and all associated data.
-// Prefer ArchiveChannel for soft-delete; use this only for hard-delete scenarios.
-func (s *Service) DeleteChannel(ctx context.Context, channelID int64) error {
-	if err := s.repo.DeleteWithCleanup(ctx, channelID); err != nil {
-		slog.Error("failed to delete channel", "channel_id", channelID, "error", err)
-		return err
-	}
-	slog.Info("channel deleted", "channel_id", channelID)
-	return nil
-}
-
-// DeleteChannelsByOrg deletes all channels for an organization (used during org deletion)
-func (s *Service) DeleteChannelsByOrg(ctx context.Context, orgID int64) error {
-	if err := s.repo.DeleteChannelsByOrg(ctx, orgID); err != nil {
-		slog.Error("failed to delete channels by org", "org_id", orgID, "error", err)
-		return err
-	}
-	slog.Info("channels deleted for org", "org_id", orgID)
-	return nil
-}
-
-// CleanupUserReferences removes a user's channel membership/read-state data
-func (s *Service) CleanupUserReferences(ctx context.Context, userID int64) error {
-	return s.repo.CleanupUserReferences(ctx, userID)
-}
-
-// GetChannelsByTicket returns channels for a ticket
-func (s *Service) GetChannelsByTicket(ctx context.Context, ticketID int64) ([]*channel.Channel, error) {
-	return s.repo.GetByTicketID(ctx, ticketID)
 }

@@ -25,6 +25,10 @@ func registerChannelRoutes(rg *gin.RouterGroup, svc *Services) {
 		channels.GET("/:id/pods", channelHandler.ListChannelPods)
 		channels.POST("/:id/pods", channelHandler.JoinPod)
 		channels.DELETE("/:id/pods/:pod_key", channelHandler.LeavePod)
+		channels.POST("/:id/join", channelHandler.JoinChannel)
+		channels.POST("/:id/leave", channelHandler.LeaveChannel)
+		channels.POST("/:id/members", channelHandler.InviteMembers)
+		channels.DELETE("/:id/members/:user_id", channelHandler.RemoveMember)
 	}
 }
 

@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	runner "github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/policy"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +18,9 @@ import (
 func (h *RunnerHandler) ListRunners(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	runners, err := h.runnerService.ListRunners(c.Request.Context(), tenant.OrganizationID, tenant.UserID)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	filter := policy.RunnerPolicy.ListFilter(sub)
+	runners, err := h.runnerService.ListRunners(c.Request.Context(), tenant.OrganizationID, filter.VisibilityUserID)
 	if err != nil {
 		apierr.InternalError(c, "Failed to list runners")
 		return
@@ -47,13 +51,10 @@ func (h *RunnerHandler) GetRunner(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	if r.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
-		return
-	}
-
-	// Check visibility: private runners are only visible to the registrant
-	if r.Visibility == "private" && (r.RegisteredByUserID == nil || *r.RegisteredByUserID != tenant.UserID) {
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	if !policy.RunnerPolicy.AllowRead(sub, h.runnerResourceWithGrants(
+		c.Request.Context(), runnerID, r.OrganizationID, r.RegisteredByUserID, r.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -92,21 +93,22 @@ func (h *RunnerHandler) UpdateRunner(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
 
-	// Check admin permission
-	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+	if !policy.AllowAdmin(sub, tenant.OrganizationID) {
 		apierr.ForbiddenAdmin(c)
 		return
 	}
 
-	// Verify runner belongs to organization
 	r, err := h.runnerService.GetRunner(c.Request.Context(), runnerID)
 	if err != nil {
 		apierr.ResourceNotFound(c, "Runner not found")
 		return
 	}
 
-	if r.OrganizationID != tenant.OrganizationID {
+	if !policy.RunnerPolicy.AllowWrite(sub, policy.VisibleResource(
+		r.OrganizationID, r.RegisteredByUserID, r.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -136,9 +138,9 @@ func (h *RunnerHandler) DeleteRunner(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
 
-	// Check admin permission
-	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+	if !policy.AllowAdmin(sub, tenant.OrganizationID) {
 		apierr.ForbiddenAdmin(c)
 		return
 	}
@@ -149,7 +151,9 @@ func (h *RunnerHandler) DeleteRunner(c *gin.Context) {
 		return
 	}
 
-	if r.OrganizationID != tenant.OrganizationID {
+	if !policy.RunnerPolicy.AllowWrite(sub, policy.VisibleResource(
+		r.OrganizationID, r.RegisteredByUserID, r.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -161,6 +165,10 @@ func (h *RunnerHandler) DeleteRunner(c *gin.Context) {
 		}
 		apierr.InternalError(c, "Failed to delete runner")
 		return
+	}
+
+	if h.grantService != nil {
+		_ = h.grantService.CleanupByResource(c.Request.Context(), grant.TypeRunner, grant.IntResourceID(runnerID))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Runner deleted"})

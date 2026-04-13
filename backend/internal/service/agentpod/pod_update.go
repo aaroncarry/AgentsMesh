@@ -38,18 +38,6 @@ func (s *PodService) UpdatePodStatus(ctx context.Context, podKey, status string)
 	return nil
 }
 
-// UpdateAgentStatus updates agent status
-func (s *PodService) UpdateAgentStatus(ctx context.Context, podKey, agentStatus string, agentPID *int) error {
-	updates := map[string]interface{}{
-		"agent_status":  agentStatus,
-		"last_activity": time.Now(),
-	}
-	if agentPID != nil {
-		updates["agent_pid"] = *agentPID
-	}
-	return s.repo.UpdateAgentStatus(ctx, podKey, updates)
-}
-
 // UpdatePodPTY updates pod PTY PID
 func (s *PodService) UpdatePodPTY(ctx context.Context, podKey string, ptyPID int) error {
 	return s.repo.UpdateField(ctx, podKey, "pty_pid", ptyPID)
@@ -67,6 +55,11 @@ func (s *PodService) UpdateAlias(ctx context.Context, podKey string, alias *stri
 		return s.repo.UpdateField(ctx, podKey, "alias", *alias)
 	}
 	return s.repo.UpdateField(ctx, podKey, "alias", nil)
+}
+
+// UpdatePerpetual updates the perpetual flag for a pod.
+func (s *PodService) UpdatePerpetual(ctx context.Context, podKey string, perpetual bool) error {
+	return s.repo.UpdateField(ctx, podKey, "perpetual", perpetual)
 }
 
 // UpdateSandboxPath updates pod sandbox path and branch

@@ -12,6 +12,7 @@ type ChannelListFilter struct {
 	IncludeArchived bool
 	RepositoryID    *int64
 	TicketID        *int64
+	Visibility      *string
 	Limit           int
 	Offset          int
 }
@@ -22,6 +23,7 @@ type ChannelStore interface {
 	GetByOrgAndName(ctx context.Context, orgID int64, name string) (*Channel, error)
 	Create(ctx context.Context, ch *Channel) error
 	ListByOrg(ctx context.Context, orgID int64, filter *ChannelListFilter) ([]*Channel, int64, error)
+	ListVisibleForUser(ctx context.Context, orgID, userID int64, filter *ChannelListFilter) ([]*Channel, int64, error)
 	UpdateFields(ctx context.Context, channelID int64, updates map[string]interface{}) error
 	SetArchived(ctx context.Context, channelID int64, archived bool) error
 	GetByTicketID(ctx context.Context, ticketID int64) ([]*Channel, error)
@@ -44,6 +46,10 @@ type MessageStore interface {
 // MemberStore defines membership and read-state operations.
 type MemberStore interface {
 	UpsertMember(ctx context.Context, channelID, userID int64) error
+	AddMemberWithRole(ctx context.Context, channelID, userID int64, role string) error
+	IsMember(ctx context.Context, channelID, userID int64) (bool, error)
+	GetMemberRole(ctx context.Context, channelID, userID int64) (string, error)
+	RemoveMember(ctx context.Context, channelID, userID int64) error
 	GetMembers(ctx context.Context, channelID int64, limit, offset int) ([]Member, int64, error)
 	GetMemberUserIDs(ctx context.Context, channelID int64) ([]int64, error)
 	GetNonMutedMemberUserIDs(ctx context.Context, channelID int64) ([]int64, error)

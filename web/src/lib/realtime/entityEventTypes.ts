@@ -70,6 +70,14 @@ export interface PodInitProgressData {
 }
 
 /**
+ * Pod perpetual mode changed event payload
+ */
+export interface PodPerpetualChangedData {
+  pod_key: string;
+  perpetual: boolean;
+}
+
+/**
  * Channel message event payload
  */
 export interface ChannelMessageData {
@@ -100,4 +108,13 @@ export interface ChannelMessageEditedData {
 export interface ChannelMessageDeletedData {
   id: number;
   channel_id: number;
+}
+
+/**
+ * Channel member changed event payload
+ */
+export interface ChannelMemberChangedData {
+  channel_id: number;
+  user_id: number;
+  role?: string;
 }

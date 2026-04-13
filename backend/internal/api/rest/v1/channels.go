@@ -2,7 +2,6 @@ package v1
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	channelDomain "github.com/anthropics/agentsmesh/backend/internal/domain/channel"
@@ -57,7 +56,7 @@ func (h *ChannelHandler) ListChannels(c *gin.Context) {
 		ticketID = &t.ID
 	}
 
-	channels, total, err := h.channelService.ListChannels(ctx, tenant.OrganizationID, &channelDomain.ChannelListFilter{
+	channels, total, err := h.channelService.ListChannels(ctx, tenant.OrganizationID, tenant.UserID, &channelDomain.ChannelListFilter{
 		IncludeArchived: req.IncludeArchived,
 		RepositoryID:    req.RepositoryID,
 		TicketID:        ticketID,
@@ -79,6 +78,8 @@ type CreateChannelRequest struct {
 	Document     string  `json:"document"`
 	RepositoryID *int64  `json:"repository_id"`
 	TicketSlug   *string `json:"ticket_slug"`
+	Visibility   string  `json:"visibility"`
+	MemberIDs    []int64 `json:"member_ids"`
 }
 
 // CreateChannel creates a new channel
@@ -109,12 +110,14 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 	}
 
 	ch, err := h.channelService.CreateChannel(c.Request.Context(), &channel.CreateChannelRequest{
-		OrganizationID:  tenant.OrganizationID,
-		Name:            req.Name,
-		Description:     desc,
-		RepositoryID:    req.RepositoryID,
-		TicketID:        ticketID,
-		CreatedByUserID: &tenant.UserID,
+		OrganizationID:   tenant.OrganizationID,
+		Name:             req.Name,
+		Description:      desc,
+		RepositoryID:     req.RepositoryID,
+		TicketID:         ticketID,
+		CreatedByUserID:  &tenant.UserID,
+		Visibility:       req.Visibility,
+		InitialMemberIDs: req.MemberIDs,
 	})
 	if err != nil {
 		if err == channel.ErrDuplicateName {
@@ -125,31 +128,29 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"channel": ch})
+	// Return channel with membership info for the creator
+	enriched, err := h.channelService.GetChannelForUser(c.Request.Context(), ch.ID, tenant.UserID)
+	if err != nil {
+		c.JSON(http.StatusCreated, gin.H{"channel": ch})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"channel": enriched})
 }
 
 // GetChannel returns channel by ID
 // GET /api/v1/organizations/:slug/channels/:id
 func (h *ChannelHandler) GetChannel(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
-
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
 	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
+	enriched, err := h.channelService.GetChannelForUser(c.Request.Context(), ch.ID, tenant.UserID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"channel": ch})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"channel": ch})
+	c.JSON(http.StatusOK, gin.H{"channel": enriched})
 }
 
 // UpdateChannelRequest represents channel update request
@@ -162,27 +163,14 @@ type UpdateChannelRequest struct {
 // UpdateChannel updates a channel
 // PUT /api/v1/organizations/:slug/channels/:id
 func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		apierr.InvalidInput(c, "Invalid channel ID")
+	ch, ok := h.requireChannelAccess(c)
+	if !ok {
 		return
 	}
 
 	var req UpdateChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		apierr.ValidationError(c, err.Error())
-		return
-	}
-
-	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
-	if err != nil {
-		apierr.ResourceNotFound(c, "Channel not found")
-		return
-	}
-
-	tenant := middleware.GetTenant(c)
-	if ch.OrganizationID != tenant.OrganizationID {
-		apierr.ForbiddenAccess(c)
 		return
 	}
 
@@ -197,11 +185,17 @@ func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
 		document = &req.Document
 	}
 
-	ch, err = h.channelService.UpdateChannel(c.Request.Context(), channelID, name, description, document)
+	updated, err := h.channelService.UpdateChannel(c.Request.Context(), ch.ID, name, description, document)
 	if err != nil {
 		apierr.InternalError(c, "Failed to update channel")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"channel": ch})
+	tenant := middleware.GetTenant(c)
+	enriched, err := h.channelService.GetChannelForUser(c.Request.Context(), updated.ID, tenant.UserID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"channel": updated})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"channel": enriched})
 }

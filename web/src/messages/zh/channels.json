@@ -20,7 +20,24 @@
       "description": "描述",
       "descriptionPlaceholder": "这个频道用于什么？",
       "descriptionHint": "可选",
+      "visibility": "可见性",
       "failed": "创建频道失败"
+    },
+    "visibility": {
+      "public": "公开",
+      "private": "私有"
+    },
+    "actions": {
+      "join": "加入",
+      "leave": "离开",
+      "joinToParticipate": "加入此频道以查看消息并参与讨论"
+    },
+    "members": {
+      "title": "频道成员",
+      "current": "成员",
+      "available": "添加成员",
+      "searchPlaceholder": "搜索成员...",
+      "empty": "暂无成员"
     },
     "messages": {
       "today": "今天",

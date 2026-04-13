@@ -67,6 +67,7 @@ func main() {
 	podEventPublisher := agentpod.NewEventBusPublisher(eventBus, appLogger.Logger)
 	services.pod.SetEventPublisher(podEventPublisher)
 	services.channel.SetEventBus(eventBus)
+	services.channel.SetPodCreatorResolver(services.pod)
 
 	// Create notification relay (Hub + Redis cross-instance push)
 	notifRelay := websocket.NewNotificationRelay(hub, redisClient, appLogger.Logger)
@@ -83,8 +84,9 @@ func main() {
 	userLookup := infra.NewChannelUserLookup(db)
 	podLookup := infra.NewChannelPodLookup(db)
 	channelUserNames := infra.NewChannelUserNameResolver(db)
+	services.channel.SetUserLookup(userLookup)
 	services.channel.AddPostSendHook(channelService.NewMentionValidatorHook(userLookup, podLookup, channelRepo))
-	services.channel.AddPostSendHook(channelService.NewEventPublishHook(eventBus, channelUserNames))
+	services.channel.AddPostSendHook(channelService.NewEventPublishHook(eventBus, channelUserNames, services.channel))
 	services.channel.AddPostSendHook(channelService.NewNotificationHook(notifDispatcher, channelUserNames))
 	slog.Info("Channel PostSendHooks registered")
 
@@ -99,7 +101,7 @@ func main() {
 	}
 
 	// Initialize Runner components
-	runnerConnMgr, podCoordinator, podRouter, heartbeatBatcher, sandboxQuerySvc := initializeRunnerComponents(services.podRepo, services.runnerRepo, redisClient, appLogger, services.agentSvc)
+	runnerConnMgr, podCoordinator, podRouter, heartbeatBatcher, sandboxQuerySvc := initializeRunnerComponents(services.pod, services.runnerRepo, redisClient, appLogger, services.agentSvc)
 
 	// Wire AutopilotRepository into PodCoordinator for autopilot event handling
 	podCoordinator.SetAutopilotRepo(services.autopilotRepo)

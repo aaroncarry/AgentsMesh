@@ -4,19 +4,23 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"github.com/anthropics/agentsmesh/backend/internal/service/billing"
 	"github.com/anthropics/agentsmesh/backend/internal/service/repository"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/policy"
 	"github.com/gin-gonic/gin"
 )
 
-// ListRepositories lists configured repositories
+// ListRepositories lists configured repositories visible to the requesting user
 // GET /api/v1/organizations/:slug/repositories
 func (h *RepositoryHandler) ListRepositories(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	repos, err := h.repositoryService.ListByOrganization(c.Request.Context(), tenant.OrganizationID)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	filter := policy.RepositoryPolicy.ListFilter(sub)
+	repos, err := h.repositoryService.ListByOrganizationForUser(c.Request.Context(), tenant.OrganizationID, filter.VisibilityUserID)
 	if err != nil {
 		apierr.InternalError(c, "Failed to list repositories")
 		return
@@ -36,9 +40,9 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 
 	tenant := middleware.GetTenant(c)
 	userID := middleware.GetUserID(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
 
-	// Check admin permission
-	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+	if !policy.AllowAdmin(sub, tenant.OrganizationID) {
 		apierr.ForbiddenAdmin(c)
 		return
 	}
@@ -119,7 +123,10 @@ func (h *RepositoryHandler) GetRepository(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
-	if repo.OrganizationID != tenant.OrganizationID {
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
+	if !policy.RepositoryPolicy.AllowRead(sub, h.repoResourceWithGrants(
+		c.Request.Context(), repoID, repo.OrganizationID, repo.ImportedByUserID, repo.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -143,9 +150,9 @@ func (h *RepositoryHandler) UpdateRepository(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
 
-	// Check admin permission
-	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+	if !policy.AllowAdmin(sub, tenant.OrganizationID) {
 		apierr.ForbiddenAdmin(c)
 		return
 	}
@@ -156,7 +163,9 @@ func (h *RepositoryHandler) UpdateRepository(c *gin.Context) {
 		return
 	}
 
-	if repo.OrganizationID != tenant.OrganizationID {
+	if !policy.RepositoryPolicy.AllowWrite(sub, policy.VisibleResource(
+		repo.OrganizationID, repo.ImportedByUserID, repo.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -200,9 +209,9 @@ func (h *RepositoryHandler) DeleteRepository(c *gin.Context) {
 	}
 
 	tenant := middleware.GetTenant(c)
+	sub := policy.NewSubject(tenant.OrganizationID, tenant.UserID, tenant.UserRole)
 
-	// Check admin permission
-	if tenant.UserRole != "owner" && tenant.UserRole != "admin" {
+	if !policy.AllowAdmin(sub, tenant.OrganizationID) {
 		apierr.ForbiddenAdmin(c)
 		return
 	}
@@ -213,7 +222,9 @@ func (h *RepositoryHandler) DeleteRepository(c *gin.Context) {
 		return
 	}
 
-	if repo.OrganizationID != tenant.OrganizationID {
+	if !policy.RepositoryPolicy.AllowWrite(sub, policy.VisibleResource(
+		repo.OrganizationID, repo.ImportedByUserID, repo.Visibility,
+	)) {
 		apierr.ForbiddenAccess(c)
 		return
 	}
@@ -221,6 +232,10 @@ func (h *RepositoryHandler) DeleteRepository(c *gin.Context) {
 	if err := h.repositoryService.Delete(c.Request.Context(), repoID); err != nil {
 		apierr.InternalError(c, "Failed to delete repository")
 		return
+	}
+
+	if h.grantService != nil {
+		_ = h.grantService.CleanupByResource(c.Request.Context(), grant.TypeRepository, grant.IntResourceID(repoID))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Repository deleted"})

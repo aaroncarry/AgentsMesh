@@ -32,16 +32,28 @@ func (s *HubEventSubscriber) Subscribe(eb *eventbus.EventBus) {
 }
 
 func (s *HubEventSubscriber) handleEntityEvent(event *eventbus.Event) {
-	data, err := json.Marshal(event)
+	// Build a client-safe copy without infrastructure fields
+	clientEvent := *event
+	clientEvent.TargetUserIDs = nil
+	clientEvent.SourceInstanceID = ""
+	data, err := json.Marshal(&clientEvent)
 	if err != nil {
 		s.logger.Error("failed to marshal entity event", "error", err, "type", event.Type)
+		return
+	}
+	if len(event.TargetUserIDs) > 0 {
+		for _, uid := range event.TargetUserIDs {
+			s.hub.SendToUser(uid, data)
+		}
 		return
 	}
 	s.hub.BroadcastToOrg(event.OrganizationID, data)
 }
 
 func (s *HubEventSubscriber) handleSystemEvent(event *eventbus.Event) {
-	data, err := json.Marshal(event)
+	clientEvent := *event
+	clientEvent.SourceInstanceID = ""
+	data, err := json.Marshal(&clientEvent)
 	if err != nil {
 		s.logger.Error("failed to marshal system event", "error", err, "type", event.Type)
 		return

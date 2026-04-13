@@ -36,7 +36,7 @@ func (s *Service) EditMessage(ctx context.Context, channelID, messageID, senderU
 		return nil, err
 	}
 
-	s.publishMessageEvent(ch.OrganizationID, eventbus.EventChannelMessageEdited, map[string]interface{}{
+	s.publishChannelEvent(ch.OrganizationID, ch.ID, eventbus.EventChannelMessageEdited, map[string]interface{}{
 		"channel_id": channelID,
 		"id":         messageID,
 		"content":    newContent,
@@ -71,7 +71,7 @@ func (s *Service) DeleteMessage(ctx context.Context, channelID, messageID, sende
 		return err
 	}
 
-	s.publishMessageEvent(ch.OrganizationID, eventbus.EventChannelMessageDeleted, map[string]interface{}{
+	s.publishChannelEvent(ch.OrganizationID, ch.ID, eventbus.EventChannelMessageDeleted, map[string]interface{}{
 		"channel_id": channelID,
 		"id":         messageID,
 	})
@@ -79,7 +79,7 @@ func (s *Service) DeleteMessage(ctx context.Context, channelID, messageID, sende
 	return nil
 }
 
-func (s *Service) publishMessageEvent(orgID int64, eventType eventbus.EventType, data map[string]interface{}) {
+func (s *Service) publishChannelEvent(orgID, channelID int64, eventType eventbus.EventType, data map[string]interface{}) {
 	if s.eventBus == nil {
 		return
 	}
@@ -88,7 +88,10 @@ func (s *Service) publishMessageEvent(orgID int64, eventType eventbus.EventType,
 		slog.Error("failed to marshal message event", "error", err)
 		return
 	}
-	channelID, _ := data["channel_id"].(int64)
+
+	var targetUserIDs []int64
+	targetUserIDs, _ = s.repo.GetMemberUserIDs(context.Background(), channelID)
+
 	ctx := context.Background()
 	s.eventBus.Publish(ctx, &eventbus.Event{
 		Type:           eventType,
@@ -98,5 +101,6 @@ func (s *Service) publishMessageEvent(orgID int64, eventType eventbus.EventType,
 		EntityID:       fmt.Sprintf("%d", channelID),
 		Data:           payload,
 		Timestamp:      time.Now().UnixMilli(),
+		TargetUserIDs:  targetUserIDs,
 	})
 }
