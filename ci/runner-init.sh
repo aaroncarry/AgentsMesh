@@ -24,6 +24,7 @@ if [ -n "${GIT_TOKEN}" ]; then
     
     # 直接使用硬编码的域名 git.ringcentral.com
     git config --global url."https://${GIT_TOKEN}@git.ringcentral.com/".insteadOf "https://git.ringcentral.com/"
+    git config --global url."https://${GIT_TOKEN}@git.ringcentral.com/".insteadOf "git@git.ringcentral.com:"
     
     # 配置 SSH 免交互（预防万一有脚本走 SSH）
     mkdir -p ~/.ssh
