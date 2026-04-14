@@ -116,7 +116,7 @@ type mockRunnerSelector struct {
 	err    error
 }
 
-func (m *mockRunnerSelector) SelectAvailableRunnerForAgent(_ context.Context, _ int64, _ int64, _ string) (*runnerDomain.Runner, error) {
+func (m *mockRunnerSelector) SelectRunnerWithAffinity(_ context.Context, _ int64, _ int64, _ string, _ *runnerDomain.AffinityHints, _ map[int64]int) (*runnerDomain.Runner, error) {
 	return m.runner, m.err
 }
 

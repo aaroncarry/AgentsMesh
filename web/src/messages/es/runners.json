@@ -133,7 +133,9 @@
       "save": "Guardar Cambios",
       "visibilityLabel": "Visibilidad",
       "visibilityOrganization": "Visible para todos los miembros de la organización",
-      "visibilityPrivate": "Solo visible para mí"
+      "visibilityPrivate": "Solo visible para mí",
+      "tagsLabel": "Etiquetas",
+      "tagsPlaceholder": "Añadir etiqueta y pulsar Enter..."
     },
     "detail": {
       "notFound": "Runner not found",

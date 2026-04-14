@@ -86,6 +86,15 @@ export function RunnerCardList({
               </span>
             </div>
           </div>
+          {runner.tags && runner.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {runner.tags.map((tag) => (
+                <span key={tag} className="px-1.5 py-0.5 text-[10px] rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
             <Button size="sm" variant="outline" className="flex-1" onClick={() => onConfigure(runner)}>
               <Settings2 className="w-4 h-4 mr-1" />{t("runners.page.configure")}

@@ -101,7 +101,9 @@
       "save": "Save Changes",
       "visibilityLabel": "Visibility",
       "visibilityOrganization": "Visible to all organization members",
-      "visibilityPrivate": "Only visible to me"
+      "visibilityPrivate": "Only visible to me",
+      "tagsLabel": "Tags",
+      "tagsPlaceholder": "Add a tag and press Enter..."
     },
     "detail": {
       "notFound": "Runner not found",
@@ -131,6 +133,7 @@
       "memory": "Memory",
       "os": "Operating System",
       "availableAgents": "Available Agents",
+      "tags": "Tags",
       "relayConnections": "Relay Connections",
       "connectedSince": "Connected Since",
       "upgradeAvailable": "v{version} available",

@@ -92,10 +92,11 @@ func WithGrantServiceForRunner(gs *grantservice.Service) RunnerHandlerOption {
 
 // UpdateRunnerRequest represents runner update request
 type UpdateRunnerRequest struct {
-	Description       *string `json:"description"`
-	MaxConcurrentPods *int    `json:"max_concurrent_pods"`
-	IsEnabled         *bool   `json:"is_enabled"`
-	Visibility        *string `json:"visibility"`
+	Description       *string  `json:"description"`
+	MaxConcurrentPods *int     `json:"max_concurrent_pods"`
+	IsEnabled         *bool    `json:"is_enabled"`
+	Visibility        *string  `json:"visibility"`
+	Tags              []string `json:"tags"`
 }
 
 // ListRunnerPodsRequest represents request for listing runner pods

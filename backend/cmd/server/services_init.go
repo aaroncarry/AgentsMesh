@@ -121,6 +121,7 @@ func initializeServices(cfg *config.Config, db *gorm.DB, redisClient *redis.Clie
 	orgSvc := organization.NewServiceWithBilling(orgRepo, billingSvc)
 	runnerRepo := infra.NewRunnerRepository(db)
 	runnerSvc := runner.NewService(runnerRepo, billingSvc)
+	runnerSvc.SetGrantQuerier(infra.NewGrantRepository(db))
 	podRepo := infra.NewPodRepository(db)
 	podSvc := agentpod.NewPodService(podRepo)
 	autopilotRepo := infra.NewAutopilotRepository(db)

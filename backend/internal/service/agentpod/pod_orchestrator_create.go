@@ -32,7 +32,13 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 			if o.runnerSelector == nil || o.agentResolver == nil {
 				return nil, ErrMissingRunnerID
 			}
-			selectedRunner, err := o.runnerSelector.SelectAvailableRunnerForAgent(ctx, req.OrganizationID, req.UserID, req.AgentSlug)
+
+			hints := o.buildAffinityHints(ctx, req)
+			repoHistory := o.fetchRepoHistory(ctx, req.OrganizationID, hints)
+
+			selectedRunner, err := o.runnerSelector.SelectRunnerWithAffinity(
+				ctx, req.OrganizationID, req.UserID, req.AgentSlug, hints, repoHistory,
+			)
 			if err != nil {
 				slog.Warn("runner auto-selection failed", "org_id", req.OrganizationID, "agent_slug", req.AgentSlug, "error", err)
 				return nil, ErrNoAvailableRunner
@@ -192,29 +198,4 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 	}
 
 	return &OrchestrateCreatePodResult{Pod: pod}, nil
-}
-
-// --- Effective value helpers ---
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func firstNonEmptyPtr(resolved string, input *string) *string {
-	if resolved != "" {
-		return &resolved
-	}
-	return input
-}
-
-func firstNonNilInt64(resolved *int64, input *int64) *int64 {
-	if resolved != nil {
-		return resolved
-	}
-	return input
 }

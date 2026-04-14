@@ -195,6 +195,25 @@ export function RunnerOverviewTab({ runner, relayConnections, latestRunnerVersio
         </div>
       )}
 
+      {/* Tags */}
+      {runner.tags && runner.tags.length > 0 && (
+        <div className="bg-card rounded-lg border border-border p-6 md:col-span-2">
+          <h3 className="text-lg font-medium text-foreground mb-4">
+            {t("runners.detail.tags") || "Tags"}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {runner.tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {relayConnections && relayConnections.length > 0 && (
         <RelayConnectionsCard connections={relayConnections} />
       )}

@@ -93,7 +93,7 @@ type TicketServiceForOrchestrator interface {
 }
 
 type RunnerSelectorForOrchestrator interface {
-	SelectAvailableRunnerForAgent(ctx context.Context, orgID int64, userID int64, agentSlug string) (*runnerDomain.Runner, error)
+	SelectRunnerWithAffinity(ctx context.Context, orgID int64, userID int64, agentSlug string, hints *runnerDomain.AffinityHints, repoHistory map[int64]int) (*runnerDomain.Runner, error)
 }
 
 type RunnerQueryForOrchestrator interface {
@@ -122,6 +122,7 @@ type PodOrchestratorDeps struct {
 	AgentResolver   AgentResolverForOrchestrator
 	RunnerQuery     RunnerQueryForOrchestrator
 	UserConfigQuery UserConfigQueryForOrchestrator
+	PodRepo         podDomain.PodRepository
 }
 
 // PodOrchestrator encapsulates the complete Pod creation workflow.
@@ -137,6 +138,7 @@ type PodOrchestrator struct {
 	agentResolver   AgentResolverForOrchestrator
 	runnerQuery     RunnerQueryForOrchestrator
 	userConfigQuery UserConfigQueryForOrchestrator
+	podRepo         podDomain.PodRepository
 }
 
 // agentfileResolved carries values extracted from AgentFile Layer processing.
@@ -164,5 +166,6 @@ func NewPodOrchestrator(deps *PodOrchestratorDeps) *PodOrchestrator {
 		agentResolver:   deps.AgentResolver,
 		runnerQuery:     deps.RunnerQuery,
 		userConfigQuery: deps.UserConfigQuery,
+		podRepo:         deps.PodRepo,
 	}
 }

@@ -101,7 +101,9 @@
       "save": "保存更改",
       "visibilityLabel": "可见范围",
       "visibilityOrganization": "组织内所有成员可见",
-      "visibilityPrivate": "仅自己可见"
+      "visibilityPrivate": "仅自己可见",
+      "tagsLabel": "标签",
+      "tagsPlaceholder": "输入标签后按 Enter 添加..."
     },
     "detail": {
       "notFound": "Runner 未找到",
@@ -131,6 +133,7 @@
       "memory": "内存",
       "os": "操作系统",
       "availableAgents": "可用智能体",
+      "tags": "标签",
       "relayConnections": "Relay 连接",
       "connectedSince": "连接时长",
       "upgradeAvailable": "v{version} 可用",
