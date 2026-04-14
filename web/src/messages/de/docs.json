@@ -1677,7 +1677,25 @@
           "item1": "Führe den Startbefehl aus, um den Runner-Prozess zu starten",
           "item2": "Der Runner verbindet sich über gRPC mit mTLS zum AgentsMesh-Backend",
           "item3": "Er meldet verfügbare KI-Agenten-CLIs (Claude Code, Codex, Gemini usw.), die im PATH gefunden wurden",
-          "tip": "Für Produktionsumgebungen installiere den Runner als Systemdienst, damit er beim Hochfahren automatisch startet."
+          "tip": "Für Produktionsumgebungen installiere den Runner als Systemdienst, damit er beim Hochfahren automatisch startet.",
+          "background": {
+            "title": "Im Hintergrund ausführen",
+            "description": "`agentsmesh-runner run` bleibt an dein Terminal gebunden. Wähle einen Hintergrundmodus, wenn der Runner das Schließen der Shell überleben soll:",
+            "service": {
+              "title": "Systemdienst (empfohlen)",
+              "description": "Registriere den Runner bei systemd / launchd / Windows Service Manager — startet beim Booten, startet bei Fehlern neu und schreibt Logs in das OS-Journal.",
+              "startLabel": "Installieren und starten",
+              "stopLabel": "Stoppen oder deinstallieren",
+              "note": "Unter Linux gehen Logs an journalctl -u agentsmesh-runner. Unter macOS nach ~/Library/Logs/agentsmesh-runner.log. Verwende --config /path/to/config.yaml, wenn deine Konfiguration nicht am Standardpfad liegt."
+            },
+            "nohup": {
+              "title": "Shell-Hintergrund (nohup)",
+              "description": "Schnell und ohne Dienst — forke den Prozess mit nohup und speichere die PID, um ihn später stoppen zu können. Gut für Dev-Maschinen und kurzlebige Hosts.",
+              "startLabel": "Starten und Logs verfolgen",
+              "stopLabel": "Prozess stoppen",
+              "note": "nohup startet bei Absturz oder Neustart nicht automatisch neu. Für länger laufende Setups bevorzuge die oben genannte Systemdienst-Option."
+            }
+          }
         },
         "step4": {
           "title": "KI-Agenten-CLIs installieren",
@@ -1694,6 +1712,33 @@
           "item2": "Finde deinen Runner in der Liste — er sollte einen grünen Online-Status anzeigen",
           "item3": "Überprüfe, ob die verfügbaren Agenten korrekt aufgelistet sind",
           "item4": "Erstelle einen Test-Pod, um zu bestätigen, dass alles funktioniert"
+        },
+        "updating": {
+          "title": "Runner aktuell halten",
+          "description": "Neue Runner-Releases liefern Bugfixes, Sicherheitsupdates und Protokoll-Verbesserungen. Wähle die Update-Methode, die zu deinem Deployment passt:",
+          "ui": {
+            "title": "Über das Web-Dashboard",
+            "description": "Verbundene Runner können remote aktualisiert werden, ohne den Host anfassen zu müssen.",
+            "step1": "Öffne Einstellungen → Runner und suche die entsprechende Runner-Karte.",
+            "step2": "Klicke auf das Upgrade-Badge, sobald eine neue Version verfügbar ist.",
+            "step3": "Die Plattform sendet einen signierten Upgrade-Befehl über gRPC; der Runner lädt die Binary herunter, tauscht sie aus und startet automatisch neu.",
+            "note": "Der Runner muss online sein und Auto-Updates erlauben. Aktive Pods werden sauber beendet, bevor der Neustart erfolgt."
+          },
+          "command": {
+            "title": "Mit dem update-Befehl",
+            "description": "SSH oder Shell in den Runner-Host und lass den Runner sich selbst aus GitHub Releases aktualisieren.",
+            "hintInteractive": "Interaktiver Prompt",
+            "hintCheck": "Nur prüfen, nicht installieren",
+            "hintSilent": "Bestätigung überspringen",
+            "hintVersion": "Auf eine bestimmte Version fixieren",
+            "note": "Vor dem Ersetzen wird automatisch ein Backup der Binary angelegt. Schlägt das Update fehl, rollt der Runner automatisch zurück."
+          },
+          "reinstall": {
+            "title": "Neu installieren mit install.sh",
+            "description": "Wenn der Self-Update-Pfad blockiert ist (Air-Gap-Host, ungewöhnliche Distribution oder du willst eine saubere Binary), führe den offiziellen Installer erneut aus.",
+            "restartLabel": "Nach der Installation neu starten",
+            "note": "Die Neuinstallation behält ~/.agentsmesh/config.yaml und die mTLS-Zertifikate — du musst dich nicht neu registrieren."
+          }
         },
         "troubleshooting": {
           "title": "Fehlerbehebung",

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useServerUrl } from "@/hooks/useServerUrl";
 import { useTranslations } from "next-intl";
 import { DocNavigation } from "@/components/docs/DocNavigation";
+import { UpdateMethods } from "./_sections/UpdateMethods";
+import { BackgroundModes } from "./_sections/BackgroundModes";
 
 function StepHeader({
   step,
@@ -147,6 +149,7 @@ export default function RunnerSetupTutorialPage() {
           <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-muted-foreground">
             {t("docs.tutorials.runnerSetup.step3.tip")}
           </div>
+          <BackgroundModes />
         </div>
       </section>
 
@@ -190,6 +193,21 @@ export default function RunnerSetupTutorialPage() {
             <li>{t("docs.tutorials.runnerSetup.step5.item4")}</li>
           </ol>
         </div>
+      </section>
+
+      {/* Step 6: Keep Up to Date */}
+      <section className="mb-8">
+        <div className="mb-6">
+          <StepHeader
+            step={6}
+            titleKey="docs.tutorials.runnerSetup.updating.title"
+            t={t}
+          />
+          <p className="text-muted-foreground mb-4">
+            {t("docs.tutorials.runnerSetup.updating.description")}
+          </p>
+        </div>
+        <UpdateMethods />
       </section>
 
       {/* Troubleshooting */}
