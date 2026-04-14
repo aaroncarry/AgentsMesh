@@ -66,46 +66,28 @@ export function AgentLogos() {
   const t = useTranslations();
 
   return (
-    <section className="py-12 border-y border-border bg-muted/50">
+    <section className="py-16 bg-[var(--azure-bg-deeper)]">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-sm text-muted-foreground mb-8">
+        <p className="text-center font-headline text-xs uppercase tracking-[0.25em] text-[var(--azure-text-muted)] mb-10">
           {t("landing.agentLogos.title")}
         </p>
 
         <div className="relative overflow-hidden">
-          {/* Gradient masks */}
-          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-background to-transparent z-10" />
-          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-background to-transparent z-10" />
+          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[var(--azure-bg-deeper)] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[var(--azure-bg-deeper)] to-transparent z-10 pointer-events-none" />
 
-          {/* Scrolling container */}
-          <div className="flex animate-scroll gap-8">
-            {/* First set */}
-            {agentConfigs.map((agent, index) => (
+          <div className="flex animate-scroll gap-6">
+            {[...agentConfigs, ...agentConfigs].map((agent, index) => (
               <div
-                key={`first-${index}`}
-                className="flex-shrink-0 flex items-center gap-4 px-6 py-4 bg-secondary/30 rounded-xl border border-border hover:border-primary/50 transition-colors cursor-pointer group"
+                key={index}
+                className="flex-shrink-0 flex items-center gap-4 px-6 py-4 azure-glass rounded-2xl border border-white/5 hover:border-[var(--azure-cyan)]/30 transition-all cursor-default group"
               >
-                <div className="text-muted-foreground group-hover:text-primary transition-colors">
+                <div className="text-[var(--azure-text-muted)] group-hover:text-[var(--azure-cyan)] transition-colors">
                   {agent.icon}
                 </div>
                 <div>
-                  <div className="font-semibold text-sm">{agent.name}</div>
-                  <div className="text-xs text-muted-foreground">{t(agent.descriptionKey)}</div>
-                </div>
-              </div>
-            ))}
-            {/* Duplicate for seamless loop */}
-            {agentConfigs.map((agent, index) => (
-              <div
-                key={`second-${index}`}
-                className="flex-shrink-0 flex items-center gap-4 px-6 py-4 bg-secondary/30 rounded-xl border border-border hover:border-primary/50 transition-colors cursor-pointer group"
-              >
-                <div className="text-muted-foreground group-hover:text-primary transition-colors">
-                  {agent.icon}
-                </div>
-                <div>
-                  <div className="font-semibold text-sm">{agent.name}</div>
-                  <div className="text-xs text-muted-foreground">{t(agent.descriptionKey)}</div>
+                  <div className="font-headline font-semibold text-sm text-foreground">{agent.name}</div>
+                  <div className="text-xs text-[var(--azure-text-muted)]">{t(agent.descriptionKey)}</div>
                 </div>
               </div>
             ))}

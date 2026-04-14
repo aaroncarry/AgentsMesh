@@ -1,56 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
 interface HeroContentProps {
   t: (key: string) => string;
+  onWatchDemo: () => void;
 }
 
-/**
- * HeroContent - Renders the hero section text content (centered)
- */
-export function HeroContent({ t }: HeroContentProps) {
+export function HeroContent({ t, onWatchDemo }: HeroContentProps) {
   return (
-    <div className="text-center">
-      {/* Badge */}
-      <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-12 transition-all hover:bg-primary/15 hover:border-primary/30 animate-border-glow backdrop-blur-sm">
+    <div className="text-center max-w-5xl mx-auto">
+      <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--azure-bg-high)] border border-[var(--azure-outline-variant)]/40 mb-10">
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--azure-mint)] opacity-75 animate-ping" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--azure-mint)]" />
         </span>
-        {t("landing.hero.badge")}
+        <span className="font-headline text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-[var(--azure-text-muted)]">
+          {t("landing.hero.badge")}
+        </span>
       </div>
 
-      {/* Headline */}
-      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] mb-8">
+      <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[0.95] mb-8">
         <span className="text-foreground">{t("landing.hero.slogan1")}</span>
-        <br className="hidden sm:block" />
-        <span className="sm:mt-2 inline-block bg-gradient-to-r from-primary via-primary/80 to-primary/50 bg-clip-text text-transparent">{t("landing.hero.slogan2")}</span>
+        <br />
+        <span className="azure-gradient-text">{t("landing.hero.slogan2")}</span>
       </h1>
 
-      {/* Description */}
-      <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground/80 mb-14 max-w-2xl mx-auto leading-relaxed">
+      <p className="text-[var(--azure-text-muted)] text-lg md:text-xl max-w-2xl mx-auto mb-12 font-light leading-relaxed">
         {t("landing.hero.description")}
       </p>
 
-      {/* CTA Buttons */}
-      <div className="flex flex-col sm:flex-row gap-5 justify-center">
-        <Link href="/register">
-          <Button size="lg" className="relative w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-10 h-14 rounded-full shadow-lg shadow-primary/25 transition-all hover:shadow-primary/50 hover:shadow-xl hover:-translate-y-0.5 overflow-hidden group">
-            <span className="relative z-10">{t("landing.hero.getStartedFree")}</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-          </Button>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <Link href="/register" className="w-full sm:w-auto">
+          <button className="w-full sm:w-auto px-10 py-4 azure-gradient-bg azure-cta-glow rounded-full font-headline text-xs sm:text-sm font-black uppercase tracking-[0.18em] transition-all transform hover:-translate-y-0.5">
+            {t("landing.hero.getStartedFree")}
+          </button>
         </Link>
-        <Link href="/login">
-          <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg px-10 h-14 rounded-full hover:bg-secondary/50 transition-all hover:-translate-y-0.5 border-primary/20 hover:border-primary/40">
-            {t("landing.hero.signInConsole")}
-          </Button>
-        </Link>
+        <button
+          type="button"
+          onClick={onWatchDemo}
+          className="w-full sm:w-auto px-10 py-4 border border-[var(--azure-outline-variant)] hover:border-[var(--azure-cyan)]/60 text-foreground rounded-full font-headline text-xs sm:text-sm font-bold uppercase tracking-[0.18em] transition-all inline-flex items-center justify-center gap-2.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          {t("landing.hero.viewDocs")}
+        </button>
       </div>
-      <p className="mt-4 text-sm text-muted-foreground/60">
+
+      <p className="mt-6 text-sm text-[var(--azure-text-muted)]/70">
         {t("landing.hero.enterpriseNote")}{" "}
-        <Link href="/demo" className="underline hover:text-primary transition-colors">
+        <Link href="/demo" className="underline underline-offset-4 hover:text-[var(--azure-cyan)] transition-colors">
           {t("landing.hero.contactUs")}
         </Link>
       </p>

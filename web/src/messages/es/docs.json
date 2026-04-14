@@ -1677,7 +1677,25 @@
           "item1": "Ejecuta el comando de inicio para comenzar el proceso del Runner",
           "item2": "El Runner se conecta al backend de AgentsMesh mediante gRPC con mTLS",
           "item3": "Reporta las CLIs de agentes IA disponibles (Claude Code, Codex, Gemini, etc.) encontradas en el PATH",
-          "tip": "Para despliegues en producción, instala el Runner como servicio del sistema para que inicie automáticamente al arrancar."
+          "tip": "Para despliegues en producción, instala el Runner como servicio del sistema para que inicie automáticamente al arrancar.",
+          "background": {
+            "title": "Ejecutar en segundo plano",
+            "description": "`agentsmesh-runner run` permanece atado a tu terminal. Elige un modo en segundo plano si quieres que el Runner sobreviva al cierre del shell:",
+            "service": {
+              "title": "Servicio del sistema (recomendado)",
+              "description": "Registra el Runner con systemd / launchd / Windows Service Manager — arranca al encender, reinicia ante fallos y escribe los logs en el journal del SO.",
+              "startLabel": "Instalar e iniciar",
+              "stopLabel": "Detener o desinstalar",
+              "note": "En Linux, los logs van a journalctl -u agentsmesh-runner. En macOS, ~/Library/Logs/agentsmesh-runner.log. Usa --config /path/to/config.yaml si tu configuración no está en la ruta predeterminada."
+            },
+            "nohup": {
+              "title": "Segundo plano del shell (nohup)",
+              "description": "Rápido y sin servicio — separa el proceso con nohup y guarda su PID para poder detenerlo más tarde. Ideal para máquinas de desarrollo y hosts efímeros.",
+              "startLabel": "Iniciar y seguir los logs",
+              "stopLabel": "Detener el proceso",
+              "note": "nohup no se reinicia automáticamente ante caídas o reinicios. Para ejecuciones prolongadas, prefiere la opción de servicio del sistema indicada arriba."
+            }
+          }
         },
         "step4": {
           "title": "Instalar CLIs de Agentes IA",
@@ -1694,6 +1712,33 @@
           "item2": "Busca tu Runner en la lista — debería mostrar un estado verde En Línea",
           "item3": "Verifica que los agentes disponibles aparecen correctamente",
           "item4": "Intenta crear un Pod de prueba para confirmar que todo funciona"
+        },
+        "updating": {
+          "title": "Mantener el Runner Actualizado",
+          "description": "Las nuevas versiones del Runner traen correcciones de errores, parches de seguridad y mejoras de protocolo. Elige el método de actualización que se ajuste a tu despliegue:",
+          "ui": {
+            "title": "Desde el Panel Web",
+            "description": "Para Runners conectados, activa una actualización de forma remota sin tocar la máquina host.",
+            "step1": "Abre Configuración → Runners y localiza la tarjeta de tu Runner.",
+            "step2": "Haz clic en la insignia Actualizar cuando haya una nueva versión disponible.",
+            "step3": "La plataforma envía un comando de actualización firmado por gRPC; el Runner descarga, reemplaza su binario y se reinicia automáticamente.",
+            "note": "El Runner debe estar en línea y con autoactualización permitida. Los Pods activos terminan limpiamente antes del reinicio."
+          },
+          "command": {
+            "title": "Con el Comando update",
+            "description": "Conéctate por SSH o shell al host del Runner y deja que el Runner se actualice desde GitHub Releases.",
+            "hintInteractive": "Prompt interactivo",
+            "hintCheck": "Solo verificar, no instalar",
+            "hintSilent": "Omitir confirmación",
+            "hintVersion": "Fijar a una versión específica",
+            "note": "Se crea una copia de seguridad del binario anterior antes del reemplazo. Si la actualización falla, el Runner revierte automáticamente."
+          },
+          "reinstall": {
+            "title": "Reinstalar desde install.sh",
+            "description": "Si la vía de autoactualización está bloqueada (host aislado, distribución inusual, o quieres un binario limpio), vuelve a ejecutar el instalador oficial.",
+            "restartLabel": "Reiniciar tras la instalación",
+            "note": "Reinstalar conserva ~/.agentsmesh/config.yaml y los certificados mTLS — no necesitas volver a registrarte."
+          }
         },
         "troubleshooting": {
           "title": "Solución de Problemas",

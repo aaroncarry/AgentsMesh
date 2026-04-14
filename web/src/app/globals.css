@@ -230,6 +230,227 @@ body:has(.app-shell) {
   }
 }
 
+/* ============================================================
+ * Azure Futurism — scoped theme for marketing/landing page
+ * Applied via <div class="azure-theme"> on the marketing page only.
+ * Forces dark palette + cyan/mint accents independent of system theme.
+ * Reference: stitch_agentsmesh_modern_landing_page_redesign DESIGN.md
+ * ============================================================ */
+.azure-theme {
+  --background: #0f131c;
+  --foreground: #dfe2ef;
+  --card: #1c1f29;
+  --card-foreground: #dfe2ef;
+  --popover: #1c1f29;
+  --popover-foreground: #dfe2ef;
+  --primary: #00d4ff;
+  --primary-foreground: #001f27;
+  --secondary: #1c1f29;
+  --secondary-foreground: #dfe2ef;
+  --muted: #181b25;
+  --muted-foreground: #bbc9cf;
+  --accent: #262a34;
+  --accent-foreground: #dfe2ef;
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
+  --border: #3c494e;
+  --input: #31353f;
+  --ring: #00d4ff;
+
+  --azure-cyan: #00d4ff;
+  --azure-cyan-soft: #a8e8ff;
+  --azure-mint: #00fcc0;
+  --azure-on-cyan: #001f27;
+  --azure-bg-deeper: #0a0e17;
+  --azure-bg-low: #181b25;
+  --azure-bg-card: #1c1f29;
+  --azure-bg-high: #262a34;
+  --azure-bg-highest: #31353f;
+  --azure-bg-bright: #353943;
+  --azure-outline: #859398;
+  --azure-outline-variant: #3c494e;
+  --azure-text-muted: #bbc9cf;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+.azure-theme .font-headline,
+.azure-theme h1,
+.azure-theme h2,
+.azure-theme h3,
+.azure-theme h4 {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.azure-theme .azure-gradient-text {
+  background: linear-gradient(135deg, #00d4ff 0%, #00fcc0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.azure-theme .azure-gradient-bg {
+  background-image: linear-gradient(135deg, #00d4ff 0%, #00fcc0 100%);
+  color: var(--azure-on-cyan);
+}
+
+.azure-theme .azure-glass {
+  background-color: rgba(49, 53, 63, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.azure-theme .azure-glow-cyan {
+  box-shadow: 0 0 24px rgba(0, 212, 255, 0.35);
+}
+.azure-theme .azure-glow-cyan-lg {
+  box-shadow: 0 24px 48px rgba(0, 212, 255, 0.12), 0 0 80px rgba(0, 212, 255, 0.08);
+}
+.azure-theme .azure-glow-mint {
+  box-shadow: 0 0 24px rgba(0, 252, 192, 0.3);
+}
+.azure-theme .azure-cta-glow:hover {
+  box-shadow: 0 0 32px rgba(0, 212, 255, 0.5);
+}
+
+.azure-theme .azure-mesh-bg {
+  background-image: radial-gradient(circle at 50% 30%, rgba(0, 212, 255, 0.12) 0%, transparent 60%);
+}
+
+@keyframes azure-orb {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+.azure-theme .azure-orb {
+  animation: azure-orb 6s ease-in-out infinite;
+}
+
+@keyframes mesh-edge-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes mesh-node-pulse {
+  0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.95); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+}
+@keyframes mesh-star-twinkle {
+  0%, 100% { opacity: var(--star-opacity, 0.3); transform: translate(-50%, -50%) scale(0.85); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+}
+.azure-theme .mesh-edge {
+  animation: mesh-edge-pulse 5s ease-in-out infinite;
+}
+.azure-theme .mesh-node {
+  animation: mesh-node-pulse 4s ease-in-out infinite;
+}
+.azure-theme .mesh-star {
+  animation: mesh-star-twinkle 3.5s ease-in-out infinite;
+}
+
+/* ============================================================
+ * Azure Futurism — LIGHT variant for docs & reading surfaces.
+ * Inverts the palette: snow-white canvas with cyan/mint accents
+ * and deep navy typography. Applied via <div class="azure-light">.
+ * ============================================================ */
+.azure-light {
+  --background: #f4f8fb;
+  --foreground: #0f131c;
+  --card: #ffffff;
+  --card-foreground: #0f131c;
+  --popover: #ffffff;
+  --popover-foreground: #0f131c;
+  --primary: #0099bf;
+  --primary-foreground: #ffffff;
+  --secondary: #eaf3f7;
+  --secondary-foreground: #0f131c;
+  --muted: #eef3f7;
+  --muted-foreground: #55636a;
+  --accent: #e2eef3;
+  --accent-foreground: #0f131c;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --border: #d6e2e8;
+  --input: #e8eff3;
+  --ring: #00d4ff;
+
+  --azure-light-canvas: #f4f8fb;
+  --azure-light-canvas-low: #eaf2f6;
+  --azure-light-card: #ffffff;
+  --azure-light-surface: #f7fbfd;
+  --azure-light-surface-high: #eaf3f7;
+  --azure-light-ink: #0f131c;
+  --azure-light-ink-muted: #55636a;
+  --azure-light-ink-soft: #7d8890;
+  --azure-light-border: #d6e2e8;
+  --azure-light-border-soft: #e5edf1;
+  --azure-light-cyan: #00d4ff;
+  --azure-light-cyan-ink: #0099bf;
+  --azure-light-mint: #00c49a;
+  --azure-light-mint-soft: rgba(0, 196, 154, 0.12);
+  --azure-light-cyan-soft: rgba(0, 212, 255, 0.12);
+  --azure-light-glow: 0 18px 40px rgba(0, 153, 191, 0.15);
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  color-scheme: light;
+}
+
+.azure-light h1,
+.azure-light h2,
+.azure-light h3,
+.azure-light h4 {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--azure-light-ink);
+}
+
+.azure-light .azure-light-gradient-text {
+  background: linear-gradient(135deg, #0099bf 0%, #00c49a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.azure-light .azure-light-mesh {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(0, 212, 255, 0.14) 0%, transparent 55%),
+    radial-gradient(circle at 88% 10%, rgba(0, 252, 192, 0.10) 0%, transparent 55%),
+    var(--azure-light-canvas);
+}
+
+.azure-light .azure-light-glass {
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(214, 226, 232, 0.6);
+}
+
+.azure-light .azure-light-card {
+  background: var(--azure-light-card);
+  box-shadow: 0 1px 2px rgba(15, 19, 28, 0.03), 0 12px 32px rgba(0, 153, 191, 0.06);
+}
+
+.azure-light .azure-light-card-hover {
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+.azure-light .azure-light-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(15, 19, 28, 0.04), 0 18px 48px rgba(0, 153, 191, 0.14);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%);
+}
+
+.azure-light .azure-light-chip {
+  background: var(--azure-light-cyan-soft);
+  color: var(--azure-light-cyan-ink);
+}
+
 /* Landing page futuristic animations */
 @keyframes gradient-shift {
   0%, 100% { background-position: 0% 50%; }

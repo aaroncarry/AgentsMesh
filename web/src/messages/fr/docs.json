@@ -1677,7 +1677,25 @@
           "item1": "Exécutez la commande de démarrage pour lancer le processus Runner",
           "item2": "Le Runner se connecte au backend AgentsMesh via gRPC avec mTLS",
           "item3": "Il signale les CLI d'agents IA disponibles (Claude Code, Codex, Gemini, etc.) trouvés dans le PATH",
-          "tip": "Pour les déploiements en production, installez le Runner en tant que service système afin qu'il démarre automatiquement au démarrage."
+          "tip": "Pour les déploiements en production, installez le Runner en tant que service système afin qu'il démarre automatiquement au démarrage.",
+          "background": {
+            "title": "Exécuter en arrière-plan",
+            "description": "`agentsmesh-runner run` reste attaché à votre terminal. Choisissez un mode arrière-plan si vous voulez que le Runner survive à la fermeture du shell :",
+            "service": {
+              "title": "Service système (recommandé)",
+              "description": "Enregistrez le Runner auprès de systemd / launchd / Windows Service Manager — démarrage au boot, redémarrage en cas d'échec et écriture des logs dans le journal de l'OS.",
+              "startLabel": "Installer et démarrer",
+              "stopLabel": "Arrêter ou désinstaller",
+              "note": "Sur Linux, les logs vont vers journalctl -u agentsmesh-runner. Sur macOS, ~/Library/Logs/agentsmesh-runner.log. Utilisez --config /path/to/config.yaml si votre configuration n'est pas à l'emplacement par défaut."
+            },
+            "nohup": {
+              "title": "Arrière-plan shell (nohup)",
+              "description": "Rapide et sans service — détachez le processus avec nohup et enregistrez son PID pour pouvoir l'arrêter plus tard. Idéal pour machines de dev et hôtes éphémères.",
+              "startLabel": "Démarrer et suivre les logs",
+              "stopLabel": "Arrêter le processus",
+              "note": "nohup ne redémarre pas automatiquement en cas de crash ou de redémarrage. Pour tout ce qui doit rester actif longtemps, préférez le service système ci-dessus."
+            }
+          }
         },
         "step4": {
           "title": "Installer les CLI d'Agents IA",
@@ -1694,6 +1712,33 @@
           "item2": "Trouvez votre Runner dans la liste — il devrait afficher un statut En ligne vert",
           "item3": "Vérifiez que les agents disponibles sont correctement listés",
           "item4": "Essayez de créer un Pod de test pour confirmer que tout fonctionne"
+        },
+        "updating": {
+          "title": "Maintenir le Runner à Jour",
+          "description": "Les nouvelles versions du Runner apportent des corrections de bugs, des correctifs de sécurité et des améliorations de protocole. Choisissez la méthode de mise à jour qui convient à votre déploiement :",
+          "ui": {
+            "title": "Depuis le Tableau de Bord Web",
+            "description": "Pour les Runners connectés, déclenchez une mise à niveau à distance sans toucher à la machine hôte.",
+            "step1": "Ouvrez Paramètres → Runners et localisez la carte de votre Runner.",
+            "step2": "Cliquez sur le badge Mettre à niveau lorsqu'une nouvelle version est disponible.",
+            "step3": "La plateforme envoie une commande de mise à niveau signée via gRPC ; le Runner télécharge, remplace sa binaire et redémarre automatiquement.",
+            "note": "Le Runner doit être en ligne et autorisé à se mettre à jour automatiquement. Les Pods actifs se terminent proprement avant le redémarrage."
+          },
+          "command": {
+            "title": "Avec la Commande update",
+            "description": "Connectez-vous en SSH ou shell sur l'hôte Runner et laissez-le se mettre à jour depuis les GitHub Releases.",
+            "hintInteractive": "Invite interactive",
+            "hintCheck": "Vérifier seulement, ne pas installer",
+            "hintSilent": "Ignorer la confirmation",
+            "hintVersion": "Épingler à une version spécifique",
+            "note": "Une sauvegarde de la binaire précédente est créée avant le remplacement. Si la mise à jour échoue, le Runner revient automatiquement en arrière."
+          },
+          "reinstall": {
+            "title": "Réinstaller depuis install.sh",
+            "description": "Si la voie d'auto-mise à jour est bloquée (hôte isolé du réseau, distribution inhabituelle, ou vous voulez une binaire propre), relancez l'installateur officiel.",
+            "restartLabel": "Redémarrer après installation",
+            "note": "La réinstallation préserve ~/.agentsmesh/config.yaml et les certificats mTLS — vous n'avez pas besoin de vous réenregistrer."
+          }
         },
         "troubleshooting": {
           "title": "Dépannage",

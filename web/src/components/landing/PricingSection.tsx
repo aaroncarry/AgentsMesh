@@ -9,6 +9,16 @@ import { publicBillingApi, type PublicPricingResponse, type Currency } from "@/l
 
 type BillingCycle = "monthly" | "yearly";
 
+const FALLBACK_PRICING: PublicPricingResponse = {
+  deployment_type: "global",
+  currency: "USD" as Currency,
+  plans: [
+    { name: "based", display_name: "Based", price_monthly: 9.9, price_yearly: 99, max_users: 1, max_runners: 1, max_repositories: 5, max_concurrent_pods: 5 },
+    { name: "pro", display_name: "Pro", price_monthly: 19.99, price_yearly: 199.9, max_users: 5, max_runners: 10, max_repositories: 10, max_concurrent_pods: 10 },
+    { name: "enterprise", display_name: "Team", price_monthly: 99.99, price_yearly: 999.9, max_users: 50, max_runners: 100, max_repositories: -1, max_concurrent_pods: 50 },
+  ],
+};
+
 // Plan type for pricing cards
 interface PricingPlan {
   key: string;
@@ -34,12 +44,19 @@ export function PricingSection() {
   const [pricing, setPricing] = useState<PublicPricingResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch pricing data from API (Single Source of Truth)
   useEffect(() => {
+    let settled = false;
+    const finish = (data: PublicPricingResponse) => {
+      if (settled) return;
+      settled = true;
+      setPricing(data);
+      setLoading(false);
+    };
+    const timer = setTimeout(() => finish(FALLBACK_PRICING), 2500);
     publicBillingApi.getPricing()
-      .then(setPricing)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+      .then((data) => finish(data?.plans?.length ? data : FALLBACK_PRICING))
+      .catch(() => finish(FALLBACK_PRICING));
+    return () => clearTimeout(timer);
   }, []);
 
   const formatPrice = (priceMonthly: number, priceYearly: number) => {
@@ -125,132 +142,107 @@ export function PricingSection() {
   const plans = buildPlans();
 
   return (
-    <section className="py-24" id="pricing">
+    <section className="py-32 relative" id="pricing">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section header */}
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            {t("landing.pricing.title")} <span className="text-primary">{t("landing.pricing.titleHighlight")}</span>
+          <h2 className="font-headline text-4xl md:text-5xl font-bold mb-6 italic">
+            {t("landing.pricing.title")}{" "}
+            <span className="azure-gradient-text not-italic">{t("landing.pricing.titleHighlight")}</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-[var(--azure-text-muted)] max-w-2xl mx-auto text-lg font-light">
             {t("landing.pricing.description")}
           </p>
         </div>
 
-        {/* Billing cycle toggle */}
-        <div className="flex items-center justify-center mb-12">
-          <div className="inline-flex items-center rounded-lg bg-secondary/50 p-1">
+        <div className="flex items-center justify-center mb-16">
+          <div className="inline-flex items-center rounded-full azure-glass p-1 border border-white/10">
             <button
               onClick={() => setBillingCycle("monthly")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-5 py-2 rounded-full text-sm font-headline font-bold uppercase tracking-wider transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "azure-gradient-bg"
+                  : "text-[var(--azure-text-muted)] hover:text-foreground"
               }`}
             >
               {t("landing.pricing.monthly")}
             </button>
             <button
               onClick={() => setBillingCycle("yearly")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-5 py-2 rounded-full text-sm font-headline font-bold uppercase tracking-wider transition-all ${
                 billingCycle === "yearly"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "azure-gradient-bg"
+                  : "text-[var(--azure-text-muted)] hover:text-foreground"
               }`}
             >
               {t("landing.pricing.yearly")}
-              <span className="ml-1 text-xs text-green-600 dark:text-green-400">
-                {t("landing.pricing.yearlyDiscount")}
-              </span>
+              <span className="ml-2 text-[10px] opacity-80">{t("landing.pricing.yearlyDiscount")}</span>
             </button>
           </div>
         </div>
 
-        {/* Loading state */}
-        {loading && (
-          <CenteredSpinner className="py-20" />
-        )}
+        {loading && <CenteredSpinner className="py-20" />}
 
-        {/* Pricing cards */}
         {!loading && (
-          <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {plans.map((plan, index) => (
-                <div
-                  key={index}
-                  className={`relative rounded-2xl border ${
-                    plan.highlighted
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-secondary/10"
-                  } p-8 flex flex-col`}
-                >
-                  {plan.highlighted && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
-                      {t("landing.pricing.mostPopular")}
-                    </div>
-                  )}
-
-                  {plan.badge && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-green-500 text-white text-sm font-medium rounded-full">
-                      {plan.badge}
-                    </div>
-                  )}
-
-                  <div className="mb-6">
-                    <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold">{plan.price}</span>
-                      <span className="text-muted-foreground">/{plan.period}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+            {plans.map((plan) => (
+              <div
+                key={plan.key}
+                className={`relative rounded-3xl p-8 flex flex-col transition-all ${
+                  plan.highlighted
+                    ? "azure-glass border-2 border-[var(--azure-cyan)] azure-glow-cyan-lg lg:scale-105 z-10"
+                    : "bg-[var(--azure-bg-low)] border border-[var(--azure-outline-variant)]/30"
+                }`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 azure-gradient-bg px-4 py-1 rounded-full font-headline text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
+                    {t("landing.pricing.mostPopular")}
                   </div>
+                )}
+                {plan.badge && !plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[var(--azure-mint)] text-[var(--azure-on-cyan)] px-4 py-1 rounded-full font-headline text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
+                    {plan.badge}
+                  </div>
+                )}
 
-                  <ul className="space-y-3 mb-8 flex-grow">
-                    {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-3 text-sm">
-                        <svg
-                          className={`w-5 h-5 flex-shrink-0 ${
-                            plan.highlighted ? "text-primary" : "text-green-500 dark:text-green-400"
-                          }`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link href={plan.href}>
-                    <Button
-                      className={`w-full ${
-                        plan.highlighted
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : ""
-                      }`}
-                      variant={plan.highlighted ? "default" : "outline"}
-                    >
-                      {plan.cta}
-                    </Button>
-                  </Link>
+                <span className={`font-headline text-xs font-bold tracking-[0.3em] uppercase mb-6 ${plan.highlighted ? "text-[var(--azure-cyan)]" : "text-[var(--azure-text-muted)]"}`}>
+                  {plan.name}
+                </span>
+                <div className="mb-3">
+                  <span className="font-headline text-5xl font-bold">{plan.price}</span>
+                  <span className="text-[var(--azure-text-muted)] text-sm ml-1">/{plan.period}</span>
                 </div>
-              ))}
-            </div>
-          </>
+                <p className="text-sm text-[var(--azure-text-muted)] mb-8">{plan.description}</p>
+
+                <ul className="space-y-3.5 mb-10 flex-grow">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm">
+                      <span
+                        className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: plan.highlighted ? "var(--azure-mint)" : "var(--azure-cyan-soft)" }}
+                      />
+                      <span className={plan.highlighted ? "text-foreground" : "text-[var(--azure-text-muted)]"}>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href={plan.href}>
+                  <Button
+                    className={`w-full rounded-full font-headline font-black uppercase tracking-[0.18em] text-xs h-12 ${
+                      plan.highlighted
+                        ? "azure-gradient-bg azure-cta-glow border-0"
+                        : "bg-transparent border border-[var(--azure-outline-variant)] hover:border-[var(--azure-cyan)]/60 hover:bg-[var(--azure-bg-bright)] text-foreground"
+                    }`}
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
         )}
 
-        {/* FAQ or additional info */}
         <div className="mt-16 text-center">
-          <p className="text-muted-foreground">
-            {t("landing.pricing.footer")}
-          </p>
+          <p className="text-[var(--azure-text-muted)] text-sm">{t("landing.pricing.footer")}</p>
         </div>
       </div>
     </section>

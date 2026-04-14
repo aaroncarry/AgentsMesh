@@ -1771,7 +1771,25 @@
           "item1": "运行启动命令以开始 Runner 进程",
           "item2": "Runner 通过 gRPC + mTLS 连接到 AgentsMesh 后端",
           "item3": "它会报告 PATH 中可用的 AI 智能体 CLI（Claude Code、Codex、Gemini 等）",
-          "tip": "在生产环境中，建议将 Runner 安装为系统服务，以便开机自动启动。"
+          "tip": "在生产环境中，建议将 Runner 安装为系统服务，以便开机自动启动。",
+          "background": {
+            "title": "在后台运行",
+            "description": "`agentsmesh-runner run` 会占用当前终端。若希望关闭终端后 Runner 仍继续运行，请选择一种后台模式:",
+            "service": {
+              "title": "系统服务(推荐)",
+              "description": "将 Runner 注册到 systemd / launchd / Windows 服务管理器,开机自启、崩溃自动恢复,日志写入系统日志通道。",
+              "startLabel": "安装并启动",
+              "stopLabel": "停止或卸载",
+              "note": "Linux 日志通过 journalctl -u agentsmesh-runner 查看。macOS 位于 ~/Library/Logs/agentsmesh-runner.log。如果配置文件非默认路径,使用 --config /path/to/config.yaml。"
+            },
+            "nohup": {
+              "title": "Shell 后台(nohup)",
+              "description": "快速且无需系统服务 — 用 nohup 分离进程并记录 PID,便于后续停止。适合开发机和临时主机。",
+              "startLabel": "启动并查看日志",
+              "stopLabel": "停止进程",
+              "note": "nohup 不会在崩溃或重启后自动恢复。长期运行请优先使用上方的系统服务方案。"
+            }
+          }
         },
         "step4": {
           "title": "安装 AI 智能体 CLI",
@@ -1788,6 +1806,33 @@
           "item2": "在列表中找到你的 Runner — 应显示绿色的「在线」状态",
           "item3": "检查可用智能体是否正确列出",
           "item4": "尝试创建一个测试 Pod 以确认一切正常"
+        },
+        "updating": {
+          "title": "保持 Runner 更新",
+          "description": "新版 Runner 会带来错误修复、安全补丁和协议改进。选择适合你部署方式的更新方法：",
+          "ui": {
+            "title": "通过 Web 控制台",
+            "description": "对于在线的 Runner，可远程触发升级，无需登录宿主机。",
+            "step1": "打开 设置 → Runner，找到对应的 Runner 卡片。",
+            "step2": "当有新版本时，点击「升级」徽标。",
+            "step3": "平台通过 gRPC 发送签名的升级指令；Runner 会自动下载、替换二进制并重启。",
+            "note": "Runner 必须处于在线状态且允许自动升级。进行中的 Pod 会优雅结束后再重启。"
+          },
+          "command": {
+            "title": "使用 update 命令",
+            "description": "通过 SSH 登录 Runner 主机,让 Runner 从 GitHub Releases 自行更新。",
+            "hintInteractive": "交互式提示",
+            "hintCheck": "仅检查,不安装",
+            "hintSilent": "跳过确认",
+            "hintVersion": "指定具体版本",
+            "note": "更新前会自动备份上一个二进制。若更新失败,Runner 会自动回滚。"
+          },
+          "reinstall": {
+            "title": "通过 install.sh 重新安装",
+            "description": "若自升级通道不可用(内网隔离环境、特殊发行版,或你想要纯净二进制),可重新运行官方安装脚本。",
+            "restartLabel": "安装后重启",
+            "note": "重新安装会保留 ~/.agentsmesh/config.yaml 和 mTLS 证书 — 无需重新注册。"
+          }
         },
         "troubleshooting": {
           "title": "故障排除",

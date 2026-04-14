@@ -1677,7 +1677,25 @@
           "item1": "시작 명령을 실행하여 Runner 프로세스를 시작합니다",
           "item2": "Runner는 mTLS를 통해 gRPC로 AgentsMesh 백엔드에 연결됩니다",
           "item3": "PATH에서 발견된 사용 가능한 AI 에이전트 CLI(Claude Code, Codex, Gemini 등)를 보고합니다",
-          "tip": "프로덕션 배포의 경우, 부팅 시 자동으로 시작되도록 Runner를 시스템 서비스로 설치하세요."
+          "tip": "프로덕션 배포의 경우, 부팅 시 자동으로 시작되도록 Runner를 시스템 서비스로 설치하세요.",
+          "background": {
+            "title": "백그라운드로 실행",
+            "description": "`agentsmesh-runner run`은 현재 터미널에 붙어 있습니다. 셸을 닫아도 Runner를 계속 유지하려면 백그라운드 모드를 선택하세요:",
+            "service": {
+              "title": "시스템 서비스 (권장)",
+              "description": "Runner를 systemd / launchd / Windows 서비스 매니저에 등록하여 부팅 시 자동 시작, 장애 시 자동 재시작, OS 저널에 로그 기록이 이루어집니다.",
+              "startLabel": "설치 및 시작",
+              "stopLabel": "중지 또는 제거",
+              "note": "Linux 로그는 journalctl -u agentsmesh-runner로 확인합니다. macOS는 ~/Library/Logs/agentsmesh-runner.log에 기록됩니다. 설정 파일이 기본 경로가 아니면 --config /path/to/config.yaml을 사용하세요."
+            },
+            "nohup": {
+              "title": "셸 백그라운드 (nohup)",
+              "description": "빠르고 서비스가 필요 없음 — nohup으로 프로세스를 분리하고 PID를 기록해 나중에 중지할 수 있습니다. 개발 머신과 단기 호스트에 적합합니다.",
+              "startLabel": "시작 및 로그 확인",
+              "stopLabel": "프로세스 중지",
+              "note": "nohup은 충돌이나 재부팅 시 자동 복구되지 않습니다. 장기 실행이 필요한 경우 위의 시스템 서비스를 사용하세요."
+            }
+          }
         },
         "step4": {
           "title": "AI 에이전트 CLI 설치",
@@ -1694,6 +1712,33 @@
           "item2": "목록에서 Runner를 찾으세요 — 녹색 온라인 상태가 표시되어야 합니다",
           "item3": "사용 가능한 에이전트가 올바르게 나열되어 있는지 확인하세요",
           "item4": "테스트 Pod를 생성하여 모든 것이 작동하는지 확인하세요"
+        },
+        "updating": {
+          "title": "Runner 최신 상태 유지",
+          "description": "새 Runner 릴리스에는 버그 수정, 보안 패치, 프로토콜 개선이 포함됩니다. 배포 방식에 맞는 업데이트 방법을 선택하세요:",
+          "ui": {
+            "title": "웹 대시보드에서",
+            "description": "연결된 Runner는 호스트 머신에 접근하지 않고 원격으로 업그레이드할 수 있습니다.",
+            "step1": "설정 → Runners를 열고 해당 Runner 카드를 찾으세요.",
+            "step2": "새 버전이 있을 때 표시되는 업그레이드 배지를 클릭하세요.",
+            "step3": "플랫폼이 gRPC로 서명된 업그레이드 명령을 전송하고, Runner가 바이너리를 다운로드·교체 후 자동 재시작합니다.",
+            "note": "Runner는 온라인 상태이며 자동 업데이트가 허용되어 있어야 합니다. 실행 중인 Pod는 정상 종료 후 재시작됩니다."
+          },
+          "command": {
+            "title": "update 명령 사용",
+            "description": "Runner 호스트에 SSH 또는 셸로 접속하여 Runner가 GitHub Releases에서 스스로 업데이트하도록 하세요.",
+            "hintInteractive": "대화형 프롬프트",
+            "hintCheck": "확인만, 설치하지 않음",
+            "hintSilent": "확인 건너뛰기",
+            "hintVersion": "특정 버전 고정",
+            "note": "바이너리 교체 전에 자동으로 백업이 생성됩니다. 업데이트가 실패하면 자동으로 롤백됩니다."
+          },
+          "reinstall": {
+            "title": "install.sh로 재설치",
+            "description": "자가 업데이트가 차단된 경우(오프라인 호스트, 특수 배포판, 또는 깨끗한 바이너리를 원할 때) 공식 설치 스크립트를 다시 실행하세요.",
+            "restartLabel": "설치 후 재시작",
+            "note": "재설치해도 ~/.agentsmesh/config.yaml과 mTLS 인증서는 유지됩니다 — 재등록할 필요가 없습니다."
+          }
         },
         "troubleshooting": {
           "title": "문제 해결",
