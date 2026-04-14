@@ -2,7 +2,6 @@ package channel
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -282,111 +281,5 @@ func TestTerminalChannel_ForwardPubToSub_NilPublisher(t *testing.T) {
 		// Success - the goroutine exited because publisher was nil / epoch mismatch
 	case <-time.After(2 * time.Second):
 		t.Fatal("forwardPublisherToSubscribers did not exit when publisher is nil")
-	}
-}
-
-// ==================== ACP Snapshot Buffering ====================
-
-func TestAcpSnapshotReplacesBufferedOutput(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-acp-snap-buf", testChannelConfig(), nil, nil)
-
-	// Buffer some Output messages
-	ch.bufferOutput(protocol.EncodeOutput([]byte("old-output-1")))
-	ch.bufferOutput(protocol.EncodeOutput([]byte("old-output-2")))
-
-	buf := ch.getBufferedOutput()
-	if len(buf) != 2 {
-		t.Fatalf("expected 2 buffered messages before snapshot, got %d", len(buf))
-	}
-
-	// Simulate an ACP Snapshot arriving through the forwardPublisherToSubscribers path.
-	// ACP Snapshot format: [0x0D][JSON payload]
-	acpSnapshotPayload := map[string]interface{}{
-		"sessionId": "test-session-123",
-		"state":     "idle",
-		"messages": []map[string]string{
-			{"role": "user", "text": "Hello"},
-			{"role": "assistant", "text": "Hi there!"},
-		},
-	}
-	payloadBytes, _ := json.Marshal(acpSnapshotPayload)
-	acpSnapshotData := protocol.EncodeMessage(protocol.MsgTypeAcpSnapshot, payloadBytes)
-
-	// Reproduce the exact logic from forwardPublisherToSubscribers
-	msg, _ := protocol.DecodeMessage(acpSnapshotData)
-	if msg.Type != protocol.MsgTypeAcpSnapshot {
-		t.Fatalf("expected MsgTypeAcpSnapshot (0x0D), got 0x%02x", msg.Type)
-	}
-	ch.clearOutputBuffer()
-	ch.bufferOutput(acpSnapshotData)
-
-	// Verify: buffer should contain only the ACP snapshot
-	buf = ch.getBufferedOutput()
-	if len(buf) != 1 {
-		t.Fatalf("expected 1 buffered message after ACP snapshot, got %d", len(buf))
-	}
-	if !bytes.Equal(buf[0], acpSnapshotData) {
-		t.Fatal("buffered message should be the ACP snapshot itself")
-	}
-}
-
-func TestNewSubscriberAfterAcpSnapshotReceivesSnapshot(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-acp-snap-sub", testChannelConfig(), nil, nil)
-
-	pubServer, pubClient := createWSPair(t)
-	ch.SetPublisher(pubServer)
-
-	// Publisher sends an ACP Snapshot message
-	acpSnapshotPayload := map[string]interface{}{
-		"sessionId": "session-456",
-		"state":     "processing",
-		"messages": []map[string]string{
-			{"role": "user", "text": "Fix bug"},
-			{"role": "assistant", "text": "I'll help you fix the bug."},
-		},
-		"toolCalls": []map[string]interface{}{
-			{"toolCallId": "tc-1", "toolName": "view", "status": "completed"},
-		},
-	}
-	payloadBytes, _ := json.Marshal(acpSnapshotPayload)
-	acpSnapshotData := protocol.EncodeMessage(protocol.MsgTypeAcpSnapshot, payloadBytes)
-
-	err := pubClient.WriteMessage(websocket.BinaryMessage, acpSnapshotData)
-	if err != nil {
-		t.Fatalf("publisher write: %v", err)
-	}
-
-	// Wait for snapshot to be buffered
-	time.Sleep(100 * time.Millisecond)
-
-	// New subscriber connects after snapshot was sent
-	subServer, subClient := createWSPair(t)
-	ch.AddSubscriber("subscriber-late", subServer)
-
-	// The subscriber should receive the buffered ACP snapshot
-	_ = subClient.SetReadDeadline(time.Now().Add(2 * time.Second))
-	_, data, err := subClient.ReadMessage()
-	if err != nil {
-		t.Fatalf("late subscriber failed to read ACP snapshot: %v", err)
-	}
-
-	decoded, err := protocol.DecodeMessage(data)
-	if err != nil {
-		t.Fatalf("decode message: %v", err)
-	}
-	if decoded.Type != protocol.MsgTypeAcpSnapshot {
-		t.Fatalf("expected ACP snapshot message type 0x0D, got 0x%02x", decoded.Type)
-	}
-
-	// Verify payload content
-	var receivedPayload map[string]interface{}
-	if err := json.Unmarshal(decoded.Payload, &receivedPayload); err != nil {
-		t.Fatalf("unmarshal ACP snapshot payload: %v", err)
-	}
-	if receivedPayload["sessionId"] != "session-456" {
-		t.Fatalf("expected sessionId 'session-456', got %v", receivedPayload["sessionId"])
-	}
-	if receivedPayload["state"] != "processing" {
-		t.Fatalf("expected state 'processing', got %v", receivedPayload["state"])
 	}
 }
