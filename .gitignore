@@ -121,3 +121,4 @@ agentsmesh-onpremise-v1.0.0.tar.gz
 # =========================
 E2E_TEST_REPORT.md
 web-admin/coverage/
+.loopal/worktrees/
