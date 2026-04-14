@@ -15,25 +15,21 @@ export function CoreFeatures() {
   ];
 
   return (
-    <section className="py-24 relative" id="features">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px]" />
-      </div>
+    <section className="py-32 relative bg-[var(--azure-bg-deeper)] overflow-hidden" id="features">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--azure-cyan)]/5 blur-[150px] rounded-full pointer-events-none" />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+        <div className="text-center mb-24">
+          <h2 className="font-headline text-4xl md:text-5xl font-bold mb-6 leading-tight">
             {t("landing.coreFeatures.title")}{" "}
-            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              {t("landing.coreFeatures.titleHighlight")}
-            </span>
+            <span className="azure-gradient-text">{t("landing.coreFeatures.titleHighlight")}</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-[var(--azure-text-muted)] max-w-2xl mx-auto text-lg font-light">
             {t("landing.coreFeatures.description")}
           </p>
         </div>
 
-        <div className="space-y-24">
+        <div className="space-y-32 max-w-7xl mx-auto">
           {features.map((feature, index) => (
             <FeatureCard key={index} feature={feature} t={t} />
           ))}

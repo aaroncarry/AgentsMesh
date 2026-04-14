@@ -11,9 +11,7 @@ import {
   ParadigmShift,
   CoreFeatures,
   HowItWorks,
-  DemoVideo,
   PricingSection,
-  FinalCTA,
   Footer,
 } from "@/components/landing";
 import { getDefaultRoute } from "@/lib/default-route";
@@ -83,7 +81,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="azure-theme min-h-screen bg-background">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -95,9 +93,7 @@ export default function Home() {
         <ParadigmShift />
         <CoreFeatures />
         <HowItWorks />
-        <DemoVideo />
         <PricingSection />
-        <FinalCTA />
       </main>
       <Footer />
     </div>

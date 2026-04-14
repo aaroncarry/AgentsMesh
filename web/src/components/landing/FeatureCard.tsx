@@ -23,40 +23,36 @@ interface FeatureCardProps {
 }
 
 export function FeatureCard({ feature, t }: FeatureCardProps) {
+  const reverse = feature.align === "right";
+
   return (
-    <div className={`grid lg:grid-cols-2 gap-12 items-center ${feature.align === "right" ? "lg:flex-row-reverse" : ""}`}>
-      {/* Content */}
-      <div className={feature.align === "right" ? "lg:order-2" : ""}>
-        <div className="flex items-center gap-6 mb-6">
-          <span className="text-6xl font-black bg-gradient-to-br from-primary/30 via-primary/15 to-transparent bg-clip-text text-transparent select-none drop-shadow-[0_0_15px_var(--primary)]">
-            {feature.number}
-          </span>
-          <div>
-            <p className="text-primary font-medium tracking-wide uppercase text-sm mb-1">{feature.subtitle}</p>
-            <h3 className="text-3xl font-bold tracking-tight">{feature.title}</h3>
-          </div>
-        </div>
-        <p className="text-muted-foreground text-lg leading-relaxed mb-8">{feature.description}</p>
-        <ul className="space-y-4">
-          {feature.highlights.map((highlight, i) => (
-            <li key={i} className="flex items-start gap-3 group">
-              <div className="mt-1 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className="text-base text-foreground/80">{highlight}</span>
+    <div className={`grid lg:grid-cols-2 gap-12 lg:gap-16 items-center`}>
+      <div className={reverse ? "lg:order-2" : ""}>
+        <span className="font-headline text-[10px] font-black uppercase tracking-[0.3em] text-[var(--azure-cyan)] mb-3 block">
+          Capability {feature.number} · {feature.subtitle}
+        </span>
+        <h3 className="font-headline text-3xl md:text-4xl font-bold mb-6 leading-tight">
+          {feature.title}
+        </h3>
+        <p className="text-[var(--azure-text-muted)] text-lg leading-relaxed mb-8 font-light">
+          {feature.description}
+        </p>
+        <ul className="space-y-3.5">
+          {feature.highlights.map((highlight) => (
+            <li key={highlight} className="flex items-start gap-3">
+              <div className="mt-2 w-1.5 h-1.5 rounded-full bg-[var(--azure-mint)] flex-shrink-0" />
+              <span className="text-foreground/85 leading-relaxed">{highlight}</span>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* Visual */}
-      <div className={`relative group ${feature.align === "right" ? "lg:order-1" : ""}`}>
-        <div className="absolute -inset-6 bg-primary/20 blur-[50px] rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-700" />
-        <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-transparent to-primary/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
-        <div className="relative transform transition-all duration-500 hover:scale-[1.02] hover:-rotate-1 scanline-overlay overflow-hidden rounded-xl">
-          <FeatureVisuals feature={feature} t={t} />
+      <div className={`relative group ${reverse ? "lg:order-1" : ""}`}>
+        <div className="absolute -inset-6 bg-[var(--azure-cyan)]/20 blur-[60px] rounded-full opacity-30 group-hover:opacity-60 transition-opacity duration-700" />
+        <div className="relative azure-glass rounded-3xl border border-white/5 p-3 sm:p-4 transition-all duration-500 group-hover:border-[var(--azure-cyan)]/20">
+          <div className="rounded-2xl overflow-hidden bg-[var(--azure-bg-deeper)]/60">
+            <FeatureVisuals feature={feature} t={t} />
+          </div>
         </div>
       </div>
     </div>
