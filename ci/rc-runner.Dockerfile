@@ -69,6 +69,9 @@ RUN curl -fsSL https://agentsmesh.int.rclabenv.com/install.sh | sh
 #     chmod +x /usr/local/bin/agentsmesh-runner && \
 #     rm -f /tmp/agentsmesh-runner.tar.gz
 
+# install mcp
+RUN pip install --no-cache-dir mcp --break-system-packages
+
 RUN mkdir -p ~/.ssh && ssh-keyscan git.ringcentral.com >> ~/.ssh/known_hosts
 
 # Ensure PATH includes installers' default locations
