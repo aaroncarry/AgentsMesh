@@ -157,10 +157,11 @@
       "upgrade": "Upgrade",
       "upgrading": "Upgrading...",
       "upgradeConfirm": "Are you sure you want to upgrade this runner to the latest version? The runner will restart after upgrading.",
+      "upgradeConfirmWithPods": "This runner has {count, plural, one {# active pod} other {# active pods}}. The runner will restart after upgrading — active sessions are preserved via Poddaemon.",
+      "upgradeDialogTitle": "Upgrade Runner",
       "upgradeSent": "Upgrade command sent. The runner will download and restart automatically.",
       "upgradeFailed": "Failed to send upgrade command. Please try again.",
       "upgradeOffline": "Runner is offline, cannot upgrade",
-      "upgradeHasPods": "Runner has active pods, cannot upgrade",
       "upgradeTooltip": "Upgrade runner to the latest version"
     },
     "logs": {

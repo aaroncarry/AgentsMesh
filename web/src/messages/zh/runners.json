@@ -157,10 +157,11 @@
       "upgrade": "升级",
       "upgrading": "升级中...",
       "upgradeConfirm": "确定要将此 Runner 升级到最新版本吗？升级完成后 Runner 将自动重启。",
+      "upgradeConfirmWithPods": "此 Runner 当前有 {count} 个活跃 Pod。升级后 Runner 将重启，活跃会话通过 Poddaemon 保持不中断。",
+      "upgradeDialogTitle": "升级 Runner",
       "upgradeSent": "升级命令已发送，Runner 将自动下载并重启。",
       "upgradeFailed": "升级命令发送失败，请重试。",
       "upgradeOffline": "Runner 离线，无法升级",
-      "upgradeHasPods": "Runner 存在活跃 Pod，无法升级",
       "upgradeTooltip": "将 Runner 升级到最新版本"
     },
     "logs": {

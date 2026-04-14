@@ -42,7 +42,6 @@ type UpgradeController interface {
 	GetUpdater() *updater.Updater
 	TryStartUpgrade() bool
 	FinishUpgrade()
-	GetActivePodCount() int
 	SetDraining(draining bool)
 	GetRestartFunc() func() (int, error)
 }

@@ -189,10 +189,11 @@
       "upgrade": "Aktualisieren",
       "upgrading": "Aktualisierung...",
       "upgradeConfirm": "Möchten Sie diesen Runner wirklich auf die neueste Version aktualisieren? Der Runner wird nach dem Upgrade neu gestartet.",
+      "upgradeConfirmWithPods": "Dieser Runner hat derzeit {count} aktive Pods. Der Runner wird nach dem Upgrade neu gestartet — aktive Sitzungen werden über Poddaemon beibehalten.",
+      "upgradeDialogTitle": "Runner aktualisieren",
       "upgradeSent": "Upgrade-Befehl gesendet. Der Runner wird automatisch herunterladen und neu starten.",
       "upgradeFailed": "Upgrade-Befehl konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
       "upgradeOffline": "Runner ist offline, Upgrade nicht möglich",
-      "upgradeHasPods": "Runner hat aktive Pods, Upgrade nicht möglich",
       "upgradeTooltip": "Runner auf die neueste Version aktualisieren"
     },
     "authorize": {

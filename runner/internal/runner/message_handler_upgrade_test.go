@@ -9,6 +9,7 @@ import (
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/client"
 	"github.com/anthropics/agentsmesh/runner/internal/config"
+	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 	"github.com/anthropics/agentsmesh/runner/internal/updater"
 )
 
@@ -53,7 +54,7 @@ func newTestRunnerForUpgrade(podCount int) *Runner {
 		cfg:          &config.Config{},
 		podStore:     store,
 		runCtx:       context.Background(),
-		upgradeCoord: newUpgradeController(store.Count),
+		upgradeCoord: newUpgradeController(),
 	}
 	return r
 }
@@ -137,21 +138,57 @@ func TestOnUpgradeRunner_NoUpdater(t *testing.T) {
 	}
 }
 
-func TestOnUpgradeRunner_ActivePods_Rejected(t *testing.T) {
+// When Poddaemon is configured, upgrade must proceed regardless of pod count:
+// Poddaemon keeps the PTY sessions alive across the Runner restart.
+func TestOnUpgradeRunner_ProceedsWithActivePods(t *testing.T) {
 	r := newTestRunnerForUpgrade(2)
+	mgr, err := poddaemon.NewPodDaemonManager(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewPodDaemonManager: %v", err)
+	}
+	r.podDaemonManager = mgr
+	r.SetUpdater(updater.New("1.0.0", updater.WithReleaseDetector(failDetector())))
+	mockConn := client.NewMockConnection()
+	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
+
+	if err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
+		RequestId: "req-2",
+	}); err != nil {
+		t.Fatalf("upgrade should proceed with Poddaemon + active pods: %v", err)
+	}
+
+	statuses := getUpgradeStatuses(mockConn)
+	if len(statuses) == 0 {
+		t.Fatal("expected status events")
+	}
+	if statuses[0].Phase != "checking" {
+		t.Errorf("expected first phase=checking, got %q", statuses[0].Phase)
+	}
+
+	// Pods must remain in the store — upgrade does not tear them down.
+	if got := r.podStore.Count(); got != 2 {
+		t.Errorf("expected pod store to still hold 2 pods, got %d", got)
+	}
+}
+
+// Without Poddaemon, active pods would be killed by a Runner restart — the
+// upgrade must be refused so the caller gets an explicit failure instead of
+// silently losing user sessions.
+func TestOnUpgradeRunner_NoPoddaemon_WithActivePods_Rejected(t *testing.T) {
+	r := newTestRunnerForUpgrade(1)
+	// Intentionally leave r.podDaemonManager nil.
 	r.SetUpdater(updater.New("1.0.0"))
 	mockConn := client.NewMockConnection()
 	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
 
 	err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
-		RequestId: "req-2",
-		Force:     false,
+		RequestId: "req-nopd",
 	})
 	if err == nil {
-		t.Fatal("expected error when pods are running")
+		t.Fatal("expected error when Poddaemon missing and pods are active")
 	}
-	if !contains(err.Error(), "active pod") {
-		t.Errorf("error should mention active pods, got: %v", err)
+	if !contains(err.Error(), "Poddaemon") {
+		t.Errorf("error should mention Poddaemon, got: %v", err)
 	}
 
 	statuses := getUpgradeStatuses(mockConn)
@@ -162,34 +199,29 @@ func TestOnUpgradeRunner_ActivePods_Rejected(t *testing.T) {
 		t.Errorf("expected phase=failed, got %q", statuses[0].Phase)
 	}
 
-	// Draining should NOT be set (rejected before entering draining)
+	// Draining must NOT be set — the guard runs before we enter draining.
 	if r.IsDraining() {
-		t.Error("should not enter draining when upgrade is rejected")
+		t.Error("draining should not be set when upgrade is rejected pre-flight")
 	}
 }
 
-func TestOnUpgradeRunner_ActivePods_ForceAllowed(t *testing.T) {
-	r := newTestRunnerForUpgrade(1)
+// Without Poddaemon but also without any pods, upgrade is allowed — there is
+// nothing to protect, so the guard must not get in the way.
+func TestOnUpgradeRunner_NoPoddaemon_NoPods_Allowed(t *testing.T) {
+	r := newTestRunnerForUpgrade(0)
 	r.SetUpdater(updater.New("1.0.0", updater.WithReleaseDetector(failDetector())))
 	mockConn := client.NewMockConnection()
 	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
 
-	err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
-		RequestId: "req-3",
-		Force:     true,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error with force=true: %v", err)
+	if err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
+		RequestId: "req-nopd-empty",
+	}); err != nil {
+		t.Fatalf("upgrade should be allowed with no pods: %v", err)
 	}
 
 	statuses := getUpgradeStatuses(mockConn)
-	if len(statuses) == 0 {
-		t.Fatal("expected status events")
-	}
-
-	// First status should be "checking"
-	if statuses[0].Phase != "checking" {
-		t.Errorf("expected first phase=checking, got %q", statuses[0].Phase)
+	if len(statuses) == 0 || statuses[0].Phase != "checking" {
+		t.Errorf("expected first phase=checking, got %+v", statuses)
 	}
 }
 
@@ -243,5 +275,35 @@ func TestOnUpgradeRunner_AlreadyUpToDate(t *testing.T) {
 	// Draining should be restored
 	if r.IsDraining() {
 		t.Error("draining should be false after already-up-to-date")
+	}
+}
+
+func TestOnUpgradeRunner_AlreadyInProgress_ReportsFailure(t *testing.T) {
+	r := newTestRunnerForUpgrade(0)
+	r.SetUpdater(updater.New("1.0.0", updater.WithReleaseDetector(failDetector())))
+	mockConn := client.NewMockConnection()
+	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
+
+	// Occupy the upgrade lock
+	if !r.TryStartUpgrade() {
+		t.Fatal("first TryStartUpgrade should succeed")
+	}
+
+	err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
+		RequestId: "req-conflict",
+	})
+	if err != nil {
+		t.Fatalf("expected nil error (graceful rejection), got: %v", err)
+	}
+
+	statuses := getUpgradeStatuses(mockConn)
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 status event, got %d", len(statuses))
+	}
+	if statuses[0].Phase != "failed" {
+		t.Errorf("expected phase=failed, got %q", statuses[0].Phase)
+	}
+	if !contains(statuses[0].Error, "already in progress") {
+		t.Errorf("expected error to mention 'already in progress', got: %q", statuses[0].Error)
 	}
 }

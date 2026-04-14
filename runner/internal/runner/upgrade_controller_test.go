@@ -7,7 +7,7 @@ import (
 )
 
 func TestUpgradeControllerTryStartUpgrade(t *testing.T) {
-	uc := newUpgradeController(func() int { return 0 })
+	uc := newUpgradeController()
 
 	// First call should succeed
 	if !uc.TryStartUpgrade() {
@@ -27,7 +27,7 @@ func TestUpgradeControllerTryStartUpgrade(t *testing.T) {
 }
 
 func TestUpgradeControllerDraining(t *testing.T) {
-	uc := newUpgradeController(func() int { return 0 })
+	uc := newUpgradeController()
 
 	if uc.IsDraining() {
 		t.Error("should not be draining initially")
@@ -44,29 +44,8 @@ func TestUpgradeControllerDraining(t *testing.T) {
 	}
 }
 
-func TestUpgradeControllerGetActivePodCount(t *testing.T) {
-	count := 0
-	uc := newUpgradeController(func() int { return count })
-
-	if uc.GetActivePodCount() != 0 {
-		t.Errorf("GetActivePodCount = %d, want 0", uc.GetActivePodCount())
-	}
-
-	count = 5
-	if uc.GetActivePodCount() != 5 {
-		t.Errorf("GetActivePodCount = %d, want 5", uc.GetActivePodCount())
-	}
-}
-
-func TestUpgradeControllerGetActivePodCountNilCounter(t *testing.T) {
-	uc := newUpgradeController(nil)
-	if uc.GetActivePodCount() != 0 {
-		t.Errorf("GetActivePodCount with nil counter = %d, want 0", uc.GetActivePodCount())
-	}
-}
-
 func TestUpgradeControllerUpdater(t *testing.T) {
-	uc := newUpgradeController(func() int { return 0 })
+	uc := newUpgradeController()
 
 	if uc.GetUpdater() != nil {
 		t.Error("updater should be nil initially")
@@ -80,7 +59,7 @@ func TestUpgradeControllerUpdater(t *testing.T) {
 }
 
 func TestUpgradeControllerRestartFunc(t *testing.T) {
-	uc := newUpgradeController(func() int { return 0 })
+	uc := newUpgradeController()
 
 	if uc.GetRestartFunc() != nil {
 		t.Error("restart func should be nil initially")

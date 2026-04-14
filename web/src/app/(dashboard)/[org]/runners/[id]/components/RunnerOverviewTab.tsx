@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
-import { Cpu, HardDrive, Terminal, Radio, ArrowUpCircle } from "lucide-react";
+import { Cpu, HardDrive, Terminal, ArrowUpCircle } from "lucide-react";
 import type { RunnerData, RelayConnectionInfo } from "@/lib/api";
 import { runnerApi } from "@/lib/api";
 import { isVersionOutdated } from "@/lib/utils/version";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { ConfirmDialog, useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { RelayConnectionsCard } from "./RelayConnectionsCard";
 import { RunnerLogsCard } from "./RunnerLogsCard";
 
 interface RunnerOverviewTabProps {
@@ -16,20 +18,26 @@ interface RunnerOverviewTabProps {
   latestRunnerVersion?: string;
 }
 
-/**
- * Overview tab content showing runner basic info, capacity, available agents, and relay connections
- */
 export function RunnerOverviewTab({ runner, relayConnections, latestRunnerVersion }: RunnerOverviewTabProps) {
   const t = useTranslations();
   const [upgrading, setUpgrading] = useState(false);
+  const { dialogProps, confirm } = useConfirmDialog();
 
   const hasUpdate = !!latestRunnerVersion && isVersionOutdated(runner.runner_version, latestRunnerVersion);
-  const canUpgrade = hasUpdate
-    && runner.status === "online"
-    && runner.current_pods === 0;
+  const canUpgrade = hasUpdate && runner.status === "online";
 
   const handleUpgrade = async () => {
-    if (!confirm(t("runners.detail.upgradeConfirm"))) return;
+    const confirmed = await confirm({
+      title: t("runners.detail.upgradeDialogTitle"),
+      description: runner.current_pods > 0
+        ? t("runners.detail.upgradeConfirmWithPods", { count: runner.current_pods })
+        : t("runners.detail.upgradeConfirm"),
+      confirmText: t("runners.detail.upgrade"),
+      cancelText: t("common.cancel"),
+      variant: runner.current_pods > 0 ? "warning" : "default",
+    });
+    if (!confirmed) return;
+
     setUpgrading(true);
     try {
       await runnerApi.upgrade(runner.id);
@@ -85,9 +93,7 @@ export function RunnerOverviewTab({ runner, relayConnections, latestRunnerVersio
                       title={
                         runner.status !== "online"
                           ? t("runners.detail.upgradeOffline")
-                          : runner.current_pods > 0
-                            ? t("runners.detail.upgradeHasPods")
-                            : t("runners.detail.upgradeTooltip")
+                          : t("runners.detail.upgradeTooltip")
                       }
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
@@ -189,79 +195,14 @@ export function RunnerOverviewTab({ runner, relayConnections, latestRunnerVersio
         </div>
       )}
 
-      {/* Relay Connections */}
       {relayConnections && relayConnections.length > 0 && (
-        <div className="bg-card rounded-lg border border-border p-6 md:col-span-2">
-          <h3 className="text-lg font-medium text-foreground mb-4 flex items-center">
-            <Radio className="w-5 h-5 mr-2 text-green-500" />
-            {t("runners.detail.relayConnections")}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({relayConnections.length})
-            </span>
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-border">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Pod
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Relay
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {t("runners.detail.status")}
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {t("runners.detail.connectedSince")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {relayConnections.map((conn) => (
-                  <tr key={conn.pod_key}>
-                    <td className="px-4 py-3 text-sm font-mono text-foreground">
-                      {conn.pod_key}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {extractRelayHost(conn.relay_url)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        conn.connected
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {conn.connected ? t("common.connected") : t("common.disconnected")}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {conn.connected_at
-                        ? formatDistanceToNow(new Date(conn.connected_at), { addSuffix: true })
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <RelayConnectionsCard connections={relayConnections} />
       )}
 
       {/* Diagnostic Logs */}
       <RunnerLogsCard runnerId={runner.id} runnerStatus={runner.status} />
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
-}
-
-/**
- * Extract host from relay URL for display
- */
-function extractRelayHost(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.host;
-  } catch {
-    return url;
-  }
 }

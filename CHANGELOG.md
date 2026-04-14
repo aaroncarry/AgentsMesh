@@ -13,6 +13,9 @@ for tagged releases where possible.
 - Channel @mention with pod prompt forwarding
 - ChannelPodManager for managing pod membership in channels
 - Loop feature - CI/CD for AI Agent Tasks
+- Runner remote upgrade with Poddaemon-aware safety checks
+- Backend handler unit tests for runner upgrade endpoint
+- Upgrade confirmation dialog with active pod count warning (8 languages)
 
 ### Fixed
 
@@ -20,6 +23,9 @@ for tagged releases where possible.
 - Codex CLI 0.100+ approval mode compatibility & early output capture
 - PTY read error detection and propagation to prevent frozen terminals
 - Remove hardcoded GitLab PAT from E2E test scenario
+- Runner upgrade permission escalation: AllowRead → AllowWrite for mutating operations
+- Runner upgrade silently lost when Poddaemon not configured with active pods
+- Runner concurrent upgrade silently discarded instead of reporting conflict
 
 ## [0.5.0] - 2026-02-27
 

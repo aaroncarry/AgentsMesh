@@ -248,10 +248,9 @@ func TestOnUpgradeRunner_SendError(t *testing.T) {
 	}
 }
 
-func TestOnUpgradeRunner_ConcurrentUpgrade_Discarded(t *testing.T) {
+func TestOnUpgradeRunner_ConcurrentUpgrade_ReportsConflict(t *testing.T) {
 	r := newTestRunnerForUpgrade(0)
 
-	// Simulate an upgrade already in progress by acquiring the flag
 	if !r.TryStartUpgrade() {
 		t.Fatal("should be able to start upgrade")
 	}
@@ -260,21 +259,24 @@ func TestOnUpgradeRunner_ConcurrentUpgrade_Discarded(t *testing.T) {
 	mockConn := client.NewMockConnection()
 	handler := NewRunnerMessageHandler(r, r.podStore, mockConn)
 
-	// Second upgrade while first is in progress should be silently discarded
 	err := handler.OnUpgradeRunner(&runnerv1.UpgradeRunnerCommand{
 		RequestId: "req-second",
 	})
 	if err != nil {
-		t.Fatalf("concurrent upgrade should be silently discarded, got error: %v", err)
+		t.Fatalf("concurrent upgrade should return nil error, got: %v", err)
 	}
 
-	// No status events should be produced for the discarded command
 	statuses := getUpgradeStatuses(mockConn)
-	if len(statuses) != 0 {
-		t.Errorf("expected no status events for discarded upgrade, got %d", len(statuses))
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 failed status event, got %d", len(statuses))
+	}
+	if statuses[0].Phase != "failed" {
+		t.Errorf("expected phase=failed, got %q", statuses[0].Phase)
+	}
+	if !contains(statuses[0].Error, "already in progress") {
+		t.Errorf("expected error to mention 'already in progress', got: %q", statuses[0].Error)
 	}
 
-	// Clean up
 	r.FinishUpgrade()
 }
 

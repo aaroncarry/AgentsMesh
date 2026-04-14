@@ -17,7 +17,10 @@ import (
 // UpgradeRunnerRequest represents the request body for runner upgrade.
 type UpgradeRunnerRequest struct {
 	TargetVersion string `json:"target_version"`
-	Force         bool   `json:"force"`
+	// Deprecated: Force is accepted for backward compatibility but ignored.
+	// The upgrade path is always forced now that Poddaemon keeps pods alive
+	// across Runner restarts.
+	Force bool `json:"force,omitempty"`
 }
 
 // UpgradeRunner triggers a remote upgrade on a runner.
@@ -49,11 +52,19 @@ func (h *RunnerHandler) UpgradeRunner(c *gin.Context) {
 		return
 	}
 
-	if !policy.RunnerPolicy.AllowRead(sub, h.runnerResourceWithGrants(
-		c.Request.Context(), runnerID, r.OrganizationID, r.RegisteredByUserID, r.Visibility,
+	// Upgrade triggers a binary download + process restart — align with
+	// Update/Delete (AllowWrite) rather than the read-only permission previously
+	// used here. Read-only grants must not be able to force a runner upgrade.
+	if !policy.RunnerPolicy.AllowWrite(sub, policy.VisibleResource(
+		r.OrganizationID, r.RegisteredByUserID, r.Visibility,
 	)) {
 		apierr.ForbiddenAccess(c)
 		return
+	}
+
+	if req.Force {
+		slog.Warn("Deprecated 'force' field received — ignored since Poddaemon upgrade path",
+			"runner_id", runnerID, "user_id", tenant.UserID)
 	}
 
 	// Check if runner is online
@@ -62,15 +73,11 @@ func (h *RunnerHandler) UpgradeRunner(c *gin.Context) {
 		return
 	}
 
-	// Check pod count (unless force)
-	if !req.Force && r.CurrentPods > 0 {
-		apierr.Conflict(c, apierr.HAS_REFERENCES, "Runner has active pods. Use force=true to override.")
-		return
-	}
-
 	// Generate request ID and send upgrade command
+	// NOTE: force=true always — Poddaemon ensures pods survive runner restarts,
+	// so the old pod-count guard is no longer needed.
 	requestID := uuid.New().String()
-	if err := h.upgradeCommandSender.SendUpgradeRunner(runnerID, requestID, req.TargetVersion, req.Force); err != nil {
+	if err := h.upgradeCommandSender.SendUpgradeRunner(runnerID, requestID, req.TargetVersion, true); err != nil {
 		// Differentiate error types for better client diagnostics
 		if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
 			apierr.ServiceUnavailable(c, apierr.SERVICE_UNAVAILABLE, "Runner disconnected before command could be sent")
@@ -80,12 +87,13 @@ func (h *RunnerHandler) UpgradeRunner(c *gin.Context) {
 		return
 	}
 
-	// Audit log
+	// Audit log — active_pod_count is recorded so post-incident analysis can
+	// correlate an upgrade with any user sessions that may have been affected.
 	slog.Info("Runner upgrade initiated",
 		"runner_id", runnerID,
 		"request_id", requestID,
 		"target_version", req.TargetVersion,
-		"force", req.Force,
+		"active_pod_count", r.CurrentPods,
 		"user_id", tenant.UserID,
 		"org_id", tenant.OrganizationID,
 	)

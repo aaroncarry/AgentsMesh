@@ -81,7 +81,7 @@ func New(deps RunnerDeps) (*Runner, error) {
 		podStore:         deps.PodStore,
 		podDaemonManager: deps.PodDaemonManager,
 		autopilotStore:   NewAutopilotStore(),
-		upgradeCoord:     newUpgradeController(deps.PodStore.Count),
+		upgradeCoord:     newUpgradeController(),
 		stopChan:         make(chan struct{}),
 	}
 
