@@ -20,7 +20,7 @@ export function HeroContent({ t, onWatchDemo }: HeroContentProps) {
         </span>
       </div>
 
-      <h1 className="font-headline text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold leading-[0.95] mb-8">
+      <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[0.95] mb-8">
         <span className="text-foreground">{t("landing.hero.slogan1")}</span>
         <br />
         <span className="azure-gradient-text">{t("landing.hero.slogan2")}</span>

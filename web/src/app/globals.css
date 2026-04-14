@@ -330,6 +330,28 @@ body:has(.app-shell) {
   animation: azure-orb 6s ease-in-out infinite;
 }
 
+@keyframes mesh-edge-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes mesh-node-pulse {
+  0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.95); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+}
+@keyframes mesh-star-twinkle {
+  0%, 100% { opacity: var(--star-opacity, 0.3); transform: translate(-50%, -50%) scale(0.85); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+}
+.azure-theme .mesh-edge {
+  animation: mesh-edge-pulse 5s ease-in-out infinite;
+}
+.azure-theme .mesh-node {
+  animation: mesh-node-pulse 4s ease-in-out infinite;
+}
+.azure-theme .mesh-star {
+  animation: mesh-star-twinkle 3.5s ease-in-out infinite;
+}
+
 /* ============================================================
  * Azure Futurism — LIGHT variant for docs & reading surfaces.
  * Inverts the palette: snow-white canvas with cyan/mint accents

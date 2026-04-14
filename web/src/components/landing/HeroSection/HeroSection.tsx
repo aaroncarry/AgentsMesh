@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { HeroContent } from "./HeroContent";
 import { DemoVideoModal } from "./DemoVideoModal";
+import { MeshBackground } from "./MeshBackground";
 
 export function HeroSection() {
   const t = useTranslations();
@@ -16,17 +17,11 @@ export function HeroSection() {
         className="absolute bottom-10 -left-10 w-[400px] h-[400px] bg-[var(--azure-mint)]/10 blur-[100px] rounded-full azure-orb pointer-events-none"
         style={{ animationDelay: "1.5s" }}
       />
-
       <div
-        className="absolute inset-0 opacity-[0.05] pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--azure-cyan) 1px, transparent 1px), linear-gradient(90deg, var(--azure-cyan) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
-          maskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
-        }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[var(--azure-cyan)]/[0.04] blur-[140px] rounded-full pointer-events-none"
       />
+
+      <MeshBackground />
 
       <div className="relative z-10 max-w-6xl mx-auto">
         <HeroContent t={t} onWatchDemo={() => setDemoOpen(true)} />
