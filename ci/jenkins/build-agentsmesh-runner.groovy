@@ -54,7 +54,7 @@ pipeline {
         GIT_BRANCH = "${params.BRANCH}"
 
         // Build metadata
-        VERSION = sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
+        VERSION = "dev" // sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
     }
 
@@ -112,6 +112,7 @@ pipeline {
                     echo "Build Time: ${BUILD_TIME}"
 
                     sh """
+                        source ~/.bashrc
                         cd runner
                         make build-all VERSION=${VERSION} BUILD_TIME=${BUILD_TIME}
                     """
