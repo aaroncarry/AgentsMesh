@@ -138,12 +138,10 @@ export function AgentPodDemo() {
 
   return (
     <div className="space-y-2.5">
-      {/* Top row: 2 terminals */}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <Terminal pod={PODS[0]} displayedLines={displayedLines} />
         <Terminal pod={PODS[1]} displayedLines={displayedLines} />
       </div>
-      {/* Bottom row: 1 terminal, full width */}
       <Terminal pod={PODS[2]} displayedLines={displayedLines} />
     </div>
   );

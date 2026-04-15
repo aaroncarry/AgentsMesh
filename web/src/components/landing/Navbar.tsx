@@ -33,14 +33,17 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const collapsedRadius = isMobileMenuOpen ? "rounded-3xl" : "rounded-full";
+  const containerStyle = isMobileMenuOpen
+    ? "bg-[var(--azure-bg-high)]/95 backdrop-blur-xl border border-white/15 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6)]"
+    : isScrolled
+      ? "azure-glass border border-white/10 azure-glow-cyan-lg"
+      : "bg-transparent border border-transparent";
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 px-4 pt-4 sm:pt-6">
       <div
-        className={`mx-auto max-w-6xl rounded-full px-5 sm:px-7 py-3 transition-all duration-300 ${
-          isScrolled
-            ? "azure-glass border border-white/10 azure-glow-cyan-lg"
-            : "bg-transparent border border-transparent"
-        }`}
+        className={`mx-auto max-w-6xl ${collapsedRadius} px-5 sm:px-7 py-3 transition-all duration-300 ${containerStyle}`}
       >
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
@@ -121,7 +124,6 @@ export function Navbar() {
               </div>
               <AuthButtons
                 size="sm"
-                showRegister
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex flex-col gap-2 [&_button]:w-full"
               />

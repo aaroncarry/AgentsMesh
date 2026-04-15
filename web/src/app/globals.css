@@ -300,9 +300,9 @@ body:has(.app-shell) {
 }
 
 .azure-theme .azure-glass {
-  background-color: rgba(49, 53, 63, 0.4);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background-color: rgba(28, 31, 41, 0.7);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
 }
 
 .azure-theme .azure-glow-cyan {

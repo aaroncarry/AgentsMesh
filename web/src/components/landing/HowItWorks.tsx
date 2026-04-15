@@ -83,9 +83,9 @@ agentsmesh-runner run`,
                   </div>
                 </div>
 
-                <div className={`flex-1 w-full ${onLeft ? "md:order-3" : "md:order-1"}`}>
-                  <div className="azure-glass rounded-2xl border border-white/5 p-5 font-mono text-xs leading-relaxed text-[var(--azure-text-muted)] overflow-x-auto">
-                    <pre className="whitespace-pre-wrap">{step.code}</pre>
+                <div className={`flex-1 w-full min-w-0 ${onLeft ? "md:order-3" : "md:order-1"}`}>
+                  <div className="azure-glass rounded-2xl border border-white/5 p-4 sm:p-5 font-mono text-xs leading-relaxed text-[var(--azure-text-muted)] overflow-x-auto">
+                    <pre className="whitespace-pre-wrap break-all sm:break-words">{step.code}</pre>
                   </div>
                 </div>
               </div>

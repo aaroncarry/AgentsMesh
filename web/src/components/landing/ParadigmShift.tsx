@@ -62,9 +62,13 @@ export function ParadigmShift() {
         </div>
 
         <div className="text-center">
-          <p className="font-headline text-xl md:text-2xl font-medium italic text-[var(--azure-text-muted)] max-w-3xl mx-auto">
-            {t("landing.paradigmShift.punchline")}
-          </p>
+          <div className="inline-flex items-center gap-3 max-w-3xl mx-auto">
+            <span className="hidden sm:block h-px w-12 bg-gradient-to-r from-transparent to-[var(--azure-cyan)]/40" />
+            <p className="font-headline text-lg sm:text-xl md:text-2xl font-medium text-foreground/90 tracking-tight">
+              {t("landing.paradigmShift.punchline")}
+            </p>
+            <span className="hidden sm:block h-px w-12 bg-gradient-to-l from-transparent to-[var(--azure-cyan)]/40" />
+          </div>
         </div>
       </div>
     </section>

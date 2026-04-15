@@ -142,23 +142,23 @@ export function PricingSection() {
   const plans = buildPlans();
 
   return (
-    <section className="py-32 relative" id="pricing">
+    <section className="py-20 sm:py-32 relative" id="pricing">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="font-headline text-4xl md:text-5xl font-bold mb-6 italic">
+        <div className="text-center mb-12 sm:mb-16">
+          <h2 className="font-headline text-3xl sm:text-4xl md:text-5xl font-bold mb-5 sm:mb-6 leading-tight">
             {t("landing.pricing.title")}{" "}
-            <span className="azure-gradient-text not-italic">{t("landing.pricing.titleHighlight")}</span>
+            <span className="azure-gradient-text">{t("landing.pricing.titleHighlight")}</span>
           </h2>
-          <p className="text-[var(--azure-text-muted)] max-w-2xl mx-auto text-lg font-light">
+          <p className="text-[var(--azure-text-muted)] max-w-2xl mx-auto text-base sm:text-lg font-light">
             {t("landing.pricing.description")}
           </p>
         </div>
 
-        <div className="flex items-center justify-center mb-16">
+        <div className="flex items-center justify-center mb-12 sm:mb-16">
           <div className="inline-flex items-center rounded-full azure-glass p-1 border border-white/10">
             <button
               onClick={() => setBillingCycle("monthly")}
-              className={`px-5 py-2 rounded-full text-sm font-headline font-bold uppercase tracking-wider transition-all ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-headline font-bold uppercase tracking-wider transition-all ${
                 billingCycle === "monthly"
                   ? "azure-gradient-bg"
                   : "text-[var(--azure-text-muted)] hover:text-foreground"
@@ -168,14 +168,14 @@ export function PricingSection() {
             </button>
             <button
               onClick={() => setBillingCycle("yearly")}
-              className={`px-5 py-2 rounded-full text-sm font-headline font-bold uppercase tracking-wider transition-all ${
+              className={`px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-headline font-bold uppercase tracking-wider transition-all ${
                 billingCycle === "yearly"
                   ? "azure-gradient-bg"
                   : "text-[var(--azure-text-muted)] hover:text-foreground"
               }`}
             >
               {t("landing.pricing.yearly")}
-              <span className="ml-2 text-[10px] opacity-80">{t("landing.pricing.yearlyDiscount")}</span>
+              <span className="ml-1.5 sm:ml-2 text-[9px] sm:text-[10px] opacity-80">{t("landing.pricing.yearlyDiscount")}</span>
             </button>
           </div>
         </div>
@@ -187,7 +187,7 @@ export function PricingSection() {
             {plans.map((plan) => (
               <div
                 key={plan.key}
-                className={`relative rounded-3xl p-8 flex flex-col transition-all ${
+                className={`relative rounded-3xl p-6 sm:p-8 flex flex-col transition-all ${
                   plan.highlighted
                     ? "azure-glass border-2 border-[var(--azure-cyan)] azure-glow-cyan-lg lg:scale-105 z-10"
                     : "bg-[var(--azure-bg-low)] border border-[var(--azure-outline-variant)]/30"

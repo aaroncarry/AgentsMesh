@@ -106,14 +106,14 @@ export default function DocsShell({
       <BreadcrumbJsonLd breadcrumbs={breadcrumbs} labels={breadcrumbLabels} />
 
       <header className="azure-light-glass sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className="md:hidden flex-shrink-0"
                   aria-label={t("docs.nav.menu")}
                 >
                   <svg
@@ -139,11 +139,11 @@ export default function DocsShell({
               </SheetContent>
             </Sheet>
 
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg overflow-hidden">
+            <Link href="/" className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden flex-shrink-0">
                 <Logo />
               </div>
-              <span className="text-xl font-semibold text-[var(--azure-light-ink)]">
+              <span className="text-base sm:text-xl font-semibold text-[var(--azure-light-ink)] truncate">
                 AgentsMesh
               </span>
             </Link>
@@ -151,10 +151,10 @@ export default function DocsShell({
               Docs
             </span>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
             <Link
               href="/docs"
-              className="text-sm font-medium text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] transition-colors"
+              className="hidden sm:block text-sm font-medium text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] transition-colors"
             >
               {t("landing.nav.docs")}
             </Link>
@@ -168,9 +168,9 @@ export default function DocsShell({
           <SidebarNav />
         </aside>
 
-        <main className="flex-1 px-6 md:px-10 py-10 max-w-4xl mx-auto min-w-0">
+        <main className="flex-1 px-4 sm:px-6 md:px-10 py-8 sm:py-10 max-w-4xl mx-auto min-w-0 w-full">
           {breadcrumbs.length > 1 && (
-            <nav className="flex items-center gap-2 text-xs mb-8 text-[var(--azure-light-ink-muted)]">
+            <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-6 sm:mb-8 text-[var(--azure-light-ink-muted)]">
               {breadcrumbs.map((crumb, index) => (
                 <span key={index} className="flex items-center gap-2">
                   {index > 0 && (
