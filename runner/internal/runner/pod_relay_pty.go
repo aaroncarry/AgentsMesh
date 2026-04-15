@@ -3,6 +3,7 @@ package runner
 import (
 	"encoding/binary"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
@@ -12,9 +13,11 @@ import (
 
 // PTYPodRelay implements PodRelay for PTY-mode pods.
 type PTYPodRelay struct {
-	podKey     string
-	io         PodIO
-	components *PTYComponents
+	podKey         string
+	io             PodIO
+	components     *PTYComponents
+	lastSnapshotMu sync.Mutex
+	lastSnapshot   []byte
 }
 
 // NewPTYPodRelay creates a PodRelay for PTY mode.
@@ -49,23 +52,43 @@ func (r *PTYPodRelay) SetupHandlers(rc relay.RelayClient) {
 			}
 		}
 	})
+
+	rc.SetMessageHandler(relay.MsgTypeSnapshotRequest, func(_ []byte) {
+		r.SendSnapshot(rc)
+	})
 }
 
 func (r *PTYPodRelay) SendSnapshot(rc relay.RelayClient) {
 	log := logger.Pod()
 
 	vt := r.components.VirtualTerminal
-	if vt != nil {
-		snapshot := vt.GetSnapshot()
-		if snapshot != nil {
-			data, err := json.Marshal(snapshot)
-			if err != nil {
-				log.Error("Failed to marshal VT snapshot", "pod_key", r.podKey, "error", err)
-			} else {
-				_ = rc.Send(relay.MsgTypeSnapshot, data)
-			}
-		}
+	if vt == nil {
+		log.Warn("SendSnapshot: VT is nil", "pod_key", r.podKey)
+		return
 	}
+	snapshot := vt.GetSnapshot()
+	if snapshot == nil {
+		log.Warn("SendSnapshot: GetSnapshot returned nil", "pod_key", r.podKey)
+		return
+	}
+
+	hasContent := len(snapshot.SerializedContent) > 20
+
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		log.Error("Failed to marshal VT snapshot", "pod_key", r.podKey, "error", err)
+		return
+	}
+
+	r.lastSnapshotMu.Lock()
+	if hasContent {
+		r.lastSnapshot = data
+	} else if r.lastSnapshot != nil {
+		data = r.lastSnapshot
+	}
+	r.lastSnapshotMu.Unlock()
+
+	_ = rc.Send(relay.MsgTypeSnapshot, data)
 
 	// Trigger TUI redraw if in alt-screen mode
 	term := r.components.Terminal

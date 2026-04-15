@@ -55,21 +55,16 @@ export function dispatchRelayMessage(
 }
 
 export function handleSnapshot(conn: RelayConnection, payload: Uint8Array): void {
-  conn.snapshotReceived = true;
-  if (conn.snapshotTimer) {
-    clearTimeout(conn.snapshotTimer);
-    conn.snapshotTimer = null;
-  }
   try {
     const snapshot = JSON.parse(new TextDecoder().decode(payload));
     if (snapshot.cols > 0 && snapshot.rows > 0) {
       conn.podSize = { rows: snapshot.rows, cols: snapshot.cols };
     }
-    if (snapshot.serialized_content) {
-      const clearSeq = new TextEncoder().encode("\x1b[2J\x1b[H\x1b[3J");
+    if (snapshot.serialized_content && snapshot.serialized_content.length > 20) {
+      const cursorHome = new TextEncoder().encode("\x1b[H");
       const content = new TextEncoder().encode(snapshot.serialized_content);
       for (const callback of conn.subscribers.values()) {
-        callback(clearSeq);
+        callback(cursorHome);
         callback(content);
       }
     }

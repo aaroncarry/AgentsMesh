@@ -18,8 +18,6 @@ function makeMockConn(podKey: string, overrides: Partial<RelayConnection> = {}):
     reconnectAttempts: 0,
     reconnectTimer: null,
     disconnectTimer: null,
-    snapshotTimer: null,
-    snapshotReceived: false,
     relayUrl: "wss://relay.example.com",
     relayToken: "token",
     runnerDisconnected: false,

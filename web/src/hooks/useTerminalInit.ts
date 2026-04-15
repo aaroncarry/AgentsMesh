@@ -54,8 +54,6 @@ export interface SetupTerminalResult {
   term: XTerm;
   fitAddon: FitAddon;
   scheduler: TerminalWriteScheduler;
-  /** Initial dims captured after first rAF layout. */
-  initialDims: { value: { cols: number; rows: number } | null };
   /** rAF ID for the deferred fit — caller must cancel on cleanup. */
   deferredFitRafId: number;
 }
@@ -87,11 +85,9 @@ export function setupTerminal(
 
   term.open(container);
 
-  const initialDims: { value: { cols: number; rows: number } | null } = { value: null };
   const deferredFitRafId = requestAnimationFrame(() => {
     const dims = safeFit(fitAddon);
     if (dims) {
-      initialDims.value = dims;
       lastSyncedSizeRef.current = dims;
     }
   });
@@ -101,5 +97,5 @@ export function setupTerminal(
 
   terminalRegistry.register(podKey, term);
 
-  return { term, fitAddon, scheduler, initialDims, deferredFitRafId };
+  return { term, fitAddon, scheduler, deferredFitRafId };
 }

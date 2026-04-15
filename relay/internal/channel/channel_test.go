@@ -10,10 +10,8 @@ import (
 	"github.com/anthropics/agentsmesh/relay/internal/protocol"
 )
 
-// ==================== Core Lifecycle Tests ====================
-
-func TestNewTerminalChannel(t *testing.T) {
-	ch := NewTerminalChannel("pod-1", 200*time.Millisecond, nil, nil)
+func TestNewChannel(t *testing.T) {
+	ch := NewChannel("pod-1", 200*time.Millisecond, nil, nil)
 	if ch.PodKey != "pod-1" {
 		t.Fatalf("PodKey: got %q, want %q", ch.PodKey, "pod-1")
 	}
@@ -28,20 +26,16 @@ func TestNewTerminalChannel(t *testing.T) {
 	}
 }
 
-func TestNewTerminalChannelWithConfig(t *testing.T) {
+func TestNewChannelWithConfig(t *testing.T) {
 	cfg := testChannelConfig()
-	cfg.OutputBufferCount = 42
-	ch := NewTerminalChannelWithConfig("pod-cfg", cfg, nil, nil)
+	ch := NewChannelWithConfig("pod-cfg", cfg, nil, nil)
 	if ch.PodKey != "pod-cfg" {
 		t.Fatalf("PodKey: got %q, want %q", ch.PodKey, "pod-cfg")
 	}
-	if ch.config.OutputBufferCount != 42 {
-		t.Fatalf("OutputBufferCount: got %d, want 42", ch.config.OutputBufferCount)
-	}
 }
 
-func TestTerminalChannel_SetPublisher(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-pub", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher(t *testing.T) {
+	ch := NewChannelWithConfig("pod-pub", testChannelConfig(), nil, nil)
 	serverConn, _ := createWSPair(t)
 
 	ch.SetPublisher(serverConn)
@@ -54,8 +48,8 @@ func TestTerminalChannel_SetPublisher(t *testing.T) {
 	}
 }
 
-func TestTerminalChannel_SetPublisher_Reconnect(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-recon", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher_Reconnect(t *testing.T) {
+	ch := NewChannelWithConfig("pod-recon", testChannelConfig(), nil, nil)
 
 	pubServer, pubClient := createWSPair(t)
 	subServer, subClient := createWSPair(t)
@@ -101,8 +95,8 @@ func TestTerminalChannel_SetPublisher_Reconnect(t *testing.T) {
 	}
 }
 
-func TestTerminalChannel_AddSubscriber(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-sub", testChannelConfig(), nil, nil)
+func TestChannel_AddSubscriber(t *testing.T) {
+	ch := NewChannelWithConfig("pod-sub", testChannelConfig(), nil, nil)
 	serverConn, _ := createWSPair(t)
 
 	ch.AddSubscriber("s1", serverConn)
@@ -112,54 +106,20 @@ func TestTerminalChannel_AddSubscriber(t *testing.T) {
 	}
 }
 
-func TestTerminalChannel_AddSubscriber_ReceivesBuffer(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-buf-recv", testChannelConfig(), nil, nil)
-
-	msg1 := protocol.EncodeOutput([]byte("hello"))
-	msg2 := protocol.EncodeOutput([]byte("world"))
-	ch.bufferOutput(msg1)
-	ch.bufferOutput(msg2)
-
-	serverConn, clientConn := createWSPair(t)
-	ch.AddSubscriber("s1", serverConn)
-
-	var received [][]byte
-	for i := 0; i < 2; i++ {
-		_ = clientConn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		_, data, err := clientConn.ReadMessage()
-		if err != nil {
-			t.Fatalf("read buffered message %d: %v", i, err)
-		}
-		received = append(received, data)
-	}
-
-	if !bytes.Equal(received[0], msg1) {
-		t.Fatalf("first buffered message mismatch")
-	}
-	if !bytes.Equal(received[1], msg2) {
-		t.Fatalf("second buffered message mismatch")
-	}
-}
-
-func TestTerminalChannel_RemoveSubscriber(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-rm", testChannelConfig(), nil, nil)
+func TestChannel_RemoveSubscriber(t *testing.T) {
+	ch := NewChannelWithConfig("pod-rm", testChannelConfig(), nil, nil)
 	serverConn, _ := createWSPair(t)
 
 	ch.AddSubscriber("s1", serverConn)
-	ch.RequestControl("s1")
-
 	ch.RemoveSubscriber("s1")
 
 	if ch.SubscriberCount() != 0 {
 		t.Fatalf("SubscriberCount: got %d, want 0", ch.SubscriberCount())
 	}
-	if !ch.CanInput("other") {
-		t.Fatal("expected CanInput true after controller removed")
-	}
 }
 
-func TestTerminalChannel_Broadcast(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-bc", testChannelConfig(), nil, nil)
+func TestChannel_Broadcast(t *testing.T) {
+	ch := NewChannelWithConfig("pod-bc", testChannelConfig(), nil, nil)
 
 	s1Server, s1Client := createWSPair(t)
 	s2Server, s2Client := createWSPair(t)
@@ -188,10 +148,10 @@ func TestTerminalChannel_Broadcast(t *testing.T) {
 	}
 }
 
-func TestTerminalChannel_PublisherDisconnect_Timeout(t *testing.T) {
+func TestChannel_PublisherDisconnect_Timeout(t *testing.T) {
 	cfg := testChannelConfig()
 	cfg.PublisherReconnectTimeout = 200 * time.Millisecond
-	ch := NewTerminalChannelWithConfig("pod-pdt", cfg, nil, nil)
+	ch := NewChannelWithConfig("pod-pdt", cfg, nil, nil)
 
 	pubServer, pubClient := createWSPair(t)
 	subServer, _ := createWSPair(t)
@@ -210,7 +170,7 @@ func TestTerminalChannel_PublisherDisconnect_Timeout(t *testing.T) {
 	}
 }
 
-func TestTerminalChannel_Close(t *testing.T) {
+func TestChannel_Close(t *testing.T) {
 	closedCount := 0
 	var closedKey string
 	onClosed := func(podKey string) {
@@ -218,7 +178,7 @@ func TestTerminalChannel_Close(t *testing.T) {
 		closedKey = podKey
 	}
 
-	ch := NewTerminalChannelWithConfig("pod-close", testChannelConfig(), nil, onClosed)
+	ch := NewChannelWithConfig("pod-close", testChannelConfig(), nil, onClosed)
 
 	ch.Close()
 	if !ch.IsClosed() {

@@ -26,6 +26,9 @@ func NewACPPodRelay(podKey string, acpClient *acp.ACPClient, onCommand func([]by
 
 func (r *ACPPodRelay) SetupHandlers(rc relay.RelayClient) {
 	rc.SetMessageHandler(relay.MsgTypeAcpCommand, r.onCommand)
+	rc.SetMessageHandler(relay.MsgTypeSnapshotRequest, func(_ []byte) {
+		r.SendSnapshot(rc)
+	})
 }
 
 func (r *ACPPodRelay) SendSnapshot(rc relay.RelayClient) {

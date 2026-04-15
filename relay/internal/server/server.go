@@ -74,8 +74,6 @@ func New(cfg *config.Config) *Server {
 		PublisherReconnectTimeout:  cfg.Session.RunnerReconnectTimeout,
 		SubscriberReconnectTimeout: cfg.Session.BrowserReconnectTimeout,
 		PendingConnectionTimeout:   cfg.Session.PendingConnectionTimeout,
-		OutputBufferSize:           cfg.Session.OutputBufferSize,
-		OutputBufferCount:          cfg.Session.OutputBufferCount,
 	}
 	s.channelManager = channel.NewChannelManagerWithConfig(managerCfg, onAllSubscribersGone)
 

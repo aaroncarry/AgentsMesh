@@ -20,7 +20,7 @@ export const MsgType = {
   Control: 0x07,            // Control messages (JSON)
   RunnerDisconnected: 0x08, // Runner disconnected notification
   RunnerReconnected: 0x09,  // Runner reconnected notification
-  Resync: 0x0a,             // Resync request: ask relay to replay buffered output
+  SnapshotRequest: 0x0a,    // Browser → Runner: request current snapshot
   AcpEvent: 0x0b,           // Runner → Browser, ACP event (JSON)
   AcpCommand: 0x0c,         // Browser → Runner, ACP command (JSON)
   AcpSnapshot: 0x0d,        // Runner → Browser, ACP session snapshot (JSON)

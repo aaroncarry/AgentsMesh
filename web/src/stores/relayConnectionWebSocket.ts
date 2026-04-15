@@ -1,7 +1,7 @@
 import { MsgType, encodeMessage, encodeResize } from "./relayProtocol";
 import type { RelayConnection, ConnectionHandle } from "./relayConnectionTypes";
 import { dispatchRelayMessage, handleSnapshot, handleControl, handleRunnerDisconnected, handleRunnerReconnected } from "./relayConnectionHandlers";
-import { scheduleSnapshotRetry, scheduleReconnect, isNonRetryableError } from "./relayConnectionRetry";
+import { scheduleReconnect, isNonRetryableError } from "./relayConnectionRetry";
 
 export interface PoolContext {
   connections: Map<string, RelayConnection>;
@@ -33,8 +33,6 @@ export async function createNewConnection(
     reconnectAttempts: 0,
     reconnectTimer: null,
     disconnectTimer: null,
-    snapshotTimer: null,
-    snapshotReceived: false,
     relayUrl,
     relayToken,
     runnerDisconnected: false,
@@ -56,13 +54,12 @@ function setupWebSocketHandlers(ctx: PoolContext, podKey: string, ws: WebSocket)
       c.status = "connected";
       c.lastActivity = Date.now();
       c.reconnectAttempts = 0;
-      c.snapshotReceived = false;
       ctx.notifyStatusChange(podKey);
       if (c.pendingResize) {
         doSendResize(ctx, podKey, c.pendingResize.cols, c.pendingResize.rows);
         c.pendingResize = undefined;
       }
-      scheduleSnapshotRetry(getConn, podKey);
+      c.ws.send(encodeMessage(MsgType.SnapshotRequest, new Uint8Array(0)));
     }
   };
 
@@ -167,8 +164,6 @@ export async function reconnectConnection(ctx: PoolContext, podKey: string): Pro
       reconnectAttempts,
       reconnectTimer: null,
       disconnectTimer: null,
-      snapshotTimer: null,
-      snapshotReceived: false,
       relayUrl: oldConn.relayUrl,
       relayToken: oldConn.relayToken,
       runnerDisconnected: oldConn.runnerDisconnected,

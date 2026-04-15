@@ -54,13 +54,6 @@ type ResizeMessage struct {
 	Rows uint16 `json:"rows"`
 }
 
-// ControlRequest represents an input control request
-type ControlRequest struct {
-	Action     string `json:"action"` // "request", "release", "query"
-	BrowserID  string `json:"browser_id"`
-	Controller string `json:"controller,omitempty"` // Current controller (in response)
-}
-
 // EncodeMessage encodes a message with type prefix
 // Format: [1 byte type][payload]
 func EncodeMessage(msgType byte, payload []byte) []byte {
@@ -135,24 +128,6 @@ func EncodePing() []byte {
 // EncodePong encodes a pong message
 func EncodePong() []byte {
 	return EncodeMessage(MsgTypePong, nil)
-}
-
-// EncodeControlRequest encodes a control request
-func EncodeControlRequest(req *ControlRequest) ([]byte, error) {
-	payload, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	return EncodeMessage(MsgTypeControl, payload), nil
-}
-
-// DecodeControlRequest decodes a control request from payload
-func DecodeControlRequest(payload []byte) (*ControlRequest, error) {
-	var req ControlRequest
-	if err := json.Unmarshal(payload, &req); err != nil {
-		return nil, err
-	}
-	return &req, nil
 }
 
 // EncodeRunnerDisconnected encodes a runner disconnected notification

@@ -266,7 +266,37 @@ func TestPTYPodRelay_SendSnapshot_NilVTerm(t *testing.T) {
 	r := NewPTYPodRelay("pod-1", nil, &PTYComponents{})
 	r.SendSnapshot(mc)
 
-	// No VT → no snapshot sent.
+	if mc.CountSentByType(relay.MsgTypeSnapshot) != 0 {
+		t.Error("should not send snapshot when VT is nil")
+	}
+}
+
+func TestPTYPodRelay_SetupHandlers_SnapshotRequest(t *testing.T) {
+	mc := relay.NewMockClient("wss://relay.example.com")
+	mc.SetConnected(true)
+
+	vterm := vt.NewVirtualTerminal(80, 24, 1000)
+	vterm.Feed([]byte("Hello\r\n"))
+
+	r := NewPTYPodRelay("pod-1", nil, &PTYComponents{VirtualTerminal: vterm})
+	r.SetupHandlers(mc)
+
+	mc.SimulateMessage(relay.MsgTypeSnapshotRequest, nil)
+
+	if mc.CountSentByType(relay.MsgTypeSnapshot) != 1 {
+		t.Errorf("expected 1 snapshot after SnapshotRequest, got %d", mc.CountSentByType(relay.MsgTypeSnapshot))
+	}
+}
+
+func TestPTYPodRelay_SetupHandlers_SnapshotRequest_NilVTerm(t *testing.T) {
+	mc := relay.NewMockClient("wss://relay.example.com")
+	mc.SetConnected(true)
+
+	r := NewPTYPodRelay("pod-1", nil, &PTYComponents{})
+	r.SetupHandlers(mc)
+
+	mc.SimulateMessage(relay.MsgTypeSnapshotRequest, nil)
+
 	if mc.CountSentByType(relay.MsgTypeSnapshot) != 0 {
 		t.Error("should not send snapshot when VT is nil")
 	}

@@ -69,5 +69,19 @@
     "tickets": "任务管理",
     "settings": "设置",
     "billing": "账单"
+  },
+  "share": {
+    "title": "共享",
+    "selectUser": "用户",
+    "selectUserPlaceholder": "选择一个团队成员...",
+    "share": "共享",
+    "revoke": "撤销",
+    "revokeConfirmTitle": "撤销访问权限？",
+    "revokeConfirmDescription": "该用户将无法再访问此资源。",
+    "sharedWith": "已共享给",
+    "noShares": "尚未共享给任何人。",
+    "loadFailed": "加载共享信息失败",
+    "grantFailed": "共享失败",
+    "revokeFailed": "撤销访问权限失败"
   }
 }

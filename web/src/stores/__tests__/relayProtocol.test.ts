@@ -12,7 +12,7 @@ describe("MsgType", () => {
     expect(MsgType.Control).toBe(0x07);
     expect(MsgType.RunnerDisconnected).toBe(0x08);
     expect(MsgType.RunnerReconnected).toBe(0x09);
-    expect(MsgType.Resync).toBe(0x0a);
+    expect(MsgType.SnapshotRequest).toBe(0x0a);
   });
 });
 
@@ -31,7 +31,7 @@ describe("encodeMessage", () => {
   });
 
   it("encodes empty payload", () => {
-    const result = encodeMessage(MsgType.Resync, new Uint8Array(0));
+    const result = encodeMessage(MsgType.SnapshotRequest, new Uint8Array(0));
     expect(result).toEqual(new Uint8Array([0x0a]));
   });
 

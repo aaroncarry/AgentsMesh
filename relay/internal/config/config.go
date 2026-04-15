@@ -71,8 +71,6 @@ type SessionConfig struct {
 	RunnerReconnectTimeout   time.Duration `mapstructure:"runner_reconnect_timeout"`   // How long to wait for runner to reconnect
 	BrowserReconnectTimeout  time.Duration `mapstructure:"browser_reconnect_timeout"`  // How long to wait for browser to reconnect
 	PendingConnectionTimeout time.Duration `mapstructure:"pending_connection_timeout"` // How long to wait for counterpart connection
-	OutputBufferSize         int           `mapstructure:"output_buffer_size"`         // Max bytes for output buffer
-	OutputBufferCount        int           `mapstructure:"output_buffer_count"`        // Max messages for output buffer
 }
 
 // RelayConfig holds relay identity configuration

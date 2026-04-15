@@ -53,8 +53,6 @@ func testChannelConfig() ChannelConfig {
 		KeepAliveDuration:          200 * time.Millisecond,
 		PublisherReconnectTimeout:  200 * time.Millisecond,
 		SubscriberReconnectTimeout: 200 * time.Millisecond,
-		OutputBufferSize:           1024,
-		OutputBufferCount:          5,
 	}
 }
 
@@ -66,8 +64,6 @@ func testManagerConfig() ChannelManagerConfig {
 		PublisherReconnectTimeout:  200 * time.Millisecond,
 		SubscriberReconnectTimeout: 200 * time.Millisecond,
 		PendingConnectionTimeout:   500 * time.Millisecond,
-		OutputBufferSize:           1024,
-		OutputBufferCount:          5,
 	}
 }
 

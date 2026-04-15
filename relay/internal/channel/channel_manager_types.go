@@ -13,8 +13,6 @@ type ChannelManagerConfig struct {
 	PublisherReconnectTimeout  time.Duration // How long to wait for publisher to reconnect
 	SubscriberReconnectTimeout time.Duration // How long to wait for subscriber to reconnect
 	PendingConnectionTimeout   time.Duration // How long to wait for counterpart connection
-	OutputBufferSize           int           // Max bytes for output buffer
-	OutputBufferCount          int           // Max messages for output buffer
 }
 
 // DefaultChannelManagerConfig returns default manager configuration
@@ -25,8 +23,6 @@ func DefaultChannelManagerConfig() ChannelManagerConfig {
 		PublisherReconnectTimeout:  30 * time.Second,
 		SubscriberReconnectTimeout: 30 * time.Second,
 		PendingConnectionTimeout:   60 * time.Second,
-		OutputBufferSize:           256 * 1024, // 256KB
-		OutputBufferCount:          200,
 	}
 }
 
