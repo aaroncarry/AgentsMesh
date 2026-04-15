@@ -10,7 +10,7 @@ interface HeroContentProps {
 export function HeroContent({ t, onWatchDemo }: HeroContentProps) {
   return (
     <div className="text-center max-w-5xl mx-auto">
-      <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--azure-bg-high)] border border-[var(--azure-outline-variant)]/40 mb-10">
+      <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-[var(--azure-bg-high)] border border-[var(--azure-outline-variant)]/40 mb-6 sm:mb-10">
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--azure-mint)] opacity-75 animate-ping" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--azure-mint)]" />
@@ -20,13 +20,13 @@ export function HeroContent({ t, onWatchDemo }: HeroContentProps) {
         </span>
       </div>
 
-      <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[0.95] mb-8">
+      <h1 className="font-headline text-[2.25rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl sm:leading-[0.95] font-bold mb-6 sm:mb-8">
         <span className="text-foreground">{t("landing.hero.slogan1")}</span>
         <br />
         <span className="azure-gradient-text">{t("landing.hero.slogan2")}</span>
       </h1>
 
-      <p className="text-[var(--azure-text-muted)] text-lg md:text-xl max-w-2xl mx-auto mb-12 font-light leading-relaxed">
+      <p className="text-[var(--azure-text-muted)] text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-12 font-light leading-relaxed">
         {t("landing.hero.description")}
       </p>
 
