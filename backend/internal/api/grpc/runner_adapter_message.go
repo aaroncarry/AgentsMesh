@@ -107,6 +107,9 @@ func (a *GRPCRunnerAdapter) handleProtoMessage(ctx context.Context, runnerID int
 		// Direct Proto type passing - no conversion
 		a.connManager.HandleObservePodResult(runnerID, payload.ObservePodResult)
 
+	case *runnerv1.RunnerMessage_GitCommandResult:
+		a.connManager.HandleGitCommandResult(runnerID, payload.GitCommandResult)
+
 	case *runnerv1.RunnerMessage_McpRequest:
 		a.handleMcpRequest(ctx, runnerID, conn, payload.McpRequest)
 

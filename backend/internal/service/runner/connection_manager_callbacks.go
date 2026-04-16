@@ -113,6 +113,11 @@ func (cm *RunnerConnectionManager) SetObservePodResultCallback(fn func(runnerID 
 	cm.onObservePodResult = fn
 }
 
+// SetGitCommandResultCallback sets the git command result callback (Proto type)
+func (cm *RunnerConnectionManager) SetGitCommandResultCallback(fn func(runnerID int64, data *runnerv1.GitCommandResult)) {
+	cm.onGitCommandResult = fn
+}
+
 // ==================== Token Usage Callback Setter ====================
 
 // SetTokenUsageCallback sets the token usage report callback (Proto type)

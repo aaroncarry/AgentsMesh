@@ -117,6 +117,29 @@ func (c *GRPCConnection) handleObservePod(cmd *runnerv1.ObservePodCommand) {
 	}
 }
 
+// GitCommandHandler is an optional extension interface for handling git commands.
+// Implemented by handlers that support structured git operations.
+type GitCommandHandler interface {
+	OnGitCommand(cmd *runnerv1.GitCommand) error
+}
+
+func (c *GRPCConnection) handleGitCommand(cmd *runnerv1.GitCommand) {
+	log := logger.GRPC()
+	log.Info("Received git_command", "request_id", cmd.RequestId, "pod_key", cmd.PodKey)
+	if c.handler == nil {
+		log.Warn("No handler set, ignoring git_command")
+		return
+	}
+	h, ok := c.handler.(GitCommandHandler)
+	if !ok {
+		log.Warn("Handler does not support git commands, ignoring")
+		return
+	}
+	if err := h.OnGitCommand(cmd); err != nil {
+		log.Error("Failed to handle git_command", "request_id", cmd.RequestId, "pod_key", cmd.PodKey, "error", err)
+	}
+}
+
 // handleCreateAutopilot handles create_autopilot command from server.
 func (c *GRPCConnection) handleCreateAutopilot(cmd *runnerv1.CreateAutopilotCommand) {
 	log := logger.GRPC()

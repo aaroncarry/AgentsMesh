@@ -34,6 +34,9 @@ func registerPodRoutes(rg *gin.RouterGroup, svc *Services) {
 		pods.POST("/:key/grants", podHandler.GrantPodAccess)
 		pods.DELETE("/:key/grants/:grant_id", podHandler.RevokePodGrant)
 	}
+	if svc.PodGit != nil {
+		registerPodGitRoutes(pods, NewPodGitHandler(svc.PodGit))
+	}
 
 	// Relay connection endpoint
 	if svc.RelayManager != nil && svc.RelayTokenGenerator != nil {

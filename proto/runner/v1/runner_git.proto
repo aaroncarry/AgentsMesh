@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package runner.v1;
+
+option go_package = "github.com/anthropic/agentmesh/proto/runner/v1;runnerv1";
+
+// ==================== Pod Git 命令 ====================
+
+// GitCommand Backend 发送到 Runner 的 Git 操作命令。
+// 用于在 Pod 对应的 workspace/worktree 中执行受控的 Git 操作。
+message GitCommand {
+  string request_id = 1;      // 请求 ID，用于关联响应
+  string pod_key = 2;         // 目标 Pod
+  string sandbox_path = 7;    // Sandbox 根目录（支持 Pod 已退出但 Sandbox 仍在的场景）
+  oneof action {
+    GitStatusCommand status = 3;
+    GitDiffCommand diff = 4;
+    GitCommitCommand commit = 5;
+    GitPushCommand push = 6;
+  }
+}
+
+message GitStatusCommand {}
+
+message GitDiffCommand {
+  string path = 1;            // 可选：仅查看指定文件
+  bool staged = 2;            // true=git diff --cached
+  int32 context_lines = 3;    // diff 上下文行数
+  int32 max_bytes = 4;        // 最大返回字节数，超过则截断
+}
+
+message GitCommitCommand {
+  string message = 1;         // commit message
+  repeated string paths = 2;  // 可选：仅提交指定路径
+  bool all = 3;               // true=git add -A
+  string author_name = 4;     // 可选：覆盖本次 commit author name
+  string author_email = 5;    // 可选：覆盖本次 commit author email
+}
+
+message GitAuth {
+  string username = 1;        // Basic Auth 用户名（如 oauth2 / x-access-token）
+  string token = 2;           // 本次请求临时使用的 Git Token
+}
+
+message GitPushCommand {
+  string branch = 1;          // 推送目标分支
+  string remote_url = 2;      // 本次 push 使用的远端地址
+  bool set_upstream = 3;      // 是否附带 --set-upstream
+  bool force_with_lease = 4;  // 是否附带 --force-with-lease
+  GitAuth auth = 5;           // 一次性认证信息
+}
+
+message GitStatusFile {
+  string path = 1;
+  string status = 2;          // added / modified / deleted / renamed / untracked
+  bool staged = 3;
+}
+
+message GitStatusStats {
+  int32 modified = 1;
+  int32 added = 2;
+  int32 deleted = 3;
+  int32 renamed = 4;
+  int32 untracked = 5;
+}
+
+message GitStatusResult {
+  string branch = 1;
+  string head_sha = 2;
+  bool has_changes = 3;
+  bool has_staged_changes = 4;
+  repeated GitStatusFile files = 5;
+  GitStatusStats stats = 6;
+}
+
+message GitDiffResult {
+  string branch = 1;
+  string path = 2;
+  bool staged = 3;
+  bool truncated = 4;
+  int32 max_bytes = 5;
+  string diff = 6;
+}
+
+message GitCommitResult {
+  string branch = 1;
+  string commit_sha = 2;
+  string message = 3;
+  repeated string committed_files = 4;
+}
+
+message GitPushResult {
+  string branch = 1;
+  string remote_url = 2;
+  bool pushed = 3;
+  bool upstream_set = 4;
+  string remote_head_sha = 5;
+}
+
+message GitCommandResult {
+  string request_id = 1;      // 对应 GitCommand.request_id
+  string pod_key = 2;
+  bool ok = 3;
+  string code = 4;            // 结构化错误码
+  string message = 5;         // 人类可读错误信息
+  oneof result {
+    GitStatusResult status = 10;
+    GitDiffResult diff = 11;
+    GitCommitResult commit = 12;
+    GitPushResult push = 13;
+  }
+}

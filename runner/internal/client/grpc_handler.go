@@ -86,6 +86,13 @@ func (c *GRPCConnection) handleServerMessage(msg *runnerv1.ServerMessage) {
 			c.handleCreateAutopilot(payload.CreateAutopilot)
 		})
 
+	case *runnerv1.ServerMessage_GitCommand:
+		c.handlerWg.Add(1)
+		c.podQueue.Enqueue(payload.GitCommand.PodKey, func() {
+			defer c.handlerWg.Done()
+			c.handleGitCommand(payload.GitCommand)
+		})
+
 	// Lightweight operations - synchronous to preserve ordering
 	case *runnerv1.ServerMessage_PodInput:
 		c.handlePodInput(payload.PodInput)
