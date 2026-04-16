@@ -6,7 +6,7 @@
  * This pipeline:
  * 1. Clones the repository from GitLab
  * 2. Builds Runner binaries for all platforms (macOS, Linux, Windows, amd64/arm64)
- * 3. Uploads built binaries to NextCloud
+ * 3. Uploads built binaries to MinIO
  * 4. Archives built binaries as Jenkins artifacts
  *
  * Build Command:
@@ -20,27 +20,28 @@
  * - runner/bin/runner-windows-amd64.exe
  * - runner/bin/runner-windows-arm64.exe
  *
- * NextCloud Upload:
- * - URL: https://cloud-xmn.int.rclabenv.com
- * - Directory: AgentsMesh/
+ * MinIO Upload:
+ * - Endpoint: http://aqa01-i01-xta01.int.rclabenv.com:9900
+ * - Bucket: agentsmesh
+ * - MinIO Client (mc) will be automatically installed if not present
  * - All artifacts are uploaded directly (overwrites existing files)
- * - Files are shared publicly (no authentication required for download)
+ * - Files are publicly accessible
  *
  * Parameters:
  * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
  * - BRANCH: Git branch to build (default: rc)
  * - GIT_CREDENTIAL_ID: Jenkins SSH credential ID for Git operations (default: gitjenkins.xiamen)
- * - UPLOAD_TO_NEXT_CLOUD: Upload artifacts to NextCloud (default: true)
+ * - UPLOAD_TO_MINIO: Upload artifacts to MinIO (default: true)
  *
  * Environment Variables:
  * - GIT_REPO: Git repository URL
  * - GIT_BRANCH: Git branch to build (from BRANCH parameter)
  * - VERSION: Git version (tag or commit hash)
  * - BUILD_TIME: Build timestamp
- * - NEXTCLOUD_URL: NextCloud server URL
- * - NEXTCLOUD_DIR: NextCloud directory for uploads
- * - NEXTCLOUD_USER: NextCloud username
- * - NEXTCLOUD_PASS: NextCloud password
+ * - MINIO_ENDPOINT: MinIO server endpoint
+ * - MINIO_BUCKET: MinIO bucket name
+ * - MINIO_ACCESS_KEY: MinIO access key
+ * - MINIO_SECRET_KEY: MinIO secret key
  */
 
 String getBuildUser() {
@@ -54,7 +55,7 @@ String getBuildUser() {
 currentBuild.setDescription("triggered by " + getBuildUser())
 
 // Global variable to store public download links
-def nextCloudLinks = []
+def minioLinks = []
 
 pipeline {
     agent {
@@ -72,11 +73,11 @@ pipeline {
         VERSION = "dev" // sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
-        // NextCloud configuration
-        NEXTCLOUD_URL = 'https://cloud-xmn.int.rclabenv.com'
-        NEXTCLOUD_DIR = 'AgentsMesh'
-        NEXTCLOUD_USER = 'sdet'
-        NEXTCLOUD_PASS = 'Sdet!123456'
+        // MinIO configuration
+        MINIO_ENDPOINT = 'http://aqa01-i01-xta01.int.rclabenv.com:9900'
+        MINIO_BUCKET = 'agentsmesh'
+        MINIO_ACCESS_KEY = 'admin'
+        MINIO_SECRET_KEY = '12345678'
     }
 
     parameters {
@@ -96,9 +97,9 @@ pipeline {
             description: 'Jenkins SSH credential ID for Git operations'
         )
         booleanParam(
-            name: 'UPLOAD_TO_NEXT_CLOUD',
+            name: 'UPLOAD_TO_MINIO',
             defaultValue: true,
-            description: 'Upload build artifacts to NextCloud'
+            description: 'Upload build artifacts to MinIO'
         )
     }
 
@@ -149,13 +150,13 @@ pipeline {
             }
         }
 
-        stage('Upload to NextCloud') {
+        stage('Upload to MinIO') {
             when {
-                expression { params.UPLOAD_TO_NEXT_CLOUD == true }
+                expression { params.UPLOAD_TO_MINIO == true }
             }
             steps {
                 script {
-                    echo "=== Uploading artifacts to NextCloud ==="
+                    echo "=== Uploading artifacts to MinIO ==="
 
                     def artifacts = [
                         "runner/bin/runner-darwin-amd64",
@@ -166,50 +167,83 @@ pipeline {
                         "runner/bin/runner-windows-arm64.exe"
                     ]
 
-                    // Upload each artifact and create public share link
+                    // Check if mc is installed, if not install it
+                    sh """
+                        if ! command -v mc &> /dev/null; then
+                            echo "MinIO Client (mc) not found, installing..."
+
+                            # Determine OS and architecture
+                            OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
+                            ARCH=\$(uname -m)
+
+                            # Map architecture names
+                            case "\$ARCH" in
+                                x86_64)
+                                    ARCH="amd64"
+                                    ;;
+                                aarch64|arm64)
+                                    ARCH="arm64"
+                                    ;;
+                            esac
+
+                            # Download mc binary
+                            MC_URL="https://dl.min.io/client/mc/release/\${OS}-\${ARCH}/mc"
+                            echo "Downloading from: \$MC_URL"
+
+                            curl -o /tmp/mc \$MC_URL
+                            chmod +x /tmp/mc
+
+                            # Move to user's local bin (no sudo required)
+                            mkdir -p \$HOME/.local/bin
+                            mv /tmp/mc \$HOME/.local/bin/mc
+                            export PATH=\$HOME/.local/bin:\$PATH
+
+                            echo "MinIO Client installed successfully"
+                            mc --version
+                        else
+                            echo "MinIO Client already installed"
+                            mc --version
+                        fi
+                    """
+
+                    // Configure MinIO client
+                    sh """
+                        # Ensure mc is in PATH
+                        export PATH=\$HOME/.local/bin:\$PATH
+
+                        # Configure mc alias
+                        mc alias set agentsmesh-minio ${MINIO_ENDPOINT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --insecure
+
+                        # Create bucket if not exists
+                        mc mb agentsmesh-minio/${MINIO_BUCKET} --ignore-existing --insecure
+
+                        # Set bucket policy to public (download-only)
+                        mc anonymous set download agentsmesh-minio/${MINIO_BUCKET} --insecure
+                    """
+
+                    // Upload each artifact
                     artifacts.each { artifact ->
                         def fileName = artifact.split('/').last()
                         echo "Uploading ${fileName}..."
 
                         sh """
-                            curl -k -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
-                                 -T "${artifact}" \
-                                 "${NEXTCLOUD_URL}/remote.php/dav/files/${NEXTCLOUD_USER}/${NEXTCLOUD_DIR}/${fileName}"
+                            # Ensure mc is in PATH
+                            export PATH=\$HOME/.local/bin:\$PATH
+
+                            mc cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName} --insecure
                         """
 
-                        // Create public share link (password-free download)
-                        def shareResponse = sh(
-                            script: """
-                                curl -k -s -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
-                                     -X POST \
-                                     -H "OCS-APIRequest: true" \
-                                     -H "Content-Type: application/x-www-form-urlencoded" \
-                                     -d "path=/${NEXTCLOUD_DIR}/${fileName}&shareType=3&permissions=1" \
-                                     "${NEXTCLOUD_URL}/ocs/v2.php/apps/files_sharing/api/v1/shares?format=json"
-                            """,
-                            returnStdout: true
-                        ).trim()
-
-                        // Extract share URL from JSON response
-                        def shareUrl = ""
-                        try {
-                            def jsonSlurper = new groovy.json.JsonSlurper()
-                            def jsonResponse = jsonSlurper.parseText(shareResponse)
-                            shareUrl = jsonResponse.ocs?.data?.url ?: "N/A"
-                        } catch (Exception e) {
-                            echo "Warning: Failed to parse share response for ${fileName}: ${e.message}"
-                            shareUrl = "${NEXTCLOUD_URL}/apps/files/?dir=/${NEXTCLOUD_DIR}"
-                        }
-
-                        nextCloudLinks.add([name: fileName, url: shareUrl])
-                        echo "Share created for ${fileName}: ${shareUrl}"
+                        // Construct public download URL
+                        def downloadUrl = "${MINIO_ENDPOINT}/${MINIO_BUCKET}/${fileName}"
+                        minioLinks.add([name: fileName, url: downloadUrl])
+                        echo "Uploaded ${fileName}: ${downloadUrl}"
                     }
 
                     echo "=== Upload complete ==="
                     echo ""
                     echo "📦 Public Download Links:"
                     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                    nextCloudLinks.each { link ->
+                    minioLinks.each { link ->
                         echo "  ${link.name}"
                         echo "  └─ ${link.url}"
                         echo ""
@@ -251,12 +285,12 @@ pipeline {
                 }
                 echo ""
 
-                if (params.UPLOAD_TO_NEXT_CLOUD && nextCloudLinks.size() > 0) {
+                if (params.UPLOAD_TO_MINIO && minioLinks.size() > 0) {
                     echo "╔════════════════════════════════════════════════════════════════════════════╗"
-                    echo "║                     📦 NextCloud Public Download Links                     ║"
+                    echo "║                      📦 MinIO Public Download Links                        ║"
                     echo "╚════════════════════════════════════════════════════════════════════════════╝"
                     echo ""
-                    nextCloudLinks.each { link ->
+                    minioLinks.each { link ->
                         echo "📄 ${link.name}"
                         echo "   ${link.url}"
                         echo ""
