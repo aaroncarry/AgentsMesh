@@ -145,84 +145,9 @@ pipeline {
                     echo "Version: ${VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
-                    // Install GoReleaser v2.8+ (required for 'ids' field support)
-                    sh """
-                        set -e  # Exit on error
-
-                        echo "Installing GoReleaser v2.8+..."
-
-                        # Remove any old installation in local bin
-                        rm -f \$HOME/.local/bin/goreleaser
-
-                        # Create local bin directory
-                        mkdir -p \$HOME/.local/bin
-
-                        # Detect OS and architecture
-                        OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
-                        ARCH=\$(uname -m)
-
-                        # Map architecture names to goreleaser naming convention
-                        case "\$ARCH" in
-                            x86_64)
-                                ARCH="x86_64"
-                                ;;
-                            aarch64)
-                                ARCH="arm64"
-                                ;;
-                            arm64)
-                                ARCH="arm64"
-                                ;;
-                        esac
-
-                        echo "Detected: OS=\$OS, ARCH=\$ARCH"
-
-                        # Download and install specific version (v2.8.1)
-                        GORELEASER_VERSION="2.8.1"
-                        DOWNLOAD_URL="https://github.com/goreleaser/goreleaser/releases/download/v\${GORELEASER_VERSION}/goreleaser_\${OS}_\${ARCH}.tar.gz"
-
-                        echo "Downloading from: \$DOWNLOAD_URL"
-
-                        # Download and extract to temp directory
-                        TEMP_DIR=\$(mktemp -d)
-                        cd \$TEMP_DIR
-
-                        curl -sfL "\$DOWNLOAD_URL" -o goreleaser.tar.gz
-
-                        if [ ! -f goreleaser.tar.gz ]; then
-                            echo "Error: Failed to download goreleaser"
-                            exit 1
-                        fi
-
-                        tar -xzf goreleaser.tar.gz
-
-                        if [ ! -f goreleaser ]; then
-                            echo "Error: goreleaser binary not found in archive"
-                            ls -la
-                            exit 1
-                        fi
-
-                        # Move to local bin
-                        mv goreleaser \$HOME/.local/bin/goreleaser
-                        chmod +x \$HOME/.local/bin/goreleaser
-
-                        # Clean up
-                        cd -
-                        rm -rf \$TEMP_DIR
-
-                        # Verify installation
-                        if [ ! -f \$HOME/.local/bin/goreleaser ]; then
-                            echo "Error: Installation failed - goreleaser not found in \$HOME/.local/bin"
-                            exit 1
-                        fi
-
-                        echo "GoReleaser v\${GORELEASER_VERSION} installed successfully"
-                        \$HOME/.local/bin/goreleaser --version
-                    """
-
-                    // Build with GoReleaser (use explicit path to ensure correct version)
+                    // Build with GoReleaser
                     sh """
                         source ~/.bashrc
-                        export PATH=\$HOME/.local/bin:\$PATH
 
                         # Set empty macOS code signing environment variables
                         # These are required by .goreleaser.yml but not used in snapshot builds
@@ -232,12 +157,12 @@ pipeline {
                         export APPLE_API_KEY_ISSUER_ID=""
                         export APPLE_API_KEY=""
 
-                        # Verify we're using the correct goreleaser
-                        echo "Using goreleaser at: \$(which goreleaser)"
+                        # Verify goreleaser is available
+                        echo "Using goreleaser: \$(which goreleaser)"
                         goreleaser --version
 
                         cd runner
-                        \$HOME/.local/bin/goreleaser release --snapshot --clean
+                        goreleaser release --snapshot --clean
                     """
 
                     echo "=== Build complete ==="
