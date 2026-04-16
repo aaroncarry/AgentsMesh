@@ -28,7 +28,7 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 			Message: fmt.Sprintf("failed to create sandbox directory: %v", err),
 		}
 	}
-	logger.Pod().Debug("Sandbox root created", "pod_key", b.cmd.PodKey, "path", sandboxRoot)
+	logger.Pod().DebugContext(ctx, "Sandbox root created", "pod_key", b.cmd.PodKey, "path", sandboxRoot)
 
 	cfg := b.cmd.SandboxConfig
 
@@ -36,13 +36,13 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	b.sendProgress("preparing", 20, "Setting up working directory...")
 
 	strategy := b.selectSetupStrategy(cfg)
-	logger.Pod().Info("Setup strategy selected", "pod_key", b.cmd.PodKey, "strategy", strategy.Name())
+	logger.Pod().InfoContext(ctx, "Setup strategy selected", "pod_key", b.cmd.PodKey, "strategy", strategy.Name())
 
 	result, err := strategy.Setup(ctx, sandboxRoot, cfg)
 	if err != nil {
-		logger.Pod().Error("Setup strategy failed", "pod_key", b.cmd.PodKey, "strategy", strategy.Name(), "error", err)
+		logger.Pod().ErrorContext(ctx, "Setup strategy failed", "pod_key", b.cmd.PodKey, "strategy", strategy.Name(), "error", err)
 		if rmErr := fsutil.RemoveAll(sandboxRoot); rmErr != nil {
-			slog.Warn("Failed to clean up sandbox after setup error", "path", sandboxRoot, "error", rmErr)
+			slog.WarnContext(ctx, "Failed to clean up sandbox after setup error", "path", sandboxRoot, "error", rmErr)
 		}
 		return "", "", "", err
 	}
@@ -66,7 +66,7 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	if err := b.prepareAgentHome(sandboxRoot, result.WorkingDir); err != nil {
 		if sandboxOwned {
 			if rmErr := fsutil.RemoveAll(sandboxRoot); rmErr != nil {
-				slog.Warn("Failed to clean up sandbox after agent home error", "path", sandboxRoot, "error", rmErr)
+				slog.WarnContext(ctx, "Failed to clean up sandbox after agent home error", "path", sandboxRoot, "error", rmErr)
 			}
 		}
 		return "", "", "", err
@@ -79,7 +79,7 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	if err := b.createFiles(sandboxRoot, result.WorkingDir); err != nil {
 		if sandboxOwned {
 			if rmErr := fsutil.RemoveAll(sandboxRoot); rmErr != nil {
-				slog.Warn("Failed to clean up sandbox after file creation error", "path", sandboxRoot, "error", rmErr)
+				slog.WarnContext(ctx, "Failed to clean up sandbox after file creation error", "path", sandboxRoot, "error", rmErr)
 			}
 		}
 		return "", "", "", err
@@ -89,13 +89,13 @@ func (b *PodBuilder) setup(ctx context.Context) (string, string, string, error) 
 	if err := b.downloadResources(ctx, sandboxRoot, result.WorkingDir); err != nil {
 		if sandboxOwned {
 			if rmErr := fsutil.RemoveAll(sandboxRoot); rmErr != nil {
-				slog.Warn("Failed to clean up sandbox after download error", "path", sandboxRoot, "error", rmErr)
+				slog.WarnContext(ctx, "Failed to clean up sandbox after download error", "path", sandboxRoot, "error", rmErr)
 			}
 		}
 		return "", "", "", fmt.Errorf("failed to download resources: %w", err)
 	}
 
-	logger.Pod().Info("Sandbox setup completed",
+	logger.Pod().InfoContext(ctx, "Sandbox setup completed",
 		"pod_key", b.cmd.PodKey,
 		"sandbox_root", sandboxRoot,
 		"working_dir", result.WorkingDir,
@@ -167,9 +167,9 @@ func (b *PodBuilder) downloadResources(ctx context.Context, sandboxRoot, workDir
 			return fmt.Errorf("failed to download resource %s: %w", res.Sha, err)
 		}
 		if result.CacheHit {
-			slog.Info("Resource cache hit", "sha", res.Sha)
+			slog.InfoContext(ctx, "Resource cache hit", "sha", res.Sha)
 		} else {
-			slog.Info("Resource downloaded", "sha", res.Sha, "bytes", result.BytesRead)
+			slog.InfoContext(ctx, "Resource downloaded", "sha", res.Sha, "bytes", result.BytesRead)
 		}
 	}
 	return nil

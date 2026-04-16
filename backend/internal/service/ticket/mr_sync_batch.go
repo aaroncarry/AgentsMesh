@@ -34,7 +34,7 @@ func (s *MRSyncService) BatchCheckPods(ctx context.Context) ([]*ticket.MergeRequ
 		}
 		mr, err := s.checkPod(ctx, p.ID, p.OrganizationID, *p.BranchName, *p.TicketID)
 		if err != nil {
-			slog.Warn("batch check pod failed", "pod_id", p.ID, "error", err)
+			slog.WarnContext(ctx, "batch check pod failed", "pod_id", p.ID, "error", err)
 			continue
 		}
 		if mr != nil {
@@ -42,7 +42,7 @@ func (s *MRSyncService) BatchCheckPods(ctx context.Context) ([]*ticket.MergeRequ
 		}
 	}
 
-	slog.Info("batch check pods completed", "checked", len(pods), "new_mrs", len(newMRs))
+	slog.InfoContext(ctx, "batch check pods completed", "checked", len(pods), "new_mrs", len(newMRs))
 	return newMRs, nil
 }
 
@@ -96,13 +96,13 @@ func (s *MRSyncService) BatchSyncMRStatus(ctx context.Context) ([]*ticket.MergeR
 
 		externalID, err := s.repo.GetRepoExternalID(ctx, *mr.Ticket.RepositoryID)
 		if err != nil {
-			slog.Warn("batch sync MR: failed to get repo external ID", "mr_id", mr.ID, "error", err)
+			slog.WarnContext(ctx, "batch sync MR: failed to get repo external ID", "mr_id", mr.ID, "error", err)
 			continue
 		}
 
 		mrInfo, err := s.gitProvider.GetMergeRequest(ctx, externalID, mr.MRIID)
 		if err != nil {
-			slog.Warn("batch sync MR: failed to fetch MR from provider", "mr_id", mr.ID, "mr_iid", mr.MRIID, "error", err)
+			slog.WarnContext(ctx, "batch sync MR: failed to fetch MR from provider", "mr_id", mr.ID, "mr_iid", mr.MRIID, "error", err)
 			continue
 		}
 
@@ -110,13 +110,13 @@ func (s *MRSyncService) BatchSyncMRStatus(ctx context.Context) ([]*ticket.MergeR
 		s.updateMRFromData(mr, mrData)
 
 		if err := s.repo.SaveMR(ctx, mr); err != nil {
-			slog.Warn("batch sync MR: failed to save MR", "mr_id", mr.ID, "error", err)
+			slog.WarnContext(ctx, "batch sync MR: failed to save MR", "mr_id", mr.ID, "error", err)
 			continue
 		}
 		updated = append(updated, mr)
 	}
 
-	slog.Info("batch sync MR status completed", "total", len(mrs), "updated", len(updated))
+	slog.InfoContext(ctx, "batch sync MR status completed", "total", len(mrs), "updated", len(updated))
 	return updated, nil
 }
 

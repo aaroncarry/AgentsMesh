@@ -47,7 +47,7 @@ func (w *MarketplaceWorker) Start(ctx context.Context) {
 	w.startOnce.Do(func() {
 		ctx, w.cancel = context.WithCancel(ctx)
 
-		slog.Info("MarketplaceWorker starting",
+		slog.InfoContext(ctx, "MarketplaceWorker starting",
 			"interval", w.syncInterval)
 
 		w.wg.Add(1)
@@ -103,16 +103,16 @@ func (w *MarketplaceWorker) SyncSingle(ctx context.Context, registryID int64) er
 		return fmt.Errorf("registry %d is not a platform-level registry", registryID)
 	}
 
-	slog.Info("MarketplaceWorker: manual sync triggered",
+	slog.InfoContext(ctx, "MarketplaceWorker: manual sync triggered",
 		"registry_id", registryID, "url", registry.RepositoryURL)
 
 	if err := w.importer.SyncSource(ctx, registryID); err != nil {
-		slog.Error("MarketplaceWorker: manual sync failed",
+		slog.ErrorContext(ctx, "MarketplaceWorker: manual sync failed",
 			"registry_id", registryID, "url", registry.RepositoryURL, "error", err)
 		return err
 	}
 
-	slog.Info("MarketplaceWorker: manual sync completed",
+	slog.InfoContext(ctx, "MarketplaceWorker: manual sync completed",
 		"registry_id", registryID, "url", registry.RepositoryURL)
 	return nil
 }
@@ -122,11 +122,11 @@ func (w *MarketplaceWorker) syncAll(ctx context.Context) {
 	// Query platform-level registries (organization_id IS NULL)
 	registries, err := w.repo.ListSkillRegistries(ctx, nil)
 	if err != nil {
-		slog.Error("MarketplaceWorker: failed to list platform skill registries", "error", err)
+		slog.ErrorContext(ctx, "MarketplaceWorker: failed to list platform skill registries", "error", err)
 		return
 	}
 
-	slog.Info("MarketplaceWorker: starting sync cycle",
+	slog.InfoContext(ctx, "MarketplaceWorker: starting sync cycle",
 		"registries", len(registries))
 
 	for _, reg := range registries {
@@ -144,24 +144,24 @@ func (w *MarketplaceWorker) syncAll(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		slog.Info("MarketplaceWorker: starting MCP Registry sync")
+		slog.InfoContext(ctx, "MarketplaceWorker: starting MCP Registry sync")
 		if err := w.registrySyncer.Sync(ctx); err != nil {
-			slog.Error("MarketplaceWorker: MCP Registry sync failed", "error", err)
+			slog.ErrorContext(ctx, "MarketplaceWorker: MCP Registry sync failed", "error", err)
 		} else {
-			slog.Info("MarketplaceWorker: MCP Registry sync completed")
+			slog.InfoContext(ctx, "MarketplaceWorker: MCP Registry sync completed")
 		}
 	}
 
-	slog.Info("MarketplaceWorker: sync cycle completed")
+	slog.InfoContext(ctx, "MarketplaceWorker: sync cycle completed")
 }
 
 // syncRegistry syncs a single platform-level skill registry
 func (w *MarketplaceWorker) syncRegistry(ctx context.Context, registry *extension.SkillRegistry) {
 	if err := w.importer.SyncSource(ctx, registry.ID); err != nil {
-		slog.Error("MarketplaceWorker: sync failed",
+		slog.ErrorContext(ctx, "MarketplaceWorker: sync failed",
 			"registry_id", registry.ID, "url", registry.RepositoryURL, "error", err)
 	} else {
-		slog.Info("MarketplaceWorker: sync completed",
+		slog.InfoContext(ctx, "MarketplaceWorker: sync completed",
 			"registry_id", registry.ID, "url", registry.RepositoryURL)
 	}
 }

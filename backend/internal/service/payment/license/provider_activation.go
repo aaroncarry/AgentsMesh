@@ -57,7 +57,7 @@ func (p *Provider) ActivateLicense(ctx context.Context, licenseKey string, orgID
 	// Find the license by key
 	license, err := p.repo.GetByKey(ctx, licenseKey)
 	if err != nil {
-		slog.Error("failed to get license for activation", "license_key", licenseKey, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to get license for activation", "license_key", licenseKey, "org_id", orgID, "error", err)
 		return err
 	}
 	if license == nil {
@@ -67,11 +67,11 @@ func (p *Provider) ActivateLicense(ctx context.Context, licenseKey string, orgID
 	// Check if license is valid
 	if !license.IsValid() {
 		if license.RevokedAt != nil {
-			slog.Warn("attempted to activate revoked license", "license_key", licenseKey, "org_id", orgID)
+			slog.WarnContext(ctx, "attempted to activate revoked license", "license_key", licenseKey, "org_id", orgID)
 			return ErrLicenseRevoked
 		}
 		if license.ExpiresAt != nil && time.Now().After(*license.ExpiresAt) {
-			slog.Warn("attempted to activate expired license", "license_key", licenseKey, "org_id", orgID)
+			slog.WarnContext(ctx, "attempted to activate expired license", "license_key", licenseKey, "org_id", orgID)
 			return ErrLicenseExpired
 		}
 		return ErrInvalidLicense
@@ -79,7 +79,7 @@ func (p *Provider) ActivateLicense(ctx context.Context, licenseKey string, orgID
 
 	// Check if already activated for another org
 	if license.IsActivated() && *license.ActivatedOrgID != orgID {
-		slog.Warn("license already activated for another org", "license_key", licenseKey, "org_id", orgID, "activated_org_id", *license.ActivatedOrgID)
+		slog.WarnContext(ctx, "license already activated for another org", "license_key", licenseKey, "org_id", orgID, "activated_org_id", *license.ActivatedOrgID)
 		return ErrAlreadyActivated
 	}
 
@@ -90,10 +90,10 @@ func (p *Provider) ActivateLicense(ctx context.Context, licenseKey string, orgID
 	license.LastVerifiedAt = &now
 
 	if err := p.repo.Save(ctx, license); err != nil {
-		slog.Error("failed to save activated license", "license_key", licenseKey, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to save activated license", "license_key", licenseKey, "org_id", orgID, "error", err)
 		return err
 	}
-	slog.Info("license activated", "license_key", licenseKey, "org_id", orgID)
+	slog.InfoContext(ctx, "license activated", "license_key", licenseKey, "org_id", orgID)
 	return nil
 }
 
@@ -108,14 +108,14 @@ func (p *Provider) ActivateLicenseFromFile(ctx context.Context, licenseData []by
 	// Check if this license key already exists
 	existing, err := p.repo.GetByKey(ctx, license.LicenseKey)
 	if err != nil {
-		slog.Error("failed to check existing license", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to check existing license", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
 		return nil, err
 	}
 
 	if existing != nil {
 		// License exists - check if it can be activated
 		if existing.IsActivated() && *existing.ActivatedOrgID != orgID {
-			slog.Warn("license file already activated for another org", "license_key", license.LicenseKey, "org_id", orgID)
+			slog.WarnContext(ctx, "license file already activated for another org", "license_key", license.LicenseKey, "org_id", orgID)
 			return nil, ErrAlreadyActivated
 		}
 		// Update existing license
@@ -124,10 +124,10 @@ func (p *Provider) ActivateLicenseFromFile(ctx context.Context, licenseData []by
 		existing.ActivatedOrgID = &orgID
 		existing.LastVerifiedAt = &now
 		if err := p.repo.Save(ctx, existing); err != nil {
-			slog.Error("failed to update existing license from file", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
+			slog.ErrorContext(ctx, "failed to update existing license from file", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
 			return nil, err
 		}
-		slog.Info("existing license activated from file", "license_key", license.LicenseKey, "org_id", orgID)
+		slog.InfoContext(ctx, "existing license activated from file", "license_key", license.LicenseKey, "org_id", orgID)
 		return existing, nil
 	}
 
@@ -138,10 +138,10 @@ func (p *Provider) ActivateLicenseFromFile(ctx context.Context, licenseData []by
 	license.LastVerifiedAt = &now
 
 	if err := p.repo.Create(ctx, license); err != nil {
-		slog.Error("failed to create license from file", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to create license from file", "license_key", license.LicenseKey, "org_id", orgID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("new license activated from file", "license_key", license.LicenseKey, "org_id", orgID)
+	slog.InfoContext(ctx, "new license activated from file", "license_key", license.LicenseKey, "org_id", orgID)
 	return license, nil
 }

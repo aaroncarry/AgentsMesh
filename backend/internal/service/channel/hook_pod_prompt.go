@@ -40,7 +40,7 @@ func NewPodPromptHook(router PodPromptRouter, msgWriter SystemMessageWriter) Pos
 			}
 
 			if err := router.RoutePrompt(podKey, prompt+"\r"); err != nil {
-				slog.Warn("pod unreachable for prompt",
+				slog.WarnContext(ctx, "pod unreachable for prompt",
 					"pod_key", podKey,
 					"channel", mc.Channel.Name,
 					"error", err,
@@ -67,7 +67,7 @@ func writeOfflineNotice(ctx context.Context, w SystemMessageWriter, channelID in
 		Content:     fmt.Sprintf("@%s is offline and cannot receive this message.", podKey),
 	}
 	if err := w.CreateMessage(ctx, msg); err != nil {
-		slog.Error("failed to write pod-offline system message", "error", err)
+		slog.ErrorContext(ctx, "failed to write pod-offline system message", "error", err)
 	}
 }
 

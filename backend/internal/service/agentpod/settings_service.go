@@ -69,11 +69,11 @@ func (s *SettingsService) UpdateUserSettings(ctx context.Context, userID int64, 
 	}
 
 	if err := s.repo.Save(ctx, settings); err != nil {
-		slog.Error("failed to update user settings", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to update user settings", "user_id", userID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("user settings updated", "user_id", userID)
+	slog.InfoContext(ctx, "user settings updated", "user_id", userID)
 	return settings, nil
 }
 

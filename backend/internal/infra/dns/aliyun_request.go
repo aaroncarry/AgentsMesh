@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const aliyunAPIEndpoint = "https://alidns.aliyuncs.com"
@@ -32,7 +33,8 @@ func NewAliyunProvider(accessKeyID, accessKeySecret string) *AliyunProvider {
 		accessKeyID:     accessKeyID,
 		accessKeySecret: accessKeySecret,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}
 }

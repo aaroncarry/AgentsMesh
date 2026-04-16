@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/anthropics/agentsmesh/relay/internal/auth"
 	"github.com/anthropics/agentsmesh/relay/internal/channel"
@@ -47,6 +49,9 @@ func NewHandler(channelManager *channel.ChannelManager, tokenValidator *auth.Tok
 // The token contains pod_key and runner_id for authentication
 // Channel is identified by pod_key (not session_id)
 func (h *Handler) HandleRunnerWS(w http.ResponseWriter, r *http.Request) {
+	_, span := otel.Tracer("agentsmesh-relay").Start(r.Context(), "relay.ws.runner")
+	defer span.End()
+
 	if !h.acceptingConnections.Load() {
 		http.Error(w, "server shutting down", http.StatusServiceUnavailable)
 		return
@@ -85,6 +90,8 @@ func (h *Handler) HandleRunnerWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	span.SetAttributes(attribute.String("pod.key", podKey))
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		h.logger.Error("Failed to upgrade runner connection", "error", err)
@@ -106,6 +113,9 @@ func (h *Handler) HandleRunnerWS(w http.ResponseWriter, r *http.Request) {
 // Path: /browser/relay?token=xxx
 // Channel is identified by pod_key from the token (not session_id)
 func (h *Handler) HandleBrowserWS(w http.ResponseWriter, r *http.Request) {
+	_, span := otel.Tracer("agentsmesh-relay").Start(r.Context(), "relay.ws.browser")
+	defer span.End()
+
 	if !h.acceptingConnections.Load() {
 		http.Error(w, "server shutting down", http.StatusServiceUnavailable)
 		return

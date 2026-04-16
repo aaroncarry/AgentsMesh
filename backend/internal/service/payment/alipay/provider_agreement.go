@@ -51,17 +51,17 @@ func (p *Provider) ExecuteAgreementPay(ctx context.Context, req *types.Agreement
 
 	result, err := p.client.TradePay(ctx, pay)
 	if err != nil {
-		slog.Error("failed to execute alipay agreement pay", "order_no", req.OrderNo, "amount", req.Amount, "error", err)
+		slog.ErrorContext(ctx, "failed to execute alipay agreement pay", "order_no", req.OrderNo, "amount", req.Amount, "error", err)
 		return nil, fmt.Errorf("failed to execute alipay agreement pay: %w", err)
 	}
 
 	if !result.IsSuccess() {
-		slog.Error("alipay agreement pay failed", "order_no", req.OrderNo, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
+		slog.ErrorContext(ctx, "alipay agreement pay failed", "order_no", req.OrderNo, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
 		return nil, fmt.Errorf("alipay agreement pay failed: %s - %s", result.SubCode, result.SubMsg)
 	}
 
 	paidAt := time.Now()
-	slog.Info("alipay agreement pay succeeded", "order_no", req.OrderNo, "transaction_id", result.TradeNo, "amount", req.Amount)
+	slog.InfoContext(ctx, "alipay agreement pay succeeded", "order_no", req.OrderNo, "transaction_id", result.TradeNo, "amount", req.Amount)
 	return &types.AgreementPayResponse{
 		TransactionID: result.TradeNo,
 		Status:        "success",

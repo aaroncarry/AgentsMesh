@@ -85,7 +85,7 @@ func (h *SSOAuthHandler) SAMLACS(c *gin.Context) {
 	}
 	userInfo, configID, err := h.ssoService.HandleCallback(c.Request.Context(), domain, sso.ProtocolSAML, params)
 	if err != nil {
-		slog.Error("SAML callback handling failed", "domain", domain, "error", err)
+		slog.ErrorContext(c.Request.Context(), "SAML callback handling failed", "domain", domain, "error", err)
 		h.redirectWithError(c, redirectTo, "authentication_failed")
 		return
 	}
@@ -93,7 +93,7 @@ func (h *SSOAuthHandler) SAMLACS(c *gin.Context) {
 	// Authenticate, create/get user, and redirect with tokens
 	_, tokens, err := h.authenticateSSO(c, sso.ProtocolSAML, configID, userInfo)
 	if err != nil {
-		slog.Error("SAML user authentication failed", "domain", domain, "error", err)
+		slog.ErrorContext(c.Request.Context(), "SAML user authentication failed", "domain", domain, "error", err)
 		errorCode := "authentication_failed"
 		if errors.Is(err, auth.ErrUserDisabled) {
 			errorCode = "account_disabled"

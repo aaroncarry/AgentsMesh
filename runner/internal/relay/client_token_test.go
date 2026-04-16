@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func (e *testError) Error() string {
 }
 
 func TestClientUpdateToken(t *testing.T) {
-	client := NewClient("wss://relay.example.com", "pod-123", "old-token", nil)
+	client := NewClient(context.TODO(), "wss://relay.example.com", "pod-123", "old-token", nil)
 
 	// Verify initial token
 	client.connMu.RLock()
@@ -87,12 +88,12 @@ func TestClientUpdateToken(t *testing.T) {
 }
 
 func TestClientGetRelayURL(t *testing.T) {
-	client := NewClient("wss://relay.example.com", "pod-123", "token", nil)
+	client := NewClient(context.TODO(), "wss://relay.example.com", "pod-123", "token", nil)
 	assert.Equal(t, "wss://relay.example.com", client.GetRelayURL())
 }
 
 func TestClientSetTokenExpiredHandler(t *testing.T) {
-	client := NewClient("wss://relay.example.com", "pod-123", "token", nil)
+	client := NewClient(context.TODO(), "wss://relay.example.com", "pod-123", "token", nil)
 
 	// Initially nil
 	assert.Nil(t, client.onTokenExpired)
@@ -116,7 +117,7 @@ func TestClientSetTokenExpiredHandler(t *testing.T) {
 func TestClientTokenRefreshIntegration(t *testing.T) {
 	// This test simulates the token refresh flow without actual network connections
 
-	client := NewClient("wss://relay.example.com", "pod-123", "old-token", nil)
+	client := NewClient(context.TODO(), "wss://relay.example.com", "pod-123", "old-token", nil)
 
 	tokenRefreshRequested := make(chan struct{}, 1)
 	newTokenDelivered := make(chan string, 1)
@@ -148,7 +149,7 @@ func TestClientTokenRefreshIntegration(t *testing.T) {
 }
 
 func TestClientTokenRefreshTimeout(t *testing.T) {
-	client := NewClient("wss://relay.example.com", "pod-123", "old-token", nil)
+	client := NewClient(context.TODO(), "wss://relay.example.com", "pod-123", "old-token", nil)
 
 	// Set handler that simulates timeout (no response from Backend)
 	client.SetTokenExpiredHandler(func() string {

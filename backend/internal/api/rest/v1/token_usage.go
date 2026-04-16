@@ -87,7 +87,7 @@ func (h *TokenUsageHandler) GetDashboard(c *gin.Context) {
 	})
 
 	if err := g.Wait(); err != nil {
-		slog.Error("failed to get token usage dashboard", "org_id", orgID, "error", err)
+		slog.ErrorContext(c.Request.Context(), "failed to get token usage dashboard", "org_id", orgID, "error", err)
 		apierr.InternalError(c, "failed to retrieve token usage data")
 		return
 	}

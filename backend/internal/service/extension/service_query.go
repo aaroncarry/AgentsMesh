@@ -63,7 +63,7 @@ func (s *Service) GetEffectiveMcpServers(ctx context.Context, orgID, userID, rep
 	// Decrypt env vars for each server
 	for _, srv := range servers {
 		if err := s.decryptServerEnvVars(srv); err != nil {
-			slog.Warn("Failed to decrypt env vars for MCP server",
+			slog.WarnContext(ctx, "Failed to decrypt env vars for MCP server",
 				"slug", srv.Slug, "error", err)
 		}
 	}
@@ -89,7 +89,7 @@ func (s *Service) GetEffectiveSkills(ctx context.Context, orgID, userID, repoID 
 		packageSize := skill.GetEffectivePackageSize()
 
 		if sha == "" || storageKey == "" {
-			slog.Warn("Skill missing SHA or storage key, skipping",
+			slog.WarnContext(ctx, "Skill missing SHA or storage key, skipping",
 				"slug", skill.Slug, "install_source", skill.InstallSource)
 			continue
 		}
@@ -99,7 +99,7 @@ func (s *Service) GetEffectiveSkills(ctx context.Context, orgID, userID, repoID 
 		// so we use GetInternalURL instead of GetURL (which uses public endpoint).
 		downloadURL, err := s.storage.GetInternalURL(ctx, storageKey, presignedURLExpiry)
 		if err != nil {
-			slog.Error("Failed to generate presigned URL for skill",
+			slog.ErrorContext(ctx, "Failed to generate presigned URL for skill",
 				"slug", skill.Slug, "storage_key", storageKey, "error", err)
 			continue
 		}

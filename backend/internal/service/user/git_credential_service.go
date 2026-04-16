@@ -43,12 +43,12 @@ func (s *Service) CreateGitCredential(ctx context.Context, userID int64, req *Cr
 	}
 
 	if err := s.repo.CreateGitCredential(ctx, credential); err != nil {
-		slog.Error("failed to create git credential",
+		slog.ErrorContext(ctx, "failed to create git credential",
 			"user_id", userID, "name", req.Name, "type", req.CredentialType, "error", err)
 		return nil, err
 	}
 
-	slog.Info("git credential created",
+	slog.InfoContext(ctx, "git credential created",
 		"user_id", userID, "credential_id", credential.ID, "type", req.CredentialType)
 	return credential, nil
 }
@@ -172,12 +172,12 @@ func (s *Service) UpdateGitCredential(ctx context.Context, userID, credentialID 
 	}
 
 	if err := s.repo.UpdateGitCredential(ctx, credential, updates); err != nil {
-		slog.Error("failed to update git credential",
+		slog.ErrorContext(ctx, "failed to update git credential",
 			"user_id", userID, "credential_id", credentialID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("git credential updated", "user_id", userID, "credential_id", credentialID)
+	slog.InfoContext(ctx, "git credential updated", "user_id", userID, "credential_id", credentialID)
 	return s.GetGitCredential(ctx, userID, credentialID)
 }
 
@@ -246,13 +246,13 @@ func (s *Service) DeleteGitCredential(ctx context.Context, userID, credentialID 
 
 	rowsAffected, err := s.repo.DeleteGitCredential(ctx, userID, credentialID)
 	if err != nil {
-		slog.Error("failed to delete git credential",
+		slog.ErrorContext(ctx, "failed to delete git credential",
 			"user_id", userID, "credential_id", credentialID, "error", err)
 		return err
 	}
 	if rowsAffected == 0 {
 		return ErrCredentialNotFound
 	}
-	slog.Info("git credential deleted", "user_id", userID, "credential_id", credentialID)
+	slog.InfoContext(ctx, "git credential deleted", "user_id", userID, "credential_id", credentialID)
 	return nil
 }

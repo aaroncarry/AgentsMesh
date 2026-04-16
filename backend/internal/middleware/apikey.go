@@ -106,7 +106,7 @@ func APIKeyAuthMiddleware(apiKeyValidator APIKeyValidator, orgService Organizati
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := apiKeyValidator.UpdateLastUsed(ctx, result.APIKeyID); err != nil {
-				slog.Warn("Failed to update API key last_used_at", "key_id", result.APIKeyID, "error", err)
+				slog.WarnContext(ctx, "Failed to update API key last_used_at", "key_id", result.APIKeyID, "error", err)
 			}
 		}()
 

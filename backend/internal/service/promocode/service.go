@@ -197,11 +197,11 @@ func (s *Service) Redeem(ctx context.Context, req *RedeemRequest) (*RedeemRespon
 	})
 
 	if err != nil {
-		slog.Error("failed to redeem promo code", "code", code, "org_id", req.OrganizationID, "error", err)
+		slog.ErrorContext(ctx, "failed to redeem promo code", "code", code, "org_id", req.OrganizationID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("promo code redeemed", "code", code, "org_id", req.OrganizationID, "user_id", req.UserID, "plan", promoCode.PlanName)
+	slog.InfoContext(ctx, "promo code redeemed", "code", code, "org_id", req.OrganizationID, "user_id", req.UserID, "plan", promoCode.PlanName)
 	return &RedeemResponse{
 		Success:        true,
 		PlanName:       promoCode.PlanName,

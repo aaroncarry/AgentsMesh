@@ -62,12 +62,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req *notifDomain.Notification
 func (d *Dispatcher) resolve(ctx context.Context, resolverStr string) ([]int64, error) {
 	parts := strings.SplitN(resolverStr, ":", 2)
 	if len(parts) != 2 {
-		slog.Warn("invalid resolver string", "resolver", resolverStr)
+		slog.WarnContext(ctx, "invalid resolver string", "resolver", resolverStr)
 		return nil, nil
 	}
 	resolver, ok := d.resolvers[parts[0]]
 	if !ok {
-		slog.Warn("no resolver registered for prefix", "prefix", parts[0])
+		slog.WarnContext(ctx, "no resolver registered for prefix", "prefix", parts[0])
 		return nil, nil
 	}
 	return resolver.Resolve(ctx, parts[1])

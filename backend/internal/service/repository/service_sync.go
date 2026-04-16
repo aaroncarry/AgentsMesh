@@ -18,13 +18,13 @@ func (s *Service) SyncFromProvider(ctx context.Context, repoID int64, accessToke
 	// Create git provider client using repo's self-contained info
 	client, err := git.NewProvider(repo.ProviderType, repo.ProviderBaseURL, accessToken)
 	if err != nil {
-		slog.Error("failed to create git provider client for sync", "repo_id", repoID, "provider_type", repo.ProviderType, "error", err)
+		slog.ErrorContext(ctx, "failed to create git provider client for sync", "repo_id", repoID, "provider_type", repo.ProviderType, "error", err)
 		return nil, err
 	}
 
 	project, err := client.GetProject(ctx, repo.ExternalID)
 	if err != nil {
-		slog.Error("failed to fetch project from git provider", "repo_id", repoID, "external_id", repo.ExternalID, "error", err)
+		slog.ErrorContext(ctx, "failed to fetch project from git provider", "repo_id", repoID, "external_id", repo.ExternalID, "error", err)
 		return nil, err
 	}
 
@@ -40,7 +40,7 @@ func (s *Service) SyncFromProvider(ctx context.Context, repoID int64, accessToke
 		updates["ssh_clone_url"] = project.SSHCloneURL
 	}
 
-	slog.Info("repository synced from provider", "repo_id", repoID, "slug", project.Slug)
+	slog.InfoContext(ctx, "repository synced from provider", "repo_id", repoID, "slug", project.Slug)
 
 	return s.Update(ctx, repoID, updates)
 }

@@ -34,10 +34,15 @@ func RunDaemon(configPath string) {
 		os.Exit(1)
 	}
 
-	// Start the child process with PTY
+	// Start the child process with PTY.
+	// Fallback to os.Environ() if state.Env is empty (legacy state files from before env fix).
+	env := state.Env
+	if len(env) == 0 {
+		env = os.Environ()
+	}
 	proc, err := startDaemonProcess(
 		state.Command, state.Args, state.WorkDir,
-		envfilter.FilterEnv(os.Environ()),
+		envfilter.FilterEnv(env),
 		state.Cols, state.Rows,
 	)
 	if err != nil {

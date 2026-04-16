@@ -77,10 +77,10 @@ func (s *Service) DeleteConfig(ctx context.Context, id int64) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrConfigNotFound
 		}
-		slog.Error("failed to delete SSO config", "config_id", id, "error", err)
+		slog.ErrorContext(ctx, "failed to delete SSO config", "config_id", id, "error", err)
 		return fmt.Errorf("failed to delete SSO config: %w", err)
 	}
-	slog.Info("SSO config deleted", "config_id", id)
+	slog.InfoContext(ctx, "SSO config deleted", "config_id", id)
 	return nil
 }
 

@@ -216,7 +216,7 @@ func (s *PipelinePollerService) RegisterProvider(orgID int64, provider git.Provi
 
 // acquireLock tries to acquire the distributed lock
 func (s *PipelinePollerService) acquireLock(ctx context.Context) (bool, error) {
-	result, err := s.redis.SetNX(ctx, s.lockKey, "locked", s.lockTimeout).Result()
+	result, err := s.redis.SetNX(ctx, s.lockKey, "locked", s.lockTimeout).Result() //nolint:staticcheck // migrating to Set+NX tracked separately
 	return result, err
 }
 
@@ -227,7 +227,7 @@ func (s *PipelinePollerService) releaseLock(ctx context.Context) {
 
 // updateHeartbeat updates the poller heartbeat
 func (s *PipelinePollerService) updateHeartbeat(ctx context.Context) {
-	s.redis.SetEx(ctx, infraTasks.PollerHeartbeatKey, time.Now().UTC().Format(time.RFC3339), time.Duration(infraTasks.HeartbeatTTLSeconds)*time.Second)
+	s.redis.SetEx(ctx, infraTasks.PollerHeartbeatKey, time.Now().UTC().Format(time.RFC3339), time.Duration(infraTasks.HeartbeatTTLSeconds)*time.Second) //nolint:staticcheck // migrating to Set tracked separately
 }
 
 // CheckHealth checks if the poller is healthy

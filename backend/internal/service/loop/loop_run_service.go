@@ -36,10 +36,10 @@ type ListRunsFilter struct {
 // Create creates a new LoopRun
 func (s *LoopRunService) Create(ctx context.Context, run *loopDomain.LoopRun) error {
 	if err := s.repo.Create(ctx, run); err != nil {
-		slog.Error("failed to create loop run", "loop_id", run.LoopID, "run_number", run.RunNumber, "error", err)
+		slog.ErrorContext(ctx, "failed to create loop run", "loop_id", run.LoopID, "run_number", run.RunNumber, "error", err)
 		return err
 	}
-	slog.Info("loop run created", "run_id", run.ID, "loop_id", run.LoopID, "run_number", run.RunNumber)
+	slog.InfoContext(ctx, "loop run created", "run_id", run.ID, "loop_id", run.LoopID, "run_number", run.RunNumber)
 	return nil
 }
 
@@ -113,11 +113,11 @@ func (s *LoopRunService) UpdateStatus(ctx context.Context, runID int64, updates 
 func (s *LoopRunService) FinishRun(ctx context.Context, runID int64, updates map[string]interface{}) (bool, error) {
 	updated, err := s.repo.FinishRun(ctx, runID, updates)
 	if err != nil {
-		slog.Error("failed to finish loop run", "run_id", runID, "error", err)
+		slog.ErrorContext(ctx, "failed to finish loop run", "run_id", runID, "error", err)
 		return false, err
 	}
 	if updated {
-		slog.Info("loop run finished", "run_id", runID, "status", updates["status"])
+		slog.InfoContext(ctx, "loop run finished", "run_id", runID, "status", updates["status"])
 	}
 	return updated, nil
 }

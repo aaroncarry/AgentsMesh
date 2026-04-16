@@ -85,11 +85,11 @@ func (s *Service) UpdateUser(ctx context.Context, userID int64, updates map[stri
 	}
 
 	if err := s.db.Updates(&u, updates); err != nil {
-		slog.Error("admin: failed to update user", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "admin: failed to update user", "user_id", userID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("admin: user updated", "user_id", userID)
+	slog.InfoContext(ctx, "admin: user updated", "user_id", userID)
 
 	// Reload
 	if err := s.db.First(&u, userID); err != nil {

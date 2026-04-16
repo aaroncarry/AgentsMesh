@@ -231,6 +231,9 @@ TRAEFIK_DASHBOARD_PORT=$((10008 + offset * 50))
 GITEA_HTTP_PORT=$((10009 + offset * 50))
 GITEA_SSH_PORT=$((10010 + offset * 50))
 WEB_ADMIN_PORT=$((10011 + offset * 50))
+OTEL_GRPC_PORT=$((10012 + offset * 50))
+OTEL_HTTP_PORT=$((10013 + offset * 50))
+JAEGER_UI_PORT=$((10014 + offset * 50))
 
 # =============================================================================
 # Credentials
@@ -722,6 +725,7 @@ show_result() {
     echo "    Adminer:  http://localhost:$ADMINER_PORT"
     echo "    MinIO:    http://localhost:$MINIO_CONSOLE_PORT"
     echo "    gRPC:     grpcs://localhost:$GRPC_PORT (mTLS)"
+    echo "    Jaeger:   http://localhost:$JAEGER_UI_PORT (Tracing UI)"
     echo ""
     echo "  停止: ./dev.sh --clean"
     echo ""

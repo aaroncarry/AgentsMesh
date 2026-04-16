@@ -35,7 +35,7 @@ func NewMentionValidatorHook(userLookup UserLookup, podLookup PodLookup, repo ch
 		if len(mc.Mentions.UserIDs) > 0 && userLookup != nil {
 			validIDs, err := userLookup.ValidateUserIDs(ctx, orgID, mc.Mentions.UserIDs)
 			if err != nil {
-				slog.Error("failed to validate mentioned user IDs", "error", err)
+				slog.ErrorContext(ctx, "failed to validate mentioned user IDs", "error", err)
 			} else if len(validIDs) != len(mc.Mentions.UserIDs) {
 				mc.Mentions.UserIDs = validIDs
 				changed = true
@@ -46,7 +46,7 @@ func NewMentionValidatorHook(userLookup UserLookup, podLookup PodLookup, repo ch
 		if len(mc.Mentions.PodKeys) > 0 && podLookup != nil {
 			validKeys, err := podLookup.GetPodsByKeys(ctx, orgID, mc.Mentions.PodKeys)
 			if err != nil {
-				slog.Error("failed to validate mentioned pod keys", "error", err)
+				slog.ErrorContext(ctx, "failed to validate mentioned pod keys", "error", err)
 			} else if len(validKeys) != len(mc.Mentions.PodKeys) {
 				mc.Mentions.PodKeys = validKeys
 				changed = true
@@ -64,7 +64,7 @@ func NewMentionValidatorHook(userLookup UserLookup, podLookup PodLookup, repo ch
 			}
 			mc.Message.Metadata = meta
 			if err := repo.UpdateMessageMetadata(ctx, mc.Message.ID, meta); err != nil {
-				slog.Error("failed to update message metadata after validation", "error", err)
+				slog.ErrorContext(ctx, "failed to update message metadata after validation", "error", err)
 			}
 		}
 

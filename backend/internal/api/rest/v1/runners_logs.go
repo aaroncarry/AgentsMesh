@@ -51,7 +51,7 @@ func (h *RunnerHandler) RequestLogUpload(c *gin.Context) {
 	req, err := h.logUploadService.RequestUpload(c.Request.Context(), tenant.OrganizationID, runnerID, tenant.UserID)
 	if err != nil {
 		apierr.InternalError(c, "Failed to create log upload request")
-		slog.Error("Failed to create log upload request", "error", err)
+		slog.ErrorContext(c.Request.Context(), "Failed to create log upload request", "error", err)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *RunnerHandler) RequestLogUpload(c *gin.Context) {
 		return
 	}
 
-	slog.Info("Log upload requested",
+	slog.InfoContext(c.Request.Context(), "Log upload requested",
 		"runner_id", runnerID,
 		"request_id", req.RequestID,
 		"user_id", tenant.UserID,

@@ -84,7 +84,7 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 	}
 
 	if err := s.repo.Create(ctx, ch); err != nil {
-		slog.Error("failed to create channel", "org_id", req.OrganizationID, "name", req.Name, "error", err)
+		slog.ErrorContext(ctx, "failed to create channel", "org_id", req.OrganizationID, "name", req.Name, "error", err)
 		return nil, err
 	}
 
@@ -100,7 +100,7 @@ func (s *Service) CreateChannel(ctx context.Context, req *CreateChannelRequest) 
 		_ = s.repo.AddMemberWithRole(ctx, ch.ID, uid, channel.RoleMember)
 	}
 
-	slog.Info("channel created", "channel_id", ch.ID, "org_id", req.OrganizationID, "name", req.Name, "visibility", visibility)
+	slog.InfoContext(ctx, "channel created", "channel_id", ch.ID, "org_id", req.OrganizationID, "name", req.Name, "visibility", visibility)
 	return ch, nil
 }
 
@@ -170,10 +170,10 @@ func (s *Service) UpdateChannel(ctx context.Context, channelID int64, name, desc
 
 	if len(updates) > 0 {
 		if err := s.repo.UpdateFields(ctx, channelID, updates); err != nil {
-			slog.Error("failed to update channel", "channel_id", channelID, "error", err)
+			slog.ErrorContext(ctx, "failed to update channel", "channel_id", channelID, "error", err)
 			return nil, err
 		}
-		slog.Info("channel updated", "channel_id", channelID)
+		slog.InfoContext(ctx, "channel updated", "channel_id", channelID)
 	}
 
 	return s.GetChannel(ctx, channelID)

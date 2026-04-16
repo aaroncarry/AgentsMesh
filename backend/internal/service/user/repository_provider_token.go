@@ -119,11 +119,11 @@ func (s *Service) EnsureRepositoryProviderForIdentity(ctx context.Context, userI
 	}
 
 	if err := s.repo.CreateRepositoryProvider(ctx, newProvider); err != nil {
-		slog.Error("failed to create repository provider for identity",
+		slog.ErrorContext(ctx, "failed to create repository provider for identity",
 			"user_id", userID, "provider", provider, "error", err)
 		return err
 	}
-	slog.Info("repository provider created for oauth identity",
+	slog.InfoContext(ctx, "repository provider created for oauth identity",
 		"user_id", userID, "provider", provider, "provider_id", newProvider.ID)
 	return nil
 }

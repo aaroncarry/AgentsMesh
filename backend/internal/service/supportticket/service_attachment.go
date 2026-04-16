@@ -59,7 +59,7 @@ func (s *Service) UploadAttachment(ctx context.Context, ticketID, userID int64, 
 	}
 	if err := s.repo.CreateAttachment(ctx, attachment); err != nil {
 		if delErr := s.storage.Delete(ctx, storageKey); delErr != nil {
-			slog.Warn("failed to cleanup uploaded file after DB error", "storage_key", storageKey, "error", delErr)
+			slog.WarnContext(ctx, "failed to cleanup uploaded file after DB error", "storage_key", storageKey, "error", delErr)
 		}
 		return nil, fmt.Errorf("failed to create attachment record: %w", err)
 	}

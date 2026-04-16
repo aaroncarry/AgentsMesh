@@ -89,11 +89,11 @@ func (s *Service) Create(ctx context.Context, ownerID int64, req *CreateRequest)
 	}
 
 	if err := s.repo.CreateWithMember(ctx, params); err != nil {
-		slog.Error("failed to create organization", "slug", req.Slug, "owner_id", ownerID, "error", err)
+		slog.ErrorContext(ctx, "failed to create organization", "slug", req.Slug, "owner_id", ownerID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("organization created", "org_id", org.ID, "slug", req.Slug, "owner_id", ownerID)
+	slog.InfoContext(ctx, "organization created", "org_id", org.ID, "slug", req.Slug, "owner_id", ownerID)
 	return org, nil
 }
 
@@ -136,10 +136,10 @@ func (s *Service) GetOrgBySlug(ctx context.Context, slug string) (*orgDomain.Org
 // Update updates an organization
 func (s *Service) Update(ctx context.Context, id int64, updates map[string]interface{}) (*orgDomain.Organization, error) {
 	if err := s.repo.Update(ctx, id, updates); err != nil {
-		slog.Error("failed to update organization", "org_id", id, "error", err)
+		slog.ErrorContext(ctx, "failed to update organization", "org_id", id, "error", err)
 		return nil, err
 	}
-	slog.Info("organization updated", "org_id", id)
+	slog.InfoContext(ctx, "organization updated", "org_id", id)
 	return s.GetByID(ctx, id)
 }
 
@@ -149,10 +149,10 @@ func (s *Service) Update(ctx context.Context, id int64, updates map[string]inter
 // Tables without FK (loops, loop_runs) require explicit application-level cleanup.
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	if err := s.repo.DeleteWithCleanup(ctx, id); err != nil {
-		slog.Error("failed to delete organization", "org_id", id, "error", err)
+		slog.ErrorContext(ctx, "failed to delete organization", "org_id", id, "error", err)
 		return err
 	}
-	slog.Info("organization deleted", "org_id", id)
+	slog.InfoContext(ctx, "organization deleted", "org_id", id)
 	return nil
 }
 
@@ -169,10 +169,10 @@ func (s *Service) AddMember(ctx context.Context, orgID, userID int64, role strin
 		Role:           role,
 	}
 	if err := s.repo.CreateMember(ctx, member); err != nil {
-		slog.Error("failed to add member", "org_id", orgID, "user_id", userID, "role", role, "error", err)
+		slog.ErrorContext(ctx, "failed to add member", "org_id", orgID, "user_id", userID, "role", role, "error", err)
 		return err
 	}
-	slog.Info("member added to organization", "org_id", orgID, "user_id", userID, "role", role)
+	slog.InfoContext(ctx, "member added to organization", "org_id", orgID, "user_id", userID, "role", role)
 	return nil
 }
 
@@ -184,10 +184,10 @@ func (s *Service) RemoveMember(ctx context.Context, orgID, userID int64) error {
 		return ErrCannotRemoveOwner
 	}
 	if err := s.repo.DeleteMember(ctx, orgID, userID); err != nil {
-		slog.Error("failed to remove member", "org_id", orgID, "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to remove member", "org_id", orgID, "user_id", userID, "error", err)
 		return err
 	}
-	slog.Info("member removed from organization", "org_id", orgID, "user_id", userID)
+	slog.InfoContext(ctx, "member removed from organization", "org_id", orgID, "user_id", userID)
 	return nil
 }
 

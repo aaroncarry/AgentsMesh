@@ -27,11 +27,11 @@ func (s *Service) GenerateReactivationToken(ctx context.Context, runnerID, userI
 	// Verify runner exists
 	r, err := s.repo.GetByID(ctx, runnerID)
 	if err != nil {
-		slog.Error("failed to get runner for reactivation token", "runner_id", runnerID, "error", err)
+		slog.ErrorContext(ctx, "failed to get runner for reactivation token", "runner_id", runnerID, "error", err)
 		return nil, err
 	}
 	if r == nil {
-		slog.Warn("runner not found for reactivation token", "runner_id", runnerID)
+		slog.WarnContext(ctx, "runner not found for reactivation token", "runner_id", runnerID)
 		return nil, fmt.Errorf("runner not found")
 	}
 
@@ -58,11 +58,11 @@ func (s *Service) GenerateReactivationToken(ctx context.Context, runnerID, userI
 	}
 
 	if err := s.repo.CreateReactivationToken(ctx, reactivationToken); err != nil {
-		slog.Error("failed to create reactivation token", "runner_id", runnerID, "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to create reactivation token", "runner_id", runnerID, "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to create reactivation token: %w", err)
 	}
 
-	slog.Info("reactivation token generated", "runner_id", runnerID, "user_id", userID)
+	slog.InfoContext(ctx, "reactivation token generated", "runner_id", runnerID, "user_id", userID)
 
 	return &GenerateReactivationTokenResponse{
 		Token:     token,
@@ -92,22 +92,22 @@ func (s *Service) Reactivate(ctx context.Context, req *ReactivateRequest, pkiSer
 	// Find the token
 	reactivationToken, err := s.repo.GetReactivationTokenByHash(ctx, tokenHash)
 	if err != nil {
-		slog.Error("failed to lookup reactivation token", "error", err)
+		slog.ErrorContext(ctx, "failed to lookup reactivation token", "error", err)
 		return nil, err
 	}
 	if reactivationToken == nil {
-		slog.Warn("invalid reactivation token presented")
+		slog.WarnContext(ctx, "invalid reactivation token presented")
 		return nil, ErrInvalidToken
 	}
 
 	// Atomic claim: mark token as used only if it hasn't been used yet and isn't expired.
 	rowsAffected, err := s.repo.ClaimReactivationToken(ctx, reactivationToken.ID)
 	if err != nil {
-		slog.Error("failed to claim reactivation token", "token_id", reactivationToken.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to claim reactivation token", "token_id", reactivationToken.ID, "error", err)
 		return nil, fmt.Errorf("failed to claim token: %w", err)
 	}
 	if rowsAffected == 0 {
-		slog.Warn("reactivation token expired or already used", "token_id", reactivationToken.ID)
+		slog.WarnContext(ctx, "reactivation token expired or already used", "token_id", reactivationToken.ID)
 		return nil, ErrTokenExpired
 	}
 
@@ -124,18 +124,18 @@ func (s *Service) Reactivate(ctx context.Context, req *ReactivateRequest, pkiSer
 	// Get runner
 	r, err := s.repo.GetByID(ctx, reactivationToken.RunnerID)
 	if err != nil {
-		slog.Error("failed to get runner for reactivation", "runner_id", reactivationToken.RunnerID, "error", err)
+		slog.ErrorContext(ctx, "failed to get runner for reactivation", "runner_id", reactivationToken.RunnerID, "error", err)
 		return nil, err
 	}
 	if r == nil {
-		slog.Warn("runner not found for reactivation", "runner_id", reactivationToken.RunnerID)
+		slog.WarnContext(ctx, "runner not found for reactivation", "runner_id", reactivationToken.RunnerID)
 		return nil, fmt.Errorf("runner not found")
 	}
 
 	// Get org slug
 	orgSlug, err := s.repo.GetOrgSlug(ctx, r.OrganizationID)
 	if err != nil {
-		slog.Error("failed to get org slug for reactivation", "org_id", r.OrganizationID, "error", err)
+		slog.ErrorContext(ctx, "failed to get org slug for reactivation", "org_id", r.OrganizationID, "error", err)
 		return nil, err
 	}
 	if orgSlug == "" {
@@ -145,7 +145,7 @@ func (s *Service) Reactivate(ctx context.Context, req *ReactivateRequest, pkiSer
 	// Issue new certificate
 	certInfo, err := pkiService.IssueRunnerCertificate(r.NodeID, orgSlug)
 	if err != nil {
-		slog.Error("failed to issue certificate during reactivation", "runner_id", r.ID, "node_id", r.NodeID, "error", err)
+		slog.ErrorContext(ctx, "failed to issue certificate during reactivation", "runner_id", r.ID, "node_id", r.NodeID, "error", err)
 		return nil, fmt.Errorf("failed to issue certificate: %w", err)
 	}
 
@@ -158,7 +158,7 @@ func (s *Service) Reactivate(ctx context.Context, req *ReactivateRequest, pkiSer
 		ExpiresAt:    certInfo.ExpiresAt,
 	}
 	if err := s.repo.CreateCertificate(ctx, cert); err != nil {
-		slog.Error("failed to save certificate during reactivation", "runner_id", r.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to save certificate during reactivation", "runner_id", r.ID, "error", err)
 		return nil, fmt.Errorf("failed to save certificate: %w", err)
 	}
 
@@ -167,11 +167,11 @@ func (s *Service) Reactivate(ctx context.Context, req *ReactivateRequest, pkiSer
 		"cert_serial_number": certInfo.SerialNumber,
 		"cert_expires_at":    certInfo.ExpiresAt,
 	}); err != nil {
-		slog.Error("failed to update runner after reactivation", "runner_id", r.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to update runner after reactivation", "runner_id", r.ID, "error", err)
 		return nil, fmt.Errorf("failed to update runner: %w", err)
 	}
 
-	slog.Info("runner reactivated successfully", "runner_id", r.ID, "node_id", r.NodeID, "org_slug", orgSlug)
+	slog.InfoContext(ctx, "runner reactivated successfully", "runner_id", r.ID, "node_id", r.NodeID, "org_slug", orgSlug)
 
 	succeeded = true
 	return &ReactivateResponse{

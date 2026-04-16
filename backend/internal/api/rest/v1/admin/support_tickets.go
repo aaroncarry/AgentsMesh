@@ -108,7 +108,7 @@ func (h *SupportTicketHandler) GetByID(c *gin.Context) {
 
 	messages, err := h.service.AdminListMessages(c.Request.Context(), id)
 	if err != nil {
-		slog.Warn("failed to load messages for ticket", "ticket_id", id, "error", err)
+		slog.WarnContext(c.Request.Context(), "failed to load messages for ticket", "ticket_id", id, "error", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

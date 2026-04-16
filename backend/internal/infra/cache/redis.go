@@ -104,7 +104,7 @@ func (c *Cache) SetNX(ctx context.Context, key string, value interface{}, expira
 	if err != nil {
 		return false, fmt.Errorf("failed to marshal value: %w", err)
 	}
-	ok, err := c.client.SetNX(ctx, key, data, expiration).Result()
+	ok, err := c.client.SetNX(ctx, key, data, expiration).Result() //nolint:staticcheck // migrating to Set+NX tracked separately
 	if err != nil {
 		slog.Error("redis SETNX failed", "key", key, "error", err)
 		return false, err

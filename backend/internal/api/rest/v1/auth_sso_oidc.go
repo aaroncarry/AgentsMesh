@@ -60,7 +60,7 @@ func (h *SSOAuthHandler) OIDCCallback(c *gin.Context) {
 	if code == "" {
 		errorMsg := c.Query("error")
 		// Log full error details server-side to avoid leaking IdP internals
-		slog.Warn("OIDC callback error",
+		slog.WarnContext(c.Request.Context(), "OIDC callback error",
 			"domain", domain,
 			"error", errorMsg,
 			"error_description", c.Query("error_description"),
@@ -101,7 +101,7 @@ func (h *SSOAuthHandler) OIDCCallback(c *gin.Context) {
 	params := map[string]string{"code": code}
 	userInfo, configID, err := h.ssoService.HandleCallback(c.Request.Context(), domain, sso.ProtocolOIDC, params)
 	if err != nil {
-		slog.Error("OIDC callback handling failed", "domain", domain, "error", err)
+		slog.ErrorContext(c.Request.Context(), "OIDC callback handling failed", "domain", domain, "error", err)
 		h.redirectWithError(c, redirectTo, "authentication_failed")
 		return
 	}
@@ -109,7 +109,7 @@ func (h *SSOAuthHandler) OIDCCallback(c *gin.Context) {
 	// Authenticate, create/get user, and redirect with tokens
 	_, tokens, err := h.authenticateSSO(c, sso.ProtocolOIDC, configID, userInfo)
 	if err != nil {
-		slog.Error("OIDC user authentication failed", "domain", domain, "error", err)
+		slog.ErrorContext(c.Request.Context(), "OIDC user authentication failed", "domain", domain, "error", err)
 		errorCode := "authentication_failed"
 		if errors.Is(err, auth.ErrUserDisabled) {
 			errorCode = "account_disabled"

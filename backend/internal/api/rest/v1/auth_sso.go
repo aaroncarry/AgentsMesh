@@ -63,7 +63,7 @@ func (h *SSOAuthHandler) Discover(c *gin.Context) {
 
 	configs, err := h.ssoService.GetEnabledConfigs(c.Request.Context(), domain)
 	if err != nil {
-		slog.Error("failed to discover SSO configs", "domain", domain, "error", err)
+		slog.ErrorContext(c.Request.Context(), "failed to discover SSO configs", "domain", domain, "error", err)
 		c.JSON(http.StatusOK, gin.H{"configs": []interface{}{}})
 		return
 	}

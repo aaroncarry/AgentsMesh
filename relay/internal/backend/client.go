@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Client communicates with Backend API
@@ -66,7 +68,8 @@ func NewClient(baseURL, internalAPISecret, relayID, relayURL, relayRegion string
 		relayRegion:       relayRegion,
 		relayCapacity:     relayCapacity,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 		logger: slog.With("component", "backend_client"),
 	}
@@ -86,7 +89,8 @@ func NewClientWithConfig(cfg ClientConfig) *Client {
 		certFile:          cfg.CertFile,
 		keyFile:           cfg.KeyFile,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 		logger: slog.With("component", "backend_client"),
 	}

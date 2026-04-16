@@ -73,7 +73,7 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, provider, code, state
 	// Save OAuth access token to identity for later API calls
 	if userInfo.AccessToken != "" {
 		if err := s.userService.UpdateIdentityTokens(ctx, u.ID, provider, userInfo.AccessToken, "", nil); err != nil {
-			slog.Warn("failed to save OAuth token",
+			slog.WarnContext(ctx, "failed to save OAuth token",
 				"user_id", u.ID,
 				"provider", provider,
 				"error", err,
@@ -84,7 +84,7 @@ func (s *Service) HandleOAuthCallback(ctx context.Context, provider, code, state
 	// For Git providers, ensure a RepositoryProvider exists
 	if provider == "github" || provider == "gitlab" || provider == "gitee" {
 		if err := s.userService.EnsureRepositoryProviderForIdentity(ctx, u.ID, provider); err != nil {
-			slog.Warn("failed to create repository provider",
+			slog.WarnContext(ctx, "failed to create repository provider",
 				"user_id", u.ID,
 				"provider", provider,
 				"error", err,

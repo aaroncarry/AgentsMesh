@@ -5,6 +5,9 @@ import (
 	"io"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -98,8 +101,16 @@ func (a *GRPCRunnerAdapter) receiveLoop(ctx context.Context, runnerID int64, con
 			return err
 		}
 
-		// Convert proto message to internal type and delegate to RunnerConnectionManager
-		a.handleProtoMessage(ctx, runnerID, conn, msg)
+		msgType := extractMessageType(msg)
+		if isHighFrequencyMessage(msgType) {
+			a.handleProtoMessage(ctx, runnerID, conn, msg)
+		} else {
+			msgCtx, span := otel.Tracer("agentsmesh-backend").Start(ctx, "grpc.recv."+msgType,
+				trace.WithAttributes(attribute.Int64("runner.id", runnerID)),
+			)
+			a.handleProtoMessage(msgCtx, runnerID, conn, msg)
+			span.End()
+		}
 	}
 }
 

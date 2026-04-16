@@ -1,9 +1,11 @@
 package runner
 
 import (
+	"context"
 	"sync"
 
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	otelinit "github.com/anthropics/agentsmesh/runner/internal/otel"
 )
 
 // PodStore manages pod state.
@@ -41,6 +43,7 @@ func (s *InMemoryPodStore) Put(podKey string, pod *Pod) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pods[podKey] = pod
+	otelinit.PodActiveCount.Add(context.Background(), 1)
 	logger.Pod().Debug("Pod stored", "pod_key", podKey, "total_pods", len(s.pods))
 }
 
@@ -51,6 +54,7 @@ func (s *InMemoryPodStore) Delete(podKey string) *Pod {
 	pod, ok := s.pods[podKey]
 	if ok {
 		delete(s.pods, podKey)
+		otelinit.PodActiveCount.Add(context.Background(), -1)
 		logger.Pod().Debug("Pod removed from store", "pod_key", podKey, "remaining_pods", len(s.pods))
 	}
 	return pod

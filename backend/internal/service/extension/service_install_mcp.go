@@ -50,11 +50,11 @@ func (s *Service) InstallMcpFromMarket(ctx context.Context, orgID, repoID, userI
 		if errors.Is(err, extension.ErrDuplicateInstall) {
 			return nil, fmt.Errorf("%w: MCP server '%s' is already installed in this repository with scope '%s'", ErrAlreadyInstalled, server.Slug, server.Scope)
 		}
-		slog.Error("failed to install MCP server from market", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
+		slog.ErrorContext(ctx, "failed to install MCP server from market", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
 		return nil, fmt.Errorf("failed to install MCP server: %w", err)
 	}
 
-	slog.Info("MCP server installed from market", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "scope", scope)
+	slog.InfoContext(ctx, "MCP server installed from market", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "scope", scope)
 	return server, nil
 }
 
@@ -81,11 +81,11 @@ func (s *Service) InstallCustomMcpServer(ctx context.Context, orgID, repoID, use
 		if errors.Is(err, extension.ErrDuplicateInstall) {
 			return nil, fmt.Errorf("%w: MCP server '%s' is already installed in this repository with scope '%s'", ErrAlreadyInstalled, server.Slug, server.Scope)
 		}
-		slog.Error("failed to install custom MCP server", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
+		slog.ErrorContext(ctx, "failed to install custom MCP server", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
 		return nil, fmt.Errorf("failed to install custom MCP server: %w", err)
 	}
 
-	slog.Info("custom MCP server installed", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "scope", server.Scope)
+	slog.InfoContext(ctx, "custom MCP server installed", "slug", server.Slug, "org_id", orgID, "repo_id", repoID, "scope", server.Scope)
 	return server, nil
 }
 
@@ -112,11 +112,11 @@ func (s *Service) UpdateMcpServer(ctx context.Context, orgID, repoID, installID,
 	}
 
 	if err := s.repo.UpdateInstalledMcpServer(ctx, server); err != nil {
-		slog.Error("failed to update MCP server", "install_id", installID, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to update MCP server", "install_id", installID, "org_id", orgID, "error", err)
 		return nil, fmt.Errorf("failed to update MCP server: %w", err)
 	}
 
-	slog.Info("MCP server updated", "install_id", installID, "slug", server.Slug, "org_id", orgID, "repo_id", repoID)
+	slog.InfoContext(ctx, "MCP server updated", "install_id", installID, "slug", server.Slug, "org_id", orgID, "repo_id", repoID)
 	return server, nil
 }
 
@@ -132,11 +132,11 @@ func (s *Service) UninstallMcpServer(ctx context.Context, orgID, repoID, install
 	}
 
 	if err := s.repo.DeleteInstalledMcpServer(ctx, installID); err != nil {
-		slog.Error("failed to uninstall MCP server", "install_id", installID, "slug", server.Slug, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to uninstall MCP server", "install_id", installID, "slug", server.Slug, "org_id", orgID, "error", err)
 		return err
 	}
 
-	slog.Info("MCP server uninstalled", "install_id", installID, "slug", server.Slug, "org_id", orgID, "repo_id", repoID)
+	slog.InfoContext(ctx, "MCP server uninstalled", "install_id", installID, "slug", server.Slug, "org_id", orgID, "repo_id", repoID)
 	return nil
 }
 

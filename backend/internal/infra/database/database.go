@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/config"
+	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -28,6 +29,10 @@ func New(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	if err := db.Use(otelgorm.NewPlugin()); err != nil {
+		slog.Warn("failed to enable GORM OpenTelemetry tracing", "error", err)
 	}
 
 	// Get underlying SQL DB to configure connection pool

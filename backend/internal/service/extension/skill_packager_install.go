@@ -50,7 +50,7 @@ func (p *SkillPackager) CompleteGitHubInstall(ctx context.Context, orgID, repoID
 		return nil, fmt.Errorf("failed to create installed skill: %w", err)
 	}
 
-	slog.Info("Skill installed from GitHub",
+	slog.InfoContext(ctx, "Skill installed from GitHub",
 		"slug", pkg.Slug, "org_id", orgID, "repo_id", repoID)
 
 	return skill, nil
@@ -87,7 +87,7 @@ func (p *SkillPackager) CompleteUploadInstall(ctx context.Context, orgID, repoID
 		return nil, fmt.Errorf("failed to create installed skill: %w", err)
 	}
 
-	slog.Info("Skill installed from upload",
+	slog.InfoContext(ctx, "Skill installed from upload",
 		"slug", pkg.Slug, "org_id", orgID, "repo_id", repoID)
 
 	return skill, nil

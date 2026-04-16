@@ -65,12 +65,12 @@ func (s *Service) CreateConfig(ctx context.Context, req *CreateConfigRequest, cr
 	}
 
 	if err := s.repo.Create(ctx, cfg); err != nil {
-		slog.Error("failed to create SSO config",
+		slog.ErrorContext(ctx, "failed to create SSO config",
 			"domain", cfg.Domain, "protocol", string(protocol), "created_by", createdBy, "error", err)
 		return nil, fmt.Errorf("failed to create SSO config: %w", err)
 	}
 
-	slog.Info("SSO config created",
+	slog.InfoContext(ctx, "SSO config created",
 		"config_id", cfg.ID, "domain", cfg.Domain, "protocol", string(protocol))
 	return cfg, nil
 }

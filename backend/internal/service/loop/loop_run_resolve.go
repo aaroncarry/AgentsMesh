@@ -26,7 +26,7 @@ func (s *LoopRunService) resolveRunStatuses(ctx context.Context, runs []*loopDom
 
 	podInfos, err := s.repo.BatchGetPodStatuses(ctx, podKeys)
 	if err != nil {
-		slog.Error("failed to batch get pod statuses for SSOT resolution", "error", err, "count", len(podKeys))
+		slog.ErrorContext(ctx, "failed to batch get pod statuses for SSOT resolution", "error", err, "count", len(podKeys))
 	}
 	podMap := make(map[string]*loopDomain.PodStatusInfo, len(podInfos))
 	for i := range podInfos {
@@ -35,7 +35,7 @@ func (s *LoopRunService) resolveRunStatuses(ctx context.Context, runs []*loopDom
 
 	autopilotMap, err := s.repo.BatchGetAutopilotPhases(ctx, autopilotKeys)
 	if err != nil {
-		slog.Error("failed to batch get autopilot phases for SSOT resolution", "error", err, "count", len(autopilotKeys))
+		slog.ErrorContext(ctx, "failed to batch get autopilot phases for SSOT resolution", "error", err, "count", len(autopilotKeys))
 	}
 
 	for _, run := range runs {

@@ -76,7 +76,7 @@ func (s *Service) UpgradePlan(ctx context.Context, orgID int64, planName string)
 		"plan_id":           newPlan.ID,
 		"downgrade_to_plan": nil,
 	}); err != nil {
-		slog.Warn("provider API succeeded but DB update failed for plan upgrade",
+		slog.WarnContext(ctx, "provider API succeeded but DB update failed for plan upgrade",
 			"org_id", orgID, "plan", planName, "error", err)
 		return nil, fmt.Errorf("failed to sync plan locally: %w", err)
 	}

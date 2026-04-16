@@ -95,10 +95,10 @@ func (s *Service) UpdateOrganizationSubscriptionStatus(ctx context.Context, orgI
 	}
 	org.SubscriptionStatus = status
 	if err := s.db.Save(&org); err != nil {
-		slog.Error("admin: failed to update org subscription status", "org_id", orgID, "status", status, "error", err)
+		slog.ErrorContext(ctx, "admin: failed to update org subscription status", "org_id", orgID, "status", status, "error", err)
 		return err
 	}
-	slog.Info("admin: org subscription status updated", "org_id", orgID, "status", status)
+	slog.InfoContext(ctx, "admin: org subscription status updated", "org_id", orgID, "status", status)
 	return nil
 }
 
@@ -129,10 +129,10 @@ func (s *Service) DeleteOrganization(ctx context.Context, orgID int64) error {
 
 		// Delete the org — FK CASCADE handles all other dependent tables
 		if err := tx.Delete(&org); err != nil {
-			slog.Error("admin: failed to delete organization", "org_id", orgID, "error", err)
+			slog.ErrorContext(ctx, "admin: failed to delete organization", "org_id", orgID, "error", err)
 			return err
 		}
-		slog.Info("admin: organization deleted", "org_id", orgID)
+		slog.InfoContext(ctx, "admin: organization deleted", "org_id", orgID)
 		return nil
 	})
 }

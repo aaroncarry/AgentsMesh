@@ -37,7 +37,7 @@ func (s *McpRegistrySyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("fetch registry: %w", err)
 	}
 
-	slog.Info("MCP Registry sync: fetched entries", "count", len(entries))
+	slog.InfoContext(ctx, "MCP Registry sync: fetched entries", "count", len(entries))
 
 	now := time.Now()
 	var items []*extension.McpMarketItem
@@ -52,7 +52,7 @@ func (s *McpRegistrySyncer) Sync(ctx context.Context) error {
 
 		item, err := s.convertToMarketItem(entry, now)
 		if err != nil {
-			slog.Warn("MCP Registry sync: skipping entry",
+			slog.WarnContext(ctx, "MCP Registry sync: skipping entry",
 				"name", entry.Server.Name, "error", err)
 			skipped++
 			continue
@@ -72,10 +72,10 @@ func (s *McpRegistrySyncer) Sync(ctx context.Context) error {
 	// Phase 3: Deactivate registry items no longer present upstream
 	deactivated, err := s.repo.DeactivateMcpMarketItemsNotIn(ctx, extension.McpSourceRegistry, synced)
 	if err != nil {
-		slog.Warn("MCP Registry sync: deactivation failed", "error", err)
+		slog.WarnContext(ctx, "MCP Registry sync: deactivation failed", "error", err)
 	}
 
-	slog.Info("MCP Registry sync completed",
+	slog.InfoContext(ctx, "MCP Registry sync completed",
 		"total", len(entries),
 		"synced", len(synced),
 		"skipped", skipped,

@@ -32,11 +32,11 @@ func (s *AIProviderService) CreateUserProvider(ctx context.Context, userID int64
 	}
 
 	if err := s.repo.Create(ctx, provider); err != nil {
-		slog.Error("failed to create AI provider", "user_id", userID, "provider_type", providerType, "error", err)
+		slog.ErrorContext(ctx, "failed to create AI provider", "user_id", userID, "provider_type", providerType, "error", err)
 		return nil, err
 	}
 
-	slog.Info("AI provider created", "provider_id", provider.ID, "user_id", userID, "provider_type", providerType)
+	slog.InfoContext(ctx, "AI provider created", "provider_id", provider.ID, "user_id", userID, "provider_type", providerType)
 	return provider, nil
 }
 
@@ -73,21 +73,21 @@ func (s *AIProviderService) UpdateUserProvider(ctx context.Context, providerID i
 	}
 
 	if err := s.repo.Save(ctx, provider); err != nil {
-		slog.Error("failed to update AI provider", "provider_id", providerID, "error", err)
+		slog.ErrorContext(ctx, "failed to update AI provider", "provider_id", providerID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("AI provider updated", "provider_id", providerID, "user_id", provider.UserID, "provider_type", provider.ProviderType)
+	slog.InfoContext(ctx, "AI provider updated", "provider_id", providerID, "user_id", provider.UserID, "provider_type", provider.ProviderType)
 	return provider, nil
 }
 
 // DeleteUserProvider deletes an AI provider
 func (s *AIProviderService) DeleteUserProvider(ctx context.Context, providerID int64) error {
 	if err := s.repo.Delete(ctx, providerID); err != nil {
-		slog.Error("failed to delete AI provider", "provider_id", providerID, "error", err)
+		slog.ErrorContext(ctx, "failed to delete AI provider", "provider_id", providerID, "error", err)
 		return err
 	}
-	slog.Info("AI provider deleted", "provider_id", providerID)
+	slog.InfoContext(ctx, "AI provider deleted", "provider_id", providerID)
 	return nil
 }
 
@@ -108,9 +108,9 @@ func (s *AIProviderService) SetDefaultProvider(ctx context.Context, providerID i
 
 	// Set this one as default
 	if err := s.repo.SetDefault(ctx, providerID); err != nil {
-		slog.Error("failed to set default AI provider", "provider_id", providerID, "error", err)
+		slog.ErrorContext(ctx, "failed to set default AI provider", "provider_id", providerID, "error", err)
 		return err
 	}
-	slog.Info("AI provider set as default", "provider_id", providerID, "user_id", provider.UserID, "provider_type", provider.ProviderType)
+	slog.InfoContext(ctx, "AI provider set as default", "provider_id", providerID, "user_id", provider.UserID, "provider_type", provider.ProviderType)
 	return nil
 }

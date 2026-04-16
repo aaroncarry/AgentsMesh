@@ -106,11 +106,11 @@ func (s *AgentService) CreateCustomAgent(ctx context.Context, orgID int64, req *
 	}
 
 	if err := s.repo.CreateCustom(ctx, customAgent); err != nil {
-		slog.Error("failed to create custom agent", "org_id", orgID, "slug", req.Slug, "error", err)
+		slog.ErrorContext(ctx, "failed to create custom agent", "org_id", orgID, "slug", req.Slug, "error", err)
 		return nil, err
 	}
 
-	slog.Info("custom agent created", "org_id", orgID, "slug", req.Slug)
+	slog.InfoContext(ctx, "custom agent created", "org_id", orgID, "slug", req.Slug)
 	return customAgent, nil
 }
 
@@ -118,10 +118,10 @@ func (s *AgentService) CreateCustomAgent(ctx context.Context, orgID int64, req *
 func (s *AgentService) UpdateCustomAgent(ctx context.Context, orgID int64, slug string, updates map[string]interface{}) (*agent.CustomAgent, error) {
 	result, err := s.repo.UpdateCustom(ctx, orgID, slug, updates)
 	if err != nil {
-		slog.Error("failed to update custom agent", "org_id", orgID, "slug", slug, "error", err)
+		slog.ErrorContext(ctx, "failed to update custom agent", "org_id", orgID, "slug", slug, "error", err)
 		return nil, err
 	}
-	slog.Info("custom agent updated", "org_id", orgID, "slug", slug)
+	slog.InfoContext(ctx, "custom agent updated", "org_id", orgID, "slug", slug)
 	return result, nil
 }
 
@@ -136,10 +136,10 @@ func (s *AgentService) DeleteCustomAgent(ctx context.Context, orgID int64, slug 
 		return ErrAgentHasLoopRefs
 	}
 	if err := s.repo.DeleteCustom(ctx, orgID, slug); err != nil {
-		slog.Error("failed to delete custom agent", "org_id", orgID, "slug", slug, "error", err)
+		slog.ErrorContext(ctx, "failed to delete custom agent", "org_id", orgID, "slug", slug, "error", err)
 		return err
 	}
-	slog.Info("custom agent deleted", "org_id", orgID, "slug", slug)
+	slog.InfoContext(ctx, "custom agent deleted", "org_id", orgID, "slug", slug)
 	return nil
 }
 

@@ -274,20 +274,20 @@ func (s *Service) JoinChannel(ctx context.Context, channelID int64, podKey strin
 		PodKey:    podKey,
 	}
 	if err := s.repo.CreateChannelPod(ctx, cp); err != nil {
-		slog.Error("failed to join channel", "channel_id", channelID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to join channel", "channel_id", channelID, "pod_key", podKey, "error", err)
 		return err
 	}
-	slog.Info("pod joined channel", "channel_id", channelID, "pod_key", podKey)
+	slog.InfoContext(ctx, "pod joined channel", "channel_id", channelID, "pod_key", podKey)
 	return nil
 }
 
 // LeaveChannel removes a pod from a channel
 func (s *Service) LeaveChannel(ctx context.Context, channelID int64, podKey string) error {
 	if err := s.repo.DeleteChannelPod(ctx, channelID, podKey); err != nil {
-		slog.Error("failed to leave channel", "channel_id", channelID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to leave channel", "channel_id", channelID, "pod_key", podKey, "error", err)
 		return err
 	}
-	slog.Info("pod left channel", "channel_id", channelID, "pod_key", podKey)
+	slog.InfoContext(ctx, "pod left channel", "channel_id", channelID, "pod_key", podKey)
 	return nil
 }
 

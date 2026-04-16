@@ -85,7 +85,7 @@ func (imp *SkillImporter) SyncSource(ctx context.Context, sourceID int64) error 
 	if syncErr != nil {
 		source.SyncStatus = "failed"
 		source.SyncError = syncErr.Error()
-		slog.Error("Skill registry sync failed",
+		slog.ErrorContext(ctx, "Skill registry sync failed",
 			"registry_id", sourceID,
 			"url", source.RepositoryURL,
 			"error", syncErr)
@@ -95,7 +95,7 @@ func (imp *SkillImporter) SyncSource(ctx context.Context, sourceID int64) error 
 	}
 
 	if err := imp.repo.UpdateSkillRegistry(ctx, source); err != nil {
-		slog.Error("Failed to update skill registry after sync",
+		slog.ErrorContext(ctx, "Failed to update skill registry after sync",
 			"registry_id", sourceID, "error", err)
 	}
 
@@ -125,7 +125,7 @@ func (imp *SkillImporter) doSync(ctx context.Context, source *extension.SkillReg
 	}
 	commitSha, err := headFn(ctx, repoDir)
 	if err != nil {
-		slog.Warn("Failed to get HEAD commit", "error", err)
+		slog.WarnContext(ctx, "Failed to get HEAD commit", "error", err)
 	} else {
 		source.LastCommitSha = commitSha
 	}
@@ -151,7 +151,7 @@ func (imp *SkillImporter) doSync(ctx context.Context, source *extension.SkillReg
 	}
 
 	if len(skills) == 0 {
-		slog.Info("No skills found in source", "registry_id", source.ID, "url", source.RepositoryURL)
+		slog.InfoContext(ctx, "No skills found in source", "registry_id", source.ID, "url", source.RepositoryURL)
 		source.SkillCount = 0
 		return nil
 	}
@@ -165,7 +165,7 @@ func (imp *SkillImporter) doSync(ctx context.Context, source *extension.SkillReg
 		// existing installations that depend on the prior version.
 		activeSlugs = append(activeSlugs, skillInfo.Slug)
 		if err := imp.processSkill(ctx, source, skillInfo); err != nil {
-			slog.Error("Failed to process skill",
+			slog.ErrorContext(ctx, "Failed to process skill",
 				"slug", skillInfo.Slug,
 				"registry_id", source.ID,
 				"error", err)
@@ -175,7 +175,7 @@ func (imp *SkillImporter) doSync(ctx context.Context, source *extension.SkillReg
 
 	// 5. Deactivate skills no longer in the repo
 	if err := imp.repo.DeactivateSkillMarketItemsNotIn(ctx, source.ID, activeSlugs); err != nil {
-		slog.Error("Failed to deactivate removed skills", "registry_id", source.ID, "error", err)
+		slog.ErrorContext(ctx, "Failed to deactivate removed skills", "registry_id", source.ID, "error", err)
 	}
 
 	source.SkillCount = len(activeSlugs)
@@ -270,7 +270,7 @@ func (imp *SkillImporter) cloneRepo(ctx context.Context, source *extension.Skill
 		if imp.credentialDecryptor != nil {
 			decrypted, err := imp.credentialDecryptor(credential)
 			if err != nil {
-				slog.Warn("Failed to decrypt auth credential, attempting raw value",
+				slog.WarnContext(ctx, "Failed to decrypt auth credential, attempting raw value",
 					"registry_id", source.ID, "error", err)
 			} else {
 				credential = decrypted

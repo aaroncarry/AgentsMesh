@@ -59,7 +59,7 @@ func NewNotificationHook(dispatcher NotificationDispatcher, userNames UserNameRe
 			Link:              fmt.Sprintf("/channels?id=%d", mc.Channel.ID),
 			Priority:          notifDomain.PriorityNormal,
 		}); err != nil {
-			slog.Error("failed to dispatch channel message notification", "error", err)
+			slog.ErrorContext(ctx, "failed to dispatch channel message notification", "error", err)
 		}
 
 		// 2. @mention notification → directly to mentioned users (high priority, still exclude sender)
@@ -75,7 +75,7 @@ func NewNotificationHook(dispatcher NotificationDispatcher, userNames UserNameRe
 				Link:             fmt.Sprintf("/channels?id=%d", mc.Channel.ID),
 				Priority:         notifDomain.PriorityHigh,
 			}); err != nil {
-				slog.Error("failed to dispatch mention notification", "error", err)
+				slog.ErrorContext(ctx, "failed to dispatch mention notification", "error", err)
 			}
 		}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"gorm.io/gorm"
 )
 
@@ -28,9 +29,10 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 	}
 
 	r := gin.New()
+	r.Use(otelgin.Middleware("agentsmesh-backend"))
 	r.Use(gin.Logger())
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		slog.Error("Panic recovered in handler",
+		slog.ErrorContext(c.Request.Context(), "Panic recovered in handler",
 			"path", c.Request.URL.Path,
 			"method", c.Request.Method,
 			"error", recovered,

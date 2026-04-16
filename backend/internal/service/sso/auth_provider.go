@@ -43,7 +43,7 @@ func (s *Service) buildOIDCProvider(ctx context.Context, cfg *sso.Config) (ssopr
 	if cfg.OIDCScopes != nil && *cfg.OIDCScopes != "" {
 		if err := json.Unmarshal([]byte(*cfg.OIDCScopes), &scopes); err != nil {
 			// Fallback: try space-separated or comma-separated format
-			slog.Warn("OIDC scopes not valid JSON, falling back to text parsing",
+			slog.WarnContext(ctx, "OIDC scopes not valid JSON, falling back to text parsing",
 				"domain", cfg.Domain, "scopes", *cfg.OIDCScopes, "error", err)
 			raw := strings.TrimSpace(*cfg.OIDCScopes)
 			if strings.Contains(raw, ",") {

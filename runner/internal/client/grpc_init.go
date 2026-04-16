@@ -46,7 +46,7 @@ func (c *GRPCConnection) sendWithTimeout(msg *runnerv1.RunnerMessage, timeout ti
 
 // performInitialization performs the three-phase initialization handshake.
 func (c *GRPCConnection) performInitialization(ctx context.Context) error {
-	logger.GRPC().Debug("Starting initialization handshake...")
+	logger.GRPC().DebugContext(ctx, "Starting initialization handshake...")
 
 	// Drain any stale result from a previous connection's initResultCh
 	// to prevent reading an outdated InitializeResult.
@@ -81,12 +81,12 @@ func (c *GRPCConnection) performInitialization(ctx context.Context) error {
 	if err := c.sendWithTimeout(msg, initSendTimeout); err != nil {
 		return fmt.Errorf("failed to send initialize: %w", err)
 	}
-	logger.GRPC().Debug("Sent initialize request", "version", c.runnerVersion, "mcp_port", c.mcpPort)
+	logger.GRPC().DebugContext(ctx, "Sent initialize request", "version", c.runnerVersion, "mcp_port", c.mcpPort)
 
 	// Phase 2: Wait for initialize_result
 	select {
 	case result := <-c.initResultCh:
-		logger.GRPC().Debug("Received initialize_result",
+		logger.GRPC().DebugContext(ctx, "Received initialize_result",
 			"server_version", result.ServerInfo.Version,
 			"agents", len(result.Agents))
 
@@ -110,13 +110,13 @@ func (c *GRPCConnection) performInitialization(ctx context.Context) error {
 		if err := c.sendWithTimeout(confirmMsg, initSendTimeout); err != nil {
 			return fmt.Errorf("failed to send initialized: %w", err)
 		}
-		logger.GRPC().Debug("Sent initialized", "available_agents", availableAgents, "agent_versions", len(agentVersions))
+		logger.GRPC().DebugContext(ctx, "Sent initialized", "available_agents", availableAgents, "agent_versions", len(agentVersions))
 
 		c.mu.Lock()
 		c.initialized = true
 		c.mu.Unlock()
 
-		logger.GRPC().Info("Initialization completed successfully")
+		logger.GRPC().InfoContext(ctx, "Initialization completed successfully")
 		return nil
 
 	case <-time.After(c.initTimeout):

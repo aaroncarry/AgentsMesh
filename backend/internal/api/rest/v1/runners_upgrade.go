@@ -63,7 +63,7 @@ func (h *RunnerHandler) UpgradeRunner(c *gin.Context) {
 	}
 
 	if req.Force {
-		slog.Warn("Deprecated 'force' field received — ignored since Poddaemon upgrade path",
+		slog.WarnContext(c.Request.Context(), "Deprecated 'force' field received — ignored since Poddaemon upgrade path",
 			"runner_id", runnerID, "user_id", tenant.UserID)
 	}
 
@@ -89,7 +89,7 @@ func (h *RunnerHandler) UpgradeRunner(c *gin.Context) {
 
 	// Audit log — active_pod_count is recorded so post-incident analysis can
 	// correlate an upgrade with any user sessions that may have been affected.
-	slog.Info("Runner upgrade initiated",
+	slog.InfoContext(c.Request.Context(), "Runner upgrade initiated",
 		"runner_id", runnerID,
 		"request_id", requestID,
 		"target_version", req.TargetVersion,

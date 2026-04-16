@@ -90,7 +90,7 @@ func (h *RunnerMessageHandler) runUpgrade(cmd *runnerv1.UpgradeRunnerCommand) {
 			return
 		}
 
-		log.Info("Update downloaded and applied", "new_version", newVersion)
+		log.InfoContext(ctx, "Update downloaded and applied", "new_version", newVersion)
 	} else {
 		// Update to specific version
 		h.sendUpgradeStatus(cmd.RequestId, tv, "downloading", 0,
@@ -101,7 +101,7 @@ func (h *RunnerMessageHandler) runUpgrade(cmd *runnerv1.UpgradeRunnerCommand) {
 			return
 		}
 
-		log.Info("Update downloaded and applied", "target_version", tv)
+		log.InfoContext(ctx, "Update downloaded and applied", "target_version", tv)
 	}
 
 	// Phase: applying

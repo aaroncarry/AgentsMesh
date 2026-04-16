@@ -44,15 +44,15 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string, c
 
 	// Build worktree options based on credential type
 	opts := []workspace.WorktreeOption{}
-	logger.Pod().Debug("Setting up git credentials", "pod_key", b.cmd.PodKey, "credential_type", cfg.CredentialType)
+	logger.Pod().DebugContext(ctx, "Setting up git credentials", "pod_key", b.cmd.PodKey, "credential_type", cfg.CredentialType)
 
 	switch cfg.CredentialType {
 	case "runner_local":
 		// Use Runner's local git configuration, no credentials needed
-		logger.Pod().Debug("Using runner local git config", "pod_key", b.cmd.PodKey)
+		logger.Pod().DebugContext(ctx, "Using runner local git config", "pod_key", b.cmd.PodKey)
 	case "oauth", "pat":
 		// HTTPS + token authentication
-		logger.Pod().Debug("Using token authentication", "pod_key", b.cmd.PodKey, "type", cfg.CredentialType)
+		logger.Pod().DebugContext(ctx, "Using token authentication", "pod_key", b.cmd.PodKey, "type", cfg.CredentialType)
 		if cfg.GitToken != "" {
 			opts = append(opts, workspace.WithGitToken(cfg.GitToken))
 		}
@@ -82,18 +82,18 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string, c
 				if username != "" {
 					if err := exec.Command("icacls", keyFile, "/inheritance:r",
 						"/grant:r", username+":R").Run(); err != nil {
-						logger.Pod().Warn("Failed to set SSH key ACL (SSH may reject key if permissions are too open)",
+						logger.Pod().WarnContext(ctx, "Failed to set SSH key ACL (SSH may reject key if permissions are too open)",
 							"error", err, "key_file", keyFile)
 					}
 				}
 			}
 			opts = append(opts, workspace.WithSSHKeyPath(keyFile))
-			logger.Pod().Debug("SSH key written to sandbox", "pod_key", b.cmd.PodKey, "key_file", keyFile)
+			logger.Pod().DebugContext(ctx, "SSH key written to sandbox", "pod_key", b.cmd.PodKey, "key_file", keyFile)
 		}
 	default:
 		// Unknown type - fallback to runner_local behavior
 		if cfg.CredentialType != "" {
-			logger.Pod().Warn("Unknown credential type, using runner local",
+			logger.Pod().WarnContext(ctx, "Unknown credential type, using runner local",
 				"credential_type", cfg.CredentialType, "pod_key", b.cmd.PodKey)
 		}
 	}
@@ -141,7 +141,7 @@ func (b *PodBuilder) setupGitWorktree(ctx context.Context, sandboxRoot string, c
 	// when detached HEAD is detected, so no additional fallback is needed.
 	branchName := result.Branch
 
-	logger.Pod().Info("Git worktree created",
+	logger.Pod().InfoContext(ctx, "Git worktree created",
 		"pod_key", b.cmd.PodKey,
 		"workspace", result.Path,
 		"branch", branchName)

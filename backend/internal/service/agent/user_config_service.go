@@ -60,21 +60,21 @@ func (s *UserConfigService) SetUserAgentConfig(ctx context.Context, userID int64
 	}
 
 	if err := s.repo.Upsert(ctx, userID, agentSlug, configValues); err != nil {
-		slog.Error("failed to set user agent config", "user_id", userID, "agent_slug", agentSlug, "error", err)
+		slog.ErrorContext(ctx, "failed to set user agent config", "user_id", userID, "agent_slug", agentSlug, "error", err)
 		return nil, err
 	}
 
-	slog.Info("user agent config set", "user_id", userID, "agent_slug", agentSlug)
+	slog.InfoContext(ctx, "user agent config set", "user_id", userID, "agent_slug", agentSlug)
 	return s.GetUserAgentConfig(ctx, userID, agentSlug)
 }
 
 // DeleteUserAgentConfig deletes the user's personal config for an agent
 func (s *UserConfigService) DeleteUserAgentConfig(ctx context.Context, userID int64, agentSlug string) error {
 	if err := s.repo.Delete(ctx, userID, agentSlug); err != nil {
-		slog.Error("failed to delete user agent config", "user_id", userID, "agent_slug", agentSlug, "error", err)
+		slog.ErrorContext(ctx, "failed to delete user agent config", "user_id", userID, "agent_slug", agentSlug, "error", err)
 		return err
 	}
-	slog.Info("user agent config deleted", "user_id", userID, "agent_slug", agentSlug)
+	slog.InfoContext(ctx, "user agent config deleted", "user_id", userID, "agent_slug", agentSlug)
 	return nil
 }
 

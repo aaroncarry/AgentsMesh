@@ -162,7 +162,7 @@ func (h *SSOHandler) UpdateConfig(c *gin.Context) {
 	// Get old data for audit log
 	oldCfg, auditErr := h.ssoService.GetConfig(c.Request.Context(), id)
 	if auditErr != nil {
-		slog.Warn("failed to retrieve old SSO config for audit", "id", id, "error", auditErr)
+		slog.WarnContext(c.Request.Context(), "failed to retrieve old SSO config for audit", "id", id, "error", auditErr)
 	}
 
 	cfg, err := h.ssoService.UpdateConfig(c.Request.Context(), id, &req)
@@ -196,7 +196,7 @@ func (h *SSOHandler) DeleteConfig(c *gin.Context) {
 	// Get old data for audit log
 	oldCfg, auditErr := h.ssoService.GetConfig(c.Request.Context(), id)
 	if auditErr != nil {
-		slog.Warn("failed to retrieve old SSO config for audit", "id", id, "error", auditErr)
+		slog.WarnContext(c.Request.Context(), "failed to retrieve old SSO config for audit", "id", id, "error", auditErr)
 	}
 
 	if err := h.ssoService.DeleteConfig(c.Request.Context(), id); err != nil {

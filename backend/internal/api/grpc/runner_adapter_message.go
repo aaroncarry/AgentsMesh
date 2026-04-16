@@ -4,13 +4,21 @@ import (
 	"context"
 	"time"
 
+	otelinit "github.com/anthropics/agentsmesh/backend/internal/infra/otel"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // handleProtoMessage routes proto messages directly to RunnerConnectionManager handlers.
 // Zero-copy: Proto types are passed directly without JSON serialization.
 func (a *GRPCRunnerAdapter) handleProtoMessage(ctx context.Context, runnerID int64, conn *runner.GRPCConnection, msg *runnerv1.RunnerMessage) {
+	msgType := extractMessageType(msg)
+	if !isHighFrequencyMessage(msgType) {
+		otelinit.GRPCMessagesRecv.Add(ctx, 1, metric.WithAttributes(attribute.String("message.type", msgType)))
+	}
+
 	switch payload := msg.Payload.(type) {
 	case *runnerv1.RunnerMessage_Initialize:
 		a.handleInitialize(ctx, runnerID, conn, payload.Initialize)

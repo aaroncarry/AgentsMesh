@@ -1,10 +1,12 @@
 package relay
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"time"
 
+	otelinit "github.com/anthropics/agentsmesh/runner/internal/otel"
 	"github.com/anthropics/agentsmesh/runner/internal/safego"
 )
 
@@ -101,6 +103,7 @@ func (c *Client) reconnectLoop() {
 		c.logger.Info("Attempting to reconnect to relay",
 			"attempt", attempt,
 			"backoff", backoff)
+		otelinit.RelayReconnects.Add(context.Background(), 1)
 
 		c.reconnectMu.Lock()
 		err := c.connectInternal()

@@ -121,12 +121,12 @@ func (s *Service) setCache(ctx context.Context, keyHash string, cached *cachedKe
 
 	data, err := json.Marshal(cached)
 	if err != nil {
-		slog.Warn("Failed to marshal api key cache", "error", err)
+		slog.WarnContext(ctx, "Failed to marshal api key cache", "error", err)
 		return
 	}
 
 	if err := s.redisClient.Set(ctx, cachePrefix+keyHash, data, cacheTTL).Err(); err != nil {
-		slog.Warn("Failed to set api key cache", "error", err)
+		slog.WarnContext(ctx, "Failed to set api key cache", "error", err)
 	}
 }
 
@@ -137,6 +137,6 @@ func (s *Service) invalidateCache(ctx context.Context, keyHash string) {
 	}
 
 	if err := s.redisClient.Del(ctx, cachePrefix+keyHash).Err(); err != nil {
-		slog.Warn("Failed to invalidate api key cache", "error", err)
+		slog.WarnContext(ctx, "Failed to invalidate api key cache", "error", err)
 	}
 }

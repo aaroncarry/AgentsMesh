@@ -37,7 +37,7 @@ func (s *Service) InviteMembers(ctx context.Context, channelID, inviterUserID in
 	validIDs := s.validateOrgMembers(ctx, ch.OrganizationID, memberIDs)
 	for _, uid := range validIDs {
 		if err := s.repo.AddMemberWithRole(ctx, channelID, uid, channel.RoleMember); err != nil {
-			slog.Error("failed to invite member", "channel_id", channelID, "user_id", uid, "error", err)
+			slog.ErrorContext(ctx, "failed to invite member", "channel_id", channelID, "user_id", uid, "error", err)
 			continue
 		}
 		s.publishMemberEvent(ctx, ch.OrganizationID, channelID, uid, eventbus.EventChannelMemberAdded, channel.RoleMember)
@@ -88,10 +88,10 @@ func (s *Service) SetMemberMuted(ctx context.Context, channelID, userID int64, m
 		return err
 	}
 	if err := s.repo.SetMemberMuted(ctx, channelID, userID, muted); err != nil {
-		slog.Error("failed to set member muted", "channel_id", channelID, "user_id", userID, "muted", muted, "error", err)
+		slog.ErrorContext(ctx, "failed to set member muted", "channel_id", channelID, "user_id", userID, "muted", muted, "error", err)
 		return err
 	}
-	slog.Info("channel member muted updated", "channel_id", channelID, "user_id", userID, "muted", muted)
+	slog.InfoContext(ctx, "channel member muted updated", "channel_id", channelID, "user_id", userID, "muted", muted)
 	return nil
 }
 

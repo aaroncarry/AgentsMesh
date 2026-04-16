@@ -12,6 +12,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/database"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/logger"
+	otelinit "github.com/anthropics/agentsmesh/backend/internal/infra/otel"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/websocket"
 	"github.com/anthropics/agentsmesh/backend/internal/api/rest"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
@@ -46,6 +47,17 @@ func main() {
 	defer appLogger.Close()
 	appLogger.SetDefault()
 	slog.Info("Logger initialized", "level", cfg.Log.Level, "file", cfg.Log.FilePath)
+
+	// Initialize OpenTelemetry
+	otelProvider, err := otelinit.InitProvider(context.Background(), "agentsmesh-backend", "1.0.0")
+	if err != nil {
+		slog.Warn("OpenTelemetry initialization failed, continuing without tracing", "error", err)
+		otelProvider = &otelinit.Provider{}
+	}
+	defer otelProvider.Shutdown(context.Background())
+
+	// Inject trace_id/span_id into slog JSON output for Loki correlation
+	slog.SetDefault(slog.New(otelinit.NewTraceContextHandler(slog.Default().Handler())))
 
 	// Initialize database
 	db, err := database.New(cfg.Database)

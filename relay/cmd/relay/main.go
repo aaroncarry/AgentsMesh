@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/anthropics/agentsmesh/relay/internal/config"
+	otelinit "github.com/anthropics/agentsmesh/relay/internal/otel"
 	"github.com/anthropics/agentsmesh/relay/internal/server"
 )
 
@@ -19,6 +20,15 @@ func main() {
 	slog.SetDefault(slog.New(handler))
 
 	slog.Info("Starting AgentsMesh Relay Server")
+
+	// Initialize OpenTelemetry
+	otelProvider, err := otelinit.InitProvider(context.Background(), "agentsmesh-relay", "1.0.0")
+	if err != nil {
+		slog.Warn("OpenTelemetry initialization failed, continuing without tracing", "error", err)
+	} else {
+		defer otelProvider.Shutdown(context.Background())
+		slog.SetDefault(slog.New(otelinit.NewTraceContextHandler(slog.Default().Handler())))
+	}
 
 	// Load configuration
 	cfg, err := config.Load()

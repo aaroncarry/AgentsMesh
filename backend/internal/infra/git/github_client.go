@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // GitHubProvider implements Provider interface for GitHub
@@ -34,7 +36,8 @@ func NewGitHubProvider(baseURL, accessToken string) (*GitHubProvider, error) {
 		baseURL:     baseURL,
 		accessToken: accessToken,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}, nil
 }

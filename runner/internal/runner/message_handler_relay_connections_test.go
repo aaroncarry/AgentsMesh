@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -62,8 +63,8 @@ func TestOnListRelayConnections_WithRelayClients(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	// Create relay clients (not connected, just for testing the data retrieval)
-	relayClient1 := relay.NewClient("wss://relay1.example.com", "pod-1", "token-1", nil)
-	relayClient2 := relay.NewClient("wss://relay2.example.com", "pod-2", "token-2", nil)
+	relayClient1 := relay.NewClient(context.TODO(), "wss://relay1.example.com", "pod-1", "token-1", nil)
+	relayClient2 := relay.NewClient(context.TODO(), "wss://relay2.example.com", "pod-2", "token-2", nil)
 
 	// Create pods with relay clients
 	pod1 := &Pod{PodKey: "pod-1", Status: PodStatusRunning}
@@ -119,7 +120,7 @@ func TestOnListRelayConnections_MixedPods(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	// Pod with relay client
-	relayClient := relay.NewClient("wss://relay.example.com", "pod-1", "token-1", nil)
+	relayClient := relay.NewClient(context.TODO(), "wss://relay.example.com", "pod-1", "token-1", nil)
 	pod1 := &Pod{PodKey: "pod-1", Status: PodStatusRunning}
 	pod1.SetRelayClient(relayClient)
 
@@ -156,7 +157,7 @@ func TestOnListRelayConnections_ConnectedAt(t *testing.T) {
 	handler := NewRunnerMessageHandler(runner, store, mockConn)
 
 	// Create relay client (not connected)
-	relayClient := relay.NewClient("wss://relay.example.com", "pod-1", "token-1", nil)
+	relayClient := relay.NewClient(context.TODO(), "wss://relay.example.com", "pod-1", "token-1", nil)
 
 	pod := &Pod{PodKey: "pod-1", Status: PodStatusRunning}
 	pod.SetRelayClient(relayClient)
@@ -175,7 +176,7 @@ func TestOnListRelayConnections_ConnectedAt(t *testing.T) {
 
 // TestRelayClient_GetConnectedAt tests the relay client's GetConnectedAt method
 func TestRelayClient_GetConnectedAt(t *testing.T) {
-	relayClient := relay.NewClient("wss://relay.example.com", "pod-1", "token-1", nil)
+	relayClient := relay.NewClient(context.TODO(), "wss://relay.example.com", "pod-1", "token-1", nil)
 
 	// Before connection, should be 0
 	if relayClient.GetConnectedAt() != 0 {
@@ -188,7 +189,7 @@ func TestRelayClient_GetConnectedAt(t *testing.T) {
 
 // TestRelayClient_GetRelayURL tests the relay client's GetRelayURL method
 func TestRelayClient_GetRelayURL(t *testing.T) {
-	relayClient := relay.NewClient("wss://relay.example.com", "pod-1", "token-1", nil)
+	relayClient := relay.NewClient(context.TODO(), "wss://relay.example.com", "pod-1", "token-1", nil)
 
 	url := relayClient.GetRelayURL()
 	if url != "wss://relay.example.com" {
@@ -209,7 +210,7 @@ func TestOnListRelayConnections_ConcurrentAccess(t *testing.T) {
 
 	// Add some pods with relay clients
 	for i := 0; i < 10; i++ {
-		relayClient := relay.NewClient("wss://relay.example.com", "pod", "token", nil)
+		relayClient := relay.NewClient(context.TODO(), "wss://relay.example.com", "pod", "token", nil)
 		pod := &Pod{PodKey: "pod-" + string(rune('0'+i)), Status: PodStatusRunning}
 		pod.SetRelayClient(relayClient)
 		store.Put(pod.PodKey, pod)

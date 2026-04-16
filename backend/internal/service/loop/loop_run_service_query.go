@@ -46,11 +46,11 @@ func (s *LoopRunService) GetAvgDuration(ctx context.Context, loopID int64) (*flo
 func (s *LoopRunService) DeleteOldFinishedRuns(ctx context.Context, loopID int64, keep int) (int64, error) {
 	deleted, err := s.repo.DeleteOldFinishedRuns(ctx, loopID, keep)
 	if err != nil {
-		slog.Error("failed to delete old finished runs", "loop_id", loopID, "keep", keep, "error", err)
+		slog.ErrorContext(ctx, "failed to delete old finished runs", "loop_id", loopID, "keep", keep, "error", err)
 		return 0, err
 	}
 	if deleted > 0 {
-		slog.Info("old finished runs deleted", "loop_id", loopID, "deleted", deleted, "keep", keep)
+		slog.InfoContext(ctx, "old finished runs deleted", "loop_id", loopID, "deleted", deleted, "keep", keep)
 	}
 	return deleted, nil
 }

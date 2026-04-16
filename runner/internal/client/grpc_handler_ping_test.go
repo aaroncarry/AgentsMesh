@@ -100,7 +100,7 @@ func TestHandleServerMessage_PingDispatch(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg)
+	conn.handleServerMessage(context.Background(), msg)
 
 	// Verify pong response
 	select {

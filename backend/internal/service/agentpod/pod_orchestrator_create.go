@@ -4,16 +4,23 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	podDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
+	otelinit "github.com/anthropics/agentsmesh/backend/internal/infra/otel"
 )
 
 // CreatePod orchestrates the full Pod creation flow:
 // resume handling -> validation -> quota -> DB record -> config build -> dispatch to Runner.
 func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreatePodRequest) (*OrchestrateCreatePodResult, error) {
+	createStart := time.Now()
+	defer func() {
+		otelinit.PodCreateDuration.Record(ctx, float64(time.Since(createStart).Milliseconds()))
+	}()
+
 	var sourcePod *podDomain.Pod
 	var sessionID string
 	isResumeMode := req.SourcePodKey != ""
@@ -40,11 +47,11 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 				ctx, req.OrganizationID, req.UserID, req.AgentSlug, hints, repoHistory,
 			)
 			if err != nil {
-				slog.Warn("runner auto-selection failed", "org_id", req.OrganizationID, "agent_slug", req.AgentSlug, "error", err)
+				slog.WarnContext(ctx, "runner auto-selection failed", "org_id", req.OrganizationID, "agent_slug", req.AgentSlug, "error", err)
 				return nil, ErrNoAvailableRunner
 			}
 			req.RunnerID = selectedRunner.ID
-			slog.Info("runner auto-selected", "runner_id", selectedRunner.ID, "org_id", req.OrganizationID, "agent_slug", req.AgentSlug)
+			slog.InfoContext(ctx, "runner auto-selected", "runner_id", selectedRunner.ID, "org_id", req.OrganizationID, "agent_slug", req.AgentSlug)
 		}
 		sessionID = uuid.New().String()
 	}
@@ -134,7 +141,7 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 	// Quota check
 	if o.billingService != nil {
 		if err := o.billingService.CheckQuota(ctx, req.OrganizationID, "concurrent_pods", 1); err != nil {
-			slog.Warn("pod quota check failed", "org_id", req.OrganizationID, "error", err)
+			slog.WarnContext(ctx, "pod quota check failed", "org_id", req.OrganizationID, "error", err)
 			return nil, err
 		}
 	}
@@ -145,7 +152,7 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		if err == nil && t != nil {
 			req.TicketID = &t.ID
 		} else if err != nil {
-			slog.Warn("ticket slug resolution failed", "org_id", req.OrganizationID, "ticket_slug", *req.TicketSlug, "error", err)
+			slog.WarnContext(ctx, "ticket slug resolution failed", "org_id", req.OrganizationID, "ticket_slug", *req.TicketSlug, "error", err)
 		}
 	}
 
@@ -178,23 +185,23 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 
 	podCmd, err := o.buildPodCommand(ctx, req, pod, sourcePod, isResumeMode, resolved)
 	if err != nil {
-		slog.Error("failed to build pod command", "pod_key", pod.PodKey, "error", err)
+		slog.ErrorContext(ctx, "failed to build pod command", "pod_key", pod.PodKey, "error", err)
 		return nil, errors.Join(ErrConfigBuildFailed, err)
 	}
 
 	if o.podCoordinator != nil {
-		slog.Info("dispatching create_pod to runner", "runner_id", req.RunnerID, "pod_key", pod.PodKey, "session_id", sessionID, "resume", isResumeMode)
+		slog.InfoContext(ctx, "dispatching create_pod to runner", "runner_id", req.RunnerID, "pod_key", pod.PodKey, "session_id", sessionID, "resume", isResumeMode)
 		if err := o.podCoordinator.CreatePod(ctx, req.RunnerID, podCmd); err != nil {
-			slog.Error("failed to dispatch create_pod", "pod_key", pod.PodKey, "error", err)
+			slog.ErrorContext(ctx, "failed to dispatch create_pod", "pod_key", pod.PodKey, "error", err)
 			if markErr := o.podService.MarkInitFailed(ctx, pod.PodKey, errCodeRunnerUnreachable,
 				"Failed to dispatch pod to runner: "+err.Error()); markErr != nil {
-				slog.Error("failed to mark pod as init failed", "pod_key", pod.PodKey, "error", markErr)
+				slog.ErrorContext(ctx, "failed to mark pod as init failed", "pod_key", pod.PodKey, "error", markErr)
 			}
 			return nil, ErrRunnerDispatchFailed
 		}
-		slog.Info("create_pod dispatched", "pod_key", pod.PodKey)
+		slog.InfoContext(ctx, "create_pod dispatched", "pod_key", pod.PodKey)
 	} else {
-		slog.Warn("PodCoordinator is nil, cannot dispatch create_pod", "pod_key", pod.PodKey)
+		slog.WarnContext(ctx, "PodCoordinator is nil, cannot dispatch create_pod", "pod_key", pod.PodKey)
 	}
 
 	return &OrchestrateCreatePodResult{Pod: pod}, nil

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // getGitLabAuthURL returns GitLab OAuth authorization URL
@@ -32,7 +34,8 @@ func handleGitLabCallback(ctx context.Context, cfg OAuthConfig, code string) (*O
 
 // exchangeGitLabCode exchanges authorization code for access token
 func exchangeGitLabCode(ctx context.Context, cfg OAuthConfig, code string) (string, error) {
-	tokenResp, err := http.PostForm("https://gitlab.com/oauth/token", url.Values{
+	client := &http.Client{Timeout: 30 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	tokenResp, err := client.PostForm("https://gitlab.com/oauth/token", url.Values{
 		"client_id":     {cfg.ClientID},
 		"client_secret": {cfg.ClientSecret},
 		"code":          {code},
@@ -40,7 +43,7 @@ func exchangeGitLabCode(ctx context.Context, cfg OAuthConfig, code string) (stri
 		"grant_type":    {"authorization_code"},
 	})
 	if err != nil {
-		slog.Error("GitLab OAuth code exchange failed", "error", err)
+		slog.ErrorContext(ctx, "GitLab OAuth code exchange failed", "error", err)
 		return "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 	defer tokenResp.Body.Close()
@@ -50,12 +53,12 @@ func exchangeGitLabCode(ctx context.Context, cfg OAuthConfig, code string) (stri
 		Error       string `json:"error"`
 	}
 	if err := json.NewDecoder(tokenResp.Body).Decode(&tokenData); err != nil {
-		slog.Error("failed to decode GitLab OAuth token response", "error", err)
+		slog.ErrorContext(ctx, "failed to decode GitLab OAuth token response", "error", err)
 		return "", fmt.Errorf("failed to decode token response: %w", err)
 	}
 
 	if tokenData.Error != "" || tokenData.AccessToken == "" {
-		slog.Warn("GitLab OAuth returned invalid code", "oauth_error", tokenData.Error)
+		slog.WarnContext(ctx, "GitLab OAuth returned invalid code", "oauth_error", tokenData.Error)
 		return "", ErrInvalidOAuthCode
 	}
 
@@ -66,21 +69,21 @@ func exchangeGitLabCode(ctx context.Context, cfg OAuthConfig, code string) (stri
 func fetchGitLabUserInfo(ctx context.Context, accessToken string) (*OAuthUserInfo, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://gitlab.com/api/v4/user", nil)
 	if err != nil {
-		slog.Error("failed to create GitLab user info request", "error", err)
+		slog.ErrorContext(ctx, "failed to create GitLab user info request", "error", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	userResp, err := client.Do(req)
 	if err != nil {
-		slog.Error("failed to fetch GitLab user info", "error", err)
+		slog.ErrorContext(ctx, "failed to fetch GitLab user info", "error", err)
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
 	defer userResp.Body.Close()
 
 	if userResp.StatusCode != http.StatusOK {
-		slog.Error("GitLab user info API returned non-OK status", "status", userResp.StatusCode)
+		slog.ErrorContext(ctx, "GitLab user info API returned non-OK status", "status", userResp.StatusCode)
 		return nil, fmt.Errorf("GitLab API returned status %d", userResp.StatusCode)
 	}
 
@@ -92,7 +95,7 @@ func fetchGitLabUserInfo(ctx context.Context, accessToken string) (*OAuthUserInf
 		AvatarURL string `json:"avatar_url"`
 	}
 	if err := json.NewDecoder(userResp.Body).Decode(&glUser); err != nil {
-		slog.Error("failed to decode GitLab user info", "error", err)
+		slog.ErrorContext(ctx, "failed to decode GitLab user info", "error", err)
 		return nil, fmt.Errorf("failed to decode user info: %w", err)
 	}
 

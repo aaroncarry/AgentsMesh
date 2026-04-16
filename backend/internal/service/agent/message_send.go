@@ -22,11 +22,11 @@ func (s *MessageService) SendMessage(ctx context.Context, senderPod, receiverPod
 	}
 
 	if err := s.repo.Create(ctx, message); err != nil {
-		slog.Error("failed to send agent message", "sender", senderPod, "receiver", receiverPod, "type", messageType, "error", err)
+		slog.ErrorContext(ctx, "failed to send agent message", "sender", senderPod, "receiver", receiverPod, "type", messageType, "error", err)
 		return nil, err
 	}
 
-	slog.Info("agent message sent", "message_id", message.ID, "sender", senderPod, "receiver", receiverPod, "type", messageType)
+	slog.InfoContext(ctx, "agent message sent", "message_id", message.ID, "sender", senderPod, "receiver", receiverPod, "type", messageType)
 	return message, nil
 }
 
@@ -86,9 +86,9 @@ func (s *MessageService) DeleteMessage(ctx context.Context, messageID int64, pod
 	}
 
 	if err := s.repo.Delete(ctx, message); err != nil {
-		slog.Error("failed to delete agent message", "message_id", messageID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to delete agent message", "message_id", messageID, "pod_key", podKey, "error", err)
 		return err
 	}
-	slog.Info("agent message deleted", "message_id", messageID, "pod_key", podKey)
+	slog.InfoContext(ctx, "agent message deleted", "message_id", messageID, "pod_key", podKey)
 	return nil
 }
