@@ -224,6 +224,14 @@ pipeline {
                         source ~/.bashrc
                         export PATH=\$HOME/.local/bin:\$PATH
 
+                        # Set empty macOS code signing environment variables
+                        # These are required by .goreleaser.yml but not used in snapshot builds
+                        export MACOS_CERTIFICATE=""
+                        export MACOS_CERTIFICATE_PASSWORD=""
+                        export APPLE_API_KEY_ID=""
+                        export APPLE_API_KEY_ISSUER_ID=""
+                        export APPLE_API_KEY=""
+
                         # Verify we're using the correct goreleaser
                         echo "Using goreleaser at: \$(which goreleaser)"
                         goreleaser --version
