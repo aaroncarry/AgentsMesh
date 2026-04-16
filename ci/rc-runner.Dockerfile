@@ -31,6 +31,8 @@ RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_a
 # Install AI CLI Tools (as root, before user switch)
 # ============================================
 
+RUN npm install -g openskills
+
 # 1. Claude Code - Anthropic's AI coding assistant
 RUN npm install -g @anthropic-ai/claude-code
 
@@ -66,6 +68,11 @@ RUN curl -fsSL https://agentsmesh.int.rclabenv.com/install.sh | sh
 #     mv /tmp/agentsmesh-runner /usr/local/bin/agentsmesh-runner && \
 #     chmod +x /usr/local/bin/agentsmesh-runner && \
 #     rm -f /tmp/agentsmesh-runner.tar.gz
+
+# install mcp
+RUN pip install --no-cache-dir mcp --break-system-packages
+
+RUN mkdir -p ~/.ssh && ssh-keyscan git.ringcentral.com >> ~/.ssh/known_hosts
 
 # Ensure PATH includes installers' default locations
 ENV PATH="/home/node/.local/bin:/usr/local/.local/bin:/root/.local/bin:/root/.factory/bin:${PATH}"
