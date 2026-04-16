@@ -259,20 +259,25 @@ pipeline {
 
                     // Upload each artifact
                     artifacts.each { artifact ->
-                        def fileName = artifact.split('/').last()
-                        echo "Uploading ${fileName}..."
+                        def originalFileName = artifact.split('/').last()
+
+                        // Remove version from filename
+                        // Format: agentsmesh-runner_VERSION_OS_ARCH.EXT -> agentsmesh-runner_OS_ARCH.EXT
+                        def targetFileName = originalFileName.replaceAll(/_v?[0-9]+\.[0-9]+\.[0-9]+[^_]*_/, '_')
+
+                        echo "Uploading ${originalFileName} -> ${targetFileName}..."
 
                         sh """
                             # Ensure mcli is in PATH
                             export PATH=\$HOME/.local/bin:\$PATH
 
-                            mcli cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName}
+                            mcli cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${targetFileName}
                         """
 
                         // Construct public download URL
-                        def downloadUrl = "${MINIO_ENDPOINT}/${MINIO_BUCKET}/${fileName}"
-                        minioLinks.add([name: fileName, url: downloadUrl])
-                        echo "Uploaded ${fileName}: ${downloadUrl}"
+                        def downloadUrl = "${MINIO_ENDPOINT}/${MINIO_BUCKET}/${targetFileName}"
+                        minioLinks.add([name: targetFileName, url: downloadUrl])
+                        echo "Uploaded ${targetFileName}: ${downloadUrl}"
                     }
 
                     echo "=== Upload complete ==="
