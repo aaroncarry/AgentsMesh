@@ -57,21 +57,11 @@ func (h *RunnerMessageHandler) OnSubscribePod(req client.SubscribePodRequest) er
 	if existingClient != nil {
 		if existingClient.IsConnected() && existingClient.GetRelayURL() == relayURL {
 			// Already connected to the same Relay, just update token for future reconnects
-			log.Info("Already connected to same relay, updating token",
+			log.Info("Already connected to same relay, updating token only",
 				"pod_key", req.PodKey,
-				"relay_url", relayURL,
-				"include_snapshot", req.IncludeSnapshot)
+				"relay_url", relayURL)
 			existingClient.UpdateToken(req.RunnerToken)
 			pod.UnlockRelay()
-
-			// Send snapshot if requested (critical for ACP mode: browser refresh doesn't trigger
-			// relay reconnect, so we must send snapshot on every subscribe request).
-			// PTY mode benefits too: reduces latency for multi-device scenarios.
-			if req.IncludeSnapshot && pod.Relay != nil {
-				log.Info("Sending snapshot for existing relay connection",
-					"pod_key", req.PodKey)
-				pod.Relay.SendSnapshot(existingClient)
-			}
 			return nil
 		}
 		// Connected to different Relay or disconnected, need to reconnect
