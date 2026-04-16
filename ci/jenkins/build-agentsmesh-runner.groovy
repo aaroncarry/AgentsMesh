@@ -146,9 +146,10 @@ pipeline {
                     echo "Build Time: ${BUILD_TIME}"
 
                     // Install GoReleaser v2.8+ (required for 'ids' field support)
-                    // Use official install script to get the latest v2 version
                     sh """
-                        echo "Installing GoReleaser latest v2..."
+                        set -e  # Exit on error
+
+                        echo "Installing GoReleaser v2.8+..."
 
                         # Remove any old installation in local bin
                         rm -f \$HOME/.local/bin/goreleaser
@@ -156,13 +157,65 @@ pipeline {
                         # Create local bin directory
                         mkdir -p \$HOME/.local/bin
 
-                        # Use official installer script (https://github.com/goreleaser/get)
-                        # This installs the latest v2 version to the specified directory
-                        curl -sfL https://raw.githubusercontent.com/goreleaser/get/main/get | sh -s -- -b \$HOME/.local/bin
+                        # Detect OS and architecture
+                        OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
+                        ARCH=\$(uname -m)
 
-                        echo "GoReleaser installed successfully"
+                        # Map architecture names to goreleaser naming convention
+                        case "\$ARCH" in
+                            x86_64)
+                                ARCH="x86_64"
+                                ;;
+                            aarch64)
+                                ARCH="arm64"
+                                ;;
+                            arm64)
+                                ARCH="arm64"
+                                ;;
+                        esac
+
+                        echo "Detected: OS=\$OS, ARCH=\$ARCH"
+
+                        # Download and install specific version (v2.8.1)
+                        GORELEASER_VERSION="2.8.1"
+                        DOWNLOAD_URL="https://github.com/goreleaser/goreleaser/releases/download/v\${GORELEASER_VERSION}/goreleaser_\${OS}_\${ARCH}.tar.gz"
+
+                        echo "Downloading from: \$DOWNLOAD_URL"
+
+                        # Download and extract to temp directory
+                        TEMP_DIR=\$(mktemp -d)
+                        cd \$TEMP_DIR
+
+                        curl -sfL "\$DOWNLOAD_URL" -o goreleaser.tar.gz
+
+                        if [ ! -f goreleaser.tar.gz ]; then
+                            echo "Error: Failed to download goreleaser"
+                            exit 1
+                        fi
+
+                        tar -xzf goreleaser.tar.gz
+
+                        if [ ! -f goreleaser ]; then
+                            echo "Error: goreleaser binary not found in archive"
+                            ls -la
+                            exit 1
+                        fi
+
+                        # Move to local bin
+                        mv goreleaser \$HOME/.local/bin/goreleaser
+                        chmod +x \$HOME/.local/bin/goreleaser
+
+                        # Clean up
+                        cd -
+                        rm -rf \$TEMP_DIR
 
                         # Verify installation
+                        if [ ! -f \$HOME/.local/bin/goreleaser ]; then
+                            echo "Error: Installation failed - goreleaser not found in \$HOME/.local/bin"
+                            exit 1
+                        fi
+
+                        echo "GoReleaser v\${GORELEASER_VERSION} installed successfully"
                         \$HOME/.local/bin/goreleaser --version
                     """
 
