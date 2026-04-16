@@ -145,10 +145,33 @@ pipeline {
                     echo "Version: ${VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
-                    // Install GoReleaser if not present
+                    // Install GoReleaser if not present (v2.8+ required for 'ids' field support)
                     sh """
-                        if ! command -v goreleaser &> /dev/null; then
-                            echo "GoReleaser not found, installing..."
+                        # Check if goreleaser v2.8+ is installed
+                        NEED_INSTALL=false
+
+                        if command -v goreleaser &> /dev/null; then
+                            CURRENT_VERSION=\$(goreleaser --version 2>&1 | head -n1 | sed -n 's/.*version \\([0-9.]\\+\\).*/\\1/p' || echo "0.0.0")
+                            echo "Current GoReleaser version: \$CURRENT_VERSION"
+
+                            # Extract major and minor version
+                            MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1)
+                            MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2)
+
+                            # Check if version is less than 2.8
+                            if [ "\$MAJOR" -lt 2 ] || ([ "\$MAJOR" -eq 2 ] && [ "\$MINOR" -lt 8 ]); then
+                                echo "GoReleaser version \$CURRENT_VERSION is too old, need v2.8+"
+                                NEED_INSTALL=true
+                            else
+                                echo "GoReleaser version \$CURRENT_VERSION is sufficient"
+                            fi
+                        else
+                            echo "GoReleaser not found"
+                            NEED_INSTALL=true
+                        fi
+
+                        if [ "\$NEED_INSTALL" = "true" ]; then
+                            echo "Installing GoReleaser v2.8+..."
 
                             # Determine OS and architecture
                             OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -164,22 +187,22 @@ pipeline {
                                     ;;
                             esac
 
-                            # Download and install goreleaser
-                            GORELEASER_VERSION="v2.5.1"
+                            # Download and install goreleaser (use v2.8.1 which supports 'ids' field)
+                            GORELEASER_VERSION="v2.8.1"
                             GORELEASER_URL="https://github.com/goreleaser/goreleaser/releases/download/\${GORELEASER_VERSION}/goreleaser_\${OS}_\${ARCH}.tar.gz"
                             echo "Downloading from: \$GORELEASER_URL"
 
                             curl -sfL \$GORELEASER_URL | tar -xz -C /tmp goreleaser
                             mkdir -p \$HOME/.local/bin
                             mv /tmp/goreleaser \$HOME/.local/bin/goreleaser
-                            export PATH=\$HOME/.local/bin:\$PATH
+                            chmod +x \$HOME/.local/bin/goreleaser
 
                             echo "GoReleaser installed successfully"
-                            goreleaser --version
-                        else
-                            echo "GoReleaser already installed"
-                            goreleaser --version
                         fi
+
+                        # Ensure it's in PATH and show version
+                        export PATH=\$HOME/.local/bin:\$PATH
+                        goreleaser --version
                     """
 
                     // Build with GoReleaser
