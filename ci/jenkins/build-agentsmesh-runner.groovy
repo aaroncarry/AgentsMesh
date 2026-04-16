@@ -5,20 +5,27 @@
  *
  * This pipeline:
  * 1. Clones the repository from GitLab
- * 2. Builds Runner binaries for all platforms (macOS, Linux, Windows, amd64/arm64)
- * 3. Uploads built binaries to MinIO
- * 4. Archives built binaries as Jenkins artifacts
+ * 2. Builds Runner binaries and packages for all platforms using GoReleaser
+ * 3. Uploads built artifacts to MinIO
+ * 4. Archives built artifacts as Jenkins artifacts
  *
  * Build Command:
- * - cd runner && make build-all
+ * - cd runner && goreleaser release --snapshot --clean
  *
- * Build Artifacts:
- * - runner/bin/runner-darwin-amd64
- * - runner/bin/runner-darwin-arm64
- * - runner/bin/runner-linux-amd64
- * - runner/bin/runner-linux-arm64
- * - runner/bin/runner-windows-amd64.exe
- * - runner/bin/runner-windows-arm64.exe
+ * Build Artifacts (dist/):
+ * - agentsmesh-runner_darwin_all.tar.gz       (macOS universal binary)
+ * - agentsmesh-runner_darwin_amd64.tar.gz     (macOS Intel)
+ * - agentsmesh-runner_darwin_arm64.tar.gz     (macOS Apple Silicon)
+ * - agentsmesh-runner_linux_amd64.tar.gz      (Linux amd64)
+ * - agentsmesh-runner_linux_arm64.tar.gz      (Linux arm64)
+ * - agentsmesh-runner_linux_amd64.deb         (Debian/Ubuntu amd64)
+ * - agentsmesh-runner_linux_arm64.deb         (Debian/Ubuntu arm64)
+ * - agentsmesh-runner_linux_amd64.rpm         (RedHat/CentOS amd64)
+ * - agentsmesh-runner_linux_arm64.rpm         (RedHat/CentOS arm64)
+ * - agentsmesh-runner_linux_amd64.apk         (Alpine amd64)
+ * - agentsmesh-runner_linux_arm64.apk         (Alpine arm64)
+ * - agentsmesh-runner_windows_amd64.zip       (Windows amd64)
+ * - agentsmesh-runner_windows_arm64.zip       (Windows arm64)
  *
  * MinIO Upload:
  * - Endpoint: http://aqa01-i01-xta01.int.rclabenv.com:9900
@@ -134,18 +141,57 @@ pipeline {
         stage('Build Runner') {
             steps {
                 script {
-                    echo "=== Building AgentsMesh Runner for all platforms ==="
+                    echo "=== Building AgentsMesh Runner with GoReleaser ==="
                     echo "Version: ${VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
+                    // Install GoReleaser if not present
+                    sh """
+                        if ! command -v goreleaser &> /dev/null; then
+                            echo "GoReleaser not found, installing..."
+
+                            # Determine OS and architecture
+                            OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
+                            ARCH=\$(uname -m)
+
+                            # Map architecture names
+                            case "\$ARCH" in
+                                x86_64)
+                                    ARCH="x86_64"
+                                    ;;
+                                aarch64|arm64)
+                                    ARCH="arm64"
+                                    ;;
+                            esac
+
+                            # Download and install goreleaser
+                            GORELEASER_VERSION="v2.5.1"
+                            GORELEASER_URL="https://github.com/goreleaser/goreleaser/releases/download/\${GORELEASER_VERSION}/goreleaser_\${OS}_\${ARCH}.tar.gz"
+                            echo "Downloading from: \$GORELEASER_URL"
+
+                            curl -sfL \$GORELEASER_URL | tar -xz -C /tmp goreleaser
+                            mkdir -p \$HOME/.local/bin
+                            mv /tmp/goreleaser \$HOME/.local/bin/goreleaser
+                            export PATH=\$HOME/.local/bin:\$PATH
+
+                            echo "GoReleaser installed successfully"
+                            goreleaser --version
+                        else
+                            echo "GoReleaser already installed"
+                            goreleaser --version
+                        fi
+                    """
+
+                    // Build with GoReleaser
                     sh """
                         source ~/.bashrc
+                        export PATH=\$HOME/.local/bin:\$PATH
                         cd runner
-                        make build-all VERSION=${VERSION} BUILD_TIME=${BUILD_TIME}
+                        goreleaser release --snapshot --clean
                     """
 
                     echo "=== Build complete ==="
-                    sh "ls -lh runner/bin/"
+                    sh "ls -lh runner/dist/"
                 }
             }
         }
@@ -158,14 +204,29 @@ pipeline {
                 script {
                     echo "=== Uploading artifacts to MinIO ==="
 
-                    def artifacts = [
-                        "runner/bin/runner-darwin-amd64",
-                        "runner/bin/runner-darwin-arm64",
-                        "runner/bin/runner-linux-amd64",
-                        "runner/bin/runner-linux-arm64",
-                        "runner/bin/runner-windows-amd64.exe",
-                        "runner/bin/runner-windows-arm64.exe"
-                    ]
+                    // Collect all artifacts from dist/ directory
+                    def artifacts = []
+
+                    // Find all tar.gz, zip, deb, rpm, apk files in dist/ directory
+                    sh """
+                        cd runner/dist
+                        find . -type f \\( -name "*.tar.gz" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.apk" \\) | sed 's|^\\./||' > /tmp/artifacts.txt
+                    """
+
+                    // Read artifact list
+                    def artifactList = sh(script: "cat /tmp/artifacts.txt", returnStdout: true).trim().split('\n')
+
+                    // Convert to full paths
+                    artifactList.each { artifact ->
+                        if (artifact && !artifact.contains('checksums.txt')) {
+                            artifacts.add("runner/dist/${artifact}")
+                        }
+                    }
+
+                    echo "Found ${artifacts.size()} artifacts to upload:"
+                    artifacts.each { artifact ->
+                        echo "  - ${artifact}"
+                    }
 
                     // Check if mcli (MinIO Client) is installed, if not install it
                     sh """
@@ -259,16 +320,17 @@ pipeline {
         success {
             script {
                 echo "=== Archiving build artifacts ==="
-                archiveArtifacts artifacts: 'runner/bin/runner-*', fingerprint: true
+                archiveArtifacts artifacts: 'runner/dist/*.{tar.gz,zip,deb,rpm,apk}', fingerprint: true
 
-                def artifacts = [
-                    "runner/bin/runner-darwin-amd64",
-                    "runner/bin/runner-darwin-arm64",
-                    "runner/bin/runner-linux-amd64",
-                    "runner/bin/runner-linux-arm64",
-                    "runner/bin/runner-windows-amd64.exe",
-                    "runner/bin/runner-windows-arm64.exe"
-                ]
+                // Collect all artifacts for display
+                def artifacts = []
+                def artifactList = sh(script: "find runner/dist -type f \\( -name '*.tar.gz' -o -name '*.zip' -o -name '*.deb' -o -name '*.rpm' -o -name '*.apk' \\) -printf '%P\\n' | sort", returnStdout: true).trim().split('\n')
+
+                artifactList.each { artifact ->
+                    if (artifact && !artifact.contains('checksums.txt')) {
+                        artifacts.add("runner/dist/${artifact}")
+                    }
+                }
 
                 echo ""
                 echo "╔════════════════════════════════════════════════════════════════════════════╗"
