@@ -30,6 +30,7 @@
  * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
  * - BRANCH: Git branch to build (default: rc)
  * - GIT_CREDENTIAL_ID: Jenkins SSH credential ID for Git operations (default: gitjenkins.xiamen)
+ * - UPLOAD_TO_NEXT_CLOUD: Upload artifacts to NextCloud (default: true)
  *
  * Environment Variables:
  * - GIT_REPO: Git repository URL
@@ -51,6 +52,9 @@ String getBuildUser() {
 }
 
 currentBuild.setDescription("triggered by " + getBuildUser())
+
+// Global variable to store public download links
+def nextCloudLinks = []
 
 pipeline {
     agent {
@@ -90,6 +94,11 @@ pipeline {
             name: 'GIT_CREDENTIAL_ID',
             defaultValue: 'gitjenkins.xiamen',
             description: 'Jenkins SSH credential ID for Git operations'
+        )
+        booleanParam(
+            name: 'UPLOAD_TO_NEXT_CLOUD',
+            defaultValue: true,
+            description: 'Upload build artifacts to NextCloud'
         )
     }
 
@@ -141,6 +150,9 @@ pipeline {
         }
 
         stage('Upload to NextCloud') {
+            when {
+                expression { params.UPLOAD_TO_NEXT_CLOUD == true }
+            }
             steps {
                 script {
                     echo "=== Uploading artifacts to NextCloud ==="
@@ -153,8 +165,6 @@ pipeline {
                         "runner/bin/runner-windows-amd64.exe",
                         "runner/bin/runner-windows-arm64.exe"
                     ]
-
-                    def publicLinks = []
 
                     // Upload each artifact and create public share link
                     artifacts.each { artifact ->
@@ -170,7 +180,7 @@ pipeline {
                         // Create public share link (password-free download)
                         def shareResponse = sh(
                             script: """
-                                curl -k -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
+                                curl -k -s -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
                                      -X POST \
                                      -H "OCS-APIRequest: true" \
                                      -H "Content-Type: application/x-www-form-urlencoded" \
@@ -180,15 +190,32 @@ pipeline {
                             returnStdout: true
                         ).trim()
 
-                        echo "Share created for ${fileName}"
+                        // Extract share URL from JSON response
+                        def shareUrl = ""
+                        try {
+                            def jsonSlurper = new groovy.json.JsonSlurper()
+                            def jsonResponse = jsonSlurper.parseText(shareResponse)
+                            shareUrl = jsonResponse.ocs?.data?.url ?: "N/A"
+                        } catch (Exception e) {
+                            echo "Warning: Failed to parse share response for ${fileName}: ${e.message}"
+                            shareUrl = "${NEXTCLOUD_URL}/apps/files/?dir=/${NEXTCLOUD_DIR}"
+                        }
 
-                        // Extract share URL from response (if needed for display)
-                        publicLinks.add("${fileName}")
+                        nextCloudLinks.add([name: fileName, url: shareUrl])
+                        echo "Share created for ${fileName}: ${shareUrl}"
                     }
 
                     echo "=== Upload complete ==="
-                    echo "Artifacts uploaded to: ${NEXTCLOUD_URL}/apps/files/?dir=/${NEXTCLOUD_DIR}"
-                    echo "All files are now publicly accessible without authentication"
+                    echo ""
+                    echo "📦 Public Download Links:"
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    nextCloudLinks.each { link ->
+                        echo "  ${link.name}"
+                        echo "  └─ ${link.url}"
+                        echo ""
+                    }
+                    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                    echo "All files are publicly accessible without authentication"
                 }
             }
         }
@@ -209,17 +236,38 @@ pipeline {
                     "runner/bin/runner-windows-arm64.exe"
                 ]
 
-                def message = """
-=== ✅ Build Successful ===
-Version: ${VERSION}
-Build Time: ${BUILD_TIME}
+                echo ""
+                echo "╔════════════════════════════════════════════════════════════════════════════╗"
+                echo "║                          ✅ Build Successful                               ║"
+                echo "╚════════════════════════════════════════════════════════════════════════════╝"
+                echo ""
+                echo "Version: ${VERSION}"
+                echo "Build Time: ${BUILD_TIME}"
+                echo "Build Number: #${env.BUILD_NUMBER}"
+                echo ""
+                echo "Built Artifacts:"
+                artifacts.each { artifact ->
+                    echo "  ✓ ${artifact}"
+                }
+                echo ""
 
-Artifacts:
-${artifacts.collect { "  - ${it}" }.join('\n')}
+                if (params.UPLOAD_TO_NEXT_CLOUD && nextCloudLinks.size() > 0) {
+                    echo "╔════════════════════════════════════════════════════════════════════════════╗"
+                    echo "║                     📦 NextCloud Public Download Links                     ║"
+                    echo "╚════════════════════════════════════════════════════════════════════════════╝"
+                    echo ""
+                    nextCloudLinks.each { link ->
+                        echo "📄 ${link.name}"
+                        echo "   ${link.url}"
+                        echo ""
+                    }
+                    echo "💡 These links are publicly accessible without authentication"
+                    echo ""
+                }
 
-Download artifacts from Jenkins build #${env.BUILD_NUMBER}
-"""
-                echo message
+                echo "════════════════════════════════════════════════════════════════════════════"
+                echo "Jenkins artifacts: ${env.BUILD_URL}artifact/"
+                echo "════════════════════════════════════════════════════════════════════════════"
             }
         }
         failure {
