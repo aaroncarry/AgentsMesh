@@ -24,6 +24,7 @@
  * - URL: https://cloud-xmn.int.rclabenv.com
  * - Directory: AgentsMesh/
  * - All artifacts are uploaded directly (overwrites existing files)
+ * - Files are shared publicly (no authentication required for download)
  *
  * Parameters:
  * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
@@ -153,7 +154,9 @@ pipeline {
                         "runner/bin/runner-windows-arm64.exe"
                     ]
 
-                    // Upload each artifact directly to AgentsMesh directory (overwrite if exists)
+                    def publicLinks = []
+
+                    // Upload each artifact and create public share link
                     artifacts.each { artifact ->
                         def fileName = artifact.split('/').last()
                         echo "Uploading ${fileName}..."
@@ -163,10 +166,29 @@ pipeline {
                                  -T "${artifact}" \
                                  "${NEXTCLOUD_URL}/remote.php/dav/files/${NEXTCLOUD_USER}/${NEXTCLOUD_DIR}/${fileName}"
                         """
+
+                        // Create public share link (password-free download)
+                        def shareResponse = sh(
+                            script: """
+                                curl -k -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
+                                     -X POST \
+                                     -H "OCS-APIRequest: true" \
+                                     -H "Content-Type: application/x-www-form-urlencoded" \
+                                     -d "path=/${NEXTCLOUD_DIR}/${fileName}&shareType=3&permissions=1" \
+                                     "${NEXTCLOUD_URL}/ocs/v2.php/apps/files_sharing/api/v1/shares?format=json"
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "Share created for ${fileName}"
+
+                        // Extract share URL from response (if needed for display)
+                        publicLinks.add("${fileName}")
                     }
 
                     echo "=== Upload complete ==="
                     echo "Artifacts uploaded to: ${NEXTCLOUD_URL}/apps/files/?dir=/${NEXTCLOUD_DIR}"
+                    echo "All files are now publicly accessible without authentication"
                 }
             }
         }
