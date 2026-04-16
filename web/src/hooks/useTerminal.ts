@@ -61,14 +61,14 @@ export function useTerminal(
     const container = terminalRef.current;
 
     // 1. Create XTerm + addons
-    const { term, fitAddon, scheduler, initialDims, deferredFitRafId } =
+    const { term, fitAddon, scheduler, deferredFitRafId } =
       setupTerminal(container, podKey, fontSize, lastSyncedSizeRef);
 
     schedulerRef.current = scheduler;
 
     // 2. Connect to WebSocket pool
     const { abort, unsubscribeStatus } = setupConnection(
-      podKey, scheduler, initialDims, connectionRef,
+      podKey, scheduler, connectionRef,
       setConnectionStatus, setIsRunnerDisconnected,
     );
 

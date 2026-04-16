@@ -24,6 +24,8 @@ export function RunnerConfigModal({ t, runner, onClose, onUpdated }: RunnerConfi
   const [description, setDescription] = useState(runner.description || "");
   const [maxPods, setMaxPods] = useState(runner.max_concurrent_pods);
   const [visibility, setVisibility] = useState<string>(runner.visibility || "organization");
+  const [tags, setTags] = useState<string[]>(runner.tags || []);
+  const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -36,6 +38,7 @@ export function RunnerConfigModal({ t, runner, onClose, onUpdated }: RunnerConfi
         description: description || undefined,
         max_concurrent_pods: maxPods,
         visibility,
+        tags,
       });
       onUpdated();
     } catch (err) {
@@ -106,6 +109,45 @@ export function RunnerConfigModal({ t, runner, onClose, onUpdated }: RunnerConfi
               <Share2 className="w-3 h-3 mr-1" /> {t("share.share")}
             </Button>
           )}
+
+          <FormField
+            label={t("runners.configModal.tagsLabel") || "Tags"}
+            htmlFor="runner-tags"
+          >
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    className="hover:text-destructive"
+                    onClick={() => setTags(tags.filter((t) => t !== tag))}
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+            <Input
+              id="runner-tags"
+              placeholder={t("runners.configModal.tagsPlaceholder") || "Add a tag and press Enter..."}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const val = tagInput.trim().toLowerCase();
+                  if (val && !tags.includes(val)) {
+                    setTags([...tags, val]);
+                  }
+                  setTagInput("");
+                }
+              }}
+            />
+          </FormField>
 
           {runner.active_pods && runner.active_pods.length > 0 && (
             <div>

@@ -9,7 +9,7 @@ func TestEncodeDecodeMessage(t *testing.T) {
 	tests := []struct{ msgType byte; payload []byte }{
 		{MsgTypeOutput, nil}, {MsgTypeOutput, []byte("hello")}, {MsgTypeOutput, make([]byte, 1024)},
 		{MsgTypeSnapshot, []byte("{}")}, {MsgTypeInput, []byte("test")}, {MsgTypeResize, []byte{0, 80, 0, 24}},
-		{MsgTypePing, nil}, {MsgTypePong, nil}, {MsgTypeControl, []byte(`{"action":"request"}`)},
+		{MsgTypePing, nil}, {MsgTypePong, nil},
 		{MsgTypeRunnerDisconnected, nil}, {MsgTypeRunnerReconnected, nil},
 	}
 	for _, tt := range tests {
@@ -96,30 +96,6 @@ func TestEncodePingPong(t *testing.T) {
 	}
 	if p := EncodePong(); p[0] != MsgTypePong || len(p) != 1 {
 		t.Error("EncodePong wrong")
-	}
-}
-
-func TestEncodeDecodeControlRequest(t *testing.T) {
-	tests := []*ControlRequest{
-		{Action: "request", BrowserID: "b1"}, {Action: "release", BrowserID: "b1"},
-		{Action: "query", BrowserID: "b2"}, {Action: "status", BrowserID: "b3", Controller: "b1"},
-	}
-	for _, req := range tests {
-		encoded, err := EncodeControlRequest(req)
-		if err != nil || encoded[0] != MsgTypeControl {
-			t.Fatalf("EncodeControlRequest failed")
-		}
-		msg, _ := DecodeMessage(encoded)
-		decoded, err := DecodeControlRequest(msg.Payload)
-		if err != nil || decoded.Action != req.Action || decoded.BrowserID != req.BrowserID {
-			t.Error("control request mismatch")
-		}
-	}
-}
-
-func TestDecodeControlRequest_InvalidJSON(t *testing.T) {
-	if _, err := DecodeControlRequest([]byte("invalid")); err == nil {
-		t.Error("expected error")
 	}
 }
 

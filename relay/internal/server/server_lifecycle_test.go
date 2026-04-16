@@ -70,7 +70,7 @@ func TestServer_GracefulShutdown_WithActiveChannels(t *testing.T) {
 		Session: config.SessionConfig{
 			KeepAliveDuration: 5 * time.Second, MaxBrowsersPerPod: 10,
 			RunnerReconnectTimeout: 200 * time.Millisecond, BrowserReconnectTimeout: 200 * time.Millisecond,
-			PendingConnectionTimeout: 500 * time.Millisecond, OutputBufferSize: 1024, OutputBufferCount: 5,
+			PendingConnectionTimeout: 500 * time.Millisecond,
 		},
 		Relay: config.RelayConfig{ID: "relay-test", URL: fmt.Sprintf("ws://127.0.0.1:%d", port), Region: "test", Capacity: 100},
 	}
@@ -138,7 +138,7 @@ func TestServer_GracefulShutdown_WaitsForChannels(t *testing.T) {
 		Session: config.SessionConfig{
 			KeepAliveDuration: 5 * time.Second, MaxBrowsersPerPod: 10,
 			RunnerReconnectTimeout: 5 * time.Second, BrowserReconnectTimeout: 5 * time.Second,
-			PendingConnectionTimeout: 5 * time.Second, OutputBufferSize: 1024, OutputBufferCount: 5,
+			PendingConnectionTimeout: 5 * time.Second,
 		},
 		Relay: config.RelayConfig{ID: "relay-test", URL: fmt.Sprintf("ws://127.0.0.1:%d", port), Region: "test", Capacity: 100},
 	}
@@ -261,7 +261,7 @@ func TestServer_New_OnAllSubscribersGoneCallback(t *testing.T) {
 		Session: config.SessionConfig{
 			KeepAliveDuration: 50 * time.Millisecond, MaxBrowsersPerPod: 10,
 			RunnerReconnectTimeout: 200 * time.Millisecond, BrowserReconnectTimeout: 200 * time.Millisecond,
-			PendingConnectionTimeout: 500 * time.Millisecond, OutputBufferSize: 1024, OutputBufferCount: 5,
+			PendingConnectionTimeout: 500 * time.Millisecond,
 		},
 		Relay: config.RelayConfig{ID: "relay-1", URL: "ws://localhost:8090", Region: "test", Capacity: 100},
 	}
@@ -311,7 +311,7 @@ func TestServer_New_OnAllSubscribersGone_NotifyFails(t *testing.T) {
 		Session: config.SessionConfig{
 			KeepAliveDuration: 50 * time.Millisecond, MaxBrowsersPerPod: 10,
 			RunnerReconnectTimeout: 200 * time.Millisecond, BrowserReconnectTimeout: 200 * time.Millisecond,
-			PendingConnectionTimeout: 500 * time.Millisecond, OutputBufferSize: 1024, OutputBufferCount: 5,
+			PendingConnectionTimeout: 500 * time.Millisecond,
 		},
 		Relay: config.RelayConfig{ID: "relay-1", URL: "ws://localhost:8090", Region: "test", Capacity: 100},
 	}

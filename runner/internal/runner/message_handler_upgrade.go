@@ -15,7 +15,6 @@ func (h *RunnerMessageHandler) OnUpgradeRunner(cmd *runnerv1.UpgradeRunnerComman
 	log.Info("Received upgrade command",
 		"request_id", cmd.RequestId,
 		"target_version", cmd.TargetVersion,
-		"force", cmd.Force,
 	)
 
 	u := h.runner.GetUpdater()
@@ -24,22 +23,23 @@ func (h *RunnerMessageHandler) OnUpgradeRunner(cmd *runnerv1.UpgradeRunnerComman
 		return fmt.Errorf("updater not configured")
 	}
 
-	// Discard if another upgrade is already in progress
-	if !h.runner.TryStartUpgrade() {
-		log.Info("Upgrade already in progress, discarding command", "request_id", cmd.RequestId)
-		return nil
-	}
-
-	// Pod count check: refuse if pods are running and force is not set
-	podCount := h.runner.GetActivePodCount()
-	if !cmd.Force && podCount > 0 {
-		h.runner.FinishUpgrade()
-		msg := fmt.Sprintf("cannot upgrade: %d active pod(s), use force to override", podCount)
+	// Poddaemon is the contract that lets pods survive a Runner restart. If it
+	// is not configured and pods are currently running, a restart would kill
+	// those sessions — refuse the upgrade so the caller gets an explicit error
+	// instead of silently losing user work.
+	if podCount := h.podStore.Count(); h.runner.GetPodDaemonManager() == nil && podCount > 0 {
+		msg := fmt.Sprintf("cannot upgrade: %d active pod(s) and Poddaemon is not enabled", podCount)
 		h.sendUpgradeStatus(cmd.RequestId, cmd.TargetVersion, "failed", 0, msg, msg, u)
 		return fmt.Errorf("%s", msg)
 	}
 
-	// Enter draining mode to prevent new pods
+	if !h.runner.TryStartUpgrade() {
+		log.Info("Upgrade already in progress, rejecting command", "request_id", cmd.RequestId)
+		h.sendUpgradeStatus(cmd.RequestId, cmd.TargetVersion, "failed", 0, "", "another upgrade is already in progress", u)
+		return nil
+	}
+
+	// Enter draining mode to prevent new pods during the upgrade window
 	h.runner.SetDraining(true)
 
 	// Run upgrade asynchronously (already in goroutine from grpc_handler)

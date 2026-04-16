@@ -84,8 +84,8 @@ func TestMessageConstants(t *testing.T) {
 	if MsgTypeRunnerReconnected != 0x09 {
 		t.Error("MsgTypeRunnerReconnected")
 	}
-	if MsgTypeResync != 0x0A {
-		t.Error("MsgTypeResync")
+	if MsgTypeSnapshotRequest != 0x0A {
+		t.Error("MsgTypeSnapshotRequest")
 	}
 	if MsgTypeAcpEvent != 0x0B {
 		t.Error("MsgTypeAcpEvent")

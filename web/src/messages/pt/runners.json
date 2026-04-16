@@ -133,7 +133,9 @@
       "save": "Salvar Alterações",
       "visibilityLabel": "Visibilidade",
       "visibilityOrganization": "Visível para todos os membros da organização",
-      "visibilityPrivate": "Visível apenas para mim"
+      "visibilityPrivate": "Visível apenas para mim",
+      "tagsLabel": "Tags",
+      "tagsPlaceholder": "Adicionar tag e pressionar Enter..."
     },
     "detail": {
       "notFound": "Runner not found",
@@ -189,10 +191,11 @@
       "upgrade": "Atualizar",
       "upgrading": "Atualizando...",
       "upgradeConfirm": "Tem certeza de que deseja atualizar este runner para a versão mais recente? O runner será reiniciado após a atualização.",
+      "upgradeConfirmWithPods": "Este runner possui atualmente {count} pods ativos. O runner será reiniciado após a atualização — as sessões ativas são preservadas pelo Poddaemon.",
+      "upgradeDialogTitle": "Atualizar Runner",
       "upgradeSent": "Comando de atualização enviado. O runner baixará e reiniciará automaticamente.",
       "upgradeFailed": "Falha ao enviar o comando de atualização. Tente novamente.",
       "upgradeOffline": "Runner está offline, não é possível atualizar",
-      "upgradeHasPods": "Runner tem pods ativos, não é possível atualizar",
       "upgradeTooltip": "Atualizar runner para a versão mais recente"
     },
     "authorize": {

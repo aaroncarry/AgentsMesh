@@ -56,8 +56,7 @@ func (h *RunnerMessageHandler) OnSubscribePod(req client.SubscribePodRequest) er
 	existingClient := pod.RelayClient
 	if existingClient != nil {
 		if existingClient.IsConnected() && existingClient.GetRelayURL() == relayURL {
-			// Already connected to the same Relay, just update token for future reconnects
-			log.Info("Already connected to same relay, updating token only",
+			log.Info("Already connected to same relay, updating token",
 				"pod_key", req.PodKey,
 				"relay_url", relayURL)
 			existingClient.UpdateToken(req.RunnerToken)

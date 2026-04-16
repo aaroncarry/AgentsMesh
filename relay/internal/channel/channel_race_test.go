@@ -11,36 +11,25 @@ import (
 	"github.com/anthropics/agentsmesh/relay/internal/protocol"
 )
 
-// ==================== Publisher Goroutine Race Condition Tests ====================
-
-// TestTerminalChannel_SetPublisher_RapidReconnect verifies that rapid publisher
-// replacement (disconnect + reconnect) correctly handles goroutine lifecycle:
-// - Old goroutine exits cleanly
-// - New goroutine forwards data to subscribers
-func TestTerminalChannel_SetPublisher_RapidReconnect(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-rapid", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher_RapidReconnect(t *testing.T) {
+	ch := NewChannelWithConfig("pod-rapid", testChannelConfig(), nil, nil)
 
 	subServer, subClient := createWSPair(t)
 	ch.AddSubscriber("s1", subServer)
 
-	// Set first publisher
 	pub1Server, _ := createWSPair(t)
 	ch.SetPublisher(pub1Server)
 
-	// Immediately replace with second publisher (simulates rapid reconnect)
 	pub2Server, pub2Client := createWSPair(t)
 	ch.SetPublisher(pub2Server)
 
-	// Verify the new publisher's goroutine is active by sending data
 	outMsg := protocol.EncodeOutput([]byte("from-pub2"))
 	if err := pub2Client.WriteMessage(websocket.BinaryMessage, outMsg); err != nil {
 		t.Fatalf("write to pub2Client: %v", err)
 	}
 
-	// Subscriber should receive the data from pub2
 	_ = subClient.SetReadDeadline(time.Now().Add(2 * time.Second))
 
-	// May receive RunnerReconnected first, then the actual data
 	for {
 		_, data, err := subClient.ReadMessage()
 		if err != nil {
@@ -48,7 +37,7 @@ func TestTerminalChannel_SetPublisher_RapidReconnect(t *testing.T) {
 		}
 		msg, _ := protocol.DecodeMessage(data)
 		if msg != nil && msg.Type == protocol.MsgTypeRunnerReconnected {
-			continue // Skip reconnection notification
+			continue
 		}
 		if !bytes.Equal(data, outMsg) {
 			t.Fatalf("expected output from pub2, got %v", data)
@@ -56,16 +45,13 @@ func TestTerminalChannel_SetPublisher_RapidReconnect(t *testing.T) {
 		break
 	}
 
-	// Verify only one publisher goroutine is active (old one exited)
 	if ch.GetPublisher() != pub2Server {
 		t.Fatal("expected publisher to be pub2Server")
 	}
 }
 
-// TestTerminalChannel_SetPublisher_RapidReconnect_Multiple exercises the epoch
-// mechanism under stress: many rapid SetPublisher calls in sequence.
-func TestTerminalChannel_SetPublisher_RapidReconnect_Multiple(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-rapid-multi", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher_RapidReconnect_Multiple(t *testing.T) {
+	ch := NewChannelWithConfig("pod-rapid-multi", testChannelConfig(), nil, nil)
 
 	subServer, subClient := createWSPair(t)
 	ch.AddSubscriber("s1", subServer)
@@ -79,13 +65,11 @@ func TestTerminalChannel_SetPublisher_RapidReconnect_Multiple(t *testing.T) {
 		ch.SetPublisher(server)
 	}
 
-	// Only the last publisher should be active
 	lastConn := conns[iterations-1]
 	if ch.GetPublisher() != lastConn {
 		t.Fatal("expected publisher to be the last set connection")
 	}
 
-	// Verify epoch is correct
 	ch.publisherMu.RLock()
 	epoch := ch.publisherEpoch
 	ch.publisherMu.RUnlock()
@@ -94,25 +78,21 @@ func TestTerminalChannel_SetPublisher_RapidReconnect_Multiple(t *testing.T) {
 		t.Fatalf("expected epoch %d, got %d", iterations, epoch)
 	}
 
-	// Drain any RunnerReconnected messages from subscriber
 	_ = subClient.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	for {
 		_, _, err := subClient.ReadMessage()
 		if err != nil {
-			break // Timeout or error, done draining
+			break
 		}
 	}
 }
 
-// TestTerminalChannel_Close_WaitsForGoroutine verifies that Close() blocks
-// until the forwardPublisherToSubscribers goroutine has exited.
-func TestTerminalChannel_Close_WaitsForGoroutine(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-close-wait", testChannelConfig(), nil, nil)
+func TestChannel_Close_WaitsForGoroutine(t *testing.T) {
+	ch := NewChannelWithConfig("pod-close-wait", testChannelConfig(), nil, nil)
 
 	pubServer, _ := createWSPair(t)
 	ch.SetPublisher(pubServer)
 
-	// Close should wait for the goroutine to exit
 	closeDone := make(chan struct{})
 	go func() {
 		ch.Close()
@@ -121,9 +101,8 @@ func TestTerminalChannel_Close_WaitsForGoroutine(t *testing.T) {
 
 	select {
 	case <-closeDone:
-		// Close completed — goroutine was properly awaited
 	case <-time.After(5 * time.Second):
-		t.Fatal("Close() did not return within timeout — goroutine may be stuck")
+		t.Fatal("Close() did not return within timeout")
 	}
 
 	if !ch.IsClosed() {
@@ -131,12 +110,9 @@ func TestTerminalChannel_Close_WaitsForGoroutine(t *testing.T) {
 	}
 }
 
-// TestTerminalChannel_SetPublisher_EpochIncrement verifies epoch monotonically
-// increases and that stale epoch disconnect handlers are no-ops.
-func TestTerminalChannel_SetPublisher_EpochIncrement(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-epoch", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher_EpochIncrement(t *testing.T) {
+	ch := NewChannelWithConfig("pod-epoch", testChannelConfig(), nil, nil)
 
-	// Track epochs across multiple SetPublisher calls
 	var epochs []uint64
 
 	for i := 0; i < 3; i++ {
@@ -147,14 +123,12 @@ func TestTerminalChannel_SetPublisher_EpochIncrement(t *testing.T) {
 		epochs = append(epochs, ch.publisherEpoch)
 		ch.publisherMu.RUnlock()
 
-		// Close client to trigger disconnect for cleanup
 		_ = client.Close()
 		waitFor(t, func() bool {
 			return ch.IsPublisherDisconnected()
 		}, 2*time.Second)
 	}
 
-	// Verify monotonic increase
 	for i := 1; i < len(epochs); i++ {
 		if epochs[i] <= epochs[i-1] {
 			t.Fatalf("epoch not monotonically increasing: epochs[%d]=%d <= epochs[%d]=%d",
@@ -162,8 +136,6 @@ func TestTerminalChannel_SetPublisher_EpochIncrement(t *testing.T) {
 		}
 	}
 
-	// Test stale epoch disconnect handler is a no-op:
-	// Set a new publisher and try calling handlePublisherDisconnect with stale epoch
 	newServer, _ := createWSPair(t)
 	ch.SetPublisher(newServer)
 
@@ -171,7 +143,6 @@ func TestTerminalChannel_SetPublisher_EpochIncrement(t *testing.T) {
 	currentEpoch := ch.publisherEpoch
 	ch.publisherMu.RUnlock()
 
-	// Call with matching conn but stale epoch — should be no-op
 	ch.handlePublisherDisconnect(newServer, currentEpoch-1)
 	if ch.IsPublisherDisconnected() {
 		t.Fatal("stale epoch handlePublisherDisconnect should be a no-op")
@@ -181,10 +152,8 @@ func TestTerminalChannel_SetPublisher_EpochIncrement(t *testing.T) {
 	}
 }
 
-// TestTerminalChannel_SetPublisher_ConcurrentAccess verifies thread safety
-// when SetPublisher is called concurrently (e.g., two runner connections racing).
-func TestTerminalChannel_SetPublisher_ConcurrentAccess(t *testing.T) {
-	ch := NewTerminalChannelWithConfig("pod-concurrent", testChannelConfig(), nil, nil)
+func TestChannel_SetPublisher_ConcurrentAccess(t *testing.T) {
+	ch := NewChannelWithConfig("pod-concurrent", testChannelConfig(), nil, nil)
 
 	const goroutines = 4
 	var wg sync.WaitGroup
@@ -200,7 +169,6 @@ func TestTerminalChannel_SetPublisher_ConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 
-	// Channel should be in a consistent state
 	ch.publisherMu.RLock()
 	epoch := ch.publisherEpoch
 	pub := ch.publisher

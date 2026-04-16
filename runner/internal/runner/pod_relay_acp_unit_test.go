@@ -41,6 +41,20 @@ func TestACPPodRelay_SendSnapshot_NilClient(t *testing.T) {
 	}
 }
 
+func TestACPPodRelay_SetupHandlers_SnapshotRequest(t *testing.T) {
+	mc := relay.NewMockClient("wss://relay.example.com")
+	mc.SetConnected(true)
+
+	r := NewACPPodRelay("pod-1", nil, nil)
+	r.SetupHandlers(mc)
+
+	mc.SimulateMessage(relay.MsgTypeSnapshotRequest, nil)
+
+	if mc.CountSentByType(relay.MsgTypeAcpSnapshot) != 0 {
+		t.Error("should not send snapshot when ACP client is nil")
+	}
+}
+
 func TestACPPodRelay_OnRelayConnected_NoPanic(t *testing.T) {
 	mc := relay.NewMockClient("wss://relay.example.com")
 	r := NewACPPodRelay("pod-1", nil, nil)

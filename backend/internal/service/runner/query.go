@@ -81,22 +81,7 @@ func (s *Service) ListAvailableRunners(ctx context.Context, orgID int64, userID 
 // SelectAvailableRunner selects an available runner using least-pods strategy, filtered by visibility.
 // Prioritizes runners from activeRunners cache for better performance.
 func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64, userID int64) (*runner.Runner, error) {
-	// First, try to find available runners from cache
-	var cachedRunners []*ActiveRunner
-	s.activeRunners.Range(func(key, value interface{}) bool {
-		if ar, ok := value.(*ActiveRunner); ok && ar.Runner != nil {
-			r := ar.Runner
-			if r.OrganizationID == orgID &&
-				r.Status == runner.RunnerStatusOnline &&
-				r.IsEnabled &&
-				ar.PodCount < r.MaxConcurrentPods &&
-				time.Since(ar.LastPing) < 90*time.Second &&
-				(r.Visibility == runner.VisibilityOrganization || (r.Visibility == runner.VisibilityPrivate && r.RegisteredByUserID != nil && *r.RegisteredByUserID == userID)) {
-				cachedRunners = append(cachedRunners, ar)
-			}
-		}
-		return true
-	})
+	cachedRunners := s.collectEligibleRunners(ctx, orgID, userID, "")
 
 	if len(cachedRunners) > 0 {
 		sort.Slice(cachedRunners, func(i, j int) bool {
@@ -105,7 +90,6 @@ func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64, userID
 		return cachedRunners[0].Runner, nil
 	}
 
-	// Fall back to database query if cache miss
 	runners, err := s.repo.ListAvailableOrdered(ctx, orgID, userID)
 	if err != nil {
 		slog.Error("failed to select available runner from DB", "org_id", orgID, "error", err)
@@ -121,23 +105,7 @@ func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64, userID
 // SelectAvailableRunnerForAgent selects an available runner that supports the given agent type, filtered by visibility.
 // Uses the same cache-first, DB-fallback pattern as SelectAvailableRunner with agent compatibility filtering.
 func (s *Service) SelectAvailableRunnerForAgent(ctx context.Context, orgID int64, userID int64, agentSlug string) (*runner.Runner, error) {
-	// First, try to find available runners from cache
-	var cachedRunners []*ActiveRunner
-	s.activeRunners.Range(func(key, value interface{}) bool {
-		if ar, ok := value.(*ActiveRunner); ok && ar.Runner != nil {
-			r := ar.Runner
-			if r.OrganizationID == orgID &&
-				r.Status == runner.RunnerStatusOnline &&
-				r.IsEnabled &&
-				ar.PodCount < r.MaxConcurrentPods &&
-				time.Since(ar.LastPing) < 90*time.Second &&
-				r.SupportsAgent(agentSlug) &&
-				(r.Visibility == runner.VisibilityOrganization || (r.Visibility == runner.VisibilityPrivate && r.RegisteredByUserID != nil && *r.RegisteredByUserID == userID)) {
-				cachedRunners = append(cachedRunners, ar)
-			}
-		}
-		return true
-	})
+	cachedRunners := s.collectEligibleRunners(ctx, orgID, userID, agentSlug)
 
 	if len(cachedRunners) > 0 {
 		sort.Slice(cachedRunners, func(i, j int) bool {
@@ -146,7 +114,6 @@ func (s *Service) SelectAvailableRunnerForAgent(ctx context.Context, orgID int64
 		return cachedRunners[0].Runner, nil
 	}
 
-	// Fall back to database query with JSONB contains filter
 	agentJSON, err := json.Marshal([]string{agentSlug})
 	if err != nil {
 		return nil, err
@@ -162,55 +129,4 @@ func (s *Service) SelectAvailableRunnerForAgent(ctx context.Context, orgID int64
 		return nil, ErrNoRunnerForAgent
 	}
 	return runners[0], nil
-}
-
-// RunnerUpdateInput represents input for updating a runner
-type RunnerUpdateInput struct {
-	Description       *string `json:"description"`
-	MaxConcurrentPods *int    `json:"max_concurrent_pods"`
-	IsEnabled         *bool   `json:"is_enabled"`
-	Visibility        *string `json:"visibility"`
-}
-
-// UpdateRunner updates a runner's configuration
-func (s *Service) UpdateRunner(ctx context.Context, runnerID int64, input RunnerUpdateInput) (*runner.Runner, error) {
-	r, err := s.repo.GetByID(ctx, runnerID)
-	if err != nil {
-		return nil, err
-	}
-	if r == nil {
-		return nil, ErrRunnerNotFound
-	}
-
-	updates := make(map[string]interface{})
-	if input.Description != nil {
-		updates["description"] = *input.Description
-	}
-	if input.MaxConcurrentPods != nil {
-		updates["max_concurrent_pods"] = *input.MaxConcurrentPods
-	}
-	if input.IsEnabled != nil {
-		updates["is_enabled"] = *input.IsEnabled
-	}
-	if input.Visibility != nil {
-		v := *input.Visibility
-		if v == runner.VisibilityOrganization || v == runner.VisibilityPrivate {
-			updates["visibility"] = v
-		}
-	}
-
-	if len(updates) > 0 {
-		if err := s.repo.UpdateFields(ctx, runnerID, updates); err != nil {
-			slog.Error("failed to update runner", "runner_id", runnerID, "error", err)
-			return nil, err
-		}
-		slog.Info("runner updated", "runner_id", runnerID)
-	}
-
-	// Reload the runner
-	r, err = s.repo.GetByID(ctx, runnerID)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
 }

@@ -148,6 +148,8 @@ type Runner struct {
 
 	HostInfo HostInfo `gorm:"type:jsonb" json:"host_info,omitempty"`
 
+	Tags StringSlice `gorm:"type:jsonb;default:'[]'" json:"tags,omitempty"`
+
 	// Visibility controls who can see/use this runner
 	Visibility         string `gorm:"size:20;not null;default:'organization'" json:"visibility"`
 	RegisteredByUserID *int64 `json:"registered_by_user_id,omitempty"`

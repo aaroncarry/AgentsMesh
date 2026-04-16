@@ -67,7 +67,7 @@ func (m *ChannelManager) HandlePublisherConnect(podKey string, conn *websocket.C
 		// Create new channel and insert into map while still holding lock.
 		// This prevents TOCTOU race where concurrent requests for the same podKey
 		// don't see the channel being created.
-		channel := NewTerminalChannelWithConfig(podKey, m.buildChannelConfig(), m.onAllSubscribersGone, m.onChannelClosed)
+		channel := NewChannelWithConfig(podKey, m.buildChannelConfig(), m.onAllSubscribersGone, m.onChannelClosed)
 		m.channels[podKey] = channel
 		m.mu.Unlock()
 
@@ -117,7 +117,7 @@ func (m *ChannelManager) HandleSubscriberConnect(podKey, subscriberID string, co
 		delete(m.pendingPublishers, podKey)
 
 		// Create new channel and insert into map while still holding lock.
-		channel := NewTerminalChannelWithConfig(podKey, m.buildChannelConfig(), m.onAllSubscribersGone, m.onChannelClosed)
+		channel := NewChannelWithConfig(podKey, m.buildChannelConfig(), m.onAllSubscribersGone, m.onChannelClosed)
 		m.channels[podKey] = channel
 		m.mu.Unlock()
 

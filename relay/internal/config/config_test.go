@@ -209,12 +209,6 @@ func TestLoad_SessionConfigDefaults(t *testing.T) {
 	if cfg.Session.PendingConnectionTimeout != 60*time.Second {
 		t.Errorf("PendingConnectionTimeout: got %v, want 60s", cfg.Session.PendingConnectionTimeout)
 	}
-	if cfg.Session.OutputBufferSize != 256*1024 {
-		t.Errorf("OutputBufferSize: got %d, want %d", cfg.Session.OutputBufferSize, 256*1024)
-	}
-	if cfg.Session.OutputBufferCount != 200 {
-		t.Errorf("OutputBufferCount: got %d, want 200", cfg.Session.OutputBufferCount)
-	}
 }
 
 func TestLoad_TLSConfig(t *testing.T) {

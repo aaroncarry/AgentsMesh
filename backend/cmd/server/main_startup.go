@@ -131,6 +131,7 @@ func createPodOrchestrator(services *serviceContainer, podCoordinator *runner.Po
 		AgentResolver:   services.agentSvc,
 		RunnerQuery:     services.runner,
 		UserConfigQuery: services.userConfig,
+		PodRepo:         services.podRepo,
 	})
 	slog.Info("PodOrchestrator created")
 	return orch

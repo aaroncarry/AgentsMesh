@@ -133,7 +133,9 @@
       "save": "変更を保存",
       "visibilityLabel": "公開範囲",
       "visibilityOrganization": "組織の全メンバーに表示",
-      "visibilityPrivate": "自分のみに表示"
+      "visibilityPrivate": "自分のみに表示",
+      "tagsLabel": "タグ",
+      "tagsPlaceholder": "タグを入力して Enter を押してください..."
     },
     "detail": {
       "notFound": "Runner not found",
@@ -189,10 +191,11 @@
       "upgrade": "アップグレード",
       "upgrading": "アップグレード中...",
       "upgradeConfirm": "このランナーを最新バージョンにアップグレードしますか？アップグレード後にランナーは再起動します。",
+      "upgradeConfirmWithPods": "このランナーには現在 {count} 個のアクティブ Pod があります。アップグレード後にランナーは再起動しますが、アクティブセッションは Poddaemon により維持されます。",
+      "upgradeDialogTitle": "ランナーをアップグレード",
       "upgradeSent": "アップグレードコマンドを送信しました。ランナーは自動的にダウンロードして再起動します。",
       "upgradeFailed": "アップグレードコマンドの送信に失敗しました。再試行してください。",
       "upgradeOffline": "ランナーがオフラインのため、アップグレードできません",
-      "upgradeHasPods": "ランナーにアクティブなPodがあるため、アップグレードできません",
       "upgradeTooltip": "ランナーを最新バージョンにアップグレード"
     },
     "authorize": {

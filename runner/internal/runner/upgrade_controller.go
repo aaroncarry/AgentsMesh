@@ -19,18 +19,14 @@ type upgradeController struct {
 
 	updater   *updater.Updater
 	restartFn func() (int, error)
-
-	// podCounter is injected to break reverse dependency on Runner.
-	podCounter func() int
 }
 
 // Compile-time check: upgradeController implements UpgradeController.
 var _ UpgradeController = (*upgradeController)(nil)
 
 // newUpgradeController creates a new upgradeController.
-// podCounter provides the active pod count without depending on Runner.
-func newUpgradeController(podCounter func() int) *upgradeController {
-	return &upgradeController{podCounter: podCounter}
+func newUpgradeController() *upgradeController {
+	return &upgradeController{}
 }
 
 // TryStartUpgrade atomically checks and sets the upgrading flag.
@@ -70,14 +66,6 @@ func (uc *upgradeController) GetRestartFunc() func() (int, error) {
 // SetRestartFunc sets the restart function for post-upgrade restart.
 func (uc *upgradeController) SetRestartFunc(fn func() (int, error)) {
 	uc.restartFn = fn
-}
-
-// GetActivePodCount returns the number of active pods via injected counter.
-func (uc *upgradeController) GetActivePodCount() int {
-	if uc.podCounter == nil {
-		return 0
-	}
-	return uc.podCounter()
 }
 
 // SetDraining sets the draining state.

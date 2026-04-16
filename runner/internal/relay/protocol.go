@@ -16,7 +16,7 @@ const (
 	MsgTypeControl            = 0x07 // Control request (for input control)
 	MsgTypeRunnerDisconnected = 0x08 // Runner disconnected notification
 	MsgTypeRunnerReconnected  = 0x09 // Runner reconnected notification
-	MsgTypeResync             = 0x0A // Browser → Runner, request full state resync
+	MsgTypeSnapshotRequest    = 0x0A // Browser → Runner: request current snapshot
 	MsgTypeAcpEvent           = 0x0B // Runner → Browser, ACP session event
 	MsgTypeAcpCommand         = 0x0C // Browser → Runner, ACP command
 	MsgTypeAcpSnapshot        = 0x0D // Runner → Browser, ACP session snapshot

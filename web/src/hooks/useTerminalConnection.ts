@@ -16,7 +16,6 @@ export interface TerminalConnection {
 export function setupConnection(
   podKey: string,
   scheduler: TerminalWriteScheduler,
-  initialDims: { value: { cols: number; rows: number } | null },
   connectionRef: MutableRefObject<TerminalConnection | null>,
   setConnectionStatus: (status: ConnectionStatus) => void,
   setIsRunnerDisconnected: (v: boolean) => void,
@@ -37,9 +36,6 @@ export function setupConnection(
       const handle = await relayPool.subscribe(podKey, subscriptionId, handleMessage);
       if (abort.signal.aborted) return;
       connectionRef.current = handle;
-      if (initialDims.value) {
-        relayPool.forceResize(podKey, initialDims.value.cols, initialDims.value.rows);
-      }
     } catch (error) {
       if (abort.signal.aborted) return;
       console.error("Failed to connect terminal:", error);

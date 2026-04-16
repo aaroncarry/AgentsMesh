@@ -27,6 +27,12 @@ class RelayConnectionPool {
   private statusListeners: Map<string, Set<StatusListener>> = new Map();
   private acpListeners: Map<string, Set<(msgType: number, payload: unknown) => void>> = new Map();
 
+  constructor() {
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", () => this.disconnectAll());
+    }
+  }
+
   /** Build context object for WebSocket lifecycle functions */
   private get ctx(): PoolContext {
     return {
@@ -67,12 +73,15 @@ class RelayConnectionPool {
     for (const listener of listeners) listener(info);
   }
 
+  private isConnectionAlive(conn: RelayConnection): boolean {
+    return conn.ws.readyState === WebSocket.OPEN && conn.status === "connected";
+  }
+
   async subscribe(podKey: string, subscriptionId: string, onMessage: (data: Uint8Array | string) => void): Promise<ConnectionHandle> {
     const conn = this.connections.get(podKey);
     if (conn) {
-      // If the WebSocket is dead (CLOSED/CLOSING), remove stale connection and create fresh one.
-      if (conn.ws.readyState === WebSocket.CLOSED || conn.ws.readyState === WebSocket.CLOSING) {
-        this.connections.delete(podKey);
+      if (!this.isConnectionAlive(conn)) {
+        this.disconnect(podKey);
         return this.subscribe(podKey, subscriptionId, onMessage);
       }
       if (conn.subscribers.has(subscriptionId)) {
@@ -82,7 +91,7 @@ class RelayConnectionPool {
       if (conn.disconnectTimer) { clearTimeout(conn.disconnectTimer); conn.disconnectTimer = null; }
       conn.subscribers.set(subscriptionId, onMessage);
       if (conn.ws.readyState === WebSocket.OPEN) {
-        conn.ws.send(encodeMessage(MsgType.Resync, new Uint8Array(0)));
+        conn.ws.send(encodeMessage(MsgType.SnapshotRequest, new Uint8Array(0)));
       }
       return this.createHandle(podKey, subscriptionId);
     }
@@ -150,7 +159,6 @@ class RelayConnectionPool {
     if (!conn) return;
     if (conn.reconnectTimer) { clearTimeout(conn.reconnectTimer); conn.reconnectTimer = null; }
     if (conn.disconnectTimer) { clearTimeout(conn.disconnectTimer); conn.disconnectTimer = null; }
-    if (conn.snapshotTimer) { clearTimeout(conn.snapshotTimer); conn.snapshotTimer = null; }
     this.connections.delete(podKey);
     this.lastInputs.delete(podKey);
     this.acpListeners.delete(podKey);
@@ -190,4 +198,15 @@ class RelayConnectionPool {
 }
 
 // Singleton instance
-export const relayPool = new RelayConnectionPool();
+function getOrCreatePool(): RelayConnectionPool {
+  const key = "__relayPool" as keyof typeof globalThis;
+  const existing = globalThis[key] as RelayConnectionPool | undefined;
+  if (existing) {
+    existing.disconnectAll();
+  }
+  const pool = new RelayConnectionPool();
+  (globalThis as Record<string, unknown>)[key] = pool;
+  return pool;
+}
+
+export const relayPool = getOrCreatePool();

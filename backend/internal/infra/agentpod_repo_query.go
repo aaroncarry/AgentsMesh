@@ -183,6 +183,20 @@ func (r *podRepo) EnrichWithLoopInfo(ctx context.Context, pods []*agentpod.Pod) 
 	return nil
 }
 
+func (r *podRepo) ListRunnersByRepo(ctx context.Context, orgID, repoID int64, limit int) ([]agentpod.RunnerRepoHistory, error) {
+	var results []agentpod.RunnerRepoHistory
+	err := r.db.WithContext(ctx).
+		Model(&agentpod.Pod{}).
+		Select("runner_id, COUNT(*) as pod_count").
+		Where("organization_id = ? AND repository_id = ? AND status != ?",
+			orgID, repoID, agentpod.StatusError).
+		Group("runner_id").
+		Order("MAX(created_at) DESC").
+		Limit(limit).
+		Find(&results).Error
+	return results, err
+}
+
 // isUniqueConstraintViolation checks if the error is a PostgreSQL unique constraint violation.
 func isUniqueConstraintViolation(err error, constraintName string) bool {
 	if err == nil {

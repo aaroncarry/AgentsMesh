@@ -677,9 +677,9 @@ message HeartbeatAck {
 // UpgradeRunnerCommand 远程升级命令（Backend -> Runner）
 // 指示 Runner 下载并安装新版本，然后重启服务
 message UpgradeRunnerCommand {
-  string request_id = 1;       // UUID，关联状态回报
-  string target_version = 2;   // 目标版本号（空 = 最新版本）
-  bool force = 3;              // 忽略 Pod 计数检查
+  string request_id = 1;                // UUID，关联状态回报
+  string target_version = 2;            // 目标版本号（空 = 最新版本）
+  bool force = 3 [deprecated = true];   // Poddaemon 后 Pod 跨重启存活，字段保留仅为向后兼容
 }
 
 // UpgradeStatusEvent 升级状态回报（Runner -> Backend）

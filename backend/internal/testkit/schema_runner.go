@@ -13,6 +13,7 @@ func runnerTableDDLs() []string {
 			runner_version TEXT,
 			is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 			host_info BLOB, available_agents BLOB DEFAULT '[]', agent_versions BLOB DEFAULT '[]',
+			tags BLOB DEFAULT '[]',
 			visibility TEXT NOT NULL DEFAULT 'organization',
 			registered_by_user_id INTEGER,
 			cert_serial_number TEXT, cert_fingerprint TEXT, cert_expires_at DATETIME,

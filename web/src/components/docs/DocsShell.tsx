@@ -25,29 +25,32 @@ function SidebarNav({
   const t = useTranslations();
 
   return (
-    <nav className="space-y-6">
+    <nav className="space-y-8">
       {docsNavSections.map((section) => (
         <div key={section.titleKey}>
-          <h3 className="font-semibold text-sm mb-2">
+          <h3 className="text-[11px] font-semibold mb-3 uppercase tracking-[0.14em] text-[var(--azure-light-ink-soft)]">
             {t(section.titleKey)}
           </h3>
           <ul className="space-y-1">
-            {section.items.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "text-sm block py-1 transition-colors",
-                    pathname === item.href
-                      ? "text-primary font-medium"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {t(item.titleKey)}
-                </Link>
-              </li>
-            ))}
+            {section.items.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "text-sm block px-3 py-1.5 rounded-full transition-colors",
+                      active
+                        ? "bg-[var(--azure-light-cyan-soft)] text-[var(--azure-light-cyan-ink)] font-semibold"
+                        : "text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] hover:bg-[var(--azure-light-surface-high)]"
+                    )}
+                  >
+                    {t(item.titleKey)}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
@@ -55,9 +58,6 @@ function SidebarNav({
   );
 }
 
-/**
- * Build BreadcrumbList JSON-LD for search engines.
- */
 function BreadcrumbJsonLd({
   breadcrumbs,
   labels,
@@ -90,10 +90,6 @@ function BreadcrumbJsonLd({
   );
 }
 
-/**
- * Client-side shell for the docs layout.
- * Contains sidebar, breadcrumbs, header, footer — all interactive UI.
- */
 export default function DocsShell({
   children,
 }: {
@@ -106,20 +102,18 @@ export default function DocsShell({
   const breadcrumbLabels = breadcrumbs.map((crumb) => t(crumb.titleKey));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="azure-light azure-light-mesh min-h-screen">
       <BreadcrumbJsonLd breadcrumbs={breadcrumbs} labels={breadcrumbLabels} />
 
-      {/* Header */}
-      <header className="border-b border-border sticky top-0 bg-background z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Mobile hamburger */}
+      <header className="azure-light-glass sticky top-0 z-10">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className="md:hidden flex-shrink-0"
                   aria-label={t("docs.nav.menu")}
                 >
                   <svg
@@ -137,7 +131,7 @@ export default function DocsShell({
                   </svg>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-4 pt-6">
+              <SheetContent side="left" className="w-72 p-4 pt-6 azure-light">
                 <SheetHeader className="mb-4">
                   <SheetTitle>{t("docs.title")}</SheetTitle>
                 </SheetHeader>
@@ -145,17 +139,22 @@ export default function DocsShell({
               </SheetContent>
             </Sheet>
 
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg overflow-hidden">
+            <Link href="/" className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden flex-shrink-0">
                 <Logo />
               </div>
-              <span className="text-xl font-bold">AgentsMesh</span>
+              <span className="text-base sm:text-xl font-semibold text-[var(--azure-light-ink)] truncate">
+                AgentsMesh
+              </span>
             </Link>
+            <span className="hidden sm:inline-block ml-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--azure-light-cyan-ink)]">
+              Docs
+            </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
             <Link
               href="/docs"
-              className="text-sm text-muted-foreground hover:text-foreground"
+              className="hidden sm:block text-sm font-medium text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] transition-colors"
             >
               {t("landing.nav.docs")}
             </Link>
@@ -165,28 +164,29 @@ export default function DocsShell({
       </header>
 
       <div className="flex">
-        {/* Desktop Sidebar */}
-        <aside className="w-64 border-r border-border min-h-[calc(100vh-65px)] p-4 hidden md:block sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto">
+        <aside className="w-64 min-h-[calc(100vh-65px)] px-5 py-8 hidden md:block sticky top-[65px] h-[calc(100vh-65px)] overflow-y-auto bg-[var(--azure-light-surface)]">
           <SidebarNav />
         </aside>
 
-        {/* Content */}
-        <main className="flex-1 p-4 md:p-8 max-w-4xl mx-auto min-w-0">
-          {/* Breadcrumbs */}
+        <main className="flex-1 px-4 sm:px-6 md:px-10 py-8 sm:py-10 max-w-4xl mx-auto min-w-0 w-full">
           {breadcrumbs.length > 1 && (
-            <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-6">
+            <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-6 sm:mb-8 text-[var(--azure-light-ink-muted)]">
               {breadcrumbs.map((crumb, index) => (
-                <span key={index} className="flex items-center gap-1.5">
-                  {index > 0 && <span className="text-border">/</span>}
+                <span key={index} className="flex items-center gap-2">
+                  {index > 0 && (
+                    <span className="text-[var(--azure-light-ink-soft)]">/</span>
+                  )}
                   {crumb.href ? (
                     <Link
                       href={crumb.href}
-                      className="hover:text-foreground transition-colors"
+                      className="hover:text-[var(--azure-light-cyan-ink)] transition-colors"
                     >
                       {t(crumb.titleKey)}
                     </Link>
                   ) : (
-                    <span>{t(crumb.titleKey)}</span>
+                    <span className="text-[var(--azure-light-ink)] font-medium">
+                      {t(crumb.titleKey)}
+                    </span>
                   )}
                 </span>
               ))}
@@ -197,24 +197,23 @@ export default function DocsShell({
         </main>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-border mt-16">
-        <div className="container mx-auto px-4 py-8">
+      <footer className="mt-24 bg-[var(--azure-light-surface)]">
+        <div className="container mx-auto px-4 py-10">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-[var(--azure-light-ink-muted)]">
               &copy; {new Date().getFullYear()} AgentsMesh.{" "}
               {t("common.allRightsReserved")}
             </p>
-            <div className="flex gap-6">
+            <div className="flex gap-8">
               <Link
                 href="/privacy"
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="text-sm text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] transition-colors"
               >
                 {t("landing.footer.legal.privacy")}
               </Link>
               <Link
                 href="/terms"
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="text-sm text-[var(--azure-light-ink-muted)] hover:text-[var(--azure-light-ink)] transition-colors"
               >
                 {t("landing.footer.legal.terms")}
               </Link>

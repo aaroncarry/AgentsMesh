@@ -22,6 +22,7 @@ export interface RunnerData {
   };
   // New field from Runner handshake - list of available agent slugs
   available_agents?: string[];
+  tags?: string[];
   created_at: string;
   updated_at: string;
   active_pods?: Array<{
@@ -79,7 +80,7 @@ export const runnerApi = {
   get: (id: number) =>
     request<RunnerDetailResponse>(`${orgPath("/runners")}/${id}`),
 
-  update: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean; visibility?: string }) =>
+  update: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean; visibility?: string; tags?: string[] }) =>
     request<{ runner: RunnerData }>(`${orgPath("/runners")}/${id}`, {
       method: "PUT",
       body: data,

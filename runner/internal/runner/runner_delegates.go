@@ -16,7 +16,7 @@ func (r *Runner) TryStartUpgrade() bool {
 	if ok {
 		logger.Runner().Info("Upgrade started")
 	} else {
-		logger.Runner().Warn("Upgrade request rejected (already in progress or pods active)")
+		logger.Runner().Warn("Upgrade request rejected (already in progress)")
 	}
 	return ok
 }

@@ -119,6 +119,7 @@ func (h *RunnerHandler) UpdateRunner(c *gin.Context) {
 		MaxConcurrentPods: req.MaxConcurrentPods,
 		IsEnabled:         req.IsEnabled,
 		Visibility:        req.Visibility,
+		Tags:              req.Tags,
 	})
 	if err != nil {
 		apierr.InternalError(c, "Failed to update runner")

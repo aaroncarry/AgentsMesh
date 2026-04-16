@@ -1771,7 +1771,25 @@
           "item1": "Run the start command to begin the Runner process",
           "item2": "The Runner connects to the AgentsMesh backend via gRPC with mTLS",
           "item3": "It reports available AI agent CLIs (Claude Code, Codex, Gemini, etc.) found in PATH",
-          "tip": "For production deployments, install the Runner as a system service so it starts automatically on boot."
+          "tip": "For production deployments, install the Runner as a system service so it starts automatically on boot.",
+          "background": {
+            "title": "Run in the background",
+            "description": "`agentsmesh-runner run` stays attached to your terminal. Pick a background mode if you want the Runner to survive closing the shell:",
+            "service": {
+              "title": "System service (recommended)",
+              "description": "Register the Runner with systemd / launchd / Windows Service Manager so it starts on boot, restarts on failure, and writes logs to the OS journal.",
+              "startLabel": "Install and start",
+              "stopLabel": "Stop or uninstall",
+              "note": "On Linux, logs go to journalctl -u agentsmesh-runner. On macOS, ~/Library/Logs/agentsmesh-runner.log. Use --config /path/to/config.yaml if your config is non-default."
+            },
+            "nohup": {
+              "title": "Shell background (nohup)",
+              "description": "Quick and service-free — fork the process with nohup and record its PID so you can stop it later. Good for dev boxes and short-lived hosts.",
+              "startLabel": "Start and tail logs",
+              "stopLabel": "Stop the process",
+              "note": "nohup does not auto-restart on crash or reboot. For anything long-running, prefer the system service option above."
+            }
+          }
         },
         "step4": {
           "title": "Install AI Agent CLIs",
@@ -1788,6 +1806,33 @@
           "item2": "Find your Runner in the list — it should show a green Online status",
           "item3": "Check that the available agents are listed correctly",
           "item4": "Try creating a test Pod to confirm everything works"
+        },
+        "updating": {
+          "title": "Keep the Runner Up to Date",
+          "description": "New Runner releases ship bug fixes, security patches, and protocol improvements. Pick whichever update method fits your deployment:",
+          "ui": {
+            "title": "From the Web Dashboard",
+            "description": "For connected Runners, trigger an upgrade remotely without touching the host machine.",
+            "step1": "Open Settings → Runners and locate your Runner card.",
+            "step2": "Click the Upgrade badge when a newer version is available.",
+            "step3": "The platform sends a signed upgrade command over gRPC; the Runner downloads, swaps its binary, and restarts automatically.",
+            "note": "The Runner must be online and permitted to auto-update. Active Pods finish gracefully before the restart."
+          },
+          "command": {
+            "title": "With the Update Command",
+            "description": "SSH or shell into the Runner host and let the Runner update itself from GitHub Releases.",
+            "hintInteractive": "Interactive prompt",
+            "hintCheck": "Only check, do not install",
+            "hintSilent": "Skip confirmation",
+            "hintVersion": "Pin to a specific version",
+            "note": "A backup of the previous binary is created before replacement. If the update fails, the Runner automatically rolls back."
+          },
+          "reinstall": {
+            "title": "Re-install from install.sh",
+            "description": "If the self-update path is blocked (air-gapped host, unusual distro, or you want a fresh binary), re-run the official installer.",
+            "restartLabel": "Restart after install",
+            "note": "Re-installing preserves ~/.agentsmesh/config.yaml and the mTLS certificates — you do not need to re-register."
+          }
         },
         "troubleshooting": {
           "title": "Troubleshooting",

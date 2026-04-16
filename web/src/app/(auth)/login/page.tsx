@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api/base";
 import { ssoApi } from "@/lib/api/sso";
 import type { SSOConfig } from "@/lib/api/sso";
 import { useTranslations } from "next-intl";
-import { Logo } from "@/components/common";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { OAuthButtons } from "./OAuthButtons";
 import { getDefaultRoute } from "@/lib/default-route";
 import { SSOSection } from "./SSOSection";
@@ -28,7 +28,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const [ssoConfigs, setSsoConfigs] = useState<SSOConfig[]>([]);
-  const [ssoLoading, setSsoLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const enforceSso = ssoConfigs.some((c) => c.enforce_sso);
@@ -41,14 +40,13 @@ export default function LoginPage() {
       return;
     }
     const requestId = ++discoverRequestRef.current;
-    setSsoLoading(true);
     try {
       const response = await ssoApi.discover(emailValue);
       if (requestId === discoverRequestRef.current) {
         setSsoConfigs(response.configs || []);
       }
-    } finally {
-      if (requestId === discoverRequestRef.current) setSsoLoading(false);
+    } catch {
+      // Silent — SSO discovery failures shouldn't disrupt the password flow.
     }
   }, []);
 
@@ -111,90 +109,72 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg overflow-hidden"><Logo /></div>
-            <span className="text-2xl font-bold text-foreground">AgentsMesh</span>
+    <AuthShell
+      title={t("auth.loginPage.title")}
+      subtitle={t("auth.loginPage.subtitle")}
+      footer={
+        <>
+          {t("auth.loginPage.dontHaveAccount")}{" "}
+          <Link href="/register" className="text-[var(--azure-cyan)] hover:underline">
+            {t("auth.loginPage.signUp")}
           </Link>
-          <h1 className="mt-6 text-2xl font-semibold text-foreground">
-            {t("auth.loginPage.title")}
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t("auth.loginPage.subtitle")}
-          </p>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+            {error}
+          </div>
+        )}
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
+            {t("auth.loginPage.emailLabel")}
+          </label>
+          <Input id="email" type="email" placeholder={t("auth.loginPage.emailPlaceholder")}
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              if (ssoConfigs.length > 0) setSsoConfigs([]);
+            }}
+            onBlur={handleEmailBlur} required />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-              {error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-foreground">
-              {t("auth.loginPage.emailLabel")}
-            </label>
-            <Input id="email" type="email" placeholder={t("auth.loginPage.emailPlaceholder")}
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (debounceRef.current) clearTimeout(debounceRef.current);
-                if (ssoConfigs.length > 0) setSsoConfigs([]);
-              }}
-              onBlur={handleEmailBlur} required />
-          </div>
-
-          {ssoLoading && (
-            <div className="flex items-center justify-center py-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span className="ml-2 text-xs text-muted-foreground">{t("auth.sso.checking")}</span>
-            </div>
-          )}
-
-          {hasSSO && (
-            <SSOSection ssoConfigs={ssoConfigs} onLdapSubmit={handleLdapSubmit}
-              ldapLoading={ldapLoading} />
-          )}
-
-          {!enforceSso && (
-            <>
-              {hasSSO && <Divider text={t("auth.sso.orUsePassword")} />}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-sm font-medium text-foreground">
-                    {t("auth.loginPage.passwordLabel")}
-                  </label>
-                  <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                    {t("auth.forgotPassword")}
-                  </Link>
-                </div>
-                <Input id="password" type="password"
-                  placeholder={t("auth.loginPage.passwordPlaceholder")}
-                  value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-              <Button type="submit" className="w-full" loading={loading}>
-                {t("auth.loginPage.signIn")}
-              </Button>
-            </>
-          )}
-        </form>
+        {hasSSO && (
+          <SSOSection ssoConfigs={ssoConfigs} onLdapSubmit={handleLdapSubmit}
+            ldapLoading={ldapLoading} />
+        )}
 
         {!enforceSso && (
           <>
-            <Divider text={t("auth.loginPage.orContinueWith")} />
-            <OAuthButtons />
+            {hasSSO && <Divider text={t("auth.sso.orUsePassword")} />}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-sm font-medium text-foreground">
+                  {t("auth.loginPage.passwordLabel")}
+                </label>
+                <Link href="/forgot-password" className="text-sm text-[var(--azure-cyan)] hover:underline">
+                  {t("auth.forgotPassword")}
+                </Link>
+              </div>
+              <Input id="password" type="password"
+                placeholder={t("auth.loginPage.passwordPlaceholder")}
+                value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <Button type="submit" className="w-full azure-gradient-bg hover:opacity-90 font-headline font-bold uppercase tracking-wider" loading={loading}>
+              {t("auth.loginPage.signIn")}
+            </Button>
           </>
         )}
+      </form>
 
-        <p className="text-center text-sm text-muted-foreground">
-          {t("auth.loginPage.dontHaveAccount")}{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            {t("auth.loginPage.signUp")}
-          </Link>
-        </p>
-      </div>
-    </div>
+      {!enforceSso && (
+        <div className="mt-6 space-y-4">
+          <Divider text={t("auth.loginPage.orContinueWith")} />
+          <OAuthButtons />
+        </div>
+      )}
+    </AuthShell>
   );
 }

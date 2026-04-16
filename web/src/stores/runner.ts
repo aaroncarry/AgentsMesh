@@ -21,7 +21,7 @@ interface RunnerState {
   fetchRunners: (status?: RunnerStatus) => Promise<void>;
   fetchAvailableRunners: () => Promise<void>;
   fetchRunner: (id: number) => Promise<void>;
-  updateRunner: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean }) => Promise<Runner>;
+  updateRunner: (id: number, data: { description?: string; max_concurrent_pods?: number; is_enabled?: boolean; tags?: string[] }) => Promise<Runner>;
   deleteRunner: (id: number) => Promise<void>;
   // Token management (gRPC registration tokens)
   createToken: (data?: { name?: string; labels?: string[]; max_uses?: number; expires_in_days?: number }) => Promise<string>;

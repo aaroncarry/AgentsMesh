@@ -83,6 +83,15 @@ type PodRepository interface {
 	CountActiveByKeys(ctx context.Context, podKeys []string) (int, error)
 	// EnrichWithLoopInfo populates the Loop field on pods by joining loop_runs → loops.
 	EnrichWithLoopInfo(ctx context.Context, pods []*Pod) error
+	// ListRunnersByRepo returns runner IDs that have previously run pods for a repository,
+	// ordered by recency. Used for repo affinity scoring.
+	ListRunnersByRepo(ctx context.Context, orgID, repoID int64, limit int) ([]RunnerRepoHistory, error)
+}
+
+// RunnerRepoHistory records how many pods a runner has run for a repo.
+type RunnerRepoHistory struct {
+	RunnerID int64 `gorm:"column:runner_id"`
+	PodCount int   `gorm:"column:pod_count"`
 }
 
 // SettingsRepository defines persistence operations for UserAgentPodSettings.

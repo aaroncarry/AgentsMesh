@@ -181,7 +181,6 @@ func (c *Client) handleMessage(data []byte) {
 	case MsgTypePing:
 		c.SendPong()
 	case MsgTypePong:
-		// Received pong, connection is alive
 	default:
 		c.handlersMu.RLock()
 		h := c.handlers[msg.Type]

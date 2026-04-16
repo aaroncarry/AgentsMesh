@@ -9,7 +9,7 @@ import (
 // Channels are keyed by PodKey (not session ID)
 type ChannelManager struct {
 	mu       sync.RWMutex
-	channels map[string]*TerminalChannel // podKey -> channel
+	channels map[string]*Channel // podKey -> channel
 
 	// Pending connections waiting for counterpart
 	pendingPublishers  map[string]*pendingPublisher  // podKey -> pending publisher (runner)
@@ -39,7 +39,7 @@ func NewChannelManager(keepAliveDuration time.Duration, maxSubscribersPerPod int
 // NewChannelManagerWithConfig creates a new channel manager with custom configuration
 func NewChannelManagerWithConfig(cfg ChannelManagerConfig, onAllSubscribersGone func(string)) *ChannelManager {
 	m := &ChannelManager{
-		channels:             make(map[string]*TerminalChannel),
+		channels:             make(map[string]*Channel),
 		pendingPublishers:    make(map[string]*pendingPublisher),
 		pendingSubscribers:   make(map[string]*pendingSubscriber),
 		config:               cfg,
@@ -55,7 +55,7 @@ func NewChannelManagerWithConfig(cfg ChannelManagerConfig, onAllSubscribersGone 
 }
 
 // GetChannel returns a channel by pod key
-func (m *ChannelManager) GetChannel(podKey string) *TerminalChannel {
+func (m *ChannelManager) GetChannel(podKey string) *Channel {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.channels[podKey]
@@ -93,7 +93,7 @@ func (m *ChannelManager) Close() {
 
 	// Close all active channels to release WebSocket connections
 	m.mu.Lock()
-	channels := make([]*TerminalChannel, 0, len(m.channels))
+	channels := make([]*Channel, 0, len(m.channels))
 	for podKey, ch := range m.channels {
 		channels = append(channels, ch)
 		delete(m.channels, podKey)
@@ -121,8 +121,6 @@ func (m *ChannelManager) buildChannelConfig() ChannelConfig {
 		KeepAliveDuration:          m.config.KeepAliveDuration,
 		PublisherReconnectTimeout:  m.config.PublisherReconnectTimeout,
 		SubscriberReconnectTimeout: m.config.SubscriberReconnectTimeout,
-		OutputBufferSize:           m.config.OutputBufferSize,
-		OutputBufferCount:          m.config.OutputBufferCount,
 	}
 }
 

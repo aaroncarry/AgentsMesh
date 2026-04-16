@@ -22,9 +22,6 @@ export interface RelayConnection {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   /** Timer for delayed disconnect when all subscribers leave */
   disconnectTimer: ReturnType<typeof setTimeout> | null;
-  /** Timer for snapshot resync retry */
-  snapshotTimer: ReturnType<typeof setTimeout> | null;
-  snapshotReceived: boolean;
   pendingResize?: { rows: number; cols: number };
   podSize?: { rows: number; cols: number };
   relayUrl: string;

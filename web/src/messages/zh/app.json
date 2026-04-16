@@ -274,6 +274,7 @@
     },
     "contextMenu": {
       "rename": "重命名",
+      "share": "共享",
       "terminate": "终止",
       "enablePerpetual": "启用永续模式",
       "disablePerpetual": "禁用永续模式"
