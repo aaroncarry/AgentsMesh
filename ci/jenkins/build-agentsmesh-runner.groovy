@@ -145,72 +145,38 @@ pipeline {
                     echo "Version: ${VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
-                    // Install GoReleaser if not present (v2.8+ required for 'ids' field support)
+                    // Install GoReleaser v2.8+ (required for 'ids' field support)
+                    // Use official install script to get the latest v2 version
                     sh """
-                        # Check if goreleaser v2.8+ is installed
-                        NEED_INSTALL=false
+                        echo "Installing GoReleaser latest v2..."
 
-                        if command -v goreleaser &> /dev/null; then
-                            CURRENT_VERSION=\$(goreleaser --version 2>&1 | head -n1 | sed -n 's/.*version \\([0-9.]\\+\\).*/\\1/p' || echo "0.0.0")
-                            echo "Current GoReleaser version: \$CURRENT_VERSION"
+                        # Remove any old installation in local bin
+                        rm -f \$HOME/.local/bin/goreleaser
 
-                            # Extract major and minor version
-                            MAJOR=\$(echo \$CURRENT_VERSION | cut -d. -f1)
-                            MINOR=\$(echo \$CURRENT_VERSION | cut -d. -f2)
+                        # Create local bin directory
+                        mkdir -p \$HOME/.local/bin
 
-                            # Check if version is less than 2.8
-                            if [ "\$MAJOR" -lt 2 ] || ([ "\$MAJOR" -eq 2 ] && [ "\$MINOR" -lt 8 ]); then
-                                echo "GoReleaser version \$CURRENT_VERSION is too old, need v2.8+"
-                                NEED_INSTALL=true
-                            else
-                                echo "GoReleaser version \$CURRENT_VERSION is sufficient"
-                            fi
-                        else
-                            echo "GoReleaser not found"
-                            NEED_INSTALL=true
-                        fi
+                        # Use official installer script (https://github.com/goreleaser/get)
+                        # This installs the latest v2 version to the specified directory
+                        curl -sfL https://raw.githubusercontent.com/goreleaser/get/main/get | sh -s -- -b \$HOME/.local/bin
 
-                        if [ "\$NEED_INSTALL" = "true" ]; then
-                            echo "Installing GoReleaser v2.8+..."
+                        echo "GoReleaser installed successfully"
 
-                            # Determine OS and architecture
-                            OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
-                            ARCH=\$(uname -m)
-
-                            # Map architecture names
-                            case "\$ARCH" in
-                                x86_64)
-                                    ARCH="x86_64"
-                                    ;;
-                                aarch64|arm64)
-                                    ARCH="arm64"
-                                    ;;
-                            esac
-
-                            # Download and install goreleaser (use v2.8.1 which supports 'ids' field)
-                            GORELEASER_VERSION="v2.8.1"
-                            GORELEASER_URL="https://github.com/goreleaser/goreleaser/releases/download/\${GORELEASER_VERSION}/goreleaser_\${OS}_\${ARCH}.tar.gz"
-                            echo "Downloading from: \$GORELEASER_URL"
-
-                            curl -sfL \$GORELEASER_URL | tar -xz -C /tmp goreleaser
-                            mkdir -p \$HOME/.local/bin
-                            mv /tmp/goreleaser \$HOME/.local/bin/goreleaser
-                            chmod +x \$HOME/.local/bin/goreleaser
-
-                            echo "GoReleaser installed successfully"
-                        fi
-
-                        # Ensure it's in PATH and show version
-                        export PATH=\$HOME/.local/bin:\$PATH
-                        goreleaser --version
+                        # Verify installation
+                        \$HOME/.local/bin/goreleaser --version
                     """
 
-                    // Build with GoReleaser
+                    // Build with GoReleaser (use explicit path to ensure correct version)
                     sh """
                         source ~/.bashrc
                         export PATH=\$HOME/.local/bin:\$PATH
+
+                        # Verify we're using the correct goreleaser
+                        echo "Using goreleaser at: \$(which goreleaser)"
+                        goreleaser --version
+
                         cd runner
-                        goreleaser release --snapshot --clean
+                        \$HOME/.local/bin/goreleaser release --snapshot --clean
                     """
 
                     echo "=== Build complete ==="
