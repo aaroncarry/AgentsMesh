@@ -23,7 +23,7 @@
  * MinIO Upload:
  * - Endpoint: http://aqa01-i01-xta01.int.rclabenv.com:9900
  * - Bucket: agentsmesh
- * - MinIO Client (mc) will be automatically installed if not present
+ * - MinIO Client will be automatically installed as 'mcli' if not present (to avoid conflict with GNU Midnight Commander)
  * - All artifacts are uploaded directly (overwrites existing files)
  * - Files are publicly accessible
  *
@@ -167,10 +167,10 @@ pipeline {
                         "runner/bin/runner-windows-arm64.exe"
                     ]
 
-                    // Check if mc is installed, if not install it
+                    // Check if mcli (MinIO Client) is installed, if not install it
                     sh """
-                        if ! command -v mc &> /dev/null; then
-                            echo "MinIO Client (mc) not found, installing..."
+                        if ! command -v mcli &> /dev/null; then
+                            echo "MinIO Client (mcli) not found, installing..."
 
                             # Determine OS and architecture
                             OS=\$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -186,39 +186,39 @@ pipeline {
                                     ;;
                             esac
 
-                            # Download mc binary
+                            # Download mc binary and rename to mcli to avoid conflict with GNU Midnight Commander
                             MC_URL="https://dl.min.io/client/mc/release/\${OS}-\${ARCH}/mc"
                             echo "Downloading from: \$MC_URL"
 
-                            curl -o /tmp/mc \$MC_URL
-                            chmod +x /tmp/mc
+                            curl -o /tmp/mcli \$MC_URL
+                            chmod +x /tmp/mcli
 
                             # Move to user's local bin (no sudo required)
                             mkdir -p \$HOME/.local/bin
-                            mv /tmp/mc \$HOME/.local/bin/mc
+                            mv /tmp/mcli \$HOME/.local/bin/mcli
                             export PATH=\$HOME/.local/bin:\$PATH
 
-                            echo "MinIO Client installed successfully"
-                            mc --version
+                            echo "MinIO Client installed successfully as 'mcli'"
+                            mcli --version
                         else
-                            echo "MinIO Client already installed"
-                            mc --version
+                            echo "MinIO Client already installed as 'mcli'"
+                            mcli --version
                         fi
                     """
 
                     // Configure MinIO client
                     sh """
-                        # Ensure mc is in PATH
+                        # Ensure mcli is in PATH
                         export PATH=\$HOME/.local/bin:\$PATH
 
-                        # Configure mc alias (for HTTP endpoints, no --insecure needed)
-                        mc alias set agentsmesh-minio ${MINIO_ENDPOINT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
+                        # Configure mcli alias (for HTTP endpoints)
+                        mcli alias set agentsmesh-minio ${MINIO_ENDPOINT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 
                         # Create bucket if not exists
-                        mc mb agentsmesh-minio/${MINIO_BUCKET} --ignore-existing
+                        mcli mb agentsmesh-minio/${MINIO_BUCKET} --ignore-existing
 
                         # Set bucket policy to public (download-only)
-                        mc anonymous set download agentsmesh-minio/${MINIO_BUCKET}
+                        mcli anonymous set download agentsmesh-minio/${MINIO_BUCKET}
                     """
 
                     // Upload each artifact
@@ -227,10 +227,10 @@ pipeline {
                         echo "Uploading ${fileName}..."
 
                         sh """
-                            # Ensure mc is in PATH
+                            # Ensure mcli is in PATH
                             export PATH=\$HOME/.local/bin:\$PATH
 
-                            mc cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName}
+                            mcli cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName}
                         """
 
                         // Construct public download URL
