@@ -211,14 +211,14 @@ pipeline {
                         # Ensure mc is in PATH
                         export PATH=\$HOME/.local/bin:\$PATH
 
-                        # Configure mc alias
-                        mc alias set agentsmesh-minio ${MINIO_ENDPOINT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --insecure
+                        # Configure mc alias (for HTTP endpoints, no --insecure needed)
+                        mc alias set agentsmesh-minio ${MINIO_ENDPOINT} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 
                         # Create bucket if not exists
-                        mc mb agentsmesh-minio/${MINIO_BUCKET} --ignore-existing --insecure
+                        mc mb agentsmesh-minio/${MINIO_BUCKET} --ignore-existing
 
                         # Set bucket policy to public (download-only)
-                        mc anonymous set download agentsmesh-minio/${MINIO_BUCKET} --insecure
+                        mc anonymous set download agentsmesh-minio/${MINIO_BUCKET}
                     """
 
                     // Upload each artifact
@@ -230,7 +230,7 @@ pipeline {
                             # Ensure mc is in PATH
                             export PATH=\$HOME/.local/bin:\$PATH
 
-                            mc cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName} --insecure
+                            mc cp "${artifact}" agentsmesh-minio/${MINIO_BUCKET}/${fileName}
                         """
 
                         // Construct public download URL
