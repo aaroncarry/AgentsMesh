@@ -6,7 +6,8 @@
  * This pipeline:
  * 1. Clones the repository from GitLab
  * 2. Builds Runner binaries for all platforms (macOS, Linux, Windows, amd64/arm64)
- * 3. Archives built binaries as Jenkins artifacts
+ * 3. Uploads built binaries to NextCloud
+ * 4. Archives built binaries as Jenkins artifacts
  *
  * Build Command:
  * - cd runner && make build-all
@@ -19,6 +20,11 @@
  * - runner/bin/runner-windows-amd64.exe
  * - runner/bin/runner-windows-arm64.exe
  *
+ * NextCloud Upload:
+ * - URL: https://cloud-xmn.int.rclabenv.com
+ * - Directory: AgentsMesh/
+ * - All artifacts are uploaded directly (overwrites existing files)
+ *
  * Parameters:
  * - NODE: Jenkins node label to run the pipeline (default: aqa01-i01-jpt44.int.rclabenv.com)
  * - BRANCH: Git branch to build (default: rc)
@@ -29,6 +35,10 @@
  * - GIT_BRANCH: Git branch to build (from BRANCH parameter)
  * - VERSION: Git version (tag or commit hash)
  * - BUILD_TIME: Build timestamp
+ * - NEXTCLOUD_URL: NextCloud server URL
+ * - NEXTCLOUD_DIR: NextCloud directory for uploads
+ * - NEXTCLOUD_USER: NextCloud username
+ * - NEXTCLOUD_PASS: NextCloud password
  */
 
 String getBuildUser() {
@@ -56,6 +66,12 @@ pipeline {
         // Build metadata
         VERSION = "dev" // sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
+
+        // NextCloud configuration
+        NEXTCLOUD_URL = 'https://cloud-xmn.int.rclabenv.com'
+        NEXTCLOUD_DIR = 'AgentsMesh'
+        NEXTCLOUD_USER = 'sdet'
+        NEXTCLOUD_PASS = 'Sdet!123456'
     }
 
     parameters {
@@ -119,6 +135,38 @@ pipeline {
 
                     echo "=== Build complete ==="
                     sh "ls -lh runner/bin/"
+                }
+            }
+        }
+
+        stage('Upload to NextCloud') {
+            steps {
+                script {
+                    echo "=== Uploading artifacts to NextCloud ==="
+
+                    def artifacts = [
+                        "runner/bin/runner-darwin-amd64",
+                        "runner/bin/runner-darwin-arm64",
+                        "runner/bin/runner-linux-amd64",
+                        "runner/bin/runner-linux-arm64",
+                        "runner/bin/runner-windows-amd64.exe",
+                        "runner/bin/runner-windows-arm64.exe"
+                    ]
+
+                    // Upload each artifact directly to AgentsMesh directory (overwrite if exists)
+                    artifacts.each { artifact ->
+                        def fileName = artifact.split('/').last()
+                        echo "Uploading ${fileName}..."
+
+                        sh """
+                            curl -k -u ${NEXTCLOUD_USER}:${NEXTCLOUD_PASS} \
+                                 -T "${artifact}" \
+                                 "${NEXTCLOUD_URL}/remote.php/dav/files/${NEXTCLOUD_USER}/${NEXTCLOUD_DIR}/${fileName}"
+                        """
+                    }
+
+                    echo "=== Upload complete ==="
+                    echo "Artifacts uploaded to: ${NEXTCLOUD_URL}/apps/files/?dir=/${NEXTCLOUD_DIR}"
                 }
             }
         }
