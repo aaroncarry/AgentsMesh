@@ -77,7 +77,7 @@ pipeline {
         GIT_BRANCH = "${params.BRANCH}"
 
         // Build metadata
-        VERSION = "dev" // sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
+        VERSION = sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
         // MinIO configuration
@@ -295,7 +295,8 @@ pipeline {
         success {
             script {
                 echo "=== Archiving build artifacts ==="
-                archiveArtifacts artifacts: 'runner/dist/*.{tar.gz,zip,deb,rpm,apk}', fingerprint: true
+                // Archive all package files separately (Jenkins doesn't support brace expansion)
+                archiveArtifacts artifacts: 'runner/dist/*.tar.gz, runner/dist/*.zip, runner/dist/*.deb, runner/dist/*.rpm, runner/dist/*.apk', fingerprint: true, allowEmptyArchive: true
 
                 // Collect all artifacts for display
                 def artifacts = []
