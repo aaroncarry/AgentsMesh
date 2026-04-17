@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // GitLabProvider implements Provider interface for GitLab
@@ -27,7 +29,8 @@ func NewGitLabProvider(baseURL, accessToken string) (*GitLabProvider, error) {
 		baseURL:     baseURL,
 		accessToken: accessToken,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}, nil
 }

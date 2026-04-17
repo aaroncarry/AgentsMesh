@@ -53,7 +53,7 @@ func (s *Service) RenewCertificate(ctx context.Context, nodeID, oldSerial string
 
 	// Revoke old certificate (best-effort)
 	if err := s.repo.RevokeCertificate(ctx, oldSerial, "renewed"); err != nil {
-		slog.Warn("Failed to revoke old certificate during renewal",
+		slog.WarnContext(ctx, "Failed to revoke old certificate during renewal",
 			"node_id", nodeID, "old_serial", oldSerial, "error", err)
 	}
 
@@ -78,7 +78,7 @@ func (s *Service) RenewCertificate(ctx context.Context, nodeID, oldSerial string
 		return nil, fmt.Errorf("failed to update runner: %w", err)
 	}
 	if rowsAffected == 0 {
-		slog.Warn("Concurrent certificate renewal detected, discarding duplicate",
+		slog.WarnContext(ctx, "Concurrent certificate renewal detected, discarding duplicate",
 			"node_id", nodeID, "orphaned_serial", certInfo.SerialNumber)
 		return nil, ErrCertificateMismatch
 	}

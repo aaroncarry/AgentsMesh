@@ -145,7 +145,7 @@ func (s *Service) AdminUpdatePlan(ctx context.Context, orgID int64, planName str
 		return nil, err
 	}
 
-	slog.Info("admin updating subscription plan",
+	slog.InfoContext(ctx, "admin updating subscription plan",
 		"org_id", orgID, "plan_name", planName,
 		"old_plan_id", sub.PlanID, "new_plan_id", newPlan.ID, "new_plan_name", newPlan.Name)
 

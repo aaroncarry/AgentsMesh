@@ -10,6 +10,7 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/safego"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
@@ -72,6 +73,7 @@ func (c *GRPCConnection) Connect() error {
 			Timeout:             10 * time.Second,
 			PermitWithoutStream: true,
 		}),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	}
 
 	// Connect to server

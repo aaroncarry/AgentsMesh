@@ -63,16 +63,16 @@ func (p *Provider) CreateCheckoutSession(ctx context.Context, req *types.Checkou
 
 	result, err := p.client.TradePreCreate(ctx, trade)
 	if err != nil {
-		slog.Error("failed to create alipay precreate", "order_no", req.IdempotencyKey, "amount", req.ActualAmount, "error", err)
+		slog.ErrorContext(ctx, "failed to create alipay precreate", "order_no", req.IdempotencyKey, "amount", req.ActualAmount, "error", err)
 		return nil, fmt.Errorf("failed to create alipay precreate: %w", err)
 	}
 
 	if !result.IsSuccess() {
-		slog.Error("alipay precreate failed", "order_no", req.IdempotencyKey, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
+		slog.ErrorContext(ctx, "alipay precreate failed", "order_no", req.IdempotencyKey, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
 		return nil, fmt.Errorf("alipay precreate failed: %s - %s", result.SubCode, result.SubMsg)
 	}
 
-	slog.Info("alipay checkout session created", "order_no", req.IdempotencyKey, "amount", req.ActualAmount)
+	slog.InfoContext(ctx, "alipay checkout session created", "order_no", req.IdempotencyKey, "amount", req.ActualAmount)
 	return &types.CheckoutResponse{
 		SessionID:       req.IdempotencyKey,
 		OrderNo:         req.IdempotencyKey,
@@ -115,7 +115,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 	// Parse the form data from JSON
 	var formData map[string]string
 	if err := json.Unmarshal(payload, &formData); err != nil {
-		slog.Error("failed to parse alipay notification", "error", err)
+		slog.ErrorContext(ctx, "failed to parse alipay notification", "error", err)
 		return nil, fmt.Errorf("failed to parse alipay notification: %w", err)
 	}
 
@@ -127,7 +127,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 
 	// Verify signature
 	if err := p.client.VerifySign(values); err != nil {
-		slog.Error("alipay signature verification failed", "notify_id", formData["notify_id"], "error", err)
+		slog.ErrorContext(ctx, "alipay signature verification failed", "notify_id", formData["notify_id"], "error", err)
 		return nil, fmt.Errorf("alipay signature verification failed: %w", err)
 	}
 
@@ -166,7 +166,7 @@ func (p *Provider) HandleWebhook(ctx context.Context, payload []byte, signature 
 		result.RawPayload[k] = v
 	}
 
-	slog.Info("alipay webhook processed", "notify_id", result.EventID, "order_no", result.OrderNo, "status", result.Status)
+	slog.InfoContext(ctx, "alipay webhook processed", "notify_id", result.EventID, "order_no", result.OrderNo, "status", result.Status)
 	return result, nil
 }
 
@@ -181,16 +181,16 @@ func (p *Provider) RefundPayment(ctx context.Context, req *types.RefundRequest) 
 
 	result, err := p.client.TradeRefund(ctx, refund)
 	if err != nil {
-		slog.Error("failed to create alipay refund", "order_no", req.OrderNo, "amount", req.Amount, "error", err)
+		slog.ErrorContext(ctx, "failed to create alipay refund", "order_no", req.OrderNo, "amount", req.Amount, "error", err)
 		return nil, fmt.Errorf("failed to create alipay refund: %w", err)
 	}
 
 	if !result.IsSuccess() {
-		slog.Error("alipay refund failed", "order_no", req.OrderNo, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
+		slog.ErrorContext(ctx, "alipay refund failed", "order_no", req.OrderNo, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
 		return nil, fmt.Errorf("alipay refund failed: %s - %s", result.SubCode, result.SubMsg)
 	}
 
-	slog.Info("alipay refund created", "order_no", req.OrderNo, "amount", req.Amount)
+	slog.InfoContext(ctx, "alipay refund created", "order_no", req.OrderNo, "amount", req.Amount)
 	return &types.RefundResponse{
 		RefundID: req.IdempotencyKey,
 		Status:   "success",
@@ -208,15 +208,15 @@ func (p *Provider) CancelSubscription(ctx context.Context, subscriptionID string
 
 	result, err := p.client.TradeClose(ctx, close)
 	if err != nil {
-		slog.Error("failed to close alipay trade", "trade_no", subscriptionID, "error", err)
+		slog.ErrorContext(ctx, "failed to close alipay trade", "trade_no", subscriptionID, "error", err)
 		return fmt.Errorf("failed to close alipay trade: %w", err)
 	}
 
 	if !result.IsSuccess() && result.SubCode != "ACQ.TRADE_NOT_EXIST" {
-		slog.Error("alipay trade close failed", "trade_no", subscriptionID, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
+		slog.ErrorContext(ctx, "alipay trade close failed", "trade_no", subscriptionID, "sub_code", result.SubCode, "sub_msg", result.SubMsg)
 		return fmt.Errorf("alipay trade close failed: %s - %s", result.SubCode, result.SubMsg)
 	}
 
-	slog.Info("alipay trade closed", "trade_no", subscriptionID)
+	slog.InfoContext(ctx, "alipay trade closed", "trade_no", subscriptionID)
 	return nil
 }

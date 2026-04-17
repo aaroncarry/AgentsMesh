@@ -100,11 +100,11 @@ func (s *AutopilotControllerService) CreateAndStart(ctx context.Context, req *Cr
 	}
 
 	if err := s.repo.Create(ctx, controller); err != nil {
-		slog.Error("failed to create autopilot controller", "autopilot_key", autopilotKey, "pod_key", req.Pod.PodKey, "error", err)
+		slog.ErrorContext(ctx, "failed to create autopilot controller", "autopilot_key", autopilotKey, "pod_key", req.Pod.PodKey, "error", err)
 		return nil, fmt.Errorf("failed to create autopilot controller: %w", err)
 	}
 
-	slog.Info("autopilot controller created", "autopilot_key", autopilotKey, "pod_key", req.Pod.PodKey, "org_id", req.OrganizationID)
+	slog.InfoContext(ctx, "autopilot controller created", "autopilot_key", autopilotKey, "pod_key", req.Pod.PodKey, "org_id", req.OrganizationID)
 
 	if s.commandSender != nil {
 		cmd := &runnerv1.CreateAutopilotCommand{
@@ -123,7 +123,7 @@ func (s *AutopilotControllerService) CreateAndStart(ctx context.Context, req *Cr
 			},
 		}
 		if err := s.commandSender.SendCreateAutopilot(req.Pod.RunnerID, cmd); err != nil {
-			slog.Error("failed to send autopilot command to runner",
+			slog.ErrorContext(ctx, "failed to send autopilot command to runner",
 				"autopilot_key", autopilotKey, "pod_key", req.Pod.PodKey, "runner_id", req.Pod.RunnerID, "error", err)
 			return controller, fmt.Errorf("autopilot created in DB but failed to send command to runner: %w", err)
 		}

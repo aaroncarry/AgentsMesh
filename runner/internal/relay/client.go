@@ -67,11 +67,14 @@ type Client struct {
 
 // NewClient creates a new Relay WebSocket client
 // Note: sessionID parameter has been removed - channels are identified by PodKey only
-func NewClient(relayURL, podKey, token string, logger *slog.Logger) *Client {
+func NewClient(parentCtx context.Context, relayURL, podKey, token string, logger *slog.Logger) *Client {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parentCtx)
 
 	client := &Client{
 		relayURL:   relayURL,

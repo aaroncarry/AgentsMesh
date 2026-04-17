@@ -63,21 +63,21 @@ func (h *FileHandler) PresignUpload(c *gin.Context) {
 		case errors.Is(err, fileservice.ErrFileTooLarge):
 			apierr.PayloadTooLarge(c, err.Error())
 		case errors.Is(err, fileservice.ErrInvalidFileType):
-			slog.Warn("Presign upload rejected: invalid type",
+			slog.WarnContext(c.Request.Context(), "Presign upload rejected: invalid type",
 				"content_type", req.ContentType,
 				"filename", req.Filename,
 				"org_id", tenant.OrganizationID,
 			)
 			apierr.UnsupportedMediaType(c, err.Error())
 		case errors.Is(err, fileservice.ErrStorageError):
-			slog.Error("Presign upload failed: storage error",
+			slog.ErrorContext(c.Request.Context(), "Presign upload failed: storage error",
 				"error", err,
 				"filename", req.Filename,
 				"org_id", tenant.OrganizationID,
 			)
 			apierr.InternalError(c, "Failed to generate upload URL")
 		default:
-			slog.Error("Presign upload failed",
+			slog.ErrorContext(c.Request.Context(), "Presign upload failed",
 				"error", err,
 				"filename", req.Filename,
 				"org_id", tenant.OrganizationID,

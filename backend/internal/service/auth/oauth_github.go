@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // getGitHubAuthURL returns GitHub OAuth authorization URL
@@ -24,23 +26,23 @@ func getGitHubAuthURL(cfg OAuthConfig, state string) string {
 func handleGitHubCallback(ctx context.Context, cfg OAuthConfig, code string) (*OAuthUserInfo, error) {
 	accessToken, err := exchangeGitHubCode(ctx, cfg, code)
 	if err != nil {
-		slog.Error("github oauth code exchange failed", "error", err)
+		slog.ErrorContext(ctx, "github oauth code exchange failed", "error", err)
 		return nil, err
 	}
 
 	userInfo, err := fetchGitHubUserInfo(ctx, accessToken)
 	if err != nil {
-		slog.Error("github oauth user info fetch failed", "error", err)
+		slog.ErrorContext(ctx, "github oauth user info fetch failed", "error", err)
 		return nil, err
 	}
 
-	slog.Info("github oauth callback succeeded", "username", userInfo.Username, "email", userInfo.Email)
+	slog.InfoContext(ctx, "github oauth callback succeeded", "username", userInfo.Username, "email", userInfo.Email)
 	return userInfo, nil
 }
 
 // exchangeGitHubCode exchanges authorization code for access token
 func exchangeGitHubCode(ctx context.Context, cfg OAuthConfig, code string) (string, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	tokenResp, err := client.PostForm("https://github.com/login/oauth/access_token", url.Values{
 		"client_id":     {cfg.ClientID},
 		"client_secret": {cfg.ClientSecret},
@@ -64,7 +66,7 @@ func exchangeGitHubCode(ctx context.Context, cfg OAuthConfig, code string) (stri
 
 	accessToken := values.Get("access_token")
 	if accessToken == "" {
-		slog.Warn("github oauth returned empty access token")
+		slog.WarnContext(ctx, "github oauth returned empty access token")
 		return "", ErrInvalidOAuthCode
 	}
 
@@ -73,7 +75,7 @@ func exchangeGitHubCode(ctx context.Context, cfg OAuthConfig, code string) (stri
 
 // fetchGitHubUserInfo fetches user info from GitHub API
 func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*OAuthUserInfo, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	if err != nil {
@@ -89,7 +91,7 @@ func fetchGitHubUserInfo(ctx context.Context, accessToken string) (*OAuthUserInf
 	defer userResp.Body.Close()
 
 	if userResp.StatusCode != http.StatusOK {
-		slog.Error("github API returned non-OK status", "status", userResp.StatusCode)
+		slog.ErrorContext(ctx, "github API returned non-OK status", "status", userResp.StatusCode)
 		return nil, fmt.Errorf("GitHub API returned status %d", userResp.StatusCode)
 	}
 
@@ -129,7 +131,7 @@ func getGitHubPrimaryEmail(ctx context.Context, accessToken string) (string, err
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

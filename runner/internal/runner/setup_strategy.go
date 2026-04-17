@@ -110,7 +110,7 @@ func (s *LocalPathStrategy) Setup(ctx context.Context, sandboxRoot string, cfg *
 	if _, err := os.Stat(workingDir); os.IsNotExist(err) {
 		// Fallback to local path itself if workspace subdirectory doesn't exist
 		workingDir = cfg.LocalPath
-		logger.Pod().Debug("Workspace subdirectory not found, using local path directly",
+		logger.Pod().DebugContext(ctx, "Workspace subdirectory not found, using local path directly",
 			"local_path", cfg.LocalPath)
 	}
 

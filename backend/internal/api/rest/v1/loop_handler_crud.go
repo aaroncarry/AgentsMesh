@@ -17,7 +17,7 @@ import (
 func (h *LoopHandler) CreateLoop(c *gin.Context) {
 	var req createLoopRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Warn("loop create: binding failed", "error", err)
+		slog.WarnContext(c.Request.Context(), "loop create: binding failed", "error", err)
 		apierr.ValidationError(c, err.Error())
 		return
 	}
@@ -99,7 +99,7 @@ func (h *LoopHandler) CreateLoop(c *gin.Context) {
 		IdleTimeoutSec:      idleTimeoutSec,
 	})
 	if err != nil {
-		slog.Warn("loop create: service error", "error", err, "name", req.Name, "slug", req.Slug)
+		slog.WarnContext(c.Request.Context(), "loop create: service error", "error", err, "name", req.Name, "slug", req.Slug)
 		switch {
 		case errors.Is(err, loopService.ErrDuplicateSlug):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Loop slug already exists")

@@ -51,7 +51,7 @@ func (s *Service) GetAuthURL(ctx context.Context, domain string, protocol sso.Pr
 		// (AllowIDPInitiated=true accepts responses without InResponseTo match),
 		// but we lose the replay protection for SP-initiated flows.
 		if err := s.storeSAMLRequestID(ctx, state, requestID); err != nil {
-			slog.Warn("failed to store SAML request ID for InResponseTo validation",
+			slog.WarnContext(ctx, "failed to store SAML request ID for InResponseTo validation",
 				"domain", domain, "error", err)
 		}
 		return authURL, nil

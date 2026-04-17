@@ -80,7 +80,7 @@ func (h *SupportTicketHandler) Create(c *gin.Context) {
 			func() {
 				file, err := fileHeader.Open()
 				if err != nil {
-					slog.Warn("failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
+					slog.WarnContext(c.Request.Context(), "failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
 					return
 				}
 				defer file.Close()
@@ -94,7 +94,7 @@ func (h *SupportTicketHandler) Create(c *gin.Context) {
 					Size:        fileHeader.Size,
 					Reader:      file,
 				}); err != nil {
-					slog.Warn("failed to upload attachment", "filename", fileHeader.Filename, "error", err)
+					slog.WarnContext(c.Request.Context(), "failed to upload attachment", "filename", fileHeader.Filename, "error", err)
 				}
 			}()
 		}
@@ -162,7 +162,7 @@ func (h *SupportTicketHandler) GetByID(c *gin.Context) {
 	// Load messages
 	messages, err := h.service.ListMessages(c.Request.Context(), id, userID)
 	if err != nil {
-		slog.Warn("failed to load messages for ticket", "ticket_id", id, "error", err)
+		slog.WarnContext(c.Request.Context(), "failed to load messages for ticket", "ticket_id", id, "error", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -211,7 +211,7 @@ func (h *SupportTicketHandler) AddMessage(c *gin.Context) {
 			func() {
 				file, err := fileHeader.Open()
 				if err != nil {
-					slog.Warn("failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
+					slog.WarnContext(c.Request.Context(), "failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
 					return
 				}
 				defer file.Close()
@@ -225,7 +225,7 @@ func (h *SupportTicketHandler) AddMessage(c *gin.Context) {
 					Size:        fileHeader.Size,
 					Reader:      file,
 				}); err != nil {
-					slog.Warn("failed to upload attachment", "filename", fileHeader.Filename, "error", err)
+					slog.WarnContext(c.Request.Context(), "failed to upload attachment", "filename", fileHeader.Filename, "error", err)
 				}
 			}()
 		}

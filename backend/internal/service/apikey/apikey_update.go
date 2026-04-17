@@ -62,11 +62,11 @@ func (s *Service) UpdateAPIKey(ctx context.Context, id int64, orgID int64, req *
 	}
 
 	if err := s.repo.Update(ctx, key, updates); err != nil {
-		slog.Error("failed to update API key", "api_key_id", id, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to update API key", "api_key_id", id, "org_id", orgID, "error", err)
 		return nil, fmt.Errorf("failed to update api key: %w", err)
 	}
 
-	slog.Info("API key updated", "api_key_id", id, "org_id", orgID)
+	slog.InfoContext(ctx, "API key updated", "api_key_id", id, "org_id", orgID)
 	// Invalidate cache
 	s.invalidateCache(ctx, key.KeyHash)
 
@@ -93,11 +93,11 @@ func (s *Service) RevokeAPIKey(ctx context.Context, id int64, orgID int64) error
 		"is_enabled": false,
 		"updated_at": time.Now(),
 	}); err != nil {
-		slog.Error("failed to revoke API key", "api_key_id", id, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to revoke API key", "api_key_id", id, "org_id", orgID, "error", err)
 		return fmt.Errorf("failed to revoke api key: %w", err)
 	}
 
-	slog.Info("API key revoked", "api_key_id", id, "org_id", orgID)
+	slog.InfoContext(ctx, "API key revoked", "api_key_id", id, "org_id", orgID)
 	// Invalidate cache
 	s.invalidateCache(ctx, key.KeyHash)
 
@@ -115,11 +115,11 @@ func (s *Service) DeleteAPIKey(ctx context.Context, id int64, orgID int64) error
 	}
 
 	if err := s.repo.Delete(ctx, key); err != nil {
-		slog.Error("failed to delete API key", "api_key_id", id, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to delete API key", "api_key_id", id, "org_id", orgID, "error", err)
 		return fmt.Errorf("failed to delete api key: %w", err)
 	}
 
-	slog.Info("API key deleted", "api_key_id", id, "org_id", orgID)
+	slog.InfoContext(ctx, "API key deleted", "api_key_id", id, "org_id", orgID)
 	// Invalidate cache
 	s.invalidateCache(ctx, key.KeyHash)
 

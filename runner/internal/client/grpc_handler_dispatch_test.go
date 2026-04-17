@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ func TestHandleServerMessage_CreatePod(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg)
+	conn.handleServerMessage(context.Background(), msg)
 	// Async dispatch — wait briefly
 	time.Sleep(50 * time.Millisecond)
 
@@ -60,7 +61,7 @@ func TestHandleServerMessage_TerminatePod(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg)
+	conn.handleServerMessage(context.Background(), msg)
 	time.Sleep(50 * time.Millisecond)
 
 	handler.mu.Lock()
@@ -83,7 +84,7 @@ func TestHandleServerMessage_PodInput(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg) // Synchronous
+	conn.handleServerMessage(context.Background(), msg) // Synchronous
 
 	handler.mu.Lock()
 	assert.True(t, handler.terminalInputCalled)
@@ -106,7 +107,7 @@ func TestHandleServerMessage_SendPrompt(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg)
+	conn.handleServerMessage(context.Background(), msg)
 
 	handler.mu.Lock()
 	assert.True(t, handler.sendPromptCalled)
@@ -129,7 +130,7 @@ func TestHandleServerMessage_UpdatePodPerpetual(t *testing.T) {
 		},
 	}
 
-	conn.handleServerMessage(msg)
+	conn.handleServerMessage(context.Background(), msg)
 
 	handler.mu.Lock()
 	assert.True(t, handler.updatePodPerpetualCalled)
@@ -157,7 +158,7 @@ func TestHandleServerMessage_NilHandler(t *testing.T) {
 	}
 
 	for _, msg := range messages {
-		conn.handleServerMessage(msg)
+		conn.handleServerMessage(context.Background(), msg)
 	}
 	// Wait for async handlers
 	time.Sleep(50 * time.Millisecond)

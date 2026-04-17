@@ -65,11 +65,11 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*promocode.Pr
 	}
 
 	if err := s.repo.Create(ctx, promoCode); err != nil {
-		slog.Error("failed to create promo code", "code", code, "error", err)
+		slog.ErrorContext(ctx, "failed to create promo code", "code", code, "error", err)
 		return nil, err
 	}
 
-	slog.Info("promo code created", "code_id", promoCode.ID, "code", code, "plan", req.PlanName)
+	slog.InfoContext(ctx, "promo code created", "code_id", promoCode.ID, "code", code, "plan", req.PlanName)
 	return promoCode, nil
 }
 
@@ -91,10 +91,10 @@ func (s *Service) Deactivate(ctx context.Context, id int64) error {
 	}
 	promoCode.IsActive = false
 	if err := s.repo.Update(ctx, promoCode); err != nil {
-		slog.Error("failed to deactivate promo code", "code_id", id, "error", err)
+		slog.ErrorContext(ctx, "failed to deactivate promo code", "code_id", id, "error", err)
 		return err
 	}
-	slog.Info("promo code deactivated", "code_id", id)
+	slog.InfoContext(ctx, "promo code deactivated", "code_id", id)
 	return nil
 }
 
@@ -106,9 +106,9 @@ func (s *Service) Activate(ctx context.Context, id int64) error {
 	}
 	promoCode.IsActive = true
 	if err := s.repo.Update(ctx, promoCode); err != nil {
-		slog.Error("failed to activate promo code", "code_id", id, "error", err)
+		slog.ErrorContext(ctx, "failed to activate promo code", "code_id", id, "error", err)
 		return err
 	}
-	slog.Info("promo code activated", "code_id", id)
+	slog.InfoContext(ctx, "promo code activated", "code_id", id)
 	return nil
 }

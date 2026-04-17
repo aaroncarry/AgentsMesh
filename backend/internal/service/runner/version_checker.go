@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -48,7 +49,8 @@ func NewVersionChecker(redisClient *redis.Client) *VersionChecker {
 		redisClient: redisClient,
 		interval:    defaultCheckInterval,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 		logger: slog.Default().With("component", "version_checker"),
 	}

@@ -22,9 +22,9 @@ func NewGRPCCommandSender(adapter *GRPCRunnerAdapter) *GRPCCommandSender {
 // SendCreatePod sends a create pod command to a runner via gRPC.
 // Uses Proto type directly - no conversion needed.
 func (s *GRPCCommandSender) SendCreatePod(ctx context.Context, runnerID int64, cmd *runnerv1.CreatePodCommand) error {
-	slog.Info("sending create_pod command", "runner_id", runnerID, "pod_key", cmd.GetPodKey())
+	slog.InfoContext(ctx, "sending create_pod command", "runner_id", runnerID, "pod_key", cmd.GetPodKey())
 	if err := s.adapter.SendCreatePod(runnerID, cmd); err != nil {
-		slog.Error("failed to send create_pod command", "runner_id", runnerID, "pod_key", cmd.GetPodKey(), "error", err)
+		slog.ErrorContext(ctx, "failed to send create_pod command", "runner_id", runnerID, "pod_key", cmd.GetPodKey(), "error", err)
 		return err
 	}
 	return nil
@@ -32,9 +32,9 @@ func (s *GRPCCommandSender) SendCreatePod(ctx context.Context, runnerID int64, c
 
 // SendTerminatePod sends a terminate pod command to a runner via gRPC.
 func (s *GRPCCommandSender) SendTerminatePod(ctx context.Context, runnerID int64, podKey string) error {
-	slog.Info("sending terminate_pod command", "runner_id", runnerID, "pod_key", podKey)
+	slog.InfoContext(ctx, "sending terminate_pod command", "runner_id", runnerID, "pod_key", podKey)
 	if err := s.adapter.SendTerminatePod(runnerID, podKey, false); err != nil {
-		slog.Error("failed to send terminate_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send terminate_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -43,7 +43,7 @@ func (s *GRPCCommandSender) SendTerminatePod(ctx context.Context, runnerID int64
 // SendPodInput sends pod input to a runner via gRPC.
 func (s *GRPCCommandSender) SendPodInput(ctx context.Context, runnerID int64, podKey string, data []byte) error {
 	if err := s.adapter.SendPodInput(runnerID, podKey, data); err != nil {
-		slog.Error("failed to send pod_input command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send pod_input command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -51,9 +51,9 @@ func (s *GRPCCommandSender) SendPodInput(ctx context.Context, runnerID int64, po
 
 // SendPrompt sends a prompt to a pod via gRPC.
 func (s *GRPCCommandSender) SendPrompt(ctx context.Context, runnerID int64, podKey, prompt string) error {
-	slog.Info("sending prompt command", "runner_id", runnerID, "pod_key", podKey)
+	slog.InfoContext(ctx, "sending prompt command", "runner_id", runnerID, "pod_key", podKey)
 	if err := s.adapter.SendPrompt(runnerID, podKey, prompt); err != nil {
-		slog.Error("failed to send prompt command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send prompt command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -61,9 +61,9 @@ func (s *GRPCCommandSender) SendPrompt(ctx context.Context, runnerID int64, podK
 
 // SendSubscribePod sends a subscribe pod command via gRPC.
 func (s *GRPCCommandSender) SendSubscribePod(ctx context.Context, runnerID int64, podKey, relayURL, runnerToken string, includeSnapshot bool, snapshotHistory int32) error {
-	slog.Info("sending subscribe_pod command", "runner_id", runnerID, "pod_key", podKey)
+	slog.InfoContext(ctx, "sending subscribe_pod command", "runner_id", runnerID, "pod_key", podKey)
 	if err := s.adapter.SendSubscribePod(runnerID, podKey, relayURL, runnerToken, includeSnapshot, snapshotHistory); err != nil {
-		slog.Error("failed to send subscribe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send subscribe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -71,9 +71,9 @@ func (s *GRPCCommandSender) SendSubscribePod(ctx context.Context, runnerID int64
 
 // SendUnsubscribePod sends an unsubscribe pod command via gRPC.
 func (s *GRPCCommandSender) SendUnsubscribePod(ctx context.Context, runnerID int64, podKey string) error {
-	slog.Info("sending unsubscribe_pod command", "runner_id", runnerID, "pod_key", podKey)
+	slog.InfoContext(ctx, "sending unsubscribe_pod command", "runner_id", runnerID, "pod_key", podKey)
 	if err := s.adapter.SendUnsubscribePod(runnerID, podKey); err != nil {
-		slog.Error("failed to send unsubscribe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send unsubscribe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -101,9 +101,9 @@ func (s *GRPCCommandSender) SendAutopilotControl(runnerID int64, cmd *runnerv1.A
 
 // SendUpdatePodPerpetual sends an update perpetual mode command to a runner via gRPC.
 func (s *GRPCCommandSender) SendUpdatePodPerpetual(ctx context.Context, runnerID int64, podKey string, perpetual bool) error {
-	slog.Info("sending update_pod_perpetual command", "runner_id", runnerID, "pod_key", podKey, "perpetual", perpetual)
+	slog.InfoContext(ctx, "sending update_pod_perpetual command", "runner_id", runnerID, "pod_key", podKey, "perpetual", perpetual)
 	if err := s.adapter.SendUpdatePodPerpetual(runnerID, podKey, perpetual); err != nil {
-		slog.Error("failed to send update_pod_perpetual command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send update_pod_perpetual command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil
@@ -121,9 +121,9 @@ func (s *GRPCCommandSender) SendQuerySandboxes(runnerID int64, requestID string,
 
 // SendObservePod sends an observe pod command to a runner via gRPC.
 func (s *GRPCCommandSender) SendObservePod(ctx context.Context, runnerID int64, requestID, podKey string, lines int32, includeScreen bool) error {
-	slog.Info("sending observe_pod command", "runner_id", runnerID, "request_id", requestID, "pod_key", podKey)
+	slog.InfoContext(ctx, "sending observe_pod command", "runner_id", runnerID, "request_id", requestID, "pod_key", podKey)
 	if err := s.adapter.SendObservePod(runnerID, requestID, podKey, lines, includeScreen); err != nil {
-		slog.Error("failed to send observe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
+		slog.ErrorContext(ctx, "failed to send observe_pod command", "runner_id", runnerID, "pod_key", podKey, "error", err)
 		return err
 	}
 	return nil

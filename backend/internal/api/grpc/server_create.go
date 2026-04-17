@@ -12,6 +12,8 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip" // Register gzip compressor/decompressor
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
+
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 )
 
 // NewServer creates a new gRPC server for Runner communication.
@@ -75,7 +77,7 @@ func buildServerOptions(deps *ServerDependencies) []grpc.ServerOption {
 		// Message size limits
 		grpc.MaxRecvMsgSize(16 * 1024 * 1024), // 16MB max receive
 		grpc.MaxSendMsgSize(16 * 1024 * 1024), // 16MB max send
-		// Interceptors
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
 			loggingUnaryInterceptor(deps.Logger),
 		),

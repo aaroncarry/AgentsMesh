@@ -134,7 +134,7 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 		return nil, err
 	}
 
-	slog.Info("pod created", "pod_key", pod.PodKey, "org_id", pod.OrganizationID, "agent_slug", pod.AgentSlug, "runner_id", pod.RunnerID)
+	slog.InfoContext(ctx, "pod created", "pod_key", pod.PodKey, "org_id", pod.OrganizationID, "agent_slug", pod.AgentSlug, "runner_id", pod.RunnerID)
 
 	// NOTE: current_pods increment is handled by PodCoordinator.CreatePod(),
 	// which runs only when a command is actually sent to Runner.

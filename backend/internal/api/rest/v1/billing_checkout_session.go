@@ -92,7 +92,7 @@ func (h *BillingHandler) createCheckoutSession(c *gin.Context, tenant *middlewar
 	if err := h.billingService.CreatePaymentOrder(c.Request.Context(), order); err != nil {
 		// Order must be persisted before returning the checkout URL to the user.
 		// Without a local order record, webhook reconciliation will be unreliable.
-		slog.Error("failed to save payment order",
+		slog.ErrorContext(c.Request.Context(), "failed to save payment order",
 			"order_no", orderNo, "error", err)
 		apierr.InternalError(c, "failed to create payment order")
 		return

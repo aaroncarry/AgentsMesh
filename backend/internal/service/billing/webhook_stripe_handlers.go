@@ -48,7 +48,7 @@ func (s *Service) HandleSubscriptionUpdated(c *gin.Context, event *payment.Webho
 		if event.Provider == billing.PaymentProviderLemonSqueezy && event.CustomerID != "" {
 			sub, err = s.findAndLinkLSSubscription(ctx, event)
 			if err != nil {
-				slog.Warn("subscription not found for provider",
+				slog.WarnContext(c.Request.Context(), "subscription not found for provider",
 				"provider", event.Provider, "subscription_id", event.SubscriptionID, "customer_id", event.CustomerID)
 				return nil
 			}
@@ -67,7 +67,7 @@ func (s *Service) HandleSubscriptionUpdated(c *gin.Context, event *payment.Webho
 			billing.SubscriptionStatusExpired:
 			sub.Status = mappedStatus
 		default:
-			slog.Warn("unknown LemonSqueezy subscription status",
+			slog.WarnContext(c.Request.Context(), "unknown LemonSqueezy subscription status",
 				"status", event.Status, "subscription_id", event.SubscriptionID)
 		}
 	} else {
@@ -87,7 +87,7 @@ func (s *Service) HandleSubscriptionUpdated(c *gin.Context, event *payment.Webho
 		case "expired":
 			sub.Status = billing.SubscriptionStatusExpired
 		default:
-			slog.Warn("unknown subscription status from provider",
+			slog.WarnContext(c.Request.Context(), "unknown subscription status from provider",
 				"status", event.Status, "provider", event.Provider, "subscription_id", event.SubscriptionID)
 		}
 	}
@@ -142,7 +142,7 @@ func (s *Service) findAndLinkLSSubscription(ctx context.Context, event *payment.
 	// Link the subscription_id if not set
 	if sub.LemonSqueezySubscriptionID == nil {
 		sub.LemonSqueezySubscriptionID = &event.SubscriptionID
-		slog.Info("linked LS subscription via customer ID (race condition recovery)",
+		slog.InfoContext(ctx, "linked LS subscription via customer ID (race condition recovery)",
 			"subscription_id", event.SubscriptionID, "org_id", sub.OrganizationID, "customer_id", event.CustomerID)
 	}
 

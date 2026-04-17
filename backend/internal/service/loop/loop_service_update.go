@@ -142,10 +142,10 @@ func (s *LoopService) Update(ctx context.Context, orgID int64, slug string, req 
 
 	if len(updates) > 0 {
 		if err := s.repo.Update(ctx, loop.ID, updates); err != nil {
-			slog.Error("failed to update loop", "loop_id", loop.ID, "slug", slug, "org_id", orgID, "error", err)
+			slog.ErrorContext(ctx, "failed to update loop", "loop_id", loop.ID, "slug", slug, "org_id", orgID, "error", err)
 			return nil, err
 		}
-		slog.Info("loop updated", "loop_id", loop.ID, "slug", slug, "org_id", orgID)
+		slog.InfoContext(ctx, "loop updated", "loop_id", loop.ID, "slug", slug, "org_id", orgID)
 	}
 
 	return s.GetBySlug(ctx, orgID, slug)

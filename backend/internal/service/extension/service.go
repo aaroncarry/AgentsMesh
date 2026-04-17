@@ -127,7 +127,7 @@ func (s *Service) CreateSkillRegistry(ctx context.Context, orgID int64, input Cr
 		return nil, fmt.Errorf("failed to create skill registry: %w", err)
 	}
 
-	slog.Info("skill registry created", "registry_id", registry.ID, "org_id", orgID, "repository_url", input.RepositoryURL)
+	slog.InfoContext(ctx, "skill registry created", "registry_id", registry.ID, "org_id", orgID, "repository_url", input.RepositoryURL)
 
 	return registry, nil
 }
@@ -154,7 +154,7 @@ func (s *Service) SyncSkillRegistry(ctx context.Context, orgID, sourceID int64) 
 
 	// Trigger sync — runs synchronously so caller gets final status
 	if err := s.importer.SyncSource(ctx, sourceID); err != nil {
-		slog.Error("Skill registry sync failed", "registry_id", sourceID, "error", err)
+		slog.ErrorContext(ctx, "Skill registry sync failed", "registry_id", sourceID, "error", err)
 		// Reload to get the error status set by importer
 		registry, _ = s.repo.GetSkillRegistry(ctx, sourceID)
 		if registry != nil {
@@ -169,7 +169,7 @@ func (s *Service) SyncSkillRegistry(ctx context.Context, orgID, sourceID int64) 
 		return nil, fmt.Errorf("failed to reload registry after sync: %w", err)
 	}
 
-	slog.Info("skill registry synced", "registry_id", sourceID, "org_id", orgID, "sync_status", registry.SyncStatus)
+	slog.InfoContext(ctx, "skill registry synced", "registry_id", sourceID, "org_id", orgID, "sync_status", registry.SyncStatus)
 
 	return registry, nil
 }

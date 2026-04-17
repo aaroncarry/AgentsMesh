@@ -13,28 +13,28 @@ import (
 func (s *Service) Authenticate(ctx context.Context, email, password string) (*user.User, error) {
 	u, err := s.GetByEmail(ctx, email)
 	if err != nil {
-		slog.Warn("authentication failed: user not found", "email", email)
+		slog.WarnContext(ctx, "authentication failed: user not found", "email", email)
 		return nil, ErrInvalidCredentials
 	}
 
 	if !u.IsActive {
-		slog.Warn("authentication failed: user inactive", "user_id", u.ID, "email", email)
+		slog.WarnContext(ctx, "authentication failed: user inactive", "user_id", u.ID, "email", email)
 		return nil, ErrUserInactive
 	}
 
 	if u.PasswordHash == nil || *u.PasswordHash == "" {
-		slog.Warn("authentication failed: no password set", "user_id", u.ID)
+		slog.WarnContext(ctx, "authentication failed: no password set", "user_id", u.ID)
 		return nil, ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*u.PasswordHash), []byte(password)); err != nil {
-		slog.Warn("authentication failed: wrong password", "user_id", u.ID)
+		slog.WarnContext(ctx, "authentication failed: wrong password", "user_id", u.ID)
 		return nil, ErrInvalidCredentials
 	}
 
 	s.RecordLogin(ctx, u.ID)
 
-	slog.Info("user authenticated", "user_id", u.ID, "email", email)
+	slog.InfoContext(ctx, "user authenticated", "user_id", u.ID, "email", email)
 	return u, nil
 }
 
@@ -43,7 +43,7 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (*us
 func (s *Service) RecordLogin(ctx context.Context, userID int64) {
 	now := time.Now()
 	if err := s.repo.UpdateUserField(ctx, userID, "last_login_at", now); err != nil {
-		slog.Warn("failed to update last_login_at", "user_id", userID, "error", err)
+		slog.WarnContext(ctx, "failed to update last_login_at", "user_id", userID, "error", err)
 	}
 }
 
@@ -52,7 +52,7 @@ func (s *Service) RecordLogin(ctx context.Context, userID int64) {
 func (s *Service) SetEmailVerificationToken(ctx context.Context, userID int64) (string, error) {
 	token, err := generateToken()
 	if err != nil {
-		slog.Error("failed to generate email verification token", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to generate email verification token", "user_id", userID, "error", err)
 		return "", err
 	}
 
@@ -63,7 +63,7 @@ func (s *Service) SetEmailVerificationToken(ctx context.Context, userID int64) (
 		"email_verification_expires_at": expiresAt,
 	})
 	if err != nil {
-		slog.Error("failed to save email verification token", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to save email verification token", "user_id", userID, "error", err)
 	}
 
 	return token, err
@@ -73,13 +73,13 @@ func (s *Service) SetEmailVerificationToken(ctx context.Context, userID int64) (
 func (s *Service) VerifyEmail(ctx context.Context, token string) (*user.User, error) {
 	u, err := s.repo.GetByVerificationToken(ctx, token)
 	if err != nil {
-		slog.Warn("email verification failed: invalid token")
+		slog.WarnContext(ctx, "email verification failed: invalid token")
 		return nil, ErrInvalidVerificationToken
 	}
 
 	// Check if token has expired
 	if u.EmailVerificationExpiresAt == nil || time.Now().After(*u.EmailVerificationExpiresAt) {
-		slog.Warn("email verification failed: token expired", "user_id", u.ID)
+		slog.WarnContext(ctx, "email verification failed: token expired", "user_id", u.ID)
 		return nil, ErrInvalidVerificationToken
 	}
 
@@ -95,11 +95,11 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) (*user.User, er
 		"email_verification_expires_at": nil,
 	})
 	if err != nil {
-		slog.Error("failed to mark email as verified", "user_id", u.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to mark email as verified", "user_id", u.ID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("email verified", "user_id", u.ID)
+	slog.InfoContext(ctx, "email verified", "user_id", u.ID)
 	u.IsEmailVerified = true
 	return u, nil
 }
@@ -131,20 +131,20 @@ func (s *Service) SetPasswordResetToken(ctx context.Context, email string) (stri
 func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) (*user.User, error) {
 	u, err := s.repo.GetByResetToken(ctx, token)
 	if err != nil {
-		slog.Warn("password reset failed: invalid token")
+		slog.WarnContext(ctx, "password reset failed: invalid token")
 		return nil, ErrInvalidResetToken
 	}
 
 	// Check if token has expired
 	if u.PasswordResetExpiresAt == nil || time.Now().After(*u.PasswordResetExpiresAt) {
-		slog.Warn("password reset failed: token expired", "user_id", u.ID)
+		slog.WarnContext(ctx, "password reset failed: token expired", "user_id", u.ID)
 		return nil, ErrInvalidResetToken
 	}
 
 	// Hash new password
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		slog.Error("failed to hash new password", "user_id", u.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to hash new password", "user_id", u.ID, "error", err)
 		return nil, err
 	}
 
@@ -155,11 +155,11 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 		"password_reset_expires_at": nil,
 	})
 	if err != nil {
-		slog.Error("failed to update password", "user_id", u.ID, "error", err)
+		slog.ErrorContext(ctx, "failed to update password", "user_id", u.ID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("password reset completed", "user_id", u.ID)
+	slog.InfoContext(ctx, "password reset completed", "user_id", u.ID)
 	return u, nil
 }
 

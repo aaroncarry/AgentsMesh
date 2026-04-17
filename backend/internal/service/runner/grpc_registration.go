@@ -92,20 +92,20 @@ func (s *Service) ListGRPCRegistrationTokens(ctx context.Context, orgID int64) (
 func (s *Service) DeleteGRPCRegistrationToken(ctx context.Context, tokenID, orgID int64) error {
 	rowsAffected, err := s.repo.DeleteRegistrationToken(ctx, tokenID, orgID)
 	if err != nil {
-		slog.Error("failed to delete gRPC registration token", "token_id", tokenID, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to delete gRPC registration token", "token_id", tokenID, "org_id", orgID, "error", err)
 		return err
 	}
 	if rowsAffected == 0 {
 		return ErrGRPCTokenNotFound
 	}
-	slog.Info("gRPC registration token deleted", "token_id", tokenID, "org_id", orgID)
+	slog.InfoContext(ctx, "gRPC registration token deleted", "token_id", tokenID, "org_id", orgID)
 	return nil
 }
 
 // CleanupExpiredPendingAuths removes expired pending auth records.
 func (s *Service) CleanupExpiredPendingAuths(ctx context.Context) error {
 	if err := s.repo.CleanupExpiredPendingAuths(ctx); err != nil {
-		slog.Error("failed to cleanup expired pending auths", "error", err)
+		slog.ErrorContext(ctx, "failed to cleanup expired pending auths", "error", err)
 		return err
 	}
 	return nil

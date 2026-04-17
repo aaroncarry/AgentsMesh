@@ -52,7 +52,7 @@ func (d *OSCDetector) PublishNotification(ctx context.Context, podKey, title, bo
 	}
 
 	// No dispatcher configured — log warning and skip (legacy EventBus path removed for format consistency)
-	slog.Warn("OSC notification dropped: notifyFunc not configured", "pod_key", podKey)
+	slog.WarnContext(ctx, "OSC notification dropped: notifyFunc not configured", "pod_key", podKey)
 	return false
 }
 

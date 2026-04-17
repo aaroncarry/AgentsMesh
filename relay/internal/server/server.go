@@ -13,6 +13,7 @@ import (
 	"github.com/anthropics/agentsmesh/relay/internal/backend"
 	"github.com/anthropics/agentsmesh/relay/internal/channel"
 	"github.com/anthropics/agentsmesh/relay/internal/config"
+	otelinit "github.com/anthropics/agentsmesh/relay/internal/otel"
 )
 
 // Server is the main relay server
@@ -91,8 +92,11 @@ func New(cfg *config.Config) *Server {
 
 // Start starts the relay server
 func (s *Server) Start(ctx context.Context) error {
-	// Register with backend. Docker Compose `depends_on: backend: condition: service_healthy`
-	// ensures the backend is ready before the relay starts — no retry logic needed here.
+	otelinit.RegisterRelayGauges(
+		func() int { return s.channelManager.Stats().ActiveChannels },
+		func() int { return s.channelManager.Stats().TotalSubscribers },
+	)
+
 	if err := s.backendClient.Register(ctx); err != nil {
 		s.channelManager.Close() // clean up cleanup goroutine started in constructor
 		return fmt.Errorf("failed to register with backend (ensure backend is running and healthy): %w", err)

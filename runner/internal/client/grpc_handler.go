@@ -10,6 +10,7 @@ import (
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/safego"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -19,7 +20,7 @@ import (
 func (c *GRPCConnection) readLoop(ctx context.Context, done chan<- struct{}) {
 	defer close(done) // Signal exit to other goroutines
 	log := logger.GRPC()
-	log.Info("Read loop starting")
+	log.InfoContext(ctx, "Read loop starting")
 	for {
 		msg, err := c.stream.Recv()
 		if err != nil {
@@ -41,7 +42,7 @@ func (c *GRPCConnection) readLoop(ctx context.Context, done chan<- struct{}) {
 		}
 		// Record successful recv for liveness tracking and diagnostics
 		c.lastRecvTime.Store(time.Now().UnixNano())
-		c.handleServerMessage(msg)
+		c.handleServerMessage(ctx, msg)
 	}
 }
 
@@ -49,7 +50,14 @@ func (c *GRPCConnection) readLoop(ctx context.Context, done chan<- struct{}) {
 // Heavy operations (CreatePod, SubscribePod, CreateAutopilot) are dispatched
 // asynchronously via goroutines to avoid blocking the readLoop.
 // Lightweight operations remain synchronous to preserve message ordering.
-func (c *GRPCConnection) handleServerMessage(msg *runnerv1.ServerMessage) {
+func (c *GRPCConnection) handleServerMessage(ctx context.Context, msg *runnerv1.ServerMessage) {
+	msgType := extractServerMessageType(msg)
+	if !isHighFrequencyServerMessage(msgType) {
+		var span trace.Span
+		ctx, span = startMessageSpan(ctx, msgType)
+		defer span.End()
+	}
+	_ = ctx
 	switch payload := msg.Payload.(type) {
 	case *runnerv1.ServerMessage_InitializeResult:
 		c.handleInitializeResult(payload.InitializeResult)

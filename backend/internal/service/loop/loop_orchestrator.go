@@ -10,6 +10,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/eventbus"
 	agentpodSvc "github.com/anthropics/agentsmesh/backend/internal/service/agentpod"
 	ticketSvc "github.com/anthropics/agentsmesh/backend/internal/service/ticket"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // PodTerminator defines the minimal interface needed by LoopOrchestrator
@@ -62,10 +63,8 @@ func NewLoopOrchestrator(
 		eventBus:       eventBus,
 		logger:         logger.With("component", "loop_orchestrator"),
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-			// Disable redirects to prevent SSRF bypass via HTTP redirect to internal IPs.
-			// The initial callback_url is validated against private ranges at create/update time,
-			// but a redirect could point to an internal address, bypassing that check.
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},

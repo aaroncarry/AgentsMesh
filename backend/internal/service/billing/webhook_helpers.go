@@ -28,7 +28,7 @@ func (s *Service) syncOrganizationSubscription(ctx context.Context, orgID int64,
 		return
 	}
 	if err := s.repo.SyncOrganizationSubscription(ctx, orgID, updates); err != nil {
-		slog.Error("failed to sync organization subscription fields",
+		slog.ErrorContext(ctx, "failed to sync organization subscription fields",
 			"org_id", orgID, "updates", updates, "error", err)
 	}
 }
@@ -85,7 +85,7 @@ func (s *Service) addSeats(ctx context.Context, order *billing.PaymentOrder) err
 	sub, err := s.GetSubscription(ctx, order.OrganizationID)
 	if err == nil && sub.Plan != nil && sub.Plan.MaxUsers > 0 {
 		if sub.SeatCount+order.Seats > sub.Plan.MaxUsers {
-			slog.Warn("seat count would exceed plan max_users limit",
+			slog.WarnContext(ctx, "seat count would exceed plan max_users limit",
 			"current_seats", sub.SeatCount, "additional_seats", order.Seats,
 			"max_users", sub.Plan.MaxUsers, "org_id", order.OrganizationID)
 			return ErrQuotaExceeded
@@ -138,7 +138,7 @@ func (s *Service) renewSubscriptionFromOrder(ctx context.Context, order *billing
 			sub.PlanID = plan.ID
 			downgradedPlanName = &plan.Name
 		} else {
-			slog.Warn("pending downgrade plan not found, downgrade dropped",
+			slog.WarnContext(ctx, "pending downgrade plan not found, downgrade dropped",
 				"plan", *sub.DowngradeToPlan, "org_id", sub.OrganizationID, "error", err)
 		}
 		sub.DowngradeToPlan = nil

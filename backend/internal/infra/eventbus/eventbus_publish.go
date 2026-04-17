@@ -5,11 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Publish publishes an event locally and to Redis for multi-instance sync
 func (eb *EventBus) Publish(ctx context.Context, event *Event) error {
-	// Set timestamp if not set
+	ctx, span := otel.Tracer("agentsmesh-backend").Start(ctx, "eventbus.publish",
+		trace.WithAttributes(attribute.String("event.type", string(event.Type))),
+	)
+	defer span.End()
+
 	if event.Timestamp == 0 {
 		event.Timestamp = time.Now().UnixMilli()
 	}

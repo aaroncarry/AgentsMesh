@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+
 	"github.com/anthropics/agentsmesh/backend/internal/config"
 	"github.com/anthropics/agentsmesh/backend/internal/infra/email"
 	"gorm.io/gorm"
@@ -68,9 +70,9 @@ func (s *SubscriptionScheduler) Stop() {
 
 // runInitialJobs runs jobs immediately on startup
 func (s *SubscriptionScheduler) runInitialJobs() {
-	ctx := context.Background()
+	ctx, span := otel.Tracer("agentsmesh-backend").Start(context.Background(), "job.initial")
+	defer span.End()
 
-	// Run freeze check on startup
 	if err := s.renewJob.FreezeExpiredSubscriptions(ctx); err != nil {
 		s.logger.Error("failed to run initial freeze check", "error", err)
 	}
@@ -86,17 +88,16 @@ func (s *SubscriptionScheduler) runHourlyJobs() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			ctx := context.Background()
+			ctx, span := otel.Tracer("agentsmesh-backend").Start(context.Background(), "job.hourly")
 
-			// Freeze expired subscriptions
 			if err := s.renewJob.FreezeExpiredSubscriptions(ctx); err != nil {
 				s.logger.Error("failed to freeze expired subscriptions", "error", err)
 			}
 
-			// Process auto-renewals (for CN payments with agreement/contract)
 			if err := s.renewJob.Run(ctx); err != nil {
 				s.logger.Error("failed to process subscription renewals", "error", err)
 			}
+			span.End()
 		}
 	}
 }
@@ -134,9 +135,9 @@ func (s *SubscriptionScheduler) runDailyJobs() {
 
 // runDailyJobsOnce executes all daily jobs once
 func (s *SubscriptionScheduler) runDailyJobsOnce() {
-	ctx := context.Background()
+	ctx, span := otel.Tracer("agentsmesh-backend").Start(context.Background(), "job.daily")
+	defer span.End()
 
-	// Send renewal reminder emails
 	if err := s.emailJob.Run(ctx); err != nil {
 		s.logger.Error("failed to send renewal reminders", "error", err)
 	}

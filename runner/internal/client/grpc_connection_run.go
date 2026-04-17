@@ -31,12 +31,12 @@ func (c *GRPCConnection) runConnection() {
 	// Add org_slug to metadata for organization routing
 	ctx = metadata.AppendToOutgoingContext(ctx, "x-org-slug", c.orgSlug)
 
-	logger.GRPC().Debug("Establishing bidirectional stream", "org", c.orgSlug)
+	logger.GRPC().DebugContext(ctx, "Establishing bidirectional stream", "org", c.orgSlug)
 
 	// Create bidirectional stream
 	stream, err := c.client.Connect(ctx)
 	if err != nil {
-		logger.GRPC().Error("Failed to establish stream", "error", err)
+		logger.GRPC().ErrorContext(ctx, "Failed to establish stream", "error", err)
 		return
 	}
 
@@ -54,7 +54,7 @@ func (c *GRPCConnection) runConnection() {
 		cancel() // Cancel stream context -> triggers reconnection
 	})
 
-	logger.GRPC().Info("Bidirectional stream established")
+	logger.GRPC().InfoContext(ctx, "Bidirectional stream established")
 
 	done := make(chan struct{})
 	readLoopDone := make(chan struct{}) // Signal when readLoop exits
@@ -64,7 +64,7 @@ func (c *GRPCConnection) runConnection() {
 	// spawns new goroutines while old ones are still running -> goroutine leak.
 	var wg sync.WaitGroup
 
-	logger.GRPC().Debug("Starting read/write loops")
+	logger.GRPC().DebugContext(ctx, "Starting read/write loops")
 
 	// Start write loop
 	wg.Add(1)
@@ -83,7 +83,7 @@ func (c *GRPCConnection) runConnection() {
 
 	// Perform initialization (blocks until handshake completes or times out)
 	if err := c.performInitialization(ctx); err != nil {
-		logger.GRPC().Error("Initialization failed", "error", err)
+		logger.GRPC().ErrorContext(ctx, "Initialization failed", "error", err)
 		close(done)
 		wg.Wait()
 		return
@@ -115,7 +115,7 @@ func (c *GRPCConnection) runConnection() {
 		defer wg.Done()
 		select {
 		case <-c.reconnectCh:
-			logger.GRPC().Info("Reconnection requested for certificate renewal")
+			logger.GRPC().InfoContext(ctx, "Reconnection requested for certificate renewal")
 			cancel() // Cancel context to trigger reconnection
 		case <-done:
 			return
@@ -127,11 +127,11 @@ func (c *GRPCConnection) runConnection() {
 	// Wait for context cancellation, stop signal, or readLoop exit
 	select {
 	case <-ctx.Done():
-		logger.GRPC().Debug("Context cancelled, closing connection")
+		logger.GRPC().DebugContext(ctx, "Context cancelled, closing connection")
 	case <-c.stopCh:
-		logger.GRPC().Debug("Stop signal received, closing connection")
+		logger.GRPC().DebugContext(ctx, "Stop signal received, closing connection")
 	case <-readLoopDone:
-		logger.GRPC().Debug("Read loop exited, closing connection")
+		logger.GRPC().DebugContext(ctx, "Read loop exited, closing connection")
 	}
 
 	// Clear stream to prevent sending to disconnected stream
@@ -146,7 +146,7 @@ func (c *GRPCConnection) runConnection() {
 	// Wait for all child goroutines to exit before returning.
 	// This prevents goroutine accumulation across reconnections.
 	wg.Wait()
-	logger.GRPC().Debug("All child goroutines exited, runConnection returning")
+	logger.GRPC().DebugContext(ctx, "All child goroutines exited, runConnection returning")
 }
 
 // buildMTLSConfig builds a TLS config for mTLS HTTP requests using the runner's

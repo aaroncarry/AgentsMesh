@@ -137,10 +137,10 @@ func (s *Service) Create(ctx context.Context, userID int64, req *CreateRequest) 
 	}
 
 	if err := s.repo.CreateTicketWithMessage(ctx, &ticket, msg); err != nil {
-		slog.Error("failed to create support ticket", "user_id", userID, "category", category, "error", err)
+		slog.ErrorContext(ctx, "failed to create support ticket", "user_id", userID, "category", category, "error", err)
 		return nil, fmt.Errorf("failed to create ticket: %w", err)
 	}
-	slog.Info("support ticket created", "ticket_id", ticket.ID, "user_id", userID, "category", category)
+	slog.InfoContext(ctx, "support ticket created", "ticket_id", ticket.ID, "user_id", userID, "category", category)
 	return &ticket, nil
 }
 
@@ -189,10 +189,10 @@ func (s *Service) AddMessage(ctx context.Context, ticketID, userID int64, req *A
 	}
 
 	if err := s.repo.AddMessageAndReopen(ctx, msg, ticketID); err != nil {
-		slog.Error("failed to add support ticket message", "ticket_id", ticketID, "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to add support ticket message", "ticket_id", ticketID, "user_id", userID, "error", err)
 		return nil, fmt.Errorf("failed to add message: %w", err)
 	}
-	slog.Info("support ticket message added", "ticket_id", ticketID, "user_id", userID)
+	slog.InfoContext(ctx, "support ticket message added", "ticket_id", ticketID, "user_id", userID)
 	return msg, nil
 }
 

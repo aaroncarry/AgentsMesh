@@ -3,6 +3,7 @@
 package relay
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,7 +53,7 @@ func TestRelay_FullBidirectionalFlow_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(wsURL(srv), "pod-1", "tok", nil)
+	c := NewClient(context.TODO(), wsURL(srv), "pod-1", "tok", nil)
 	var inputPayload, acpPayload atomic.Value
 	inputCh := make(chan struct{}, 1)
 	acpCh := make(chan struct{}, 1)
@@ -112,7 +113,7 @@ func TestRelay_ReconnectWithTokenRefresh_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(wsURL(srv), "pod-1", "old-token", nil)
+	c := NewClient(context.TODO(), wsURL(srv), "pod-1", "old-token", nil)
 	var tokenRefreshed atomic.Bool
 	c.SetTokenExpiredHandler(func() string { tokenRefreshed.Store(true); return "new-token-123" })
 	reconnected := make(chan struct{}, 1)

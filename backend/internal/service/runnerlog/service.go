@@ -83,12 +83,12 @@ func (s *Service) HandleUploadStatus(runnerID int64, requestID, phase string, pr
 
 	// Validate phase
 	if !runnerlog.ValidStatuses[phase] {
-		slog.Warn("Unknown log upload phase", "request_id", requestID, "phase", phase)
+		slog.WarnContext(ctx, "Unknown log upload phase", "request_id", requestID, "phase", phase)
 		return
 	}
 
 	if err := s.repo.UpdateStatus(ctx, requestID, runnerID, phase, sizeBytes, errMsg); err != nil {
-		slog.Error("Failed to update log upload status",
+		slog.ErrorContext(ctx, "Failed to update log upload status",
 			"request_id", requestID,
 			"runner_id", runnerID,
 			"phase", phase,
@@ -103,7 +103,7 @@ func (s *Service) MarkFailed(requestID, reason string) {
 	defer cancel()
 
 	if err := s.repo.MarkFailed(ctx, requestID, reason); err != nil {
-		slog.Error("Failed to mark log upload as failed",
+		slog.ErrorContext(ctx, "Failed to mark log upload as failed",
 			"request_id", requestID,
 			"error", err,
 		)
@@ -129,7 +129,7 @@ func (s *Service) ListByRunner(ctx context.Context, orgID, runnerID int64, limit
 		if l.Status == runnerlog.StatusCompleted && l.StorageKey != "" {
 			downloadURL, err := s.storage.GetURL(ctx, l.StorageKey, downloadURLExpiry)
 			if err != nil {
-				slog.Warn("Failed to generate download URL",
+				slog.WarnContext(ctx, "Failed to generate download URL",
 					"request_id", l.RequestID,
 					"error", err,
 				)

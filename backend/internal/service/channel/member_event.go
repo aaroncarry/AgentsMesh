@@ -21,7 +21,7 @@ func (s *Service) publishMemberEvent(ctx context.Context, ch_orgID, channelID, u
 		Role:      role,
 	})
 	if err != nil {
-		slog.Error("failed to marshal member event", "error", err)
+		slog.ErrorContext(ctx, "failed to marshal member event", "error", err)
 		return
 	}
 

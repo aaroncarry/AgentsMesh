@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"encoding/binary"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func TestReadLoop_PingRespondsWithPong(t *testing.T) {
 	defer srv.Close()
 
 	url := "ws" + strings.TrimPrefix(srv.URL, "http")
-	c := NewClient(url, "pod-1", "test-token", nil)
+	c := NewClient(context.TODO(), url, "pod-1", "test-token", nil)
 	require.NoError(t, c.Connect())
 	c.Start()
 
@@ -80,7 +81,7 @@ func TestReadLoop_RoutesMessageToHandler(t *testing.T) {
 	defer srv.Close()
 
 	url := "ws" + strings.TrimPrefix(srv.URL, "http")
-	c := NewClient(url, "pod-1", "test-token", nil)
+	c := NewClient(context.TODO(), url, "pod-1", "test-token", nil)
 	c.SetMessageHandler(MsgTypeAcpEvent, func(payload []byte) {
 		received.Store(string(payload))
 	})
@@ -131,7 +132,7 @@ func TestWriteLoop_SendsQueuedMessages(t *testing.T) {
 	defer srv.Close()
 
 	url := "ws" + strings.TrimPrefix(srv.URL, "http")
-	c := NewClient(url, "pod-1", "test-token", nil)
+	c := NewClient(context.TODO(), url, "pod-1", "test-token", nil)
 	require.NoError(t, c.Connect())
 	c.Start()
 
@@ -174,7 +175,7 @@ func TestReadLoop_ResizeMessage(t *testing.T) {
 	defer srv.Close()
 
 	url := "ws" + strings.TrimPrefix(srv.URL, "http")
-	c := NewClient(url, "pod-1", "test-token", nil)
+	c := NewClient(context.TODO(), url, "pod-1", "test-token", nil)
 	c.SetMessageHandler(MsgTypeResize, func(p []byte) {
 		if len(p) >= 4 {
 			gotCols.Store(uint32(binary.BigEndian.Uint16(p[0:2])))

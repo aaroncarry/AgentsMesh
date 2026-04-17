@@ -87,7 +87,7 @@ func (o *PodOrchestrator) getUserGitCredential(ctx context.Context, userID int64
 
 	decrypted, err := o.userService.GetDecryptedCredentialToken(ctx, userID, defaultCred.ID)
 	if err != nil {
-		slog.Warn("failed to decrypt Git credential", "user_id", userID, "error", err)
+		slog.WarnContext(ctx, "failed to decrypt Git credential", "user_id", userID, "error", err)
 		return nil
 	}
 

@@ -20,13 +20,13 @@ func (s *LoopService) Delete(ctx context.Context, orgID int64, slug string) erro
 		if errors.Is(err, loopDomain.ErrHasActiveRuns) {
 			return ErrHasActiveRuns
 		}
-		slog.Error("failed to delete loop", "slug", slug, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to delete loop", "slug", slug, "org_id", orgID, "error", err)
 		return err
 	}
 	if affected == 0 {
 		return ErrLoopNotFound
 	}
-	slog.Info("loop deleted", "slug", slug, "org_id", orgID)
+	slog.InfoContext(ctx, "loop deleted", "slug", slug, "org_id", orgID)
 	return nil
 }
 
@@ -60,10 +60,10 @@ func (s *LoopService) SetStatus(ctx context.Context, orgID int64, slug string, s
 	}
 
 	if err := s.repo.Update(ctx, loop.ID, updates); err != nil {
-		slog.Error("failed to set loop status", "loop_id", loop.ID, "slug", slug, "status", status, "error", err)
+		slog.ErrorContext(ctx, "failed to set loop status", "loop_id", loop.ID, "slug", slug, "status", status, "error", err)
 		return nil, err
 	}
 
-	slog.Info("loop status changed", "loop_id", loop.ID, "slug", slug, "org_id", orgID, "status", status)
+	slog.InfoContext(ctx, "loop status changed", "loop_id", loop.ID, "slug", slug, "org_id", orgID, "status", status)
 	return s.GetBySlug(ctx, orgID, slug)
 }

@@ -17,11 +17,11 @@ func (s *Service) SetDefaultGitCredential(ctx context.Context, userID, credentia
 	}
 
 	if err := s.repo.SetDefaultGitCredential(ctx, userID, credentialID); err != nil {
-		slog.Error("failed to set default git credential",
+		slog.ErrorContext(ctx, "failed to set default git credential",
 			"user_id", userID, "credential_id", credentialID, "error", err)
 		return err
 	}
-	slog.Info("default git credential set", "user_id", userID, "credential_id", credentialID)
+	slog.InfoContext(ctx, "default git credential set", "user_id", userID, "credential_id", credentialID)
 	return nil
 }
 
@@ -56,7 +56,7 @@ func (s *Service) GetDecryptedCredentialToken(ctx context.Context, userID, crede
 		if credential.RepositoryProviderID != nil {
 			token, err := s.GetDecryptedProviderToken(ctx, userID, *credential.RepositoryProviderID)
 			if err != nil {
-				slog.Error("failed to decrypt oauth provider token",
+				slog.ErrorContext(ctx, "failed to decrypt oauth provider token",
 					"user_id", userID, "credential_id", credentialID, "error", err)
 				return nil, err
 			}
@@ -68,7 +68,7 @@ func (s *Service) GetDecryptedCredentialToken(ctx context.Context, userID, crede
 			if s.encryptionKey != "" {
 				decrypted, err := crypto.DecryptWithKey(*credential.PATEncrypted, s.encryptionKey)
 				if err != nil {
-					slog.Error("failed to decrypt PAT",
+					slog.ErrorContext(ctx, "failed to decrypt PAT",
 						"user_id", userID, "credential_id", credentialID, "error", err)
 					return nil, err
 				}
@@ -83,7 +83,7 @@ func (s *Service) GetDecryptedCredentialToken(ctx context.Context, userID, crede
 			if s.encryptionKey != "" {
 				decrypted, err := crypto.DecryptWithKey(*credential.PrivateKeyEncrypted, s.encryptionKey)
 				if err != nil {
-					slog.Error("failed to decrypt SSH private key",
+					slog.ErrorContext(ctx, "failed to decrypt SSH private key",
 						"user_id", userID, "credential_id", credentialID, "error", err)
 					return nil, err
 				}
@@ -113,11 +113,11 @@ func (s *Service) CreateCredentialFromProvider(ctx context.Context, userID, prov
 		RepositoryProviderID: &providerID,
 	})
 	if err != nil {
-		slog.Error("failed to create credential from provider",
+		slog.ErrorContext(ctx, "failed to create credential from provider",
 			"user_id", userID, "provider_id", providerID, "error", err)
 		return nil, err
 	}
-	slog.Info("credential created from provider",
+	slog.InfoContext(ctx, "credential created from provider",
 		"user_id", userID, "credential_id", cred.ID, "provider_id", providerID)
 	return cred, nil
 }

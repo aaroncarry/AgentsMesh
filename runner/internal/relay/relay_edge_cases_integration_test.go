@@ -3,6 +3,7 @@
 package relay
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -32,7 +33,7 @@ func TestRelay_CloseCallbackFiresOnce_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(wsURL(srv), "pod-close", "tok", nil)
+	c := NewClient(context.TODO(), wsURL(srv), "pod-close", "tok", nil)
 
 	var closeCount atomic.Int32
 	c.SetCloseHandler(func() {
@@ -88,7 +89,7 @@ func TestRelay_PingPongHeartbeat_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(wsURL(srv), "pod-ping", "tok", nil)
+	c := NewClient(context.TODO(), wsURL(srv), "pod-ping", "tok", nil)
 	require.NoError(t, c.Connect())
 	require.True(t, c.Start())
 	defer c.Stop()
@@ -104,7 +105,7 @@ func TestRelay_PingPongHeartbeat_Integration(t *testing.T) {
 // TestRelay_SendWhileDisconnected_Integration verifies Send returns an error
 // when the client is not connected, and does not panic.
 func TestRelay_SendWhileDisconnected_Integration(t *testing.T) {
-	c := NewClient("ws://127.0.0.1:0/unused", "pod-disc", "tok", nil)
+	c := NewClient(context.TODO(), "ws://127.0.0.1:0/unused", "pod-disc", "tok", nil)
 
 	err := c.Send(MsgTypeOutput, []byte("should fail"))
 	require.Error(t, err)
@@ -132,7 +133,7 @@ func TestRelay_ConcurrentHandlerRegistration_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(wsURL(srv), "pod-race", "tok", nil)
+	c := NewClient(context.TODO(), wsURL(srv), "pod-race", "tok", nil)
 	require.NoError(t, c.Connect())
 	require.True(t, c.Start())
 	defer c.Stop()

@@ -17,6 +17,7 @@ import (
 	"github.com/anthropics/agentsmesh/runner/internal/lifecycle"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
 	"github.com/anthropics/agentsmesh/runner/internal/mcp"
+	otelinit "github.com/anthropics/agentsmesh/runner/internal/otel"
 	"github.com/anthropics/agentsmesh/runner/internal/pidfile"
 	"github.com/anthropics/agentsmesh/runner/internal/runner"
 	"github.com/anthropics/agentsmesh/runner/internal/updater"
@@ -100,6 +101,15 @@ The runner uses gRPC/mTLS for secure communication with the server.`)
 		os.Exit(1)
 	}
 	defer logger.Close()
+
+	// Initialize OpenTelemetry
+	otelProvider, err := otelinit.InitProvider(context.Background(), "agentsmesh-runner", version)
+	if err != nil {
+		slog.Warn("OpenTelemetry initialization failed, continuing without tracing", "error", err)
+	} else {
+		defer otelProvider.Shutdown(context.Background())
+		slog.SetDefault(slog.New(otelinit.NewTraceContextHandler(slog.Default().Handler())))
+	}
 
 	log := slog.Default()
 

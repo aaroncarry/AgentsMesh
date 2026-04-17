@@ -161,7 +161,7 @@ func (h *PodConnectHandler) GetPodConnection(c *gin.Context) {
 			1000, // snapshot history lines
 		); err != nil {
 			// Log but don't fail - runner might connect later
-			slog.Warn("Failed to send subscribe pod command to runner",
+			slog.WarnContext(c.Request.Context(), "Failed to send subscribe pod command to runner",
 				"pod_key", podKey,
 				"runner_id", pod.RunnerID,
 				"error", err)

@@ -12,6 +12,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/infra/websocket"
 	"github.com/anthropics/agentsmesh/backend/internal/service/agent"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -54,6 +55,7 @@ func initializeRedisFromURL(url string) *redis.Client {
 		return nil
 	}
 
+	instrumentRedis(client)
 	slog.Info("Redis connected", "url", url)
 	return client
 }
@@ -71,6 +73,7 @@ func initializeRedisFromHost(cfg *config.Config) *redis.Client {
 		return nil
 	}
 
+	instrumentRedis(client)
 	slog.Info("Redis connected", "host", cfg.Redis.Host, "port", cfg.Redis.Port)
 	return client
 }
@@ -108,4 +111,13 @@ func initializeRunnerComponents(
 	sandboxQuerySvc := runner.NewSandboxQueryService(runnerConnMgr)
 
 	return runnerConnMgr, podCoordinator, podRouter, heartbeatBatcher, sandboxQuerySvc
+}
+
+func instrumentRedis(client *redis.Client) {
+	if err := redisotel.InstrumentTracing(client); err != nil {
+		slog.Warn("failed to enable Redis tracing", "error", err)
+	}
+	if err := redisotel.InstrumentMetrics(client); err != nil {
+		slog.Warn("failed to enable Redis metrics", "error", err)
+	}
 }

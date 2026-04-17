@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/anthropics/agentsmesh/runner/internal/client"
-	"github.com/anthropics/agentsmesh/runner/internal/envfilter"
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	otelinit "github.com/anthropics/agentsmesh/runner/internal/otel"
 	"github.com/anthropics/agentsmesh/runner/internal/poddaemon"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal"
 	"github.com/anthropics/agentsmesh/runner/internal/terminal/aggregator"
@@ -20,6 +23,18 @@ import (
 // The CreatePodCommand carries pre-evaluated execution instructions from Backend.
 // Runner only resolves path placeholders ({{sandbox_root}}, {{work_dir}}) and executes.
 func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
+	buildStart := time.Now()
+	ctx, span := otel.Tracer("agentsmesh-runner").Start(ctx, "pod.build",
+		trace.WithAttributes(
+			attribute.String("pod.key", b.cmd.GetPodKey()),
+			attribute.String("pod.agent", b.cmd.GetLaunchCommand()),
+		),
+	)
+	defer func() {
+		span.End()
+		otelinit.PodBuildDuration.Record(ctx, float64(time.Since(buildStart).Milliseconds()))
+	}()
+
 	if b.cmd == nil {
 		return nil, fmt.Errorf("command is required")
 	}
@@ -34,7 +49,7 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 	}
 
 	launchCommand := b.cmd.LaunchCommand
-	logger.Pod().Info("Building pod", "pod_key", b.cmd.PodKey, "command", launchCommand)
+	logger.Pod().InfoContext(ctx, "Building pod", "pod_key", b.cmd.PodKey, "command", launchCommand)
 
 	b.sendProgress("pending", 0, "Initializing pod...")
 
@@ -71,8 +86,8 @@ func (b *PodBuilder) Build(ctx context.Context) (*Pod, error) {
 		interactionMode = InteractionModePTY
 	}
 
-	logger.Pod().Debug("Resolved launch args", "pod_key", b.cmd.PodKey, "args", resolvedArgs)
-	logger.Pod().Debug("Merged environment variables", "pod_key", b.cmd.PodKey, "count", len(envVars))
+	logger.Pod().DebugContext(ctx, "Resolved launch args", "pod_key", b.cmd.PodKey, "args", resolvedArgs)
+	logger.Pod().DebugContext(ctx, "Merged environment variables", "pod_key", b.cmd.PodKey, "count", len(envVars))
 
 	if interactionMode == InteractionModeACP {
 		return b.buildACPPod(ctx, sandboxRoot, workingDir, branchName, resolvedArgs, envVars, launchCommand)
@@ -87,6 +102,13 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 	// capturedEnv holds the full merged environment (os.Environ + AgentFile ENV)
 	// as built by terminal.New. Replicated here for perpetual pod restart.
 	capturedEnv := buildMergedEnv(envVars)
+
+	// Inject W3C trace context into envVars map so terminal.New() propagates it
+	// to the child process via both the ptyFactory (daemon mode) and direct PTY.
+	injectTraceparent(ctx, envVars)
+	if tp, ok := envVars["TRACEPARENT"]; ok {
+		capturedEnv = append(capturedEnv, "TRACEPARENT="+tp)
+	}
 
 	// Build PTY factory for Pod Daemon mode (session persistence across restarts)
 	var ptyFactory terminal.PTYFactory
@@ -152,10 +174,10 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 		var logErr error
 		ptyLogger, logErr = aggregator.NewPTYLogger(b.ptyLogDir, b.cmd.PodKey)
 		if logErr != nil {
-			logger.Pod().Warn("Failed to create PTY logger", "pod_key", b.cmd.PodKey, "error", logErr)
+			logger.Pod().WarnContext(ctx, "Failed to create PTY logger", "pod_key", b.cmd.PodKey, "error", logErr)
 		} else {
 			agg.SetPTYLogger(ptyLogger)
-			logger.Pod().Info("PTY logging enabled for pod", "pod_key", b.cmd.PodKey, "log_dir", ptyLogger.LogDir())
+			logger.Pod().InfoContext(ctx, "PTY logging enabled for pod", "pod_key", b.cmd.PodKey, "log_dir", ptyLogger.LogDir())
 		}
 	}
 
@@ -187,58 +209,8 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 	pod.Relay = NewPTYPodRelay(b.cmd.PodKey, pod.IO, comps)
 	term.SetOutputHandler(NewPTYOutputHandler(b.cmd.PodKey, comps, pod.NotifyStateDetectorWithScreen))
 
-	logger.Pod().Info("Pod built (PTY)", "pod_key", b.cmd.PodKey, "working_dir", workingDir, "cols", b.cols, "rows", b.rows)
+	logger.Pod().InfoContext(ctx, "Pod built (PTY)", "pod_key", b.cmd.PodKey, "working_dir", workingDir, "cols", b.cols, "rows", b.rows)
 	b.sendProgress("ready", 100, "Pod is ready")
 
 	return pod, nil
-}
-
-// resolvePathPlaceholders substitutes sandbox path placeholders with real paths.
-// Supports both new format ({{sandbox_root}}) and legacy format ({{.sandbox.root_path}}).
-func resolvePathPlaceholders(s, sandboxRoot, workDir string) string {
-	s = strings.ReplaceAll(s, "{{sandbox_root}}", sandboxRoot)
-	s = strings.ReplaceAll(s, "{{work_dir}}", workDir)
-	// Legacy placeholder format (for ResourceToDownload.TargetPath compatibility)
-	s = strings.ReplaceAll(s, "{{.sandbox.root_path}}", sandboxRoot)
-	s = strings.ReplaceAll(s, "{{.sandbox.work_dir}}", workDir)
-	return s
-}
-
-// resolveStringSlice resolves placeholders in a string slice.
-func resolveStringSlice(ss []string, sandboxRoot, workDir string) []string {
-	result := make([]string, len(ss))
-	for i, s := range ss {
-		result[i] = resolvePathPlaceholders(s, sandboxRoot, workDir)
-	}
-	return result
-}
-
-func (b *PodBuilder) resolvePath(pathTemplate, sandboxRoot, workDir string) string {
-	return resolvePathPlaceholders(pathTemplate, sandboxRoot, workDir)
-}
-
-func mapToEnvSlice(m map[string]string) []string {
-	s := make([]string, 0, len(m))
-	for k, v := range m {
-		s = append(s, k+"="+v)
-	}
-	return s
-}
-
-// buildMergedEnv replicates terminal.New's env merging logic:
-// os.Environ() (filtered) + TERM/COLORTERM + user env vars.
-func buildMergedEnv(userEnv map[string]string) []string {
-	envMap := make(map[string]string)
-	for _, e := range envfilter.FilterEnv(os.Environ()) {
-		if idx := strings.Index(e, "="); idx >= 0 {
-			envMap[e[:idx]] = e[idx+1:]
-		}
-	}
-	delete(envMap, "CLAUDECODE")
-	envMap["TERM"] = "xterm-256color"
-	envMap["COLORTERM"] = "truecolor"
-	for k, v := range userEnv {
-		envMap[k] = v
-	}
-	return mapToEnvSlice(envMap)
 }

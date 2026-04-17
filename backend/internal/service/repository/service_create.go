@@ -85,11 +85,11 @@ func (s *Service) createNewRepo(ctx context.Context, req *CreateRequest) (*gitpr
 	}
 
 	if err := s.repo.Create(ctx, repo); err != nil {
-		slog.Error("failed to create repository", "org_id", req.OrganizationID, "slug", req.Slug, "error", err)
+		slog.ErrorContext(ctx, "failed to create repository", "org_id", req.OrganizationID, "slug", req.Slug, "error", err)
 		return nil, err
 	}
 
-	slog.Info("repository created", "repo_id", repo.ID, "org_id", req.OrganizationID, "slug", req.Slug)
+	slog.InfoContext(ctx, "repository created", "repo_id", repo.ID, "org_id", req.OrganizationID, "slug", req.Slug)
 	return repo, nil
 }
 

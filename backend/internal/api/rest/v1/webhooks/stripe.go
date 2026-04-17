@@ -44,7 +44,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 	// Read the request body
 	payload, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		slog.Error("Failed to read webhook body", "error", err)
+		slog.ErrorContext(c.Request.Context(), "Failed to read webhook body", "error", err)
 		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "failed to read request body")
 		return
 	}
@@ -52,7 +52,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 	// Get the Stripe signature header
 	signature := c.GetHeader("Stripe-Signature")
 	if signature == "" {
-		slog.Warn("Missing Stripe-Signature header")
+		slog.WarnContext(c.Request.Context(), "Missing Stripe-Signature header")
 		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "missing signature")
 		return
 	}
@@ -60,12 +60,12 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 	// Parse and validate the webhook
 	event, err := h.provider.HandleWebhook(c.Request.Context(), payload, signature)
 	if err != nil {
-		slog.Error("Failed to validate webhook", "error", err)
+		slog.ErrorContext(c.Request.Context(), "Failed to validate webhook", "error", err)
 		apierr.InvalidInput(c, "invalid webhook signature")
 		return
 	}
 
-	slog.Info("Received Stripe webhook",
+	slog.InfoContext(c.Request.Context(), "Received Stripe webhook",
 		"event_id", event.EventID,
 		"event_type", event.EventType,
 	)
@@ -74,7 +74,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 	switch event.EventType {
 	case billing.WebhookEventCheckoutCompleted:
 		if err := h.handleCheckoutCompleted(c, event); err != nil {
-			slog.Error("Failed to handle checkout.session.completed",
+			slog.ErrorContext(c.Request.Context(), "Failed to handle checkout.session.completed",
 				"error", err,
 				"event_id", event.EventID,
 			)
@@ -84,7 +84,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 
 	case billing.WebhookEventInvoicePaid:
 		if err := h.handleInvoicePaid(c, event); err != nil {
-			slog.Error("Failed to handle invoice.paid",
+			slog.ErrorContext(c.Request.Context(), "Failed to handle invoice.paid",
 				"error", err,
 				"event_id", event.EventID,
 			)
@@ -94,7 +94,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 
 	case billing.WebhookEventInvoiceFailed:
 		if err := h.handleInvoicePaymentFailed(c, event); err != nil {
-			slog.Error("Failed to handle invoice.payment_failed",
+			slog.ErrorContext(c.Request.Context(), "Failed to handle invoice.payment_failed",
 				"error", err,
 				"event_id", event.EventID,
 			)
@@ -104,7 +104,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 
 	case billing.WebhookEventSubscriptionDeleted:
 		if err := h.handleSubscriptionDeleted(c, event); err != nil {
-			slog.Error("Failed to handle customer.subscription.deleted",
+			slog.ErrorContext(c.Request.Context(), "Failed to handle customer.subscription.deleted",
 				"error", err,
 				"event_id", event.EventID,
 			)
@@ -114,7 +114,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 
 	case billing.WebhookEventSubscriptionUpdated:
 		if err := h.handleSubscriptionUpdated(c, event); err != nil {
-			slog.Error("Failed to handle customer.subscription.updated",
+			slog.ErrorContext(c.Request.Context(), "Failed to handle customer.subscription.updated",
 				"error", err,
 				"event_id", event.EventID,
 			)
@@ -123,7 +123,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 		}
 
 	default:
-		slog.Debug("Ignoring unhandled event type",
+		slog.DebugContext(c.Request.Context(), "Ignoring unhandled event type",
 			"event_type", event.EventType,
 		)
 	}
@@ -134,7 +134,7 @@ func (h *StripeWebhookHandler) Handle(c *gin.Context) {
 
 // handleCheckoutCompleted processes checkout.session.completed events
 func (h *StripeWebhookHandler) handleCheckoutCompleted(c *gin.Context, event *payment.WebhookEvent) error {
-	slog.Info("Processing checkout.session.completed",
+	slog.InfoContext(c.Request.Context(), "Processing checkout.session.completed",
 		"order_no", event.OrderNo,
 		"external_order_no", event.ExternalOrderNo,
 		"customer_id", event.CustomerID,
@@ -148,7 +148,7 @@ func (h *StripeWebhookHandler) handleCheckoutCompleted(c *gin.Context, event *pa
 
 // handleInvoicePaid processes invoice.paid events (for recurring payments)
 func (h *StripeWebhookHandler) handleInvoicePaid(c *gin.Context, event *payment.WebhookEvent) error {
-	slog.Info("Processing invoice.paid",
+	slog.InfoContext(c.Request.Context(), "Processing invoice.paid",
 		"external_order_no", event.ExternalOrderNo,
 		"subscription_id", event.SubscriptionID,
 		"amount", event.Amount,
@@ -160,7 +160,7 @@ func (h *StripeWebhookHandler) handleInvoicePaid(c *gin.Context, event *payment.
 
 // handleInvoicePaymentFailed processes invoice.payment_failed events
 func (h *StripeWebhookHandler) handleInvoicePaymentFailed(c *gin.Context, event *payment.WebhookEvent) error {
-	slog.Warn("Processing invoice.payment_failed",
+	slog.WarnContext(c.Request.Context(), "Processing invoice.payment_failed",
 		"external_order_no", event.ExternalOrderNo,
 		"subscription_id", event.SubscriptionID,
 		"reason", event.FailedReason,
@@ -172,7 +172,7 @@ func (h *StripeWebhookHandler) handleInvoicePaymentFailed(c *gin.Context, event 
 
 // handleSubscriptionDeleted processes customer.subscription.deleted events
 func (h *StripeWebhookHandler) handleSubscriptionDeleted(c *gin.Context, event *payment.WebhookEvent) error {
-	slog.Info("Processing customer.subscription.deleted",
+	slog.InfoContext(c.Request.Context(), "Processing customer.subscription.deleted",
 		"subscription_id", event.SubscriptionID,
 		"customer_id", event.CustomerID,
 	)
@@ -183,7 +183,7 @@ func (h *StripeWebhookHandler) handleSubscriptionDeleted(c *gin.Context, event *
 
 // handleSubscriptionUpdated processes customer.subscription.updated events
 func (h *StripeWebhookHandler) handleSubscriptionUpdated(c *gin.Context, event *payment.WebhookEvent) error {
-	slog.Info("Processing customer.subscription.updated",
+	slog.InfoContext(c.Request.Context(), "Processing customer.subscription.updated",
 		"subscription_id", event.SubscriptionID,
 		"status", event.Status,
 	)

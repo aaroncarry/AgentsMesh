@@ -45,11 +45,11 @@ func (s *Service) InstallSkillFromMarket(ctx context.Context, orgID, repoID, use
 		if errors.Is(err, extension.ErrDuplicateInstall) {
 			return nil, fmt.Errorf("%w: skill '%s' is already installed in this repository with scope '%s'", ErrAlreadyInstalled, skill.Slug, skill.Scope)
 		}
-		slog.Error("failed to install skill from market", "slug", skill.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
+		slog.ErrorContext(ctx, "failed to install skill from market", "slug", skill.Slug, "org_id", orgID, "repo_id", repoID, "error", err)
 		return nil, fmt.Errorf("failed to install skill: %w", err)
 	}
 
-	slog.Info("skill installed from market", "slug", skill.Slug, "org_id", orgID, "repo_id", repoID, "scope", scope)
+	slog.InfoContext(ctx, "skill installed from market", "slug", skill.Slug, "org_id", orgID, "repo_id", repoID, "scope", scope)
 	return skill, nil
 }
 
@@ -98,11 +98,11 @@ func (s *Service) UpdateSkill(ctx context.Context, orgID, repoID, installID, use
 	}
 
 	if err := s.repo.UpdateInstalledSkill(ctx, skill); err != nil {
-		slog.Error("failed to update installed skill", "install_id", installID, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to update installed skill", "install_id", installID, "org_id", orgID, "error", err)
 		return nil, fmt.Errorf("failed to update skill: %w", err)
 	}
 
-	slog.Info("skill updated", "install_id", installID, "org_id", orgID, "repo_id", repoID, "slug", skill.Slug)
+	slog.InfoContext(ctx, "skill updated", "install_id", installID, "org_id", orgID, "repo_id", repoID, "slug", skill.Slug)
 	return skill, nil
 }
 
@@ -118,11 +118,11 @@ func (s *Service) UninstallSkill(ctx context.Context, orgID, repoID, installID, 
 	}
 
 	if err := s.repo.DeleteInstalledSkill(ctx, installID); err != nil {
-		slog.Error("failed to uninstall skill", "install_id", installID, "slug", skill.Slug, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to uninstall skill", "install_id", installID, "slug", skill.Slug, "org_id", orgID, "error", err)
 		return err
 	}
 
-	slog.Info("skill uninstalled", "install_id", installID, "slug", skill.Slug, "org_id", orgID, "repo_id", repoID)
+	slog.InfoContext(ctx, "skill uninstalled", "install_id", installID, "slug", skill.Slug, "org_id", orgID, "repo_id", repoID)
 	return nil
 }
 

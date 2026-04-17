@@ -46,7 +46,7 @@ func (s *Service) ensurePodCreatorIsMember(ctx context.Context, channelID int64,
 	}
 	pod, err := s.podCreatorResolver.GetPodByKey(ctx, podKey)
 	if err != nil || pod == nil {
-		slog.Warn("failed to resolve pod creator for channel membership", "pod_key", podKey, "error", err)
+		slog.WarnContext(ctx, "failed to resolve pod creator for channel membership", "pod_key", podKey, "error", err)
 		return
 	}
 	_ = s.repo.AddMemberWithRole(ctx, channelID, pod.CreatedByID, channelDomain.RoleMember)

@@ -1,11 +1,13 @@
 package runner
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	otelinit "github.com/anthropics/agentsmesh/backend/internal/infra/otel"
 	"github.com/anthropics/agentsmesh/backend/internal/interfaces"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
@@ -129,6 +131,7 @@ func (cm *RunnerConnectionManager) AddConnection(runnerID int64, nodeID, orgSlug
 	conn := NewGRPCConnection(runnerID, gen, nodeID, orgSlug, stream)
 	shard.connections[runnerID] = conn
 	cm.connCount.Add(1)
+	otelinit.RunnerConnected.Add(context.Background(), 1)
 
 	cm.logger.Info("runner connected (gRPC)",
 		"runner_id", runnerID,
@@ -163,6 +166,7 @@ func (cm *RunnerConnectionManager) RemoveConnection(runnerID, generation int64) 
 	if ok {
 		delete(shard.connections, runnerID)
 		cm.connCount.Add(-1)
+		otelinit.RunnerConnected.Add(context.Background(), -1)
 	}
 	shard.mu.Unlock()
 

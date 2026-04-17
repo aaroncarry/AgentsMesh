@@ -128,7 +128,7 @@ func (s *Service) IsBound(ctx context.Context, podA, podB string) (bool, error) 
 		return false, nil
 	}
 
-	slog.Error("failed to check binding", "pod_a", podA, "pod_b", podB, "error", err)
+	slog.ErrorContext(ctx, "failed to check binding", "pod_a", podA, "pod_b", podB, "error", err)
 	return false, err
 }
 

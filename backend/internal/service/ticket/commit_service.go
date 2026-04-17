@@ -29,20 +29,20 @@ func (s *Service) LinkCommit(ctx context.Context, orgID, ticketID, repoID int64,
 	}
 
 	if err := s.repo.CreateCommit(ctx, commit); err != nil {
-		slog.Error("failed to link commit", "ticket_id", ticketID, "commit_sha", commitSHA, "error", err)
+		slog.ErrorContext(ctx, "failed to link commit", "ticket_id", ticketID, "commit_sha", commitSHA, "error", err)
 		return nil, err
 	}
-	slog.Info("commit linked", "commit_id", commit.ID, "ticket_id", ticketID, "commit_sha", commitSHA)
+	slog.InfoContext(ctx, "commit linked", "commit_id", commit.ID, "ticket_id", ticketID, "commit_sha", commitSHA)
 	return commit, nil
 }
 
 // UnlinkCommit removes a commit link from a ticket.
 func (s *Service) UnlinkCommit(ctx context.Context, commitID int64) error {
 	if err := s.repo.DeleteCommit(ctx, commitID); err != nil {
-		slog.Error("failed to unlink commit", "commit_id", commitID, "error", err)
+		slog.ErrorContext(ctx, "failed to unlink commit", "commit_id", commitID, "error", err)
 		return err
 	}
-	slog.Info("commit unlinked", "commit_id", commitID)
+	slog.InfoContext(ctx, "commit unlinked", "commit_id", commitID)
 	return nil
 }
 

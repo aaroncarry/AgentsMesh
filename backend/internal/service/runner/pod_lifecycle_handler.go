@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
+	otelinit "github.com/anthropics/agentsmesh/backend/internal/infra/otel"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
 
@@ -41,6 +42,7 @@ func (pc *PodCoordinator) handlePodCreated(runnerID int64, data *runnerv1.PodCre
 
 	// Register with pod router
 	pc.podRouter.RegisterPod(data.PodKey, runnerID)
+	otelinit.PodActiveCount.Add(ctx, 1)
 
 	pc.logger.Info("pod created",
 		"pod_key", data.PodKey,
@@ -116,6 +118,7 @@ func (pc *PodCoordinator) handlePodTerminated(runnerID int64, data *runnerv1.Pod
 
 	// Decrement runner pod count
 	_ = pc.runnerRepo.DecrementPods(ctx, runnerID)
+	otelinit.PodActiveCount.Add(ctx, -1)
 
 	// Unregister from pod router and clean up miss counter
 	pc.podRouter.UnregisterPod(data.PodKey)

@@ -137,7 +137,7 @@ func (b *ConfigBuilder) buildMCPContext(ctx context.Context, req *ConfigBuildReq
 	if b.extensionProvider != nil && req.RepositoryID != nil {
 		servers, err := b.extensionProvider.GetEffectiveMcpServers(ctx, req.OrganizationID, req.UserID, *req.RepositoryID, agentSlug)
 		if err != nil {
-			slog.Warn("Failed to load MCP servers for agentfile", "error", err)
+			slog.WarnContext(ctx, "Failed to load MCP servers for agentfile", "error", err)
 		} else {
 			for _, srv := range servers {
 				if !srv.IsEnabled {

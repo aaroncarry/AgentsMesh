@@ -92,11 +92,11 @@ func (s *Service) SelectAvailableRunner(ctx context.Context, orgID int64, userID
 
 	runners, err := s.repo.ListAvailableOrdered(ctx, orgID, userID)
 	if err != nil {
-		slog.Error("failed to select available runner from DB", "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to select available runner from DB", "org_id", orgID, "error", err)
 		return nil, err
 	}
 	if len(runners) == 0 {
-		slog.Warn("no available runner found", "org_id", orgID, "user_id", userID)
+		slog.WarnContext(ctx, "no available runner found", "org_id", orgID, "user_id", userID)
 		return nil, ErrRunnerOffline
 	}
 	return runners[0], nil
@@ -121,11 +121,11 @@ func (s *Service) SelectAvailableRunnerForAgent(ctx context.Context, orgID int64
 
 	runners, err := s.repo.ListAvailableForAgent(ctx, orgID, userID, string(agentJSON))
 	if err != nil {
-		slog.Error("failed to select runner for agent from DB", "org_id", orgID, "agent_slug", agentSlug, "error", err)
+		slog.ErrorContext(ctx, "failed to select runner for agent from DB", "org_id", orgID, "agent_slug", agentSlug, "error", err)
 		return nil, err
 	}
 	if len(runners) == 0 {
-		slog.Warn("no runner available for agent", "org_id", orgID, "agent_slug", agentSlug)
+		slog.WarnContext(ctx, "no runner available for agent", "org_id", orgID, "agent_slug", agentSlug)
 		return nil, ErrNoRunnerForAgent
 	}
 	return runners[0], nil

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentsmesh/runner/internal/logger"
+	otelinit "github.com/anthropics/agentsmesh/runner/internal/otel"
 )
 
 // connectionLoop manages the connection lifecycle with auto-reconnection.
@@ -23,6 +24,7 @@ func (c *GRPCConnection) connectionLoop() {
 		if err := c.Connect(); err != nil {
 			attempt := c.reconnectStrategy.AttemptCount()
 			delay := c.reconnectStrategy.NextDelay()
+			otelinit.GRPCReconnects.Add(context.Background(), 1)
 			logger.GRPC().Warn("Failed to connect, will retry",
 				"attempt", attempt+1,
 				"endpoint", c.endpoint,

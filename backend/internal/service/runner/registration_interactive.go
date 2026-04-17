@@ -228,7 +228,7 @@ func (s *Service) AuthorizeRunner(ctx context.Context, authKey string, orgID int
 
 	// Update pending auth with runner ID
 	if err := s.repo.UpdatePendingAuthRunnerID(ctx, pendingAuth.ID, r.ID); err != nil {
-		slog.Warn("Failed to update pending auth runner ID", "error", err)
+		slog.WarnContext(ctx, "Failed to update pending auth runner ID", "error", err)
 	}
 
 	return r, nil

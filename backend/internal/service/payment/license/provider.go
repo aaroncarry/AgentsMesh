@@ -97,7 +97,7 @@ func (p *Provider) RefundPayment(ctx context.Context, req *types.RefundRequest) 
 func (p *Provider) CancelSubscription(ctx context.Context, licenseKey string, immediate bool) error {
 	license, err := p.repo.GetByKey(ctx, licenseKey)
 	if err != nil {
-		slog.Error("failed to get license for cancellation", "license_key", licenseKey, "error", err)
+		slog.ErrorContext(ctx, "failed to get license for cancellation", "license_key", licenseKey, "error", err)
 		return err
 	}
 	if license == nil {
@@ -111,10 +111,10 @@ func (p *Provider) CancelSubscription(ctx context.Context, licenseKey string, im
 	license.RevocationReason = &reason
 
 	if err := p.repo.Save(ctx, license); err != nil {
-		slog.Error("failed to save revoked license", "license_key", licenseKey, "error", err)
+		slog.ErrorContext(ctx, "failed to save revoked license", "license_key", licenseKey, "error", err)
 		return err
 	}
-	slog.Info("license canceled", "license_key", licenseKey)
+	slog.InfoContext(ctx, "license canceled", "license_key", licenseKey)
 	return nil
 }
 
@@ -123,21 +123,21 @@ func (p *Provider) VerifyLicense(ctx context.Context, licenseData []byte) (*bill
 	// Parse license data
 	var data LicenseData
 	if err := json.Unmarshal(licenseData, &data); err != nil {
-		slog.Error("failed to parse license data", "error", err)
+		slog.ErrorContext(ctx, "failed to parse license data", "error", err)
 		return nil, fmt.Errorf("%w: failed to parse license data", ErrInvalidLicense)
 	}
 
 	// Verify signature if public key is available
 	if p.publicKey != nil {
 		if err := p.verifySignature(&data); err != nil {
-			slog.Warn("license signature verification failed", "license_key", data.LicenseKey, "error", err)
+			slog.WarnContext(ctx, "license signature verification failed", "license_key", data.LicenseKey, "error", err)
 			return nil, err
 		}
 	}
 
 	// Check expiration
 	if data.ExpiresAt != nil && time.Now().After(*data.ExpiresAt) {
-		slog.Warn("license expired", "license_key", data.LicenseKey, "expires_at", data.ExpiresAt)
+		slog.WarnContext(ctx, "license expired", "license_key", data.LicenseKey, "expires_at", data.ExpiresAt)
 		return nil, ErrLicenseExpired
 	}
 

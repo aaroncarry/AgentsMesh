@@ -37,7 +37,7 @@ func NewEventPublishHook(eb *eventbus.EventBus, userNames UserNameResolver, memb
 		}
 		data, err := json.Marshal(msgData)
 		if err != nil {
-			slog.Error("failed to marshal channel message event", "error", err)
+			slog.ErrorContext(ctx, "failed to marshal channel message event", "error", err)
 			return err
 		}
 

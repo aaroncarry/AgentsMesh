@@ -27,7 +27,7 @@ func NewRunnerMessageHandler(runner MessageHandlerContext, store PodStore, conn 
 		podStore: store,
 		conn:     conn,
 		relayClientFactory: func(url, podKey, token string, logger *slog.Logger) relay.RelayClient {
-			return relay.NewClient(url, podKey, token, logger)
+			return relay.NewClient(runner.GetRunContext(), url, podKey, token, logger)
 		},
 	}
 }
@@ -81,7 +81,7 @@ func (h *RunnerMessageHandler) OnCreatePod(cmd *runnerv1.CreatePodCommand) error
 
 	// Check if pod was terminated during Build
 	if _, ok := h.podStore.Get(cmd.PodKey); !ok {
-		log.Info("Pod was terminated during build, cleaning up", "pod_key", cmd.PodKey)
+		log.InfoContext(ctx, "Pod was terminated during build, cleaning up", "pod_key", cmd.PodKey)
 		if pod.IO != nil {
 			pod.IO.Teardown()
 			pod.IO.Stop()

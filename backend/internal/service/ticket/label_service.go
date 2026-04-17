@@ -26,10 +26,10 @@ func (s *Service) CreateLabel(ctx context.Context, orgID int64, repoID *int64, n
 		Color:          color,
 	}
 	if err := s.repo.CreateLabel(ctx, label); err != nil {
-		slog.Error("failed to create label", "org_id", orgID, "name", name, "error", err)
+		slog.ErrorContext(ctx, "failed to create label", "org_id", orgID, "name", name, "error", err)
 		return nil, err
 	}
-	slog.Info("label created", "label_id", label.ID, "org_id", orgID, "name", name)
+	slog.InfoContext(ctx, "label created", "label_id", label.ID, "org_id", orgID, "name", name)
 	return label, nil
 }
 
@@ -54,10 +54,10 @@ func (s *Service) ListLabels(ctx context.Context, orgID int64, repoID *int64) ([
 func (s *Service) UpdateLabel(ctx context.Context, orgID, labelID int64, updates map[string]interface{}) (*ticket.Label, error) {
 	if len(updates) > 0 {
 		if err := s.repo.UpdateLabelFields(ctx, orgID, labelID, updates); err != nil {
-			slog.Error("failed to update label", "label_id", labelID, "org_id", orgID, "error", err)
+			slog.ErrorContext(ctx, "failed to update label", "label_id", labelID, "org_id", orgID, "error", err)
 			return nil, err
 		}
-		slog.Info("label updated", "label_id", labelID, "org_id", orgID)
+		slog.InfoContext(ctx, "label updated", "label_id", labelID, "org_id", orgID)
 	}
 	return s.GetLabel(ctx, labelID)
 }
@@ -65,10 +65,10 @@ func (s *Service) UpdateLabel(ctx context.Context, orgID, labelID int64, updates
 // DeleteLabel deletes a label.
 func (s *Service) DeleteLabel(ctx context.Context, orgID, labelID int64) error {
 	if err := s.repo.DeleteLabelAtomic(ctx, orgID, labelID); err != nil {
-		slog.Error("failed to delete label", "label_id", labelID, "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to delete label", "label_id", labelID, "org_id", orgID, "error", err)
 		return err
 	}
-	slog.Info("label deleted", "label_id", labelID, "org_id", orgID)
+	slog.InfoContext(ctx, "label deleted", "label_id", labelID, "org_id", orgID)
 	return nil
 }
 
@@ -80,19 +80,19 @@ func (s *Service) GetTicketLabels(ctx context.Context, ticketID int64) ([]*ticke
 // AddLabel adds a label to a ticket.
 func (s *Service) AddLabel(ctx context.Context, ticketID, labelID int64) error {
 	if err := s.repo.AddTicketLabel(ctx, ticketID, labelID); err != nil {
-		slog.Error("failed to add label to ticket", "ticket_id", ticketID, "label_id", labelID, "error", err)
+		slog.ErrorContext(ctx, "failed to add label to ticket", "ticket_id", ticketID, "label_id", labelID, "error", err)
 		return err
 	}
-	slog.Info("label added to ticket", "ticket_id", ticketID, "label_id", labelID)
+	slog.InfoContext(ctx, "label added to ticket", "ticket_id", ticketID, "label_id", labelID)
 	return nil
 }
 
 // RemoveLabel removes a label from a ticket.
 func (s *Service) RemoveLabel(ctx context.Context, ticketID, labelID int64) error {
 	if err := s.repo.RemoveTicketLabel(ctx, ticketID, labelID); err != nil {
-		slog.Error("failed to remove label from ticket", "ticket_id", ticketID, "label_id", labelID, "error", err)
+		slog.ErrorContext(ctx, "failed to remove label from ticket", "ticket_id", ticketID, "label_id", labelID, "error", err)
 		return err
 	}
-	slog.Info("label removed from ticket", "ticket_id", ticketID, "label_id", labelID)
+	slog.InfoContext(ctx, "label removed from ticket", "ticket_id", ticketID, "label_id", labelID)
 	return nil
 }

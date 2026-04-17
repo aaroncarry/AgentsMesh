@@ -35,7 +35,7 @@ func (d *Dispatcher) resolveRecipients(ctx context.Context, req *notifDomain.Not
 	if req.RecipientResolver != "" {
 		resolved, err := d.resolve(ctx, req.RecipientResolver)
 		if err != nil {
-			slog.Error("failed to resolve notification recipients", "resolver", req.RecipientResolver, "error", err)
+			slog.ErrorContext(ctx, "failed to resolve notification recipients", "resolver", req.RecipientResolver, "error", err)
 		} else {
 			recipientIDs = resolved
 		}
@@ -81,7 +81,7 @@ func (d *Dispatcher) pushToUser(ctx context.Context, userID int64, req *notifDom
 	}
 	payloadData, err := json.Marshal(payload)
 	if err != nil {
-		slog.Error("failed to marshal notification payload", "error", err)
+		slog.ErrorContext(ctx, "failed to marshal notification payload", "error", err)
 		return
 	}
 
@@ -98,12 +98,12 @@ func (d *Dispatcher) pushToUser(ctx context.Context, userID int64, req *notifDom
 	}
 	data, err := json.Marshal(wireEvent)
 	if err != nil {
-		slog.Error("failed to marshal notification wire event", "error", err)
+		slog.ErrorContext(ctx, "failed to marshal notification wire event", "error", err)
 		return
 	}
 
 	if err := d.pusher.PushToUser(ctx, userID, data); err != nil {
-		slog.Error("failed to push notification", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "failed to push notification", "user_id", userID, "error", err)
 	}
 }
 
@@ -112,7 +112,7 @@ func (d *Dispatcher) fireDeliveryHandlers(ctx context.Context, userID int64, pre
 		if pref.IsChannelEnabled(ch) {
 			go func(h notifDomain.DeliveryHandler, uid int64) {
 				if err := h.Deliver(ctx, uid, req); err != nil {
-					slog.Error("delivery handler failed", "channel", h.Channel(), "user_id", uid, "error", err)
+					slog.ErrorContext(ctx, "delivery handler failed", "channel", h.Channel(), "user_id", uid, "error", err)
 				}
 			}(handler, userID)
 		}

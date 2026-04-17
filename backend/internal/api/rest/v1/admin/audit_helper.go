@@ -22,7 +22,7 @@ func LogAdminAction(
 ) {
 	adminUserID := middleware.GetAdminUserID(c)
 	if adminUserID == 0 {
-		slog.Warn("admin user ID not found in context for audit action",
+		slog.WarnContext(c.Request.Context(), "admin user ID not found in context for audit action",
 			"action", action)
 		return
 	}
@@ -42,7 +42,7 @@ func LogAdminAction(
 	if err != nil {
 		// Log the error but don't fail the request
 		// Audit logging failure should not prevent the operation from succeeding
-		slog.Warn("failed to log admin audit action",
+		slog.WarnContext(c.Request.Context(), "failed to log admin audit action",
 			"action", action, "target_type", targetType, "target_id", targetID,
 			"admin_id", adminUserID, "error", err)
 	}

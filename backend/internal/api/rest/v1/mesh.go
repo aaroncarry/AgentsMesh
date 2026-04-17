@@ -32,11 +32,11 @@ func NewMeshHandler(ds *meshService.Service, ts *ticket.Service) *MeshHandler {
 func (h *MeshHandler) GetTopology(c *gin.Context) {
 	tenant := middleware.GetTenant(c)
 
-	slog.Debug("GetTopology called", "org_id", tenant.OrganizationID)
+	slog.DebugContext(c.Request.Context(), "GetTopology called", "org_id", tenant.OrganizationID)
 
 	topology, err := h.meshService.GetTopology(c.Request.Context(), tenant.OrganizationID, tenant.UserID)
 	if err != nil {
-		slog.Error("Failed to get topology", "error", err, "org_id", tenant.OrganizationID)
+		slog.ErrorContext(c.Request.Context(), "Failed to get topology", "error", err, "org_id", tenant.OrganizationID)
 		apierr.InternalError(c, "Failed to get topology: "+err.Error())
 		return
 	}

@@ -60,7 +60,7 @@ func uploadReplyAttachments(c *gin.Context, svc *supportticket.Service, ticketID
 		func() {
 			file, err := fileHeader.Open()
 			if err != nil {
-				slog.Warn("failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
+				slog.WarnContext(c.Request.Context(), "failed to open uploaded file", "filename", fileHeader.Filename, "error", err)
 				return
 			}
 			defer file.Close()
@@ -74,7 +74,7 @@ func uploadReplyAttachments(c *gin.Context, svc *supportticket.Service, ticketID
 				Size:        fileHeader.Size,
 				Reader:      file,
 			}); err != nil {
-				slog.Warn("failed to upload admin attachment", "filename", fileHeader.Filename, "error", err)
+				slog.WarnContext(c.Request.Context(), "failed to upload admin attachment", "filename", fileHeader.Filename, "error", err)
 			}
 		}()
 	}

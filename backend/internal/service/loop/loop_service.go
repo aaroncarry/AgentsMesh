@@ -47,7 +47,7 @@ func (s *LoopService) List(ctx context.Context, filter *ListLoopsFilter) ([]*loo
 
 func (s *LoopService) UpdateRunStats(ctx context.Context, loopID int64, status string, lastRunAt time.Time) error {
 	if err := s.repo.IncrementRunStats(ctx, loopID, status, lastRunAt); err != nil {
-		slog.Error("failed to update loop run stats", "loop_id", loopID, "status", status, "error", err)
+		slog.ErrorContext(ctx, "failed to update loop run stats", "loop_id", loopID, "status", status, "error", err)
 		return err
 	}
 	return nil
@@ -67,10 +67,10 @@ func (s *LoopService) ClearRuntimeState(ctx context.Context, loopID int64) error
 		"sandbox_path": nil,
 		"last_pod_key": nil,
 	}); err != nil {
-		slog.Error("failed to clear loop runtime state", "loop_id", loopID, "error", err)
+		slog.ErrorContext(ctx, "failed to clear loop runtime state", "loop_id", loopID, "error", err)
 		return err
 	}
-	slog.Info("loop runtime state cleared", "loop_id", loopID)
+	slog.InfoContext(ctx, "loop runtime state cleared", "loop_id", loopID)
 	return nil
 }
 

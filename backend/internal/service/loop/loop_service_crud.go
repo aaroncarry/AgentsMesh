@@ -104,10 +104,10 @@ func (s *LoopService) Create(ctx context.Context, req *CreateLoopRequest) (*loop
 		if strings.Contains(err.Error(), "idx_loops_org_slug") {
 			return nil, ErrDuplicateSlug
 		}
-		slog.Error("failed to create loop", "slug", slug, "org_id", req.OrganizationID, "error", err)
+		slog.ErrorContext(ctx, "failed to create loop", "slug", slug, "org_id", req.OrganizationID, "error", err)
 		return nil, err
 	}
 
-	slog.Info("loop created", "loop_id", loop.ID, "slug", slug, "org_id", req.OrganizationID)
+	slog.InfoContext(ctx, "loop created", "loop_id", loop.ID, "slug", slug, "org_id", req.OrganizationID)
 	return loop, nil
 }

@@ -25,7 +25,7 @@ func (s *Service) handleRecurringPaymentSuccess(ctx context.Context, event *paym
 			sub.PlanID = plan.ID
 			downgradedPlanName = &plan.Name
 		} else {
-			slog.Warn("pending downgrade plan not found on recurring payment, downgrade dropped",
+			slog.WarnContext(ctx, "pending downgrade plan not found on recurring payment, downgrade dropped",
 				"plan", *sub.DowngradeToPlan, "org_id", sub.OrganizationID, "error", err)
 		}
 		sub.DowngradeToPlan = nil

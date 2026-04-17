@@ -65,7 +65,7 @@ func (s *PodService) GetPodsByTicket(ctx context.Context, ticketID int64) ([]*ag
 func (s *PodService) ListPods(ctx context.Context, orgID int64, q agentpod.PodListQuery) ([]*agentpod.Pod, int64, error) {
 	pods, total, err := s.repo.ListByOrg(ctx, orgID, q)
 	if err != nil {
-		slog.Error("failed to list pods", "org_id", orgID, "error", err)
+		slog.ErrorContext(ctx, "failed to list pods", "org_id", orgID, "error", err)
 		return nil, 0, err
 	}
 	// Best-effort: enrich with loop info for display

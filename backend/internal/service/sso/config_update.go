@@ -33,7 +33,7 @@ func (s *Service) UpdateConfig(ctx context.Context, id int64, req *UpdateConfigR
 
 	updates, err := s.buildUpdateMap(req)
 	if err != nil {
-		slog.Error("failed to build SSO update map", "config_id", id, "protocol", existing.Protocol, "error", err)
+		slog.ErrorContext(ctx, "failed to build SSO update map", "config_id", id, "protocol", existing.Protocol, "error", err)
 		return nil, fmt.Errorf("failed to build update map: %w", err)
 	}
 	if len(updates) == 0 {
@@ -44,11 +44,11 @@ func (s *Service) UpdateConfig(ctx context.Context, id int64, req *UpdateConfigR
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrConfigNotFound
 		}
-		slog.Error("failed to update SSO config", "config_id", id, "protocol", existing.Protocol, "error", err)
+		slog.ErrorContext(ctx, "failed to update SSO config", "config_id", id, "protocol", existing.Protocol, "error", err)
 		return nil, fmt.Errorf("failed to update SSO config: %w", err)
 	}
 
-	slog.Info("SSO config updated", "config_id", id, "protocol", existing.Protocol, "domain", existing.Domain)
+	slog.InfoContext(ctx, "SSO config updated", "config_id", id, "protocol", existing.Protocol, "domain", existing.Domain)
 
 	return s.GetConfig(ctx, id)
 }

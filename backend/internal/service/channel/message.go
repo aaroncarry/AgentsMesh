@@ -82,7 +82,7 @@ func (s *Service) SendMessage(ctx context.Context, channelID int64, senderPod *s
 		mc := &MessageContext{Channel: ch, Message: msg, Mentions: mentionResult}
 		for _, hook := range s.postSendHooks {
 			if err := hook(ctx, mc); err != nil {
-				slog.Error("post-send hook failed", "error", err)
+				slog.ErrorContext(ctx, "post-send hook failed", "error", err)
 			}
 		}
 	}
