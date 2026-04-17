@@ -76,10 +76,10 @@ pipeline {
         GIT_REPO = 'git@git.ringcentral.com:ai-testing/AgentsMesh.git'
         GIT_BRANCH = "${params.BRANCH}"
 
-        // Runner version
+        // Runner version (will be set dynamically in stages)
         VERSION = ''
 
-        // Build metadata (VERSION will be set dynamically in stages)
+        // Build metadata
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
         // MinIO configuration
@@ -204,7 +204,7 @@ pipeline {
                         goreleaser --version
 
                         cd runner
-                        goreleaser release --snapshot --clean
+                        GORELEASER_CURRENT_TAG=${VERSION} goreleaser release --snapshot --clean
                     """
 
                     echo "=== Build complete ==="
