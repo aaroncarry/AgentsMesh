@@ -5,8 +5,8 @@
 
 $ErrorActionPreference = "Stop"
 
-# Internal download server
-$DOWNLOAD_BASE_URL = "http://aqa01-i01-xta01.int.rclabenv.com:9900/agentsmesh"
+# GitHub release repository
+$GITHUB_REPO = "AgentsMesh/AgentsMesh"
 $BINARY_NAME = "agentsmesh-runner.exe"
 
 # Colors
@@ -41,18 +41,24 @@ function Get-Platform {
             throw "Unsupported architecture: x86 (32-bit). AgentsMesh Runner requires 64-bit Windows (x64 or ARM64)."
         }
         default {
-            throw "Unsupported architecture: $arch. AgentsMesh Runner supports Windows x64 and ARM64 only."
+            throw "Unsupported architecture: $arch. AgentsMesh Runner supports Windows x64 and ARM64 only. Download manually from: https://github.com/$GITHUB_REPO/releases/latest"
         }
     }
 }
 
-# Get download filename based on platform
-function Get-DownloadFilename {
-    param([string]$Platform)
+# Get latest version from GitHub
+function Get-LatestVersion {
+    Write-Info "Fetching latest version..."
 
-    $filename = "agentsmesh-runner_${Platform}.zip"
-    Write-Info "Download filename: $filename"
-    return $filename
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$GITHUB_REPO/releases/latest" -UseBasicParsing
+        $version = $release.tag_name -replace "^v", ""
+        Write-Info "Latest version: v$version"
+        return $version
+    }
+    catch {
+        throw "Failed to fetch latest version: $_"
+    }
 }
 
 # Get install directory
@@ -95,11 +101,11 @@ function Add-ToPath {
 # Download and install
 function Install-Runner {
     param(
-        [string]$Filename,
+        [string]$Version,
         [string]$Platform
     )
 
-    $downloadUrl = "$DOWNLOAD_BASE_URL/$Filename"
+    $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/v$Version/agentsmesh-runner_${Version}_${Platform}.zip"
     $installDir = Get-InstallDir
 
     Write-Info "Downloading from: $downloadUrl"
@@ -143,7 +149,7 @@ function Install-Runner {
         # Add to PATH
         Add-ToPath -Directory $installDir
 
-        Write-Success "AgentsMesh Runner installed successfully!"
+        Write-Success "AgentsMesh Runner v$Version installed successfully!"
         return $destPath
     }
     finally {
@@ -213,8 +219,8 @@ function Main {
 
         if (-not (Test-Scoop)) { return }
 
-        $filename = Get-DownloadFilename -Platform $platform
-        $binaryPath = Install-Runner -Filename $filename -Platform $platform
+        $version = Get-LatestVersion
+        $binaryPath = Install-Runner -Version $version -Platform $platform
 
         if (Test-Installation -BinaryPath $binaryPath) {
             Show-NextSteps
@@ -222,6 +228,9 @@ function Main {
     }
     catch {
         Write-Err "Installation failed: $_"
+        Write-Host ""
+        Write-Host "If the problem persists, download manually from:" -ForegroundColor Gray
+        Write-Host "  https://github.com/$GITHUB_REPO/releases/latest" -ForegroundColor Blue
         Write-Host ""
     }
 }
