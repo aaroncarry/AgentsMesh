@@ -171,7 +171,7 @@ pipeline {
 
                             # Append commit info for development builds
                             COMMIT_SHORT=$(git rev-parse --short HEAD)
-                            echo "${LATEST_VERSION}-dev-${COMMIT_SHORT}"
+                            echo "${LATEST_VERSION}-rc-${COMMIT_SHORT}"
                         ''', returnStdout: true).trim()
                     }
 
