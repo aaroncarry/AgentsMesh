@@ -76,32 +76,7 @@ pipeline {
         GIT_REPO = 'git@git.ringcentral.com:ai-testing/AgentsMesh.git'
         GIT_BRANCH = "${params.BRANCH}"
 
-        // Build metadata
-        // Get version: try current tag, then latest tag from GitHub, then git describe
-        VERSION = sh(script: '''
-            # Try to get current tag (if building a tagged commit)
-            CURRENT_TAG=$(git describe --exact-match --tags 2>/dev/null | sed 's/^v//')
-            if [ -n "$CURRENT_TAG" ]; then
-                echo "$CURRENT_TAG"
-                exit 0
-            fi
-
-            # Try to get latest version from GitHub API (similar to install.sh)
-            GITHUB_REPO="AgentsMesh/AgentsMesh"
-            if command -v curl >/dev/null 2>&1; then
-                LATEST_VERSION=$(curl -sL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\\1/' | head -n1)
-            fi
-
-            if [ -n "$LATEST_VERSION" ]; then
-                # Append commit info for non-release builds
-                COMMIT_SHORT=$(git rev-parse --short HEAD)
-                echo "${LATEST_VERSION}-dev-${COMMIT_SHORT}"
-                exit 0
-            fi
-
-            # Fallback to git describe
-            git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo 'dev'
-        ''', returnStdout: true).trim()
+        // Build metadata (VERSION will be set dynamically in stages)
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
         // MinIO configuration
@@ -162,11 +137,46 @@ pipeline {
             }
         }
 
+        stage('Get Version') {
+            steps {
+                script {
+                    echo "=== Fetching latest version from GitHub API ==="
+
+                    // Get version from GitHub API with authentication
+                    withCredentials([string(credentialsId: 'agentsmesh-build-runner-github-pat', variable: 'GITHUB_TOKEN')]) {
+                        env.VERSION = sh(script: '''
+                            GITHUB_REPO="AgentsMesh/AgentsMesh"
+
+                            # Get latest version from GitHub API with authentication
+                            LATEST_VERSION=$(curl -sL \
+                                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                                -H "Accept: application/vnd.github+json" \
+                                "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
+                                | grep '"tag_name"' \
+                                | sed -E 's/.*"v([^"]+)".*/\\1/' \
+                                | head -n1)
+
+                            if [ -z "$LATEST_VERSION" ]; then
+                                echo "Error: Failed to fetch latest version from GitHub API" >&2
+                                exit 1
+                            fi
+
+                            # Append commit info for development builds
+                            COMMIT_SHORT=$(git rev-parse --short HEAD)
+                            echo "${LATEST_VERSION}-dev-${COMMIT_SHORT}"
+                        ''', returnStdout: true).trim()
+                    }
+
+                    echo "Version: ${env.VERSION}"
+                }
+            }
+        }
+
         stage('Build Runner') {
             steps {
                 script {
                     echo "=== Building AgentsMesh Runner with GoReleaser ==="
-                    echo "Version: ${VERSION}"
+                    echo "Version: ${env.VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
                     // Build with GoReleaser
@@ -342,7 +352,7 @@ pipeline {
                 echo "║                          ✅ Build Successful                               ║"
                 echo "╚════════════════════════════════════════════════════════════════════════════╝"
                 echo ""
-                echo "Version: ${VERSION}"
+                echo "Version: ${env.VERSION}"
                 echo "Build Time: ${BUILD_TIME}"
                 echo "Build Number: #${env.BUILD_NUMBER}"
                 echo ""
