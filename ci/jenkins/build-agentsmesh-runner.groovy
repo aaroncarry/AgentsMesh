@@ -102,6 +102,11 @@ pipeline {
             defaultValue: 'gitjenkins.xiamen',
             description: 'Jenkins SSH credential ID for Git operations'
         )
+        password(
+            name: 'GITHUB_PAT',
+            defaultValue: 'github-pat-for-agentsmesh-build-runner',
+            description: 'Jenkins credential ID for GitHub API token (used to fetch latest release version)'
+        )
         booleanParam(
             name: 'UPLOAD_TO_MINIO',
             defaultValue: true,
@@ -143,13 +148,13 @@ pipeline {
                     echo "=== Fetching latest version from GitHub API ==="
 
                     // Get version from GitHub API with authentication
-                    withCredentials([string(credentialsId: 'agentsmesh-build-runner-github-pat', variable: 'GITHUB_TOKEN')]) {
+                    withCredentials([string(credentialsId: "${params.GITHUB_PAT}", variable: 'GITHUB_PAT')]) {
                         env.VERSION = sh(script: '''
                             GITHUB_REPO="AgentsMesh/AgentsMesh"
 
                             # Get latest version from GitHub API with authentication
                             LATEST_VERSION=$(curl -sL \
-                                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                                -H "Authorization: token ${GITHUB_PAT}" \
                                 -H "Accept: application/vnd.github+json" \
                                 "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
                                 | grep '"tag_name"' \
