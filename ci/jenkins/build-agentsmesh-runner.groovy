@@ -175,7 +175,7 @@ pipeline {
                         ''', returnStdout: true).trim()
                     }
 
-                    echo "Version: ${env.VERSION}"
+                    echo "Version: ${VERSION}"
                 }
             }
         }
