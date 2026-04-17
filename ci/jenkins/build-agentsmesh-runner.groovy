@@ -77,7 +77,31 @@ pipeline {
         GIT_BRANCH = "${params.BRANCH}"
 
         // Build metadata
-        VERSION = sh(script: "git describe --tags --always --dirty 2>/dev/null || echo 'dev'", returnStdout: true).trim()
+        // Get version: try current tag, then latest tag from GitHub, then git describe
+        VERSION = sh(script: '''
+            # Try to get current tag (if building a tagged commit)
+            CURRENT_TAG=$(git describe --exact-match --tags 2>/dev/null | sed 's/^v//')
+            if [ -n "$CURRENT_TAG" ]; then
+                echo "$CURRENT_TAG"
+                exit 0
+            fi
+
+            # Try to get latest version from GitHub API (similar to install.sh)
+            GITHUB_REPO="AgentsMesh/AgentsMesh"
+            if command -v curl >/dev/null 2>&1; then
+                LATEST_VERSION=$(curl -sL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\\1/' | head -n1)
+            fi
+
+            if [ -n "$LATEST_VERSION" ]; then
+                # Append commit info for non-release builds
+                COMMIT_SHORT=$(git rev-parse --short HEAD)
+                echo "${LATEST_VERSION}-dev-${COMMIT_SHORT}"
+                exit 0
+            fi
+
+            # Fallback to git describe
+            git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo 'dev'
+        ''', returnStdout: true).trim()
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
         // MinIO configuration
