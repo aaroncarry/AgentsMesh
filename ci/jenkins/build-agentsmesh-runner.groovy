@@ -76,6 +76,9 @@ pipeline {
         GIT_REPO = 'git@git.ringcentral.com:ai-testing/AgentsMesh.git'
         GIT_BRANCH = "${params.BRANCH}"
 
+        // Runner version
+        VERSION = ''
+
         // Build metadata (VERSION will be set dynamically in stages)
         BUILD_TIME = sh(script: "date -u '+%Y-%m-%d_%H:%M:%S'", returnStdout: true).trim()
 
@@ -142,14 +145,14 @@ pipeline {
             }
         }
 
-        stage('Get Version') {
+        stage('Get Runner Latest Version') {
             steps {
                 script {
                     echo "=== Fetching latest version from GitHub API ==="
 
                     // Get version from GitHub API with authentication
                     withCredentials([string(credentialsId: "${params.GITHUB_PAT}", variable: 'GITHUB_PAT')]) {
-                        env.VERSION = sh(script: '''
+                        VERSION = sh(script: '''
                             GITHUB_REPO="AgentsMesh/AgentsMesh"
 
                             # Get latest version from GitHub API with authentication
@@ -181,7 +184,7 @@ pipeline {
             steps {
                 script {
                     echo "=== Building AgentsMesh Runner with GoReleaser ==="
-                    echo "Version: ${env.VERSION}"
+                    echo "Version: ${VERSION}"
                     echo "Build Time: ${BUILD_TIME}"
 
                     // Build with GoReleaser
@@ -357,7 +360,7 @@ pipeline {
                 echo "║                          ✅ Build Successful                               ║"
                 echo "╚════════════════════════════════════════════════════════════════════════════╝"
                 echo ""
-                echo "Version: ${env.VERSION}"
+                echo "Version: ${VERSION}"
                 echo "Build Time: ${BUILD_TIME}"
                 echo "Build Number: #${env.BUILD_NUMBER}"
                 echo ""
