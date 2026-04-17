@@ -204,7 +204,7 @@ pipeline {
                         goreleaser --version
 
                         cd runner
-                        GORELEASER_CURRENT_TAG=${VERSION} goreleaser release --snapshot --clean
+                        GORELEASER_CURRENT_TAG=${VERSION} goreleaser release --clean
                     """
 
                     echo "=== Build complete ==="
