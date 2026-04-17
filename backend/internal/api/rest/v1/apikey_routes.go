@@ -38,12 +38,20 @@ func RegisterExtRoutes(rg *gin.RouterGroup, svc *Services) {
 		}
 	}
 	podHandler := NewPodHandler(svc.Pod, svc.Runner, svc.PodOrchestrator, podOpts...)
+	var podGitHandler *PodGitHandler
+	if svc.PodGit != nil {
+		podGitHandler = NewPodGitHandler(svc.PodGit)
+	}
 
 	podsRead := rg.Group("/pods")
 	podsRead.Use(middleware.RequireScope("pods:read", "pods:write"))
 	{
 		podsRead.GET("", podHandler.ListPods)
 		podsRead.GET("/:key", podHandler.GetPod)
+		if podGitHandler != nil {
+			podsRead.GET("/:key/git/status", podGitHandler.Status)
+			podsRead.GET("/:key/git/diff", podGitHandler.Diff)
+		}
 	}
 	podsWrite := rg.Group("/pods")
 	podsWrite.Use(middleware.RequireScope("pods:write"))
@@ -51,6 +59,10 @@ func RegisterExtRoutes(rg *gin.RouterGroup, svc *Services) {
 		podsWrite.POST("", podHandler.CreatePod)
 		podsWrite.POST("/:key/prompt", podHandler.SendPodPrompt)
 		podsWrite.POST("/:key/terminate", podHandler.TerminatePod)
+		if podGitHandler != nil {
+			podsWrite.POST("/:key/git/commit", podGitHandler.Commit)
+			podsWrite.POST("/:key/git/push", podGitHandler.Push)
+		}
 	}
 
 	// Ticket routes

@@ -7,6 +7,7 @@ import (
 	"log"
 	"log/slog"
 
+	grpcserver "github.com/anthropics/agentsmesh/backend/internal/api/grpc"
 	"github.com/anthropics/agentsmesh/backend/internal/config"
 	notifDomain "github.com/anthropics/agentsmesh/backend/internal/domain/notification"
 	"github.com/anthropics/agentsmesh/backend/internal/infra"
@@ -20,6 +21,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/instance"
 	loop "github.com/anthropics/agentsmesh/backend/internal/service/loop"
 	notifService "github.com/anthropics/agentsmesh/backend/internal/service/notification"
+	"github.com/anthropics/agentsmesh/backend/internal/service/podgit"
 	"github.com/anthropics/agentsmesh/backend/internal/service/relay"
 	"github.com/anthropics/agentsmesh/backend/internal/service/runner"
 	"github.com/anthropics/agentsmesh/backend/internal/service/ticket"
@@ -187,6 +189,13 @@ func main() {
 	// Initialize PKI, gRPC, and wire command senders
 	grpcResult := initPKIAndGRPCWiring(cfg, services, runnerConnMgr, podCoordinator, podRouter, sandboxQuerySvc, podOrchestrator, loopOrchestrator, services.loopRun, appLogger, relayTokenGenerator, db)
 
+	// Wire pod-scoped Git delivery (downstream extension, isolated from upstream wiring)
+	gitCommandSvc := runner.NewGitCommandService(runnerConnMgr)
+	if grpcResult.server != nil {
+		gitCommandSvc.SetSender(grpcserver.NewGRPCCommandSender(grpcResult.server.RunnerAdapter()))
+	}
+	podGitSvc := podgit.NewService(services.pod, gitCommandSvc)
+
 	// Initialize Runner version checker (checks GitHub Releases for latest version)
 	versionChecker := runner.NewVersionChecker(redisClient)
 	if versionChecker != nil {
@@ -200,6 +209,8 @@ func main() {
 	svc := buildServicesContainer(services, runnerConnMgr, podCoordinator, podOrchestrator, hub, eventBus,
 		grpcResult, sandboxQuerySvc, logUploadSvc, relayManager, relayTokenGenerator, relayDNSService,
 		relayACMEManager, geoResolver, versionChecker, loopOrchestrator, loopScheduler)
+
+	svc.PodGit = podGitSvc
 
 	// Initialize router
 	router := rest.NewRouter(cfg, svc, db, appLogger.Logger, redisClient)

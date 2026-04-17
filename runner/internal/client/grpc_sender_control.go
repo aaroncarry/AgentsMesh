@@ -100,6 +100,17 @@ func (c *GRPCConnection) SendObservePodResult(requestID, podKey, output, screen 
 	return c.sendControl(msg)
 }
 
+// SendGitCommandResult sends a structured git command result to the server (control message).
+func (c *GRPCConnection) SendGitCommandResult(result *runnerv1.GitCommandResult) error {
+	msg := &runnerv1.RunnerMessage{
+		Payload: &runnerv1.RunnerMessage_GitCommandResult{
+			GitCommandResult: result,
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	return c.sendControl(msg)
+}
+
 // SendUpgradeStatus sends an upgrade status event to the server (control message).
 func (c *GRPCConnection) SendUpgradeStatus(event *runnerv1.UpgradeStatusEvent) error {
 	msg := &runnerv1.RunnerMessage{

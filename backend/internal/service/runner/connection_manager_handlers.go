@@ -178,6 +178,21 @@ func (cm *RunnerConnectionManager) HandleObservePodResult(runnerID int64, data *
 	}
 }
 
+// HandleGitCommandResult handles git command results from a runner (Proto type).
+func (cm *RunnerConnectionManager) HandleGitCommandResult(runnerID int64, data *runnerv1.GitCommandResult) {
+	cm.UpdateHeartbeat(runnerID)
+	cm.logger.Info("git command result received",
+		"runner_id", runnerID,
+		"request_id", data.GetRequestId(),
+		"pod_key", data.GetPodKey(),
+		"ok", data.GetOk(),
+		"code", data.GetCode(),
+	)
+	if cm.onGitCommandResult != nil {
+		cm.onGitCommandResult(runnerID, data)
+	}
+}
+
 // ==================== Token Usage Handler ====================
 
 // HandleTokenUsage handles token usage report from runner (Proto type)

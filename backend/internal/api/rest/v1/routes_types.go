@@ -24,6 +24,7 @@ import (
 	"github.com/anthropics/agentsmesh/backend/internal/service/mesh"
 	notifService "github.com/anthropics/agentsmesh/backend/internal/service/notification"
 	"github.com/anthropics/agentsmesh/backend/internal/service/organization"
+	"github.com/anthropics/agentsmesh/backend/internal/service/podgit"
 	"github.com/anthropics/agentsmesh/backend/internal/service/promocode"
 	"github.com/anthropics/agentsmesh/backend/internal/service/relay"
 	"github.com/anthropics/agentsmesh/backend/internal/service/repository"
@@ -53,6 +54,7 @@ type Services struct {
 	RunnerConnMgr      *runner.RunnerConnectionManager // Runner gRPC connection manager
 	PodCoordinator     *runner.PodCoordinator          // Pod lifecycle coordinator
 	Pod                *agentpod.PodService
+	PodGit             *podgit.Service
 	PodOrchestrator    *agentpod.PodOrchestrator            // Unified Pod creation orchestrator
 	Autopilot          *agentpod.AutopilotControllerService // AutopilotController automation service
 	Channel            *channel.Service

@@ -33,6 +33,22 @@ func (a *GRPCRunnerAdapter) SendObservePod(runnerID int64, requestID, podKey str
 	return conn.SendMessage(msg)
 }
 
+// SendGitCommand sends a structured git command to a Runner.
+func (a *GRPCRunnerAdapter) SendGitCommand(runnerID int64, cmd *runnerv1.GitCommand) error {
+	conn := a.connManager.GetConnection(runnerID)
+	if conn == nil {
+		return status.Errorf(codes.NotFound, "runner %d not connected", runnerID)
+	}
+
+	msg := &runnerv1.ServerMessage{
+		Payload: &runnerv1.ServerMessage_GitCommand{
+			GitCommand: cmd,
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	return conn.SendMessage(msg)
+}
+
 // ==================== Runner Upgrade Commands ====================
 
 // SendUpgradeRunner sends an upgrade command to a Runner.

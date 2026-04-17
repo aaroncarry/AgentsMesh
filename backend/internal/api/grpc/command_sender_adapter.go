@@ -129,6 +129,16 @@ func (s *GRPCCommandSender) SendObservePod(ctx context.Context, runnerID int64, 
 	return nil
 }
 
+// SendGitCommand sends a structured git command to a runner via gRPC.
+func (s *GRPCCommandSender) SendGitCommand(ctx context.Context, runnerID int64, cmd *runnerv1.GitCommand) error {
+	slog.Info("sending git_command", "runner_id", runnerID, "request_id", cmd.GetRequestId(), "pod_key", cmd.GetPodKey())
+	if err := s.adapter.SendGitCommand(runnerID, cmd); err != nil {
+		slog.Error("failed to send git_command", "runner_id", runnerID, "request_id", cmd.GetRequestId(), "pod_key", cmd.GetPodKey(), "error", err)
+		return err
+	}
+	return nil
+}
+
 // IsConnected checks if a runner is connected.
 func (s *GRPCCommandSender) IsConnected(runnerID int64) bool {
 	return s.adapter.IsConnected(runnerID)

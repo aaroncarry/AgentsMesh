@@ -60,6 +60,9 @@ type RunnerConnectionManager struct {
 	// Pod observation callback
 	onObservePodResult func(runnerID int64, data *runnerv1.ObservePodResult)
 
+	// Pod Git command callback
+	onGitCommandResult func(runnerID int64, data *runnerv1.GitCommandResult)
+
 	// Upgrade event callback
 	onUpgradeStatus func(runnerID int64, data *runnerv1.UpgradeStatusEvent)
 
