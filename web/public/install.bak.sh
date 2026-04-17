@@ -14,8 +14,8 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Internal download server
-DOWNLOAD_BASE_URL="http://aqa01-i01-xta01.int.rclabenv.com:9900/agentsmesh"
+# GitHub release repository
+GITHUB_REPO="AgentsMesh/AgentsMesh"
 BINARY_NAME="agentsmesh-runner"
 INSTALL_DIR=""
 
@@ -154,15 +154,28 @@ detect_platform() {
     info "Detected platform: $PLATFORM"
 }
 
-# Construct download filename based on platform
-get_download_filename() {
-    DOWNLOAD_FILENAME="agentsmesh-runner_${PLATFORM}.tar.gz"
-    info "Download filename: $DOWNLOAD_FILENAME"
+# Get latest version from GitHub API
+get_latest_version() {
+    info "Fetching latest version..."
+
+    if command -v curl >/dev/null 2>&1; then
+        VERSION=$(curl -sL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+    elif command -v wget >/dev/null 2>&1; then
+        VERSION=$(wget -qO- "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+    else
+        error "Neither curl nor wget found. Please install one of them."
+    fi
+
+    if [ -z "$VERSION" ]; then
+        error "Failed to fetch latest version. Please check your internet connection."
+    fi
+
+    info "Latest version: v$VERSION"
 }
 
 # Download and install
 install() {
-    DOWNLOAD_URL="${DOWNLOAD_BASE_URL}/${DOWNLOAD_FILENAME}"
+    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/agentsmesh-runner_${VERSION}_${PLATFORM}.tar.gz"
 
     info "Downloading from: $DOWNLOAD_URL"
 
@@ -193,7 +206,7 @@ install() {
     mv "$BINARY_PATH" "$INSTALL_DIR/$BINARY_NAME"
     chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-    success "AgentsMesh Runner installed successfully!"
+    success "AgentsMesh Runner v$VERSION installed successfully!"
 }
 
 # Verify installation
@@ -242,7 +255,7 @@ main() {
 
     detect_platform
     detect_install_dir
-    get_download_filename
+    get_latest_version
     install
     verify
     ensure_path
