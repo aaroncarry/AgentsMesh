@@ -1,11 +1,13 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
 	"github.com/anthropics/agentsmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
+	"github.com/anthropics/agentsmesh/backend/pkg/slugkit"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,9 +34,11 @@ func (h *OrganizationHandler) CreateOrganization(c *gin.Context) {
 		return
 	}
 
-	// Validate slug format: lowercase alphanumeric with hyphens
-	if !slugRegex.MatchString(req.Slug) {
-		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Slug must contain only lowercase letters, numbers, and hyphens, and must start and end with alphanumeric characters")
+	if err := slugkit.Validate(req.Slug); err != nil {
+		suggestion, _ := slugkit.SanitizeAndValidate(req.Slug)
+		apierr.RespondWithExtra(c, http.StatusBadRequest, apierr.VALIDATION_FAILED,
+			"Slug must contain only lowercase letters, numbers, and hyphens, and must start and end with alphanumeric characters",
+			gin.H{"field": "slug", "suggestion": suggestion})
 		return
 	}
 
@@ -47,7 +51,7 @@ func (h *OrganizationHandler) CreateOrganization(c *gin.Context) {
 	})
 
 	if err != nil {
-		if err == organization.ErrSlugAlreadyExists {
+		if errors.Is(err, organization.ErrSlugAlreadyExists) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Organization slug already exists")
 			return
 		}
@@ -62,6 +66,10 @@ func (h *OrganizationHandler) CreateOrganization(c *gin.Context) {
 // GET /api/v1/organizations/:slug
 func (h *OrganizationHandler) GetOrganization(c *gin.Context) {
 	slug := c.Param("slug")
+	if slugkit.IsReserved(slug) {
+		apierr.ResourceNotFound(c, "Organization not found")
+		return
+	}
 
 	org, err := h.orgService.GetOrgBySlug(c.Request.Context(), slug)
 	if err != nil {
@@ -84,6 +92,10 @@ func (h *OrganizationHandler) GetOrganization(c *gin.Context) {
 // PUT /api/v1/organizations/:slug
 func (h *OrganizationHandler) UpdateOrganization(c *gin.Context) {
 	slug := c.Param("slug")
+	if slugkit.IsReserved(slug) {
+		apierr.ResourceNotFound(c, "Organization not found")
+		return
+	}
 
 	var req UpdateOrganizationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,6 +138,10 @@ func (h *OrganizationHandler) UpdateOrganization(c *gin.Context) {
 // DELETE /api/v1/organizations/:slug
 func (h *OrganizationHandler) DeleteOrganization(c *gin.Context) {
 	slug := c.Param("slug")
+	if slugkit.IsReserved(slug) {
+		apierr.ResourceNotFound(c, "Organization not found")
+		return
+	}
 
 	org, err := h.orgService.GetOrgBySlug(c.Request.Context(), slug)
 	if err != nil {

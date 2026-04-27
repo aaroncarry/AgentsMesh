@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -34,11 +35,11 @@ func (h *SubscriptionHandler) AdminCreateSubscription(c *gin.Context) {
 
 	newSub, err := h.billingService.AdminCreateSubscription(c.Request.Context(), orgID, req.PlanName, req.Months)
 	if err != nil {
-		if err == billingservice.ErrPlanNotFound {
+		if errors.Is(err, billingservice.ErrPlanNotFound) {
 			apierr.ResourceNotFound(c, "Plan not found")
 			return
 		}
-		if err == billingservice.ErrSubscriptionAlreadyExists {
+		if errors.Is(err, billingservice.ErrSubscriptionAlreadyExists) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Subscription already exists for this organization")
 			return
 		}
@@ -72,11 +73,11 @@ func (h *SubscriptionHandler) AdminUpdatePlan(c *gin.Context) {
 
 	newSub, err := h.billingService.AdminUpdatePlan(c.Request.Context(), orgID, req.PlanName)
 	if err != nil {
-		if err == billingservice.ErrPlanNotFound {
+		if errors.Is(err, billingservice.ErrPlanNotFound) {
 			apierr.ResourceNotFound(c, "Plan not found")
 			return
 		}
-		if err == billingservice.ErrSubscriptionNotFound {
+		if errors.Is(err, billingservice.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "Subscription not found")
 			return
 		}

@@ -16,7 +16,7 @@ func (s *Service) GetDecryptedProviderToken(ctx context.Context, userID, provide
 	// Get provider with Identity preloaded
 	provider, err := s.repo.GetRepositoryProviderWithIdentity(ctx, userID, providerID)
 	if err != nil {
-		if err == user.ErrNotFound {
+		if errors.Is(err, user.ErrNotFound) {
 			return "", ErrProviderNotFound
 		}
 		return "", err
@@ -29,7 +29,7 @@ func (s *Service) GetDecryptedProviderToken(ctx context.Context, userID, provide
 func (s *Service) GetRepositoryProviderByTypeAndURL(ctx context.Context, userID int64, providerType, baseURL string) (*user.RepositoryProvider, error) {
 	provider, err := s.repo.GetRepositoryProviderByTypeAndURL(ctx, userID, providerType, baseURL)
 	if err != nil {
-		if err == user.ErrNotFound {
+		if errors.Is(err, user.ErrNotFound) {
 			return nil, ErrProviderNotFound
 		}
 		return nil, err

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -51,10 +52,10 @@ func (h *UserRepositoryProviderHandler) CreateProvider(c *gin.Context) {
 		BotToken:     req.BotToken,
 	})
 	if err != nil {
-		switch err {
-		case user.ErrProviderAlreadyExists:
+		switch {
+		case errors.Is(err, user.ErrProviderAlreadyExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Provider already exists with this name")
-		case user.ErrInvalidProviderType:
+		case errors.Is(err, user.ErrInvalidProviderType):
 			apierr.InvalidInput(c, "Invalid provider type")
 		default:
 			apierr.InternalError(c, "Failed to create provider")
@@ -78,7 +79,7 @@ func (h *UserRepositoryProviderHandler) GetProvider(c *gin.Context) {
 
 	provider, err := h.userService.GetRepositoryProvider(c.Request.Context(), userID, providerID)
 	if err != nil {
-		if err == user.ErrProviderNotFound {
+		if errors.Is(err, user.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}
@@ -115,10 +116,10 @@ func (h *UserRepositoryProviderHandler) UpdateProvider(c *gin.Context) {
 		IsActive:     req.IsActive,
 	})
 	if err != nil {
-		switch err {
-		case user.ErrProviderNotFound:
+		switch {
+		case errors.Is(err, user.ErrProviderNotFound):
 			apierr.ResourceNotFound(c, "Provider not found")
-		case user.ErrProviderAlreadyExists:
+		case errors.Is(err, user.ErrProviderAlreadyExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Provider already exists with this name")
 		default:
 			apierr.InternalError(c, "Failed to update provider")
@@ -142,7 +143,7 @@ func (h *UserRepositoryProviderHandler) DeleteProvider(c *gin.Context) {
 
 	err = h.userService.DeleteRepositoryProvider(c.Request.Context(), userID, providerID)
 	if err != nil {
-		if err == user.ErrProviderNotFound {
+		if errors.Is(err, user.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}

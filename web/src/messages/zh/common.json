@@ -61,7 +61,9 @@
     "INTERNAL_ERROR": "发生内部错误，请稍后重试。",
     "AUTH_REQUIRED": "需要登录认证，请先登录。",
     "INVALID_TOKEN": "无效或已过期的认证令牌",
-    "TOKEN_EXPIRED": "会话已过期，请重新登录。"
+    "SESSION_REFRESH_FAILED": "会话已过期，请重新登录。",
+    "TOKEN_EXPIRED": "认证凭证已过期。",
+    "API_KEY_EXPIRED": "API 密钥已过期，请在 API 密钥设置中续期或重建。"
   },
   "nav": {
     "agentpod": "AgentPod",

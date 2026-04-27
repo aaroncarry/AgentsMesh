@@ -1,15 +1,9 @@
 package v1
 
 import (
-	"regexp"
-
 	"github.com/anthropics/agentsmesh/backend/internal/service/organization"
 	"github.com/anthropics/agentsmesh/backend/internal/service/user"
 )
-
-// slugRegex validates organization slug: lowercase letters, numbers, and hyphens
-// Must start and end with alphanumeric, no consecutive hyphens
-var slugRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
 // OrganizationHandler handles organization-related requests
 type OrganizationHandler struct {

@@ -119,7 +119,7 @@ func (s *Service) processCredentialType(ctx context.Context, userID int64, crede
 func (s *Service) GetGitCredential(ctx context.Context, userID, credentialID int64) (*user.GitCredential, error) {
 	credential, err := s.repo.GetGitCredentialWithProvider(ctx, userID, credentialID)
 	if err != nil {
-		if err == user.ErrNotFound {
+		if errors.Is(err, user.ErrNotFound) {
 			return nil, ErrCredentialNotFound
 		}
 		return nil, err
@@ -231,7 +231,7 @@ func (s *Service) DeleteGitCredential(ctx context.Context, userID, credentialID 
 	// First check if this is the default credential
 	credential, err := s.repo.GetGitCredentialWithProvider(ctx, userID, credentialID)
 	if err != nil {
-		if err == user.ErrNotFound {
+		if errors.Is(err, user.ErrNotFound) {
 			return ErrCredentialNotFound
 		}
 		return err

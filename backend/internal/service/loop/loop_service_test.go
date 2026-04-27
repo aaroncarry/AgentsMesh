@@ -226,7 +226,7 @@ func TestGenerateSlug(t *testing.T) {
 		{"lowercase name", "daily review", "daily-review"},
 		{"mixed case", "My Cool Loop", "my-cool-loop"},
 		{"special chars", "PR Review (v2)", "pr-review-v2"},
-		{"short name padded", "ab", "ab-loop"},
+		{"short name padded", "a", "a-loop"},
 	}
 
 	for _, tt := range tests {
@@ -237,25 +237,37 @@ func TestGenerateSlug(t *testing.T) {
 
 	t.Run("chinese name generates valid slug", func(t *testing.T) {
 		slug := generateSlug("每日代码审查")
-		assert.True(t, slugRegex.MatchString(slug), "slug %q should match regex", slug)
+		assert.True(t, isValidSlug(slug), "slug %q should match regex", slug)
 		assert.True(t, len(slug) >= 3, "slug should be at least 3 chars")
 	})
 
 	t.Run("mixed chinese and ascii", func(t *testing.T) {
 		slug := generateSlug("每日review任务")
-		assert.True(t, slugRegex.MatchString(slug), "slug %q should match regex", slug)
+		assert.True(t, isValidSlug(slug), "slug %q should match regex", slug)
 		assert.Contains(t, slug, "review")
 	})
 
 	t.Run("emoji name generates valid slug", func(t *testing.T) {
 		slug := generateSlug("🚀 deploy bot")
-		assert.True(t, slugRegex.MatchString(slug), "slug %q should match regex", slug)
+		assert.True(t, isValidSlug(slug), "slug %q should match regex", slug)
 	})
 
 	t.Run("pure unicode generates timestamp-based slug", func(t *testing.T) {
 		slug := generateSlug("日本語テスト")
-		assert.True(t, slugRegex.MatchString(slug), "slug %q should match regex", slug)
+		assert.True(t, isValidSlug(slug), "slug %q should match regex", slug)
 		assert.Contains(t, slug, "loop-")
+	})
+
+	t.Run("reserved word falls back to timestamp", func(t *testing.T) {
+		slug := generateSlug("admin")
+		assert.True(t, isValidSlug(slug), "slug %q should be valid", slug)
+		assert.NotEqual(t, "admin", slug, "reserved word must not be returned verbatim")
+	})
+
+	t.Run("reserved word with prefix collisions falls back", func(t *testing.T) {
+		slug := generateSlug("api")
+		assert.True(t, isValidSlug(slug), "slug %q should be valid", slug)
+		assert.NotEqual(t, "api", slug)
 	})
 }
 
@@ -271,5 +283,5 @@ func TestLoopService_Create_ChineseName(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.NotZero(t, loop.ID)
-	assert.True(t, slugRegex.MatchString(loop.Slug), "auto-generated slug %q should be valid", loop.Slug)
+	assert.True(t, isValidSlug(loop.Slug), "auto-generated slug %q should be valid", loop.Slug)
 }

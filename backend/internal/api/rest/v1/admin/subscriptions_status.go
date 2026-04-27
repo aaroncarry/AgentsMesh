@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -110,7 +111,7 @@ func (h *SubscriptionHandler) AdminRenew(c *gin.Context) {
 
 	newSub, err := h.billingService.AdminRenew(c.Request.Context(), orgID, req.Months)
 	if err != nil {
-		if err == billingservice.ErrSubscriptionNotFound {
+		if errors.Is(err, billingservice.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "Subscription not found")
 			return
 		}
@@ -174,7 +175,7 @@ func (h *SubscriptionHandler) SetCustomQuota(c *gin.Context) {
 	oldSub, _ := h.billingService.GetSubscription(c.Request.Context(), orgID)
 
 	if err := h.billingService.SetCustomQuota(c.Request.Context(), orgID, req.Resource, req.Limit); err != nil {
-		if err == billingservice.ErrSubscriptionNotFound {
+		if errors.Is(err, billingservice.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "Subscription not found")
 			return
 		}

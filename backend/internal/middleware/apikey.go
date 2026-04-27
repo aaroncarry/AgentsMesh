@@ -188,7 +188,7 @@ func handleAPIKeyError(c *gin.Context, err error) {
 	case errors.Is(err, ErrAPIKeyDisabled):
 		apierr.Forbidden(c, apierr.API_KEY_DISABLED, "API key is disabled")
 	case errors.Is(err, ErrAPIKeyExpired):
-		apierr.Unauthorized(c, apierr.TOKEN_EXPIRED, "API key has expired")
+		apierr.Unauthorized(c, apierr.API_KEY_EXPIRED, "API key has expired")
 	default:
 		apierr.InternalError(c, "Failed to validate API key")
 	}

@@ -99,7 +99,7 @@ async function requestFormData<T>(endpoint: string, formData: FormData): Promise
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
-      throw new ApiError(401, "Unauthorized", { message: "Session expired" });
+      throw new ApiError(401, "Unauthorized", { code: "SESSION_REFRESH_FAILED", error: "Session expired" });
     }
   }
 

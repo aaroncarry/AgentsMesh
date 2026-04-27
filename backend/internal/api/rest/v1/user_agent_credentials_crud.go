@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -23,7 +24,7 @@ func (h *UserAgentCredentialHandler) GetProfile(c *gin.Context) {
 
 	profile, err := h.credentialSvc.GetCredentialProfile(c.Request.Context(), userID, profileID)
 	if err != nil {
-		if err == agentService.ErrCredentialProfileNotFound {
+		if errors.Is(err, agentService.ErrCredentialProfileNotFound) {
 			apierr.ResourceNotFound(c, "Profile not found")
 			return
 		}
@@ -71,10 +72,10 @@ func (h *UserAgentCredentialHandler) UpdateProfile(c *gin.Context) {
 	})
 
 	if err != nil {
-		switch err {
-		case agentService.ErrCredentialProfileNotFound:
+		switch {
+		case errors.Is(err, agentService.ErrCredentialProfileNotFound):
 			apierr.ResourceNotFound(c, "Profile not found")
-		case agentService.ErrCredentialProfileExists:
+		case errors.Is(err, agentService.ErrCredentialProfileExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Profile with this name already exists")
 		default:
 			apierr.InternalError(c, "Failed to update profile")
@@ -98,7 +99,7 @@ func (h *UserAgentCredentialHandler) DeleteProfile(c *gin.Context) {
 
 	err = h.credentialSvc.DeleteCredentialProfile(c.Request.Context(), userID, profileID)
 	if err != nil {
-		if err == agentService.ErrCredentialProfileNotFound {
+		if errors.Is(err, agentService.ErrCredentialProfileNotFound) {
 			apierr.ResourceNotFound(c, "Profile not found")
 			return
 		}
@@ -122,7 +123,7 @@ func (h *UserAgentCredentialHandler) SetDefault(c *gin.Context) {
 
 	profile, err := h.credentialSvc.SetDefaultCredentialProfile(c.Request.Context(), userID, profileID)
 	if err != nil {
-		if err == agentService.ErrCredentialProfileNotFound {
+		if errors.Is(err, agentService.ErrCredentialProfileNotFound) {
 			apierr.ResourceNotFound(c, "Profile not found")
 			return
 		}

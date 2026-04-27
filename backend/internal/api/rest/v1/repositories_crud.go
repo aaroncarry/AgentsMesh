@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -56,11 +57,11 @@ func (h *RepositoryHandler) CreateRepository(c *gin.Context) {
 		isNewRepo := existsErr == repository.ErrRepositoryNotFound
 		if isNewRepo {
 			if err := h.billingService.CheckQuota(c.Request.Context(), tenant.OrganizationID, "repositories", 1); err != nil {
-				if err == billing.ErrQuotaExceeded {
+				if errors.Is(err, billing.ErrQuotaExceeded) {
 					apierr.PaymentRequired(c, apierr.REPOSITORY_QUOTA_EXCEEDED, "Repository quota exceeded. Please upgrade your plan to add more repositories.")
 					return
 				}
-				if err == billing.ErrSubscriptionFrozen {
+				if errors.Is(err, billing.ErrSubscriptionFrozen) {
 					apierr.PaymentRequired(c, apierr.SUBSCRIPTION_FROZEN, "Your subscription has expired. Please renew to continue.")
 					return
 				}

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/user"
 )
@@ -77,7 +78,8 @@ func (s *Service) GetUser(ctx context.Context, userID int64) (*user.User, error)
 	return &u, nil
 }
 
-// UpdateUser updates a user's profile
+// UpdateUser maps unique-constraint violations to ErrUsernameAlreadyExists /
+// ErrEmailAlreadyExists so the handler can return 409 instead of 500.
 func (s *Service) UpdateUser(ctx context.Context, userID int64, updates map[string]interface{}) (*user.User, error) {
 	var u user.User
 	if err := s.db.First(&u, userID); err != nil {
@@ -85,17 +87,34 @@ func (s *Service) UpdateUser(ctx context.Context, userID int64, updates map[stri
 	}
 
 	if err := s.db.Updates(&u, updates); err != nil {
+		if isUniqueViolation(err) {
+			if _, ok := updates["username"]; ok {
+				return nil, ErrUsernameAlreadyExists
+			}
+			if _, ok := updates["email"]; ok {
+				return nil, ErrEmailAlreadyExists
+			}
+		}
 		slog.ErrorContext(ctx, "admin: failed to update user", "user_id", userID, "error", err)
 		return nil, err
 	}
 
 	slog.InfoContext(ctx, "admin: user updated", "user_id", userID)
 
-	// Reload
 	if err := s.db.First(&u, userID); err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "SQLSTATE 23505") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "UNIQUE constraint failed")
 }
 
 // DisableUser disables a user account

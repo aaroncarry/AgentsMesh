@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -65,7 +66,7 @@ func (h *AgentHandler) CreateCustomAgent(c *gin.Context) {
 		AgentfileSource: agentfileSource,
 	})
 	if err != nil {
-		if err == agent.ErrAgentSlugExists {
+		if errors.Is(err, agent.ErrAgentSlugExists) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Agent slug already exists")
 			return
 		}

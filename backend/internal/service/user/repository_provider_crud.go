@@ -102,7 +102,7 @@ func (s *Service) CreateRepositoryProvider(ctx context.Context, userID int64, re
 func (s *Service) GetRepositoryProvider(ctx context.Context, userID, providerID int64) (*user.RepositoryProvider, error) {
 	provider, err := s.repo.GetRepositoryProvider(ctx, userID, providerID)
 	if err != nil {
-		if err == user.ErrNotFound {
+		if errors.Is(err, user.ErrNotFound) {
 			return nil, ErrProviderNotFound
 		}
 		return nil, err

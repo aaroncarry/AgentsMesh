@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	grantservice "github.com/anthropics/agentsmesh/backend/internal/service/grant"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-gonic/gin"
@@ -11,10 +12,10 @@ type grantAccessRequest struct {
 }
 
 func handleGrantError(c *gin.Context, err error) {
-	switch err {
-	case grantservice.ErrSelfGrant:
+	switch {
+	case errors.Is(err, grantservice.ErrSelfGrant):
 		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot grant access to yourself")
-	case grantservice.ErrInvalidType:
+	case errors.Is(err, grantservice.ErrInvalidType):
 		apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Invalid resource type")
 	default:
 		apierr.InternalError(c, "Failed to grant access")

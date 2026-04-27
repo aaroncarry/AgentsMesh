@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -60,7 +61,7 @@ func (h *PromoCodeHandler) Update(c *gin.Context) {
 
 	promoCode, err := h.service.UpdatePromoCode(c.Request.Context(), id, updates, adminUserID)
 	if err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}
@@ -83,7 +84,7 @@ func (h *PromoCodeHandler) Activate(c *gin.Context) {
 	}
 
 	if err := h.service.ActivatePromoCode(c.Request.Context(), id, adminUserID); err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}
@@ -106,7 +107,7 @@ func (h *PromoCodeHandler) Deactivate(c *gin.Context) {
 	}
 
 	if err := h.service.DeactivatePromoCode(c.Request.Context(), id, adminUserID); err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}
@@ -129,11 +130,11 @@ func (h *PromoCodeHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.service.DeletePromoCode(c.Request.Context(), id, adminUserID); err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}
-		if err == admin.ErrPromoCodeHasRedemptions {
+		if errors.Is(err, admin.ErrPromoCodeHasRedemptions) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "cannot delete promo code with redemptions")
 			return
 		}
@@ -158,7 +159,7 @@ func (h *PromoCodeHandler) ListRedemptions(c *gin.Context) {
 
 	result, err := h.service.ListPromoCodeRedemptions(c.Request.Context(), id, page, pageSize)
 	if err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}

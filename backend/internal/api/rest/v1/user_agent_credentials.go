@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agent"
@@ -119,10 +120,10 @@ func (h *UserAgentCredentialHandler) CreateProfile(c *gin.Context) {
 	})
 
 	if err != nil {
-		switch err {
-		case agentService.ErrAgentNotFound:
+		switch {
+		case errors.Is(err, agentService.ErrAgentNotFound):
 			apierr.ResourceNotFound(c, "Agent not found")
-		case agentService.ErrCredentialProfileExists:
+		case errors.Is(err, agentService.ErrCredentialProfileExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Profile with this name already exists")
 		default:
 			apierr.InternalError(c, "Failed to create profile: "+err.Error())

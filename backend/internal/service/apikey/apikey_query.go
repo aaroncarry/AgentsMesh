@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"errors"
 	"context"
 	"fmt"
 
@@ -32,7 +33,7 @@ func (s *Service) ListAPIKeys(ctx context.Context, filter *ListAPIKeysFilter) ([
 func (s *Service) GetAPIKey(ctx context.Context, id int64, orgID int64) (*apikeyDomain.APIKey, error) {
 	key, err := s.repo.GetByID(ctx, id, orgID)
 	if err != nil {
-		if err == apikeyDomain.ErrNotFound {
+		if errors.Is(err, apikeyDomain.ErrNotFound) {
 			return nil, ErrAPIKeyNotFound
 		}
 		return nil, fmt.Errorf("failed to get api key: %w", err)

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/service/user"
@@ -21,11 +22,11 @@ func (h *AuthHandler) VerifyEmail(c *gin.Context) {
 
 	verifiedUser, err := h.userService.VerifyEmail(c.Request.Context(), req.Token)
 	if err != nil {
-		if err == user.ErrInvalidVerificationToken {
+		if errors.Is(err, user.ErrInvalidVerificationToken) {
 			apierr.InvalidInput(c, "Invalid or expired verification token")
 			return
 		}
-		if err == user.ErrEmailAlreadyVerified {
+		if errors.Is(err, user.ErrEmailAlreadyVerified) {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Email already verified")
 			return
 		}
@@ -138,7 +139,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 
 	_, err := h.userService.ResetPassword(c.Request.Context(), req.Token, req.NewPassword)
 	if err != nil {
-		if err == user.ErrInvalidResetToken {
+		if errors.Is(err, user.ErrInvalidResetToken) {
 			apierr.InvalidInput(c, "Invalid or expired reset token")
 			return
 		}

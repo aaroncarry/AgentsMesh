@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -32,7 +33,7 @@ func (h *UserHandler) DisableUser(c *gin.Context) {
 
 	user, err := h.adminService.DisableUser(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
@@ -59,7 +60,7 @@ func (h *UserHandler) EnableUser(c *gin.Context) {
 
 	user, err := h.adminService.EnableUser(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
@@ -86,7 +87,7 @@ func (h *UserHandler) GrantAdmin(c *gin.Context) {
 
 	user, err := h.adminService.GrantAdmin(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
@@ -115,11 +116,11 @@ func (h *UserHandler) RevokeAdmin(c *gin.Context) {
 
 	user, err := h.adminService.RevokeAdmin(c.Request.Context(), userID, adminUserID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
-		if err == adminservice.ErrCannotRevokeOwnAdmin {
+		if errors.Is(err, adminservice.ErrCannotRevokeOwnAdmin) {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot revoke your own admin privileges")
 			return
 		}
@@ -146,7 +147,7 @@ func (h *UserHandler) VerifyUserEmail(c *gin.Context) {
 
 	user, err := h.adminService.VerifyUserEmail(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
@@ -173,7 +174,7 @@ func (h *UserHandler) UnverifyUserEmail(c *gin.Context) {
 
 	user, err := h.adminService.UnverifyUserEmail(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}

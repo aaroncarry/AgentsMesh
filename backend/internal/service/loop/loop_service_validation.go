@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
 	loopDomain "github.com/anthropics/agentsmesh/backend/internal/domain/loop"
+	"github.com/anthropics/agentsmesh/backend/pkg/slugkit"
 	"github.com/robfig/cron/v3"
 )
 
@@ -20,7 +20,7 @@ var (
 	ErrDuplicateSlug      = errors.New("loop slug already exists in this organization")
 	ErrLoopDisabled       = errors.New("loop is disabled")
 	ErrInvalidCron        = errors.New("invalid cron expression")
-	ErrInvalidSlug        = errors.New("slug must be lowercase alphanumeric with hyphens, 3-100 chars")
+	ErrInvalidSlug        = errors.New("slug must be lowercase alphanumeric with hyphens, 2-100 chars, not a reserved word")
 	ErrInvalidEnumValue   = errors.New("invalid enum value")
 	ErrInvalidCallbackURL = errors.New("invalid callback URL")
 )
@@ -78,22 +78,22 @@ func validateEnumFields(executionMode, sandboxStrategy, concurrencyPolicy string
 	return nil
 }
 
-var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,98}[a-z0-9]$`)
+func isValidSlug(s string) bool {
+	return slugkit.Validate(s) == nil
+}
 
 func generateSlug(name string) string {
-	slug := strings.ToLower(name)
-	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
-	slug = strings.Trim(slug, "-")
-	if len(slug) > 100 {
-		slug = slug[:100]
-		slug = strings.TrimRight(slug, "-")
+	s := slugkit.Sanitize(name)
+	if s != "" && len(s) < slugkit.MinLen {
+		candidate := s + "-loop"
+		if err := slugkit.Validate(candidate); err == nil {
+			return candidate
+		}
 	}
-	if len(slug) == 0 {
-		slug = fmt.Sprintf("loop-%d", time.Now().UnixMilli())
-	} else if len(slug) < 3 {
-		slug = slug + "-loop"
+	if validated, err := slugkit.SanitizeAndValidate(name); err == nil {
+		return validated
 	}
-	return slug
+	return fmt.Sprintf("loop-%d", time.Now().UnixMilli())
 }
 
 // CreateLoopRequest represents a loop creation request.

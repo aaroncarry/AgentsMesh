@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -106,16 +107,16 @@ func (h *UserGitCredentialHandler) CreateCredential(c *gin.Context) {
 		HostPattern:          req.HostPattern,
 	})
 	if err != nil {
-		switch err {
-		case user.ErrCredentialAlreadyExists:
+		switch {
+		case errors.Is(err, user.ErrCredentialAlreadyExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Credential already exists with this name")
-		case user.ErrInvalidCredentialType:
+		case errors.Is(err, user.ErrInvalidCredentialType):
 			apierr.InvalidInput(c, "Invalid credential type. Valid types: runner_local, oauth, pat, ssh_key")
-		case user.ErrProviderIDRequired:
+		case errors.Is(err, user.ErrProviderIDRequired):
 			apierr.BadRequest(c, apierr.MISSING_REQUIRED, "repository_provider_id is required for oauth type")
-		case user.ErrInvalidSSHKey:
+		case errors.Is(err, user.ErrInvalidSSHKey):
 			apierr.InvalidInput(c, "Invalid SSH key format")
-		case user.ErrProviderNotFound:
+		case errors.Is(err, user.ErrProviderNotFound):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Repository provider not found")
 		default:
 			apierr.InternalError(c, "Failed to create credential: "+err.Error())
@@ -139,7 +140,7 @@ func (h *UserGitCredentialHandler) GetCredential(c *gin.Context) {
 
 	credential, err := h.userService.GetGitCredential(c.Request.Context(), userID, credentialID)
 	if err != nil {
-		if err == user.ErrCredentialNotFound {
+		if errors.Is(err, user.ErrCredentialNotFound) {
 			apierr.ResourceNotFound(c, "Credential not found")
 			return
 		}
@@ -182,12 +183,12 @@ func (h *UserGitCredentialHandler) UpdateCredential(c *gin.Context) {
 		HostPattern: req.HostPattern,
 	})
 	if err != nil {
-		switch err {
-		case user.ErrCredentialNotFound:
+		switch {
+		case errors.Is(err, user.ErrCredentialNotFound):
 			apierr.ResourceNotFound(c, "Credential not found")
-		case user.ErrCredentialAlreadyExists:
+		case errors.Is(err, user.ErrCredentialAlreadyExists):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Credential already exists with this name")
-		case user.ErrInvalidSSHKey:
+		case errors.Is(err, user.ErrInvalidSSHKey):
 			apierr.InvalidInput(c, "Invalid SSH key format")
 		default:
 			apierr.InternalError(c, "Failed to update credential")
@@ -211,7 +212,7 @@ func (h *UserGitCredentialHandler) DeleteCredential(c *gin.Context) {
 
 	err = h.userService.DeleteGitCredential(c.Request.Context(), userID, credentialID)
 	if err != nil {
-		if err == user.ErrCredentialNotFound {
+		if errors.Is(err, user.ErrCredentialNotFound) {
 			apierr.ResourceNotFound(c, "Credential not found")
 			return
 		}

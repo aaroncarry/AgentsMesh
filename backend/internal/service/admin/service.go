@@ -8,6 +8,8 @@ import (
 
 var (
 	ErrUserNotFound                = errors.New("user not found")
+	ErrUsernameAlreadyExists       = errors.New("username already exists")
+	ErrEmailAlreadyExists          = errors.New("email already exists")
 	ErrOrganizationNotFound        = errors.New("organization not found")
 	ErrSubscriptionNotFound        = errors.New("subscription not found")
 	ErrRunnerNotFound              = errors.New("runner not found")

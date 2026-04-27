@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -94,7 +95,7 @@ func (h *RunnerHandler) GetRunner(c *gin.Context) {
 
 	rwo, err := h.adminService.GetRunnerWithOrg(c.Request.Context(), runnerID)
 	if err != nil {
-		if err == adminservice.ErrRunnerNotFound {
+		if errors.Is(err, adminservice.ErrRunnerNotFound) {
 			apierr.ResourceNotFound(c, "Runner not found")
 			return
 		}

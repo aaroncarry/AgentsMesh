@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	domainUser "github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	userService "github.com/anthropics/agentsmesh/backend/internal/service/user"
 )
 
@@ -58,6 +59,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 
 // Register creates a new user and returns tokens
 func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*LoginResult, error) {
+	if err := domainUser.ValidateUsername(req.Username); err != nil {
+		return nil, err
+	}
+
 	// Enforce SSO: reject password registration for domains with enforce_sso enabled
 	if s.ssoChecker != nil && strings.Contains(req.Email, "@") {
 		allowed, err := s.ssoChecker.IsPasswordLoginAllowed(ctx, req.Email, false)

@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"errors"
 	"context"
 	"fmt"
 	"log/slog"
@@ -14,7 +15,7 @@ import (
 func (s *Service) UpdateAPIKey(ctx context.Context, id int64, orgID int64, req *UpdateAPIKeyRequest) (*apikeyDomain.APIKey, error) {
 	key, err := s.repo.GetByID(ctx, id, orgID)
 	if err != nil {
-		if err == apikeyDomain.ErrNotFound {
+		if errors.Is(err, apikeyDomain.ErrNotFound) {
 			return nil, ErrAPIKeyNotFound
 		}
 		return nil, fmt.Errorf("failed to get api key: %w", err)
@@ -83,7 +84,7 @@ func (s *Service) UpdateAPIKey(ctx context.Context, id int64, orgID int64, req *
 func (s *Service) RevokeAPIKey(ctx context.Context, id int64, orgID int64) error {
 	key, err := s.repo.GetByID(ctx, id, orgID)
 	if err != nil {
-		if err == apikeyDomain.ErrNotFound {
+		if errors.Is(err, apikeyDomain.ErrNotFound) {
 			return ErrAPIKeyNotFound
 		}
 		return fmt.Errorf("failed to get api key: %w", err)
@@ -108,7 +109,7 @@ func (s *Service) RevokeAPIKey(ctx context.Context, id int64, orgID int64) error
 func (s *Service) DeleteAPIKey(ctx context.Context, id int64, orgID int64) error {
 	key, err := s.repo.GetByID(ctx, id, orgID)
 	if err != nil {
-		if err == apikeyDomain.ErrNotFound {
+		if errors.Is(err, apikeyDomain.ErrNotFound) {
 			return ErrAPIKeyNotFound
 		}
 		return fmt.Errorf("failed to get api key: %w", err)

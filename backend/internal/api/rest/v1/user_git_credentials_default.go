@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	domainUser "github.com/anthropics/agentsmesh/backend/internal/domain/user"
@@ -68,7 +69,7 @@ func (h *UserGitCredentialHandler) SetDefault(c *gin.Context) {
 
 	err := h.userService.SetDefaultGitCredential(c.Request.Context(), userID, *req.CredentialID)
 	if err != nil {
-		if err == user.ErrCredentialNotFound {
+		if errors.Is(err, user.ErrCredentialNotFound) {
 			apierr.ResourceNotFound(c, "Credential not found")
 			return
 		}

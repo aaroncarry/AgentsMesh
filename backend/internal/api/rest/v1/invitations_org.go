@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -37,11 +38,11 @@ func (h *InvitationHandler) CreateInvitation(c *gin.Context) {
 	// This checks purchased seats vs used seats (not plan limits)
 	if h.billingService != nil {
 		if err := h.billingService.CheckSeatAvailability(c.Request.Context(), tc.OrganizationID, 1); err != nil {
-			if err == billingSvc.ErrQuotaExceeded {
+			if errors.Is(err, billingSvc.ErrQuotaExceeded) {
 				apierr.PaymentRequired(c, apierr.NO_AVAILABLE_SEATS, "No available seats. Please purchase more seats to invite members.")
 				return
 			}
-			if err == billingSvc.ErrSubscriptionFrozen {
+			if errors.Is(err, billingSvc.ErrSubscriptionFrozen) {
 				apierr.PaymentRequired(c, apierr.SUBSCRIPTION_FROZEN, "Your subscription has expired. Please renew to continue.")
 				return
 			}
@@ -79,12 +80,12 @@ func (h *InvitationHandler) CreateInvitation(c *gin.Context) {
 	})
 
 	if err != nil {
-		switch err {
-		case invitationSvc.ErrAlreadyMember:
+		switch {
+		case errors.Is(err, invitationSvc.ErrAlreadyMember):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "User is already a member of this organization")
-		case invitationSvc.ErrPendingInvitation:
+		case errors.Is(err, invitationSvc.ErrPendingInvitation):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "A pending invitation already exists for this email")
-		case invitationSvc.ErrInvalidRole:
+		case errors.Is(err, invitationSvc.ErrInvalidRole):
 			apierr.InvalidInput(c, "Invalid role")
 		default:
 			apierr.InternalError(c, "Failed to create invitation")
@@ -151,8 +152,8 @@ func (h *InvitationHandler) RevokeInvitation(c *gin.Context) {
 	}
 
 	if err := h.invitationService.Revoke(c.Request.Context(), id); err != nil {
-		switch err {
-		case invitationSvc.ErrInvitationAccepted:
+		switch {
+		case errors.Is(err, invitationSvc.ErrInvitationAccepted):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot revoke an accepted invitation")
 		default:
 			apierr.InternalError(c, "Failed to revoke invitation")
@@ -215,8 +216,8 @@ func (h *InvitationHandler) ResendInvitation(c *gin.Context) {
 	}
 
 	if err := h.invitationService.Resend(c.Request.Context(), id, inviterName, orgName); err != nil {
-		switch err {
-		case invitationSvc.ErrInvitationAccepted:
+		switch {
+		case errors.Is(err, invitationSvc.ErrInvitationAccepted):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot resend an accepted invitation")
 		default:
 			apierr.InternalError(c, "Failed to resend invitation")

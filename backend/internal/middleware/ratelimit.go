@@ -82,3 +82,25 @@ func IPRateLimiter(redisClient *redis.Client, scope string, maxAttempts int, win
 		},
 	})
 }
+
+// UserRateLimiter creates a rate limiter keyed by authenticated user ID + a
+// scope prefix. Must be used after AuthMiddleware so GetUserID resolves a
+// non-zero ID; otherwise falls back to client IP. If neither is available
+// (e.g. tests without RemoteAddr), the limiter returns an empty key and
+// skips counting — failing open is preferable to a global shared bucket.
+func UserRateLimiter(redisClient *redis.Client, scope string, maxAttempts int, window time.Duration) gin.HandlerFunc {
+	return RateLimiter(redisClient, RateLimitConfig{
+		MaxAttempts: maxAttempts,
+		Window:      window,
+		KeyFunc: func(c *gin.Context) string {
+			if uid := GetUserID(c); uid != 0 {
+				return fmt.Sprintf("%s:user:%d", scope, uid)
+			}
+			ip := c.ClientIP()
+			if ip == "" {
+				return ""
+			}
+			return fmt.Sprintf("%s:ip:%s", scope, ip)
+		},
+	})
+}

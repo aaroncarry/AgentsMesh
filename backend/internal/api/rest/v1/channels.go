@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -120,7 +121,7 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 		InitialMemberIDs: req.MemberIDs,
 	})
 	if err != nil {
-		if err == channel.ErrDuplicateName {
+		if errors.Is(err, channel.ErrDuplicateName) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Channel name already exists")
 			return
 		}

@@ -140,3 +140,121 @@ func TestRateLimiter_EmptyKeySkips(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	}
 }
+
+// injectUserID returns a middleware that sets c.Set("user_id", uid) — used to
+// simulate AuthMiddleware in front of UserRateLimiter tests.
+func injectUserID(uid int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if uid != 0 {
+			c.Set("user_id", uid)
+		}
+		c.Next()
+	}
+}
+
+func TestUserRateLimiter_KeysByUserID_Independent(t *testing.T) {
+	client, cleanup := setupRedisForTest(t)
+	defer cleanup()
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+
+	mw := middleware.UserRateLimiter(client, "orgs-personal", 2, time.Minute)
+	r.POST("/u/:id/test",
+		func(c *gin.Context) {
+			// Map :id to user_id so we can hit one route with different users.
+			var uid int64
+			switch c.Param("id") {
+			case "1":
+				uid = 1
+			case "2":
+				uid = 2
+			}
+			c.Set("user_id", uid)
+		},
+		mw,
+		func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) },
+	)
+
+	// User 1 exhausts limit.
+	for i := 0; i < 2; i++ {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/u/1/test", nil)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code, "user 1 request %d", i+1)
+	}
+	// User 1's 3rd request blocked.
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/u/1/test", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+
+	// User 2 unaffected.
+	w = httptest.NewRecorder()
+	req, _ = http.NewRequest("POST", "/u/2/test", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestUserRateLimiter_FallsBackToIP_WhenUnauthenticated(t *testing.T) {
+	client, cleanup := setupRedisForTest(t)
+	defer cleanup()
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	mw := middleware.UserRateLimiter(client, "orgs-personal", 2, time.Minute)
+	r.POST("/test", mw, func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	send := func(remoteAddr string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/test", nil)
+		req.RemoteAddr = remoteAddr
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	// Same IP: 3rd request blocked.
+	for i := 0; i < 2; i++ {
+		assert.Equal(t, http.StatusOK, send("1.2.3.4:5678").Code)
+	}
+	assert.Equal(t, http.StatusTooManyRequests, send("1.2.3.4:5678").Code)
+
+	// Different IP: independent bucket, still allowed.
+	assert.Equal(t, http.StatusOK, send("9.9.9.9:1111").Code)
+}
+
+func TestUserRateLimiter_EmptyIPAndUserSkipsCounting(t *testing.T) {
+	client, cleanup := setupRedisForTest(t)
+	defer cleanup()
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	// Stub TrustedPlatform so ClientIP() returns "" when RemoteAddr is empty.
+	r.TrustedPlatform = ""
+	mw := middleware.UserRateLimiter(client, "orgs-personal", 1, time.Minute)
+	r.POST("/test", mw, func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	// httptest default RemoteAddr is empty → ClientIP() empty → KeyFunc returns
+	// "" → RateLimiter skips counting → no global shared bucket.
+	for i := 0; i < 5; i++ {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/test", nil)
+		req.RemoteAddr = ""
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code, "empty IP+user must not enter limiter")
+	}
+}
+
+func TestUserRateLimiter_NilRedisIsNoOp(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	mw := middleware.UserRateLimiter(nil, "orgs-personal", 1, time.Minute)
+	r.POST("/test", injectUserID(42), mw, func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	for i := 0; i < 5; i++ {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/test", nil)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	}
+}

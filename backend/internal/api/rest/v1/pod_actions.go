@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/grant"
@@ -30,7 +31,7 @@ func (h *PodHandler) TerminatePod(c *gin.Context) {
 	}
 
 	if err := h.podCoordinator.TerminatePod(c.Request.Context(), podKey); err != nil {
-		if err == runner.ErrPodAlreadyTerminated {
+		if errors.Is(err, runner.ErrPodAlreadyTerminated) {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Pod already terminated")
 			return
 		}

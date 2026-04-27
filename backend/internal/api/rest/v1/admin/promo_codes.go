@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -142,7 +143,7 @@ func (h *PromoCodeHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.service.CreatePromoCode(c.Request.Context(), promoCode, adminUserID); err != nil {
-		if err == admin.ErrPromoCodeAlreadyExists {
+		if errors.Is(err, admin.ErrPromoCodeAlreadyExists) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "promo code already exists")
 			return
 		}
@@ -164,7 +165,7 @@ func (h *PromoCodeHandler) Get(c *gin.Context) {
 
 	promoCode, err := h.service.GetPromoCode(c.Request.Context(), id)
 	if err != nil {
-		if err == admin.ErrPromoCodeNotFound {
+		if errors.Is(err, admin.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}

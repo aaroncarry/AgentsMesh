@@ -136,7 +136,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 
 			// Organization routes (authenticated, some require org context)
 			// Path changed: /organizations → /orgs
-			v1.RegisterOrganizationRoutes(protected.Group("/orgs"), svc.Org, svc.User)
+			v1.RegisterOrganizationRoutes(protected.Group("/orgs"), svc.Org, svc.User, redisClient)
 
 			// Support Tickets (user-level, no tenant context required)
 			if svc.SupportTicket != nil {
@@ -149,9 +149,7 @@ func NewRouter(cfg *config.Config, svc *v1.Services, db *gorm.DB, logger *slog.L
 			orgScoped := protected.Group("/orgs/:slug")
 			orgScoped.Use(middleware.TenantMiddleware(svc.Org))
 			{
-				slog.Info("About to call RegisterOrgScopedRoutes")
 				v1.RegisterOrgScopedRoutes(orgScoped, svc)
-				slog.Info("RegisterOrgScopedRoutes completed")
 
 				// WebSocket endpoints for real-time events
 				// Note: Terminal WebSocket has been moved to Relay architecture

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -181,7 +182,7 @@ func (h *AgentPodHandler) UpdateProvider(c *gin.Context) {
 		isEnabled,
 	)
 	if err != nil {
-		if err == agentpod.ErrProviderNotFound {
+		if errors.Is(err, agentpod.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}
@@ -224,7 +225,7 @@ func (h *AgentPodHandler) SetDefaultProvider(c *gin.Context) {
 	}
 
 	if err := h.aiProviderService.SetDefaultProvider(c.Request.Context(), providerID); err != nil {
-		if err == agentpod.ErrProviderNotFound {
+		if errors.Is(err, agentpod.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}

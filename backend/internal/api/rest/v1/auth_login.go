@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	domainUser "github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	"github.com/anthropics/agentsmesh/backend/internal/service/auth"
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
 	"github.com/gin-gonic/gin"
@@ -69,6 +70,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		apierr.ValidationError(c, err.Error())
+		return
+	}
+
+	if err := domainUser.ValidateUsername(req.Username); err != nil {
+		apierr.RespondWithExtra(c, http.StatusBadRequest, apierr.VALIDATION_FAILED,
+			err.Error(),
+			gin.H{"field": "username"})
 		return
 	}
 

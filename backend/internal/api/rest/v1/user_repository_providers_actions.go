@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -24,7 +25,7 @@ func (h *UserRepositoryProviderHandler) SetDefault(c *gin.Context) {
 
 	err = h.userService.SetDefaultRepositoryProvider(c.Request.Context(), userID, providerID)
 	if err != nil {
-		if err == user.ErrProviderNotFound {
+		if errors.Is(err, user.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}
@@ -49,7 +50,7 @@ func (h *UserRepositoryProviderHandler) TestConnection(c *gin.Context) {
 	// Get provider
 	provider, err := h.userService.GetRepositoryProvider(c.Request.Context(), userID, providerID)
 	if err != nil {
-		if err == user.ErrProviderNotFound {
+		if errors.Is(err, user.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}
@@ -79,7 +80,7 @@ func (h *UserRepositoryProviderHandler) TestConnection(c *gin.Context) {
 	// Try to list projects to verify connection
 	_, err = gitProvider.ListProjects(c.Request.Context(), 1, 1)
 	if err != nil {
-		if err == git.ErrUnauthorized {
+		if errors.Is(err, git.ErrUnauthorized) {
 			apierr.RespondWithExtra(c, http.StatusUnauthorized, apierr.INVALID_TOKEN, "Authentication failed - token may be invalid or expired", gin.H{"success": false})
 			return
 		}
@@ -119,7 +120,7 @@ func (h *UserRepositoryProviderHandler) ListRepositories(c *gin.Context) {
 	// Get provider
 	provider, err := h.userService.GetRepositoryProvider(c.Request.Context(), userID, providerID)
 	if err != nil {
-		if err == user.ErrProviderNotFound {
+		if errors.Is(err, user.ErrProviderNotFound) {
 			apierr.ResourceNotFound(c, "Provider not found")
 			return
 		}
@@ -155,11 +156,11 @@ func (h *UserRepositoryProviderHandler) ListRepositories(c *gin.Context) {
 	}
 
 	if err != nil {
-		if err == git.ErrUnauthorized {
+		if errors.Is(err, git.ErrUnauthorized) {
 			apierr.Unauthorized(c, apierr.INVALID_TOKEN, "Access token is invalid or expired")
 			return
 		}
-		if err == git.ErrRateLimited {
+		if errors.Is(err, git.ErrRateLimited) {
 			apierr.TooManyRequests(c, "Rate limited by git provider")
 			return
 		}

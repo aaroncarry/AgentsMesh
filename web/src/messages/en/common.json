@@ -61,7 +61,9 @@
     "INTERNAL_ERROR": "An internal error occurred. Please try again later.",
     "AUTH_REQUIRED": "Authentication required. Please log in.",
     "INVALID_TOKEN": "Invalid or expired authentication token",
-    "TOKEN_EXPIRED": "Your session has expired. Please log in again."
+    "SESSION_REFRESH_FAILED": "Your session has expired. Please log in again.",
+    "TOKEN_EXPIRED": "Authentication credentials have expired.",
+    "API_KEY_EXPIRED": "API key has expired. Please regenerate it in API Keys settings."
   },
   "share": {
     "title": "Share",

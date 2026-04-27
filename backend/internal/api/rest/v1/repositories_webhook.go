@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -175,7 +176,7 @@ func (h *RepositoryHandler) GetRepositoryWebhookSecret(c *gin.Context) {
 
 	secret, err := webhookService.GetWebhookSecret(c.Request.Context(), repo)
 	if err != nil {
-		if err == repository.ErrWebhookNotFound {
+		if errors.Is(err, repository.ErrWebhookNotFound) {
 			apierr.ResourceNotFound(c, "Webhook not configured")
 			return
 		}
@@ -227,7 +228,7 @@ func (h *RepositoryHandler) MarkRepositoryWebhookConfigured(c *gin.Context) {
 	}
 
 	if err := webhookService.MarkWebhookAsConfigured(c.Request.Context(), repo); err != nil {
-		if err == repository.ErrWebhookNotFound {
+		if errors.Is(err, repository.ErrWebhookNotFound) {
 			apierr.ResourceNotFound(c, "Webhook not configured")
 			return
 		}

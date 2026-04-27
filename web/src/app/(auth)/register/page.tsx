@@ -112,6 +112,7 @@ export default function RegisterPage() {
           <Input id="username" name="username" type="text"
             placeholder={t("auth.registerPage.usernamePlaceholder")}
             value={formData.username} onChange={handleChange}
+            pattern="[a-zA-Z0-9_-]+"
             required minLength={3} maxLength={50} />
           <p className="text-xs text-[var(--azure-text-muted)]">
             {t("auth.registerPage.usernameHint")}

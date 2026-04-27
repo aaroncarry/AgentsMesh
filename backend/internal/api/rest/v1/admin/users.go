@@ -1,10 +1,12 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/admin"
+	domainUser "github.com/anthropics/agentsmesh/backend/internal/domain/user"
 	adminservice "github.com/anthropics/agentsmesh/backend/internal/service/admin"
 
 	"github.com/anthropics/agentsmesh/backend/pkg/apierr"
@@ -98,7 +100,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 
 	user, err := h.adminService.GetUser(c.Request.Context(), userID)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
 			return
 		}
@@ -142,6 +144,12 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		updates["name"] = *req.Name
 	}
 	if req.Username != nil {
+		if err := domainUser.ValidateUsername(*req.Username); err != nil {
+			apierr.RespondWithExtra(c, http.StatusBadRequest, apierr.VALIDATION_FAILED,
+				err.Error(),
+				gin.H{"field": "username"})
+			return
+		}
 		updates["username"] = *req.Username
 	}
 	if req.Email != nil {
@@ -155,8 +163,16 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 	user, err := h.adminService.UpdateUser(c.Request.Context(), userID, updates)
 	if err != nil {
-		if err == adminservice.ErrUserNotFound {
+		if errors.Is(err, adminservice.ErrUserNotFound) {
 			apierr.ResourceNotFound(c, "User not found")
+			return
+		}
+		if errors.Is(err, adminservice.ErrUsernameAlreadyExists) {
+			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Username already taken")
+			return
+		}
+		if errors.Is(err, adminservice.ErrEmailAlreadyExists) {
+			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Email already in use")
 			return
 		}
 		apierr.InternalError(c, "Failed to update user")

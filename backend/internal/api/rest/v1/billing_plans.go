@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/billing"
@@ -42,11 +43,11 @@ func (h *BillingHandler) GetPlanPrices(c *gin.Context) {
 
 	price, err := h.billingService.GetPlanPrice(c.Request.Context(), planName, currency)
 	if err != nil {
-		if err == billingsvc.ErrPlanNotFound {
+		if errors.Is(err, billingsvc.ErrPlanNotFound) {
 			apierr.ResourceNotFound(c, "plan not found")
 			return
 		}
-		if err == billingsvc.ErrPriceNotFound {
+		if errors.Is(err, billingsvc.ErrPriceNotFound) {
 			apierr.ResourceNotFound(c, "price not found for currency")
 			return
 		}
@@ -64,7 +65,7 @@ func (h *BillingHandler) GetAllPlanPrices(c *gin.Context) {
 
 	prices, err := h.billingService.GetPlanPrices(c.Request.Context(), planName)
 	if err != nil {
-		if err == billingsvc.ErrPlanNotFound {
+		if errors.Is(err, billingsvc.ErrPlanNotFound) {
 			apierr.ResourceNotFound(c, "plan not found")
 			return
 		}

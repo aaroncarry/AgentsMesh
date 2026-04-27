@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -81,7 +82,7 @@ func (h *OrganizationHandler) GetOrganization(c *gin.Context) {
 
 	org, err := h.adminService.GetOrganization(c.Request.Context(), orgID)
 	if err != nil {
-		if err == adminservice.ErrOrganizationNotFound {
+		if errors.Is(err, adminservice.ErrOrganizationNotFound) {
 			apierr.ResourceNotFound(c, "Organization not found")
 			return
 		}
@@ -105,7 +106,7 @@ func (h *OrganizationHandler) GetOrganizationMembers(c *gin.Context) {
 
 	org, members, err := h.adminService.GetOrganizationWithMembers(c.Request.Context(), orgID)
 	if err != nil {
-		if err == adminservice.ErrOrganizationNotFound {
+		if errors.Is(err, adminservice.ErrOrganizationNotFound) {
 			apierr.ResourceNotFound(c, "Organization not found")
 			return
 		}
@@ -137,11 +138,11 @@ func (h *OrganizationHandler) DeleteOrganization(c *gin.Context) {
 	oldOrg, _ := h.adminService.GetOrganization(c.Request.Context(), orgID)
 
 	if err := h.adminService.DeleteOrganization(c.Request.Context(), orgID); err != nil {
-		if err == adminservice.ErrOrganizationNotFound {
+		if errors.Is(err, adminservice.ErrOrganizationNotFound) {
 			apierr.ResourceNotFound(c, "Organization not found")
 			return
 		}
-		if err == adminservice.ErrOrganizationHasActiveRunner {
+		if errors.Is(err, adminservice.ErrOrganizationHasActiveRunner) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Cannot delete organization with active runners")
 			return
 		}

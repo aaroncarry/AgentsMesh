@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -36,14 +37,14 @@ func (h *BillingHandler) UpgradeSubscription(c *gin.Context) {
 
 	sub, err := h.billingService.UpgradePlan(c.Request.Context(), tenant.OrganizationID, req.PlanName)
 	if err != nil {
-		switch err {
-		case billingsvc.ErrSubscriptionNotFound:
+		switch {
+		case errors.Is(err, billingsvc.ErrSubscriptionNotFound):
 			apierr.ResourceNotFound(c, "no active subscription")
-		case billingsvc.ErrSubscriptionNotActive:
+		case errors.Is(err, billingsvc.ErrSubscriptionNotActive):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "subscription is not active")
-		case billingsvc.ErrSubscriptionFrozen:
+		case errors.Is(err, billingsvc.ErrSubscriptionFrozen):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "subscription is frozen, please renew first")
-		case billingsvc.ErrPlanNotFound:
+		case errors.Is(err, billingsvc.ErrPlanNotFound):
 			apierr.InvalidInput(c, "invalid plan")
 		default:
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, err.Error())
@@ -118,7 +119,7 @@ func (h *BillingHandler) DowngradeSubscription(c *gin.Context) {
 	// Schedule downgrade via UpdateSubscription (handles downgrade logic)
 	_, err = h.billingService.UpdateSubscription(ctx, tenant.OrganizationID, req.PlanName)
 	if err != nil {
-		if err == billingsvc.ErrSeatCountExceedsLimit {
+		if errors.Is(err, billingsvc.ErrSeatCountExceedsLimit) {
 			apierr.RespondWithExtra(c, http.StatusBadRequest, apierr.VALIDATION_FAILED, "current seat count exceeds target plan limit", gin.H{
 				"action_required": "reduce seats before downgrading",
 			})

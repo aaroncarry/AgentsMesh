@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -163,11 +164,11 @@ func (h *PromoCodeHandler) AdminCreate(c *gin.Context) {
 		CreatedByID:    userID,
 	})
 	if err != nil {
-		if err == promocodeSvc.ErrPromoCodeAlreadyExists {
+		if errors.Is(err, promocodeSvc.ErrPromoCodeAlreadyExists) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "promo code already exists")
 			return
 		}
-		if err == promocodeSvc.ErrInvalidPlan {
+		if errors.Is(err, promocodeSvc.ErrInvalidPlan) {
 			apierr.InvalidInput(c, "invalid plan name")
 			return
 		}
@@ -246,7 +247,7 @@ func (h *PromoCodeHandler) AdminDeactivate(c *gin.Context) {
 	}
 
 	if err := h.service.Deactivate(c.Request.Context(), id); err != nil {
-		if err == promocodeSvc.ErrPromoCodeNotFound {
+		if errors.Is(err, promocodeSvc.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}
@@ -267,7 +268,7 @@ func (h *PromoCodeHandler) AdminActivate(c *gin.Context) {
 	}
 
 	if err := h.service.Activate(c.Request.Context(), id); err != nil {
-		if err == promocodeSvc.ErrPromoCodeNotFound {
+		if errors.Is(err, promocodeSvc.ErrPromoCodeNotFound) {
 			apierr.ResourceNotFound(c, "promo code not found")
 			return
 		}

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -15,7 +16,7 @@ func (h *BillingHandler) GetSeatUsage(c *gin.Context) {
 
 	usage, err := h.billingService.GetSeatUsage(c.Request.Context(), tenant.OrganizationID)
 	if err != nil {
-		if err == billingsvc.ErrSubscriptionNotFound {
+		if errors.Is(err, billingsvc.ErrSubscriptionNotFound) {
 			// Return default for free plan
 			c.JSON(http.StatusOK, gin.H{
 				"total_seats":     1,
@@ -56,16 +57,16 @@ func (h *BillingHandler) PurchaseSeats(c *gin.Context) {
 	}
 
 	if err := h.billingService.UpdateSeats(c.Request.Context(), tenant.OrganizationID, req.Seats); err != nil {
-		switch err {
-		case billingsvc.ErrSubscriptionNotFound:
+		switch {
+		case errors.Is(err, billingsvc.ErrSubscriptionNotFound):
 			apierr.ResourceNotFound(c, "no active subscription")
-		case billingsvc.ErrSubscriptionNotActive:
+		case errors.Is(err, billingsvc.ErrSubscriptionNotActive):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "subscription is not active")
-		case billingsvc.ErrSubscriptionFrozen:
+		case errors.Is(err, billingsvc.ErrSubscriptionFrozen):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "subscription is frozen, please renew first")
-		case billingsvc.ErrInvalidPlan:
+		case errors.Is(err, billingsvc.ErrInvalidPlan):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "cannot add seats to based plan, please upgrade first")
-		case billingsvc.ErrQuotaExceeded:
+		case errors.Is(err, billingsvc.ErrQuotaExceeded):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "exceeds maximum seats for this plan")
 		default:
 			apierr.InternalError(c, err.Error())

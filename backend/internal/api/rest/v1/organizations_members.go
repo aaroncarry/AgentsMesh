@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -120,7 +121,7 @@ func (h *OrganizationHandler) RemoveMember(c *gin.Context) {
 	}
 
 	if err := h.orgService.RemoveMember(c.Request.Context(), org.ID, targetUserID); err != nil {
-		if err == organization.ErrCannotRemoveOwner {
+		if errors.Is(err, organization.ErrCannotRemoveOwner) {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Cannot remove organization owner")
 			return
 		}

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/stores/auth";
 import { organizationApi } from "@/lib/api/organization";
+import { sanitizeSlug } from "@/lib/slug";
+import { getErrorSuggestion } from "@/lib/api/errors";
 import { useTranslations } from "next-intl";
 import { Logo } from "@/components/common";
 
@@ -19,6 +21,7 @@ export default function CreateOrgPage() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [siteHost, setSiteHost] = useState("agentsmesh.dev");
 
   // Derive site host from window.location at runtime
@@ -26,26 +29,15 @@ export default function CreateOrgPage() {
     setSiteHost(window.location.host);
   }, []);
 
-  // Auto-generate slug from name
   useEffect(() => {
     if (!slugEdited && name) {
-      const generatedSlug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .substring(0, 50);
-      setSlug(generatedSlug);
+      setSlug(sanitizeSlug(name).substring(0, 50));
     }
   }, [name, slugEdited]);
 
   const handleSlugChange = (value: string) => {
     setSlugEdited(true);
-    // Only allow lowercase letters, numbers, and hyphens
-    const sanitized = value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "")
-      .substring(0, 50);
-    setSlug(sanitized);
+    setSlug(sanitizeSlug(value).substring(0, 50));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +60,7 @@ export default function CreateOrgPage() {
 
     setLoading(true);
     setError("");
+    setSuggestion(null);
 
     try {
       await organizationApi.create({ name: name.trim(), slug: slug.trim() });
@@ -84,6 +77,10 @@ export default function CreateOrgPage() {
       // Go to runner setup
       router.push("/onboarding/setup-runner");
     } catch (err) {
+      const serverSuggestion = getErrorSuggestion(err);
+      if (serverSuggestion && serverSuggestion !== slug) {
+        setSuggestion(serverSuggestion);
+      }
       if (err instanceof Error && err.message.includes("already")) {
         setError(t("auth.onboarding.createOrg.urlTaken"));
       } else {
@@ -117,7 +114,21 @@ export default function CreateOrgPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-              {error}
+              <div>{error}</div>
+              {suggestion && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSlug(suggestion);
+                    setSlugEdited(true);
+                    setSuggestion(null);
+                    setError("");
+                  }}
+                  className="mt-2 text-xs underline hover:no-underline"
+                >
+                  {t("auth.onboarding.createOrg.applySuggestion", { suggestion })}
+                </button>
+              )}
             </div>
           )}
 

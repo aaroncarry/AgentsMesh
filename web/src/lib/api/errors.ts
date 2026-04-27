@@ -11,6 +11,22 @@ export function getApiErrorCode(error: unknown): string | undefined {
 }
 
 /**
+ * Extract a server-suggested replacement value from a VALIDATION_FAILED error.
+ * Returns undefined when the error has no `suggestion` field.
+ *
+ * Backend convention: `apierr.RespondWithExtra` may attach
+ * `{ field: string, suggestion: string }` next to `error` and `code`.
+ */
+export function getErrorSuggestion(error: unknown): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  const data = error.data as { suggestion?: unknown } | null | undefined;
+  if (typeof data?.suggestion === "string" && data.suggestion.length > 0) {
+    return data.suggestion;
+  }
+  return undefined;
+}
+
+/**
  * Check if an error matches a specific API error code
  */
 export function isApiErrorCode(error: unknown, code: string): boolean {
@@ -52,10 +68,11 @@ export function getLocalizedErrorMessage(
         // Translation not found, fall through
       }
     }
-    // Fall back to server message
     if (error.serverMessage) {
       return error.serverMessage;
     }
+    // Don't expose internal "API Error: 400 Bad Request" to the user.
+    return fallback;
   }
   if (error instanceof Error) {
     return error.message;

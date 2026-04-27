@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -99,7 +100,7 @@ func (h *BillingHandler) SetCustomQuota(c *gin.Context) {
 	}
 
 	if err := h.billingService.SetCustomQuota(c.Request.Context(), tenant.OrganizationID, req.Resource, req.Limit); err != nil {
-		if err == billingsvc.ErrSubscriptionNotFound {
+		if errors.Is(err, billingsvc.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "no active subscription")
 			return
 		}
@@ -135,12 +136,12 @@ func (h *BillingHandler) CheckQuota(c *gin.Context) {
 }
 
 func handleQuotaError(c *gin.Context, err error) {
-	switch err {
-	case billingsvc.ErrQuotaExceeded:
+	switch {
+	case errors.Is(err, billingsvc.ErrQuotaExceeded):
 		apierr.PaymentRequiredWithExtra(c, apierr.QUOTA_EXCEEDED, "quota exceeded", gin.H{"available": false})
-	case billingsvc.ErrSubscriptionFrozen:
+	case errors.Is(err, billingsvc.ErrSubscriptionFrozen):
 		apierr.RespondWithExtra(c, http.StatusPaymentRequired, apierr.SUBSCRIPTION_FROZEN, "subscription is frozen, please renew to continue", gin.H{"available": false})
-	case billingsvc.ErrSubscriptionNotFound:
+	case errors.Is(err, billingsvc.ErrSubscriptionNotFound):
 		apierr.ResourceNotFound(c, "no active subscription")
 	default:
 		apierr.InternalError(c, err.Error())

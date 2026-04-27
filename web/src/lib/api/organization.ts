@@ -46,6 +46,11 @@ export const organizationApi = {
       body: data,
     }),
 
+  createPersonal: () =>
+    request<{ organization: OrganizationData }>("/api/v1/orgs/personal", {
+      method: "POST",
+    }),
+
   update: (slug: string, data: { name?: string }) =>
     request<{ message: string }>(`/api/v1/orgs/${slug}`, {
       method: "PUT",

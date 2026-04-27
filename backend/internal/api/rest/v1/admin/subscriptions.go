@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -56,7 +57,7 @@ func (h *SubscriptionHandler) GetSubscription(c *gin.Context) {
 
 	sub, err := h.billingService.GetSubscription(c.Request.Context(), orgID)
 	if err != nil {
-		if err == billingservice.ErrSubscriptionNotFound {
+		if errors.Is(err, billingservice.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "Subscription not found")
 			return
 		}

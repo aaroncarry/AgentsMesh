@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -25,7 +26,7 @@ func (h *BillingHandler) GetSubscription(c *gin.Context) {
 
 	sub, err := h.billingService.GetSubscription(c.Request.Context(), tenant.OrganizationID)
 	if err != nil {
-		if err == billingsvc.ErrSubscriptionNotFound {
+		if errors.Is(err, billingsvc.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "no active subscription")
 			return
 		}
@@ -48,7 +49,7 @@ func (h *BillingHandler) CreateSubscription(c *gin.Context) {
 
 	sub, err := h.billingService.CreateSubscription(c.Request.Context(), tenant.OrganizationID, req.PlanName)
 	if err != nil {
-		if err == billingsvc.ErrPlanNotFound {
+		if errors.Is(err, billingsvc.ErrPlanNotFound) {
 			apierr.InvalidInput(c, "invalid plan")
 			return
 		}
@@ -76,15 +77,15 @@ func (h *BillingHandler) UpdateSubscription(c *gin.Context) {
 
 	sub, err := h.billingService.UpdateSubscription(c.Request.Context(), tenant.OrganizationID, req.PlanName)
 	if err != nil {
-		if err == billingsvc.ErrSubscriptionNotFound {
+		if errors.Is(err, billingsvc.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "no active subscription")
 			return
 		}
-		if err == billingsvc.ErrPlanNotFound {
+		if errors.Is(err, billingsvc.ErrPlanNotFound) {
 			apierr.InvalidInput(c, "invalid plan")
 			return
 		}
-		if err == billingsvc.ErrSeatCountExceedsLimit {
+		if errors.Is(err, billingsvc.ErrSeatCountExceedsLimit) {
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "current seat count exceeds target plan limit, please reduce seats first")
 			return
 		}
@@ -107,7 +108,7 @@ func (h *BillingHandler) CancelSubscription(c *gin.Context) {
 	tenant := c.MustGet("tenant").(*middleware.TenantContext)
 
 	if err := h.billingService.CancelSubscription(c.Request.Context(), tenant.OrganizationID); err != nil {
-		if err == billingsvc.ErrSubscriptionNotFound {
+		if errors.Is(err, billingsvc.ErrSubscriptionNotFound) {
 			apierr.ResourceNotFound(c, "no active subscription")
 			return
 		}

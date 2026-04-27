@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -24,7 +25,7 @@ func (h *RunnerHandler) DisableRunner(c *gin.Context) {
 
 	r, err := h.adminService.DisableRunner(c.Request.Context(), runnerID)
 	if err != nil {
-		if err == adminservice.ErrRunnerNotFound {
+		if errors.Is(err, adminservice.ErrRunnerNotFound) {
 			apierr.ResourceNotFound(c, "Runner not found")
 			return
 		}
@@ -51,7 +52,7 @@ func (h *RunnerHandler) EnableRunner(c *gin.Context) {
 
 	r, err := h.adminService.EnableRunner(c.Request.Context(), runnerID)
 	if err != nil {
-		if err == adminservice.ErrRunnerNotFound {
+		if errors.Is(err, adminservice.ErrRunnerNotFound) {
 			apierr.ResourceNotFound(c, "Runner not found")
 			return
 		}
@@ -75,11 +76,11 @@ func (h *RunnerHandler) DeleteRunner(c *gin.Context) {
 
 	deletedRunner, err := h.adminService.DeleteRunner(c.Request.Context(), runnerID)
 	if err != nil {
-		if err == adminservice.ErrRunnerNotFound {
+		if errors.Is(err, adminservice.ErrRunnerNotFound) {
 			apierr.ResourceNotFound(c, "Runner not found")
 			return
 		}
-		if err == adminservice.ErrRunnerHasActivePods {
+		if errors.Is(err, adminservice.ErrRunnerHasActivePods) {
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "Cannot delete runner with active pods")
 			return
 		}

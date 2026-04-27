@@ -1,6 +1,7 @@
 package apikey
 
 import (
+	"errors"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -59,7 +60,7 @@ func (s *Service) ValidateKey(ctx context.Context, rawKey string) (*ValidateResu
 	// Cache miss: query DB
 	key, err := s.repo.GetByKeyHash(ctx, keyHash)
 	if err != nil {
-		if err == apikeyDomain.ErrNotFound {
+		if errors.Is(err, apikeyDomain.ErrNotFound) {
 			return nil, ErrAPIKeyNotFound
 		}
 		return nil, fmt.Errorf("failed to validate api key: %w", err)

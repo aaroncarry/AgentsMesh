@@ -46,22 +46,12 @@ export default function OnboardingPage() {
     setError("");
 
     try {
-      // Create personal workspace with username as slug
-      const slug = `${user.username}-workspace`;
-      const name = `${user.name || user.username}'s Workspace`;
+      const { organization } = await organizationApi.createPersonal();
 
-      await organizationApi.create({ name, slug });
-
-      // Refresh organizations
       const { organizations } = await organizationApi.list();
       setOrganizations(organizations);
+      setCurrentOrg(organization);
 
-      const newOrg = organizations.find((o) => o.slug === slug);
-      if (newOrg) {
-        setCurrentOrg(newOrg);
-      }
-
-      // Go to runner setup
       router.push("/onboarding/setup-runner");
     } catch (err) {
       const msg = getLocalizedErrorMessage(err, t, t("auth.onboarding.createWorkspaceFailed"));
@@ -72,28 +62,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleJoinWithInvite = async () => {
+  const handleJoinWithInvite = () => {
     if (!inviteCode.trim()) {
       setError(t("auth.onboarding.enterInviteCode"));
       return;
     }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      // TODO: Implement invite code API
-      // await inviteApi.accept(inviteCode);
-
-      // For now, show not implemented message
-      setError(t("auth.onboarding.inviteCodeComingSoon"));
-    } catch (err) {
-      const msg = getLocalizedErrorMessage(err, t, t("auth.onboarding.invalidInviteCode"));
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
+    // TODO: Implement invite code API (inviteApi.accept). For now this path
+    // only surfaces a "coming soon" notice.
+    setError(t("auth.onboarding.inviteCodeComingSoon"));
   };
 
   return (

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/billing"
@@ -134,10 +135,10 @@ func (h *BillingHandler) calculateCheckoutPrice(c *gin.Context, tenant *middlewa
 		priceCalc, err := h.billingService.CalculateSeatPurchasePrice(ctx, tenant.OrganizationID, req.Seats)
 		if err != nil {
 			errMsg := "seat purchase calculation failed"
-			switch err {
-			case billingService.ErrInvalidPlan:
+			switch {
+			case errors.Is(err, billingService.ErrInvalidPlan):
 				errMsg = "cannot add seats to based plan, please upgrade first"
-			case billingService.ErrQuotaExceeded:
+			case errors.Is(err, billingService.ErrQuotaExceeded):
 				errMsg = "exceeds maximum seats for this plan"
 			}
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, errMsg)

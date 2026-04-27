@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anthropics/agentsmesh/backend/internal/middleware"
@@ -31,14 +32,14 @@ func (h *InvitationHandler) AcceptInvitation(c *gin.Context) {
 
 	result, err := h.invitationService.Accept(c.Request.Context(), token, userID)
 	if err != nil {
-		switch err {
-		case invitationSvc.ErrInvitationNotFound:
+		switch {
+		case errors.Is(err, invitationSvc.ErrInvitationNotFound):
 			apierr.ResourceNotFound(c, "Invitation not found")
-		case invitationSvc.ErrInvitationExpired:
+		case errors.Is(err, invitationSvc.ErrInvitationExpired):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Invitation has expired")
-		case invitationSvc.ErrInvitationAccepted:
+		case errors.Is(err, invitationSvc.ErrInvitationAccepted):
 			apierr.BadRequest(c, apierr.VALIDATION_FAILED, "Invitation already accepted")
-		case invitationSvc.ErrAlreadyMember:
+		case errors.Is(err, invitationSvc.ErrAlreadyMember):
 			apierr.Conflict(c, apierr.ALREADY_EXISTS, "You are already a member of this organization")
 		default:
 			apierr.InternalError(c, "Failed to accept invitation")

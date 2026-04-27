@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/anthropics/agentsmesh/backend/internal/domain/channel"
@@ -22,7 +23,7 @@ func (h *ChannelHandler) requireChannelAccess(c *gin.Context) (*channel.Channel,
 
 	ch, err := h.channelService.GetChannel(c.Request.Context(), channelID)
 	if err != nil {
-		if err == channelService.ErrChannelNotFound {
+		if errors.Is(err, channelService.ErrChannelNotFound) {
 			apierr.ResourceNotFound(c, "Channel not found")
 		} else {
 			apierr.InternalError(c, "Failed to get channel")
@@ -52,16 +53,16 @@ func (h *ChannelHandler) requireChannelAccess(c *gin.Context) (*channel.Channel,
 }
 
 func handleChannelServiceError(c *gin.Context, err error) {
-	switch err {
-	case channelService.ErrNotMember:
+	switch {
+	case errors.Is(err, channelService.ErrNotMember):
 		apierr.ForbiddenAccess(c)
-	case channelService.ErrChannelPrivate:
+	case errors.Is(err, channelService.ErrChannelPrivate):
 		apierr.ForbiddenAccess(c)
-	case channelService.ErrNotCreator:
+	case errors.Is(err, channelService.ErrNotCreator):
 		apierr.ForbiddenAccess(c)
-	case channelService.ErrChannelArchived:
+	case errors.Is(err, channelService.ErrChannelArchived):
 		apierr.Conflict(c, apierr.ALREADY_EXISTS, "Channel is archived")
-	case channelService.ErrChannelNotFound:
+	case errors.Is(err, channelService.ErrChannelNotFound):
 		apierr.ResourceNotFound(c, "Channel not found")
 	default:
 		apierr.InternalError(c, "Operation failed")

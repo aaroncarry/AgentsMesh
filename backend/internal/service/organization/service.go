@@ -101,7 +101,7 @@ func (s *Service) Create(ctx context.Context, ownerID int64, req *CreateRequest)
 func (s *Service) GetByID(ctx context.Context, id int64) (*orgDomain.Organization, error) {
 	org, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		if err == orgDomain.ErrNotFound {
+		if errors.Is(err, orgDomain.ErrNotFound) {
 			return nil, ErrOrganizationNotFound
 		}
 		return nil, err
@@ -113,7 +113,7 @@ func (s *Service) GetByID(ctx context.Context, id int64) (*orgDomain.Organizatio
 func (s *Service) GetBySlug(ctx context.Context, slug string) (middleware.OrganizationGetter, error) {
 	org, err := s.repo.GetBySlug(ctx, slug)
 	if err != nil {
-		if err == orgDomain.ErrNotFound {
+		if errors.Is(err, orgDomain.ErrNotFound) {
 			return nil, ErrOrganizationNotFound
 		}
 		return nil, err
@@ -125,7 +125,7 @@ func (s *Service) GetBySlug(ctx context.Context, slug string) (middleware.Organi
 func (s *Service) GetOrgBySlug(ctx context.Context, slug string) (*orgDomain.Organization, error) {
 	org, err := s.repo.GetBySlug(ctx, slug)
 	if err != nil {
-		if err == orgDomain.ErrNotFound {
+		if errors.Is(err, orgDomain.ErrNotFound) {
 			return nil, ErrOrganizationNotFound
 		}
 		return nil, err

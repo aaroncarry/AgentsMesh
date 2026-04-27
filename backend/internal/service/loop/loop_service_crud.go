@@ -15,7 +15,7 @@ func (s *LoopService) Create(ctx context.Context, req *CreateLoopRequest) (*loop
 	if slug == "" {
 		slug = generateSlug(req.Name)
 	}
-	if !slugRegex.MatchString(slug) {
+	if !isValidSlug(slug) {
 		return nil, ErrInvalidSlug
 	}
 
