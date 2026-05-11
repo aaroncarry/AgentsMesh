@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/anthropics/agentsmesh/agentfile/eval"
 	"github.com/anthropics/agentsmesh/agentfile/parser"
@@ -45,6 +44,7 @@ func (b *ConfigBuilder) buildFromAgentfile(
 
 	// Build MCP context
 	builtinMCP, installedMCP := b.buildMCPContext(ctx, req, agentDef.Slug)
+	installedSkills := b.buildSkillContext(ctx, req, agentDef.Slug)
 
 	// Parse and eval AgentFile with placeholder context
 	prog, errs := parser.Parse(mergedSource)
@@ -67,50 +67,6 @@ func (b *ConfigBuilder) buildFromAgentfile(
 		effectiveReq.PreparationTimeout = evalCtx.Result.Setup.Timeout
 	}
 
-	cmd := buildResultToProto(&effectiveReq, evalCtx.Result, creds, isRunnerHost)
-	cmd.ResourcesToDownload = b.buildSkillResources(ctx, req, agentDef.Slug)
+	cmd := buildResultToProto(&effectiveReq, evalCtx.Result, creds, isRunnerHost, installedSkills)
 	return cmd, nil
-}
-
-func (b *ConfigBuilder) buildSkillResources(ctx context.Context, req *ConfigBuildRequest, agentSlug string) []*runnerv1.ResourceToDownload {
-	if b.extensionProvider == nil || req.RepositoryID == nil {
-		return nil
-	}
-
-	skills, err := b.extensionProvider.GetEffectiveSkills(ctx, req.OrganizationID, req.UserID, *req.RepositoryID, agentSlug)
-	if err != nil {
-		slog.WarnContext(ctx, "Failed to load skills for agentfile", "agent_slug", agentSlug, "error", err)
-		return nil
-	}
-
-	resources := make([]*runnerv1.ResourceToDownload, 0, len(skills))
-	for _, skill := range skills {
-		if skill == nil {
-			continue
-		}
-		if skill.ContentSha == "" || skill.DownloadURL == "" || skill.Slug == "" {
-			slog.WarnContext(ctx, "Skipping skill with incomplete download metadata",
-				"agent_slug", agentSlug, "skill_slug", skill.Slug)
-			continue
-		}
-		resources = append(resources, &runnerv1.ResourceToDownload{
-			Sha:          skill.ContentSha,
-			DownloadUrl:  skill.DownloadURL,
-			TargetPath:   skillTargetPath(agentSlug, skill.Slug),
-			ResourceType: "skill_package",
-			SizeBytes:    skill.PackageSize,
-		})
-	}
-	return resources
-}
-
-func skillTargetPath(agentSlug, skillSlug string) string {
-	switch agentSlug {
-	case "codex-cli", "codex":
-		return "{{.sandbox.root_path}}/codex-home/skills/" + skillSlug
-	case "claude-code", "claude":
-		return "{{.sandbox.work_dir}}/.claude/skills/" + skillSlug
-	default:
-		return "{{.sandbox.root_path}}/skills/" + skillSlug
-	}
 }

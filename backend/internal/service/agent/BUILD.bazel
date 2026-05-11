@@ -9,6 +9,7 @@ go_library(
         "config_builder_agentfile.go",
         "config_builder_eval.go",
         "config_builder_schema.go",
+        "config_builder_skills.go",
         "config_builder_types.go",
         "credential_profile_crud.go",
         "credential_profile_query.go",
@@ -21,6 +22,7 @@ go_library(
         "types.go",
         "user_config_service.go",
     ],
+    embedsrcs = glob(["builtin_skills/*.md"]),
     importpath = "github.com/anthropics/agentsmesh/backend/internal/service/agent",
     visibility = ["//backend:__subpackages__"],
     deps = [

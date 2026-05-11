@@ -149,6 +149,14 @@ func stripSequences(data []byte, seqs ...[]byte) []byte {
 	return result
 }
 
+// StripSynchronizedOutputSequences removes DEC synchronized-output wrappers
+// while preserving the frame contents. This is useful for browser terminals
+// when an upstream TUI leaves synchronized output open long enough to suppress
+// rendering.
+func StripSynchronizedOutputSequences(data []byte) []byte {
+	return stripSequences(data, syncOutputStartSeq, syncOutputEndSeq)
+}
+
 // findAllPositions finds all occurrences of seq in data and returns their positions.
 func findAllPositions(data, seq []byte) []int {
 	var positions []int

@@ -216,6 +216,24 @@ func TestUpdateAvailableAgents(t *testing.T) {
 		}
 	})
 
+	t.Run("normalizes legacy factory slug", func(t *testing.T) {
+		err := service.UpdateAvailableAgents(ctx, r.ID, []string{"claude-code", "factory-droid", "factory-cli"})
+		if err != nil {
+			t.Fatalf("failed to update available agents: %v", err)
+		}
+
+		updated, _ := service.GetRunner(ctx, r.ID)
+		expected := []string{"claude-code", "factory-cli"}
+		if len(updated.AvailableAgents) != len(expected) {
+			t.Fatalf("expected %d agents, got %d: %v", len(expected), len(updated.AvailableAgents), updated.AvailableAgents)
+		}
+		for i, agent := range expected {
+			if updated.AvailableAgents[i] != agent {
+				t.Errorf("expected agent %s at index %d, got %s", agent, i, updated.AvailableAgents[i])
+			}
+		}
+	})
+
 	t.Run("runner supports agent check", func(t *testing.T) {
 		// Set some agents
 		agents := []string{"claude-code", "aider"}
@@ -316,6 +334,25 @@ func TestMergeAgentVersions(t *testing.T) {
 		}
 		if len(updated.AgentVersions) != 2 {
 			t.Errorf("expected 2 agents after removal, got %d", len(updated.AgentVersions))
+		}
+	})
+
+	t.Run("merge normalizes legacy factory slug", func(t *testing.T) {
+		changes := map[string]runner.AgentVersion{
+			"factory-droid": {Slug: "factory-droid", Version: "0.121.0", Path: "/usr/bin/droid"},
+		}
+		err := service.MergeAgentVersions(ctx, r.ID, changes)
+		if err != nil {
+			t.Fatalf("merge failed: %v", err)
+		}
+
+		updated, _ := service.GetRunner(ctx, r.ID)
+		v := updated.AgentVersions.GetAgentVersion("factory-cli")
+		if v == nil || v.Version != "0.121.0" || v.Path != "/usr/bin/droid" {
+			t.Errorf("expected factory-cli v0.121.0 at /usr/bin/droid, got %+v", v)
+		}
+		if legacy := updated.AgentVersions.GetAgentVersion("factory-droid"); legacy != nil {
+			t.Errorf("expected factory-droid to be normalized away, got %+v", legacy)
 		}
 	})
 }

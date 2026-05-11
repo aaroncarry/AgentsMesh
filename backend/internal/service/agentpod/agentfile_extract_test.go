@@ -116,3 +116,36 @@ func TestExtractAgentfileOverrides_MergeCorrectness(t *testing.T) {
 	// Other base values remain intact.
 	assert.Equal(t, "bypassPermissions", ov.PermissionMode)
 }
+
+func TestExtractAgentfileOverrides_SystemResumeValuesAreSerialized(t *testing.T) {
+	base := `AGENT droid
+EXECUTABLE droid
+MODE pty
+PROMPT_POSITION append
+arg "--resume" when config.resume_enabled
+`
+
+	ov, err := extractFromAgentfileLayer(base, "", nil, map[string]interface{}{
+		"resume_enabled": true,
+		"resume_session": "session-abc",
+	})
+	require.NoError(t, err)
+
+	assert.Contains(t, ov.MergedAgentfileSource, "CONFIG resume_enabled BOOL = true")
+	assert.Contains(t, ov.MergedAgentfileSource, `CONFIG resume_session STRING = "session-abc"`)
+	assert.Contains(t, ov.MergedAgentfileSource, `arg "--resume" when config.resume_enabled`)
+	assert.NotContains(t, ov.ConfigValues, "resume_enabled")
+	assert.NotContains(t, ov.ConfigValues, "resume_session")
+}
+
+func TestConfigValuesToAgentfileLayer(t *testing.T) {
+	layer := configValuesToAgentfileLayer(map[string]interface{}{
+		"autonomy_level":   "medium",
+		"interaction_mode": "spec",
+		"resume_enabled":   true,
+	})
+
+	assert.Contains(t, layer, `CONFIG autonomy_level = "medium"`)
+	assert.Contains(t, layer, `CONFIG interaction_mode = "spec"`)
+	assert.NotContains(t, layer, "resume_enabled")
+}

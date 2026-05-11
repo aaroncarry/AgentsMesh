@@ -122,6 +122,44 @@ func TestGetEffectiveSkills_AgentFilter_AliasMatches(t *testing.T) {
 	}
 }
 
+func TestGetEffectiveSkills_AgentFilter_FactoryLegacySlugMatchesFactoryCLI(t *testing.T) {
+	repo := &svcMockRepo{
+		getEffectiveSkillsFn: func(_ context.Context, orgID, userID, repoID int64) ([]*extension.InstalledSkill, error) {
+			return []*extension.InstalledSkill{
+				{
+					ID:            1,
+					Slug:          "factory-skill",
+					InstallSource: "market",
+					ContentSha:    "abc123",
+					StorageKey:    "skills/factory-skill/v1.tar.gz",
+					PackageSize:   1024,
+					MarketItemID:  int64Ptr(100),
+					MarketItem: &extension.SkillMarketItem{
+						ID:          100,
+						Slug:        "factory-skill",
+						AgentFilter: json.RawMessage(`["factory-droid"]`),
+						ContentSha:  "abc123",
+						StorageKey:  "skills/factory-skill/v1.tar.gz",
+						PackageSize: 1024,
+					},
+				},
+			}, nil
+		},
+	}
+	svc := newTestService(repo, &svcMockStorage{}, nil)
+
+	resolved, err := svc.GetEffectiveSkills(context.Background(), 1, 2, 3, "factory-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(resolved))
+	}
+	if resolved[0].Slug != "factory-skill" {
+		t.Errorf("expected slug 'factory-skill', got %q", resolved[0].Slug)
+	}
+}
+
 func TestGetEffectiveSkills_AgentFilter_GitHubInstallAlwaysIncluded(t *testing.T) {
 	// Skill without MarketItem (github install) should always be included
 	repo := &svcMockRepo{

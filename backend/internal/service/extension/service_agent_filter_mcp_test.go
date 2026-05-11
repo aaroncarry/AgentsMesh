@@ -101,6 +101,37 @@ func TestGetEffectiveMcpServers_AgentFilter_AliasMatches(t *testing.T) {
 	}
 }
 
+func TestGetEffectiveMcpServers_AgentFilter_FactoryLegacySlugMatchesFactoryCLI(t *testing.T) {
+	repo := &svcMockRepo{
+		getEffectiveMcpServersFn: func(_ context.Context, orgID, userID, repoID int64) ([]*extension.InstalledMcpServer, error) {
+			return []*extension.InstalledMcpServer{
+				{
+					ID:           1,
+					Slug:         "factory-server",
+					MarketItemID: int64Ptr(100),
+					MarketItem: &extension.McpMarketItem{
+						ID:          100,
+						Slug:        "factory-server",
+						AgentFilter: json.RawMessage(`["factory-droid"]`),
+					},
+				},
+			}, nil
+		},
+	}
+	svc := newTestService(repo, &svcMockStorage{}, nil)
+
+	servers, err := svc.GetEffectiveMcpServers(context.Background(), 1, 2, 3, "factory-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Fatalf("expected 1 server, got %d", len(servers))
+	}
+	if servers[0].Slug != "factory-server" {
+		t.Errorf("expected slug 'factory-server', got %q", servers[0].Slug)
+	}
+}
+
 func TestGetEffectiveMcpServers_AgentFilter_CustomServerAlwaysIncluded(t *testing.T) {
 	// MCP server without MarketItem (custom install) should always be included
 	repo := &svcMockRepo{

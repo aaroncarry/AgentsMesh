@@ -10,9 +10,10 @@ import (
 // FrameBuffer manages terminal output buffering with frame-aware operations.
 // It uses FrameDetector to ensure frame integrity during discard and flush operations.
 type FrameBuffer struct {
-	buffer   bytes.Buffer
-	maxSize  int
-	detector *FrameDetector
+	buffer           bytes.Buffer
+	maxSize          int
+	detector         *FrameDetector
+	discardOldFrames bool
 }
 
 // NewFrameBuffer creates a new frame buffer.
@@ -21,8 +22,9 @@ type FrameBuffer struct {
 // - maxSize: maximum buffer size (hard cap to prevent unbounded memory growth)
 func NewFrameBuffer(maxSize int) *FrameBuffer {
 	return &FrameBuffer{
-		maxSize:  maxSize,
-		detector: NewFrameDetector(),
+		maxSize:          maxSize,
+		detector:         NewFrameDetector(),
+		discardOldFrames: true,
 	}
 }
 
@@ -44,9 +46,11 @@ func (b *FrameBuffer) Write(data []byte) {
 
 	b.buffer.Write(data)
 
-	// Content-aware discard: only discard if there's a full redraw frame
-	// Incremental frames are preserved
-	b.detector.DiscardOldFrames(&b.buffer)
+	if b.discardOldFrames {
+		// Content-aware discard: only discard if there's a full redraw frame
+		// Incremental frames are preserved
+		b.detector.DiscardOldFrames(&b.buffer)
+	}
 
 	// Enforce limit again after write (handles case where data itself exceeds limit)
 	b.enforceLimitAfterWrite()
@@ -115,6 +119,17 @@ func (b *FrameBuffer) FlushComplete() (data []byte, remaining int) {
 // - data: bytes to be flushed
 // - remaining: bytes kept in buffer (incomplete UTF-8 only)
 func (b *FrameBuffer) FlushAll() (data []byte, remaining int) {
+	return b.flushAll(true)
+}
+
+// FlushAllRaw returns all buffered data without stripping terminal control
+// sequences. Use this when the downstream terminal should receive the PTY stream
+// as-is, such as CLIs whose own redraws are meaningful.
+func (b *FrameBuffer) FlushAllRaw() (data []byte, remaining int) {
+	return b.flushAll(false)
+}
+
+func (b *FrameBuffer) flushAll(stripRedundantSequences bool) (data []byte, remaining int) {
 	if b.buffer.Len() == 0 {
 		return nil, 0
 	}
@@ -132,9 +147,11 @@ func (b *FrameBuffer) FlushAll() (data []byte, remaining int) {
 	data = make([]byte, validLen)
 	copy(data, allData[:validLen])
 
-	// Strip redundant sequences (ESC[2J, ESC[H) from inside sync frames
-	// This prevents xterm.js from jumping to top after resize
-	data = b.detector.StripRedundantSequencesInFrames(data)
+	if stripRedundantSequences {
+		// Strip redundant sequences (ESC[2J, ESC[H) from inside sync frames
+		// This prevents xterm.js from jumping to top after resize
+		data = b.detector.StripRedundantSequencesInFrames(data)
+	}
 
 	// Keep any trailing incomplete UTF-8 bytes
 	if validLen < len(allData) {
@@ -174,6 +191,12 @@ func (b *FrameBuffer) MaxSize() int {
 // SetMaxSize updates the max buffer size.
 func (b *FrameBuffer) SetMaxSize(size int) {
 	b.maxSize = size
+}
+
+// SetDiscardOldFrames controls whether writes may discard old full-redraw
+// frames before flushing. Disabling this preserves exact PTY stream history.
+func (b *FrameBuffer) SetDiscardOldFrames(enabled bool) {
+	b.discardOldFrames = enabled
 }
 
 // IsLastFrameFullRedraw checks if the last complete frame in the buffer is a full-screen redraw.

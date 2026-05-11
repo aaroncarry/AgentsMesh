@@ -183,6 +183,8 @@ func filterSkillsByAgent(skills []*extension.InstalledSkill, agentSlug string) [
 }
 
 func agentSlugMatches(filterValue, actual string) bool {
+	filterValue = canonicalExtensionAgentSlug(filterValue)
+	actual = canonicalExtensionAgentSlug(actual)
 	if filterValue == actual {
 		return true
 	}
@@ -200,4 +202,13 @@ func agentSlugMatches(filterValue, actual string) bool {
 		}
 	}
 	return false
+}
+
+func canonicalExtensionAgentSlug(slug string) string {
+	switch slug {
+	case "factory-droid":
+		return "factory-cli"
+	default:
+		return slug
+	}
 }

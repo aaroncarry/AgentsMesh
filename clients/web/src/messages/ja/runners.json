@@ -347,6 +347,34 @@
           }
         }
       }
+    },
+    "factory-cli": {
+      "fields": {
+        "autonomy_level": {
+          "label": "自律レベル",
+          "description": "Droid の既定の自律レベルを設定します。空欄の場合は Droid の既定値を使用します。",
+          "options": {
+            "": "Droid の既定",
+            "off": "オフ",
+            "low": "低",
+            "medium": "中",
+            "high": "高"
+          }
+        },
+        "interaction_mode": {
+          "label": "インタラクションモード",
+          "description": "Droid の既定の対話スタイルを選択します。空欄の場合は Droid の既定値を使用します。",
+          "options": {
+            "": "Droid の既定",
+            "auto": "Auto",
+            "spec": "Spec"
+          }
+        },
+        "skip_permissions_unsafe": {
+          "label": "権限チェックをスキップ（ACP のみ）",
+          "description": "ACP モードで Droid の権限確認を回避します。Droid が確認なしでコマンドを実行する可能性があるため、信頼できるワークスペースでのみ使用してください。"
+        }
+      }
     }
   }
 }

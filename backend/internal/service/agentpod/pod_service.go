@@ -8,14 +8,15 @@ import (
 	"fmt"
 	"log/slog"
 
+	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
 	"github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
 )
 
 var (
-	ErrPodNotFound           = errors.New("pod not found")
-	ErrNoAvailableRunner     = errors.New("no available runner")
-	ErrRunnerNotFound        = errors.New("runner not found")
-	ErrRunnerOffline         = errors.New("runner is offline")
+	ErrPodNotFound       = errors.New("pod not found")
+	ErrNoAvailableRunner = errors.New("no available runner")
+	ErrRunnerNotFound    = errors.New("runner not found")
+	ErrRunnerOffline     = errors.New("runner is offline")
 	// ErrSandboxAlreadyResumed is re-exported from domain for backward compatibility.
 	ErrSandboxAlreadyResumed = agentpod.ErrSandboxAlreadyResumed
 )
@@ -52,6 +53,7 @@ type CreatePodRequest struct {
 	SkipPermissions   bool
 	PreparationConfig *agentpod.PreparationConfig
 	EnvVars           map[string]string
+	ConfigOverrides   agentDomain.ConfigValues
 
 	// CredentialProfileID records which credential profile was selected.
 	// nil = default resolution, >0 = specific profile. 0 is not stored (FK constraint).
@@ -126,6 +128,7 @@ func (s *PodService) CreatePod(ctx context.Context, req *CreatePodRequest) (*age
 		SessionID:           sessionID,
 		SourcePodKey:        sourcePodKey,
 		CredentialProfileID: req.CredentialProfileID,
+		ConfigOverrides:     req.ConfigOverrides,
 		InteractionMode:     interactionMode,
 		Perpetual:           req.Perpetual,
 	}

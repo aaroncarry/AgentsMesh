@@ -27,13 +27,26 @@ type ACPTransport struct {
 
 	ctx    context.Context
 	logger *slog.Logger
+
+	sendInitialized bool
+}
+
+type ACPTransportOptions struct {
+	SendInitialized bool
 }
 
 // NewACPTransport creates a new JSON-RPC 2.0 transport.
 func NewACPTransport(callbacks EventCallbacks, logger *slog.Logger) *ACPTransport {
+	return NewACPTransportWithOptions(callbacks, logger, ACPTransportOptions{})
+}
+
+// NewACPTransportWithOptions creates a JSON-RPC 2.0 transport with optional
+// protocol hooks required by some ACP agents.
+func NewACPTransportWithOptions(callbacks EventCallbacks, logger *slog.Logger, opts ACPTransportOptions) *ACPTransport {
 	return &ACPTransport{
-		handler: NewHandler(callbacks, logger),
-		logger:  logger,
+		handler:         NewHandler(callbacks, logger),
+		logger:          logger,
+		sendInitialized: opts.SendInitialized,
 	}
 }
 
@@ -71,6 +84,12 @@ func (t *ACPTransport) Handshake(_ context.Context) (string, error) {
 	if resp.Error != nil {
 		return "", fmt.Errorf("initialize error: code=%d msg=%s",
 			resp.Error.Code, resp.Error.Message)
+	}
+
+	if t.sendInitialized {
+		if err := t.tracker.Writer.WriteNotification("initialized", nil); err != nil {
+			return "", fmt.Errorf("write initialized: %w", err)
+		}
 	}
 
 	t.logger.Info("ACP initialize succeeded")

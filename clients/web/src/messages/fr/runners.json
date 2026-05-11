@@ -347,6 +347,34 @@
           }
         }
       }
+    },
+    "factory-cli": {
+      "fields": {
+        "autonomy_level": {
+          "label": "Niveau d'autonomie",
+          "description": "Définit le niveau d'autonomie par défaut de Droid. Laissez vide pour utiliser la valeur par défaut de Droid.",
+          "options": {
+            "": "Par défaut Droid",
+            "off": "Désactivé",
+            "low": "Faible",
+            "medium": "Moyen",
+            "high": "Élevé"
+          }
+        },
+        "interaction_mode": {
+          "label": "Mode d'interaction",
+          "description": "Choisit le style d'interaction par défaut de Droid. Laissez vide pour utiliser la valeur par défaut de Droid.",
+          "options": {
+            "": "Par défaut Droid",
+            "auto": "Auto",
+            "spec": "Spec"
+          }
+        },
+        "skip_permissions_unsafe": {
+          "label": "Ignorer les permissions (ACP uniquement)",
+          "description": "Contourne les invites de permission de Droid en mode ACP. Droid peut exécuter des commandes sans confirmation ; utilisez uniquement dans des workspaces de confiance."
+        }
+      }
     }
   }
 }

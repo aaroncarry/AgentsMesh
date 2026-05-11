@@ -72,3 +72,20 @@ func WithFullRedrawThrottling(opts ...FullRedrawThrottlerOption) SmartAggregator
 		a.fullRedrawThrottler = NewFullRedrawThrottler(opts...)
 	}
 }
+
+// WithRawPassthrough flushes raw PTY bytes on each aggregation tick instead of
+// waiting for complete synchronized-output frames. It also disables old-frame
+// discard so terminal scrollback semantics remain owned by the CLI.
+func WithRawPassthrough() SmartAggregatorOption {
+	return func(a *SmartAggregator) {
+		a.rawPassthrough = true
+		a.buffer.SetDiscardOldFrames(false)
+	}
+}
+
+// WithOutputTransform rewrites flushed bytes before routing them to Relay.
+func WithOutputTransform(fn func([]byte) []byte) SmartAggregatorOption {
+	return func(a *SmartAggregator) {
+		a.outputTransform = fn
+	}
+}

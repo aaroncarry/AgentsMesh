@@ -95,7 +95,8 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 	virtualTerm := vt.NewVirtualTerminal(state.Cols, state.Rows, state.VTHistoryLimit)
 	virtualTerm.SetOSCHandler(r.messageHandler.createOSCHandler(state.PodKey))
 
-	agg := aggregator.NewSmartAggregator(nil, aggregator.WithFullRedrawThrottling())
+	terminalProfile := selectPTYTerminalProfile(state.Command)
+	agg := terminalProfile.NewAggregator()
 
 	var ptyLogger *aggregator.PTYLogger
 	cfg := r.GetConfig()
@@ -131,7 +132,12 @@ func (r *Runner) recoverSingleSession(state *poddaemon.PodDaemonState) (*Pod, er
 		vtProvider:      func() *vt.VirtualTerminal { return virtualTerm },
 	}
 
-	comps := &PTYComponents{Terminal: term, VirtualTerminal: virtualTerm, Aggregator: agg, PTYLogger: ptyLogger}
+	comps := &PTYComponents{
+		Terminal:        term,
+		VirtualTerminal: virtualTerm,
+		Aggregator:      agg,
+		PTYLogger:       ptyLogger,
+	}
 
 	// Wire up output handler (shared implementation with circuit breaker + inline recover)
 	term.SetOutputHandler(NewPTYOutputHandler(podKey, comps, pod.NotifyStateDetectorWithScreen))

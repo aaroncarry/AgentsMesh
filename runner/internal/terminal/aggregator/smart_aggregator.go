@@ -47,6 +47,13 @@ type SmartAggregator struct {
 	// Detects high-frequency full-screen redraws and reduces transmission rate
 	fullRedrawThrottler *FullRedrawThrottler
 
+	// Raw passthrough mode flushes buffered bytes without waiting for complete
+	// synchronized-output frames and without stripping redraw sequences.
+	rawPassthrough bool
+
+	// outputTransform optionally rewrites flushed bytes before routing.
+	outputTransform func([]byte) []byte
+
 	// PTY logging (for debugging)
 	ptyLogger *PTYLogger
 }

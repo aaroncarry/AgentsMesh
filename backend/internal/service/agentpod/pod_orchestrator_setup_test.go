@@ -186,11 +186,11 @@ PROMPT_POSITION prepend
 `
 	return &mockAgentConfigProvider{
 		agentDef: &agentDomain.Agent{
-			Slug:           "claude-code",
-			Name:           "Claude Code",
-			LaunchCommand:  "claude",
-			SupportedModes: "pty",
-			AgentfileSource:  &agentfile,
+			Slug:            "claude-code",
+			Name:            "Claude Code",
+			LaunchCommand:   "claude",
+			SupportedModes:  "pty",
+			AgentfileSource: &agentfile,
 		},
 		config:   agentDomain.ConfigValues{},
 		creds:    agentDomain.EncryptedCredentials{},

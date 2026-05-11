@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CreatePodForm } from "../index";
+import { POD_MODE_ACP, POD_MODE_PTY } from "@/lib/pod-modes";
 import {
   mockSetPrompt,
   mockSetAlias,
@@ -29,7 +30,14 @@ vi.mock("next-intl", () => ({
 }));
 
 vi.mock("@/components/ide/ConfigForm", () => ({
-  ConfigForm: () => <div data-testid="config-form">Config Form</div>,
+  ConfigForm: ({ fields }: { fields: Array<{ name: string }> }) => (
+    <div data-testid="config-form">
+      Config Form
+      {fields.map((field) => (
+        <span key={field.name}>{field.name}</span>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock("@/lib/terminal-size", () => ({
@@ -267,6 +275,48 @@ describe("CreatePodForm - Agent Configuration", () => {
       render(<CreatePodForm config={{ scenario: "workspace" }} />);
       expect(screen.getByText("ide.createPod.pluginConfig")).toBeInTheDocument();
       expect(screen.getByTestId("config-form")).toBeInTheDocument();
+    });
+
+    it("should hide Factory ACP-only config fields in PTY mode", () => {
+      setupAgentSelectedState({
+        selectedAgent: "factory-cli",
+        selectedAgentSlug: "factory-cli",
+        interactionMode: POD_MODE_PTY,
+        supportedModes: [POD_MODE_PTY, POD_MODE_ACP],
+      });
+      vi.mocked(useConfigOptions).mockReturnValue({
+        ...defaultConfigOptions,
+        fields: [
+          { name: "autonomy_level", type: "select" },
+          { name: "skip_permissions_unsafe", type: "boolean" },
+        ],
+      });
+
+      render(<CreatePodForm config={{ scenario: "workspace" }} />);
+
+      expect(screen.getByText("autonomy_level")).toBeInTheDocument();
+      expect(screen.queryByText("skip_permissions_unsafe")).not.toBeInTheDocument();
+    });
+
+    it("should show Factory ACP-only config fields in ACP mode", () => {
+      setupAgentSelectedState({
+        selectedAgent: "factory-cli",
+        selectedAgentSlug: "factory-cli",
+        interactionMode: POD_MODE_ACP,
+        supportedModes: [POD_MODE_PTY, POD_MODE_ACP],
+      });
+      vi.mocked(useConfigOptions).mockReturnValue({
+        ...defaultConfigOptions,
+        fields: [
+          { name: "autonomy_level", type: "select" },
+          { name: "skip_permissions_unsafe", type: "boolean" },
+        ],
+      });
+
+      render(<CreatePodForm config={{ scenario: "workspace" }} />);
+
+      expect(screen.getByText("autonomy_level")).toBeInTheDocument();
+      expect(screen.getByText("skip_permissions_unsafe")).toBeInTheDocument();
     });
 
     it("should not render config form when no config fields available", () => {

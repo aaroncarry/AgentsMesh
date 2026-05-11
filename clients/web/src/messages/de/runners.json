@@ -347,6 +347,34 @@
           }
         }
       }
+    },
+    "factory-cli": {
+      "fields": {
+        "autonomy_level": {
+          "label": "Autonomielevel",
+          "description": "Legt das Standard-Autonomielevel von Droid fest. Leer lassen, um den Droid-Standard zu verwenden.",
+          "options": {
+            "": "Droid-Standard",
+            "off": "Aus",
+            "low": "Niedrig",
+            "medium": "Mittel",
+            "high": "Hoch"
+          }
+        },
+        "interaction_mode": {
+          "label": "Interaktionsmodus",
+          "description": "Wählt den Standard-Interaktionsstil von Droid. Leer lassen, um den Droid-Standard zu verwenden.",
+          "options": {
+            "": "Droid-Standard",
+            "auto": "Auto",
+            "spec": "Spec"
+          }
+        },
+        "skip_permissions_unsafe": {
+          "label": "Berechtigungsprüfungen überspringen (nur ACP)",
+          "description": "Umgeht Droid-Berechtigungsabfragen im ACP-Modus. Droid kann Befehle ohne Bestätigung ausführen; nur in vertrauenswürdigen Workspaces verwenden."
+        }
+      }
     }
   }
 }

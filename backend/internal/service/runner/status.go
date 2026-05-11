@@ -76,16 +76,33 @@ func (s *Service) UpdateRunnerVersionAndHostInfo(ctx context.Context, runnerID i
 // UpdateAvailableAgents updates the list of available agents for a runner
 // Called when runner completes initialization handshake
 func (s *Service) UpdateAvailableAgents(ctx context.Context, runnerID int64, agents []string) error {
+	agents = normalizeAgentSlugs(agents)
 	slog.InfoContext(ctx, "runner available agents updated", "runner_id", runnerID, "agents", agents)
-	return s.repo.UpdateFields(ctx, runnerID, map[string]interface{}{
+	if err := s.repo.UpdateFields(ctx, runnerID, map[string]interface{}{
 		"available_agents": runner.StringSlice(agents),
-	})
+	}); err != nil {
+		return err
+	}
+
+	if active, ok := s.activeRunners.Load(runnerID); ok {
+		if ar, ok := active.(*ActiveRunner); ok && ar.Runner != nil {
+			updated := *ar.Runner
+			updated.AvailableAgents = runner.StringSlice(agents)
+			s.activeRunners.Store(runnerID, &ActiveRunner{
+				Runner:   &updated,
+				LastPing: ar.LastPing,
+				PodCount: ar.PodCount,
+			})
+		}
+	}
+	return nil
 }
 
 // UpdateAgentVersions updates the detected agent version info for a runner.
 // Called when runner completes initialization handshake (Runner >= 0.4.7).
 // Also refreshes the activeRunners cache to keep GetRunner consistent.
 func (s *Service) UpdateAgentVersions(ctx context.Context, runnerID int64, versions []runner.AgentVersion) error {
+	versions = normalizeAgentVersions(versions)
 	if err := s.repo.UpdateFields(ctx, runnerID, map[string]interface{}{
 		"agent_versions": runner.AgentVersionSlice(versions),
 	}); err != nil {
@@ -126,11 +143,14 @@ func (s *Service) MergeAgentVersions(ctx context.Context, runnerID int64, change
 	// Build merged version map from existing data
 	merged := make(map[string]runner.AgentVersion)
 	for _, v := range r.AgentVersions {
+		v.Slug = canonicalAgentSlug(v.Slug)
 		merged[v.Slug] = v
 	}
 
 	// Apply changes
 	for slug, change := range changes {
+		slug = canonicalAgentSlug(slug)
+		change.Slug = canonicalAgentSlug(change.Slug)
 		if change.Version == "" && change.Path == "" {
 			delete(merged, slug)
 		} else {
@@ -145,6 +165,52 @@ func (s *Service) MergeAgentVersions(ctx context.Context, runnerID int64, change
 	}
 
 	return s.UpdateAgentVersions(ctx, runnerID, result)
+}
+
+func normalizeAgentSlugs(agents []string) []string {
+	if len(agents) == 0 {
+		return agents
+	}
+
+	normalized := make([]string, 0, len(agents))
+	seen := make(map[string]struct{}, len(agents))
+	for _, slug := range agents {
+		slug = canonicalAgentSlug(slug)
+		if _, ok := seen[slug]; ok {
+			continue
+		}
+		seen[slug] = struct{}{}
+		normalized = append(normalized, slug)
+	}
+	return normalized
+}
+
+func normalizeAgentVersions(versions []runner.AgentVersion) []runner.AgentVersion {
+	if len(versions) == 0 {
+		return versions
+	}
+
+	normalized := make([]runner.AgentVersion, 0, len(versions))
+	indexBySlug := make(map[string]int, len(versions))
+	for _, version := range versions {
+		version.Slug = canonicalAgentSlug(version.Slug)
+		if idx, ok := indexBySlug[version.Slug]; ok {
+			normalized[idx] = version
+			continue
+		}
+		indexBySlug[version.Slug] = len(normalized)
+		normalized = append(normalized, version)
+	}
+	return normalized
+}
+
+func canonicalAgentSlug(slug string) string {
+	switch slug {
+	case "factory-droid":
+		return "factory-cli"
+	default:
+		return slug
+	}
 }
 
 // IncrementPods increments the pod count for a runner

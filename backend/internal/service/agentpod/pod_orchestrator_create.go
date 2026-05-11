@@ -90,8 +90,14 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		}
 
 		layerSrc := ""
+		if isResumeMode && sourcePod != nil {
+			layerSrc = configValuesToAgentfileLayer(sourcePod.ConfigOverrides)
+		}
 		if req.AgentfileLayer != nil {
-			layerSrc = *req.AgentfileLayer
+			if layerSrc != "" {
+				layerSrc += "\n"
+			}
+			layerSrc += *req.AgentfileLayer
 		}
 
 		result, err := extractFromAgentfileLayer(
@@ -103,6 +109,7 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		}
 		resolved.MergedAgentfileSource = result.MergedAgentfileSource
 		resolved.CredentialProfile = result.CredentialProfile
+		resolved.ConfigValues = result.ConfigValues
 		if result.Mode != "" {
 			resolved.InteractionMode = result.Mode
 		}
@@ -177,6 +184,7 @@ func (o *PodOrchestrator) CreatePod(ctx context.Context, req *OrchestrateCreateP
 		SessionID:           sessionID,
 		SourcePodKey:        req.SourcePodKey,
 		CredentialProfileID: dbCredProfileID,
+		ConfigOverrides:     resolved.ConfigValues,
 		InteractionMode:     effectiveInteractionMode,
 		Perpetual:           req.Perpetual,
 	})

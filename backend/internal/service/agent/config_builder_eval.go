@@ -7,6 +7,7 @@ import (
 
 	"github.com/anthropics/agentsmesh/agentfile/eval"
 	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
+	extensionservice "github.com/anthropics/agentsmesh/backend/internal/service/extension"
 	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 )
 
@@ -48,6 +49,7 @@ func buildResultToProto(
 	br *eval.BuildResult,
 	creds agentDomain.EncryptedCredentials,
 	isRunnerHost bool,
+	installedSkills []*extensionservice.ResolvedSkill,
 ) *runnerv1.CreatePodCommand {
 	// Convert dirs + files to proto FileToCreate list
 	var files []*runnerv1.FileToCreate
@@ -63,6 +65,7 @@ func buildResultToProto(
 			Path: f.Path, Content: f.Content, Mode: mode,
 		})
 	}
+	files = appendAgentSkillFiles(files, req.AgentSlug, br.Skills)
 
 	// Determine prompt from AgentFile PROMPT declaration
 	prompt := br.Prompt
@@ -80,19 +83,20 @@ func buildResultToProto(
 	}
 
 	return &runnerv1.CreatePodCommand{
-		PodKey:          req.PodKey,
-		LaunchCommand:   br.LaunchCommand,
-		LaunchArgs:      br.LaunchArgs,
-		EnvVars:         br.EnvVars,
-		FilesToCreate:   files,
-		SandboxConfig:   buildSandboxConfig(req),
-		Cols:            req.Cols,
-		Rows:            req.Rows,
-		InteractionMode: mode,
-		Prompt:          prompt,
-		PromptPosition:  br.PromptPosition,
-		Credentials:     credentialsToMap(creds),
-		IsRunnerHost:    isRunnerHost,
+		PodKey:              req.PodKey,
+		LaunchCommand:       br.LaunchCommand,
+		LaunchArgs:          br.LaunchArgs,
+		EnvVars:             br.EnvVars,
+		FilesToCreate:       files,
+		ResourcesToDownload: buildSkillResources(req.AgentSlug, installedSkills),
+		SandboxConfig:       buildSandboxConfig(req),
+		Cols:                req.Cols,
+		Rows:                req.Rows,
+		InteractionMode:     mode,
+		Prompt:              prompt,
+		PromptPosition:      br.PromptPosition,
+		Credentials:         credentialsToMap(creds),
+		IsRunnerHost:        isRunnerHost,
 	}
 }
 
@@ -149,6 +153,20 @@ func (b *ConfigBuilder) buildMCPContext(ctx context.Context, req *ConfigBuildReq
 	}
 
 	return builtinMCP, installedMCP
+}
+
+// buildSkillContext loads installed repository skills for agents that can materialize them.
+func (b *ConfigBuilder) buildSkillContext(ctx context.Context, req *ConfigBuildRequest, agentSlug string) []*extensionservice.ResolvedSkill {
+	if b.extensionProvider == nil || req.RepositoryID == nil || skillResourceConfigRootForAgent(agentSlug) == "" {
+		return nil
+	}
+
+	skills, err := b.extensionProvider.GetEffectiveSkills(ctx, req.OrganizationID, req.UserID, *req.RepositoryID, agentSlug)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to load skills for agentfile", "error", err)
+		return nil
+	}
+	return skills
 }
 
 func credentialsToMap(creds agentDomain.EncryptedCredentials) map[string]string {

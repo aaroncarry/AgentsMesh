@@ -2,14 +2,32 @@ package agentpod
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
+	agentDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agent"
+	agentservice "github.com/anthropics/agentsmesh/backend/internal/service/agent"
+	runnerv1 "github.com/anthropics/agentsmesh/proto/gen/go/runner/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	podDomain "github.com/anthropics/agentsmesh/backend/internal/domain/agentpod"
 )
+
+const factoryResumeConfigAgentFile = `AGENT droid
+EXECUTABLE droid
+MODE pty
+CONFIG autonomy_level SELECT("", "off", "low", "medium", "high") = ""
+CONFIG interaction_mode SELECT("", "auto", "spec") = ""
+PROMPT_POSITION append
+arg "--resume" when config.resume_enabled
+factory_settings_path = sandbox.root + "/factory-runtime-settings.json"
+if config.autonomy_level != "" and config.interaction_mode != "" {
+  file factory_settings_path json({ sessionDefaultSettings: { autonomyLevel: config.autonomy_level, interactionMode: config.interaction_mode } })
+  arg "--settings" factory_settings_path
+}
+`
 
 func TestCreatePod_ResumeMode_Success(t *testing.T) {
 	coord := &mockPodCoordinator{}
@@ -21,7 +39,7 @@ func TestCreatePod_ResumeMode_Success(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      sessionID,
 	})
@@ -41,6 +59,76 @@ func TestCreatePod_ResumeMode_Success(t *testing.T) {
 	// Should inherit runner_id and agent_slug from source pod
 	assert.Equal(t, int64(1), result.Pod.RunnerID)
 	assert.Equal(t, agentSlug, result.Pod.AgentSlug)
+}
+
+func TestCreatePod_ResumeMode_InheritsFactoryRuntimeSettings(t *testing.T) {
+	coord := &mockPodCoordinator{}
+	agentDef := &agentDomain.Agent{
+		Slug:            "factory-cli",
+		Name:            "Factory CLI",
+		LaunchCommand:   "droid",
+		SupportedModes:  "pty",
+		AgentfileSource: ptrStr(factoryResumeConfigAgentFile),
+	}
+	provider := &mockAgentConfigProvider{
+		agentDef: agentDef,
+		creds:    agentDomain.EncryptedCredentials{},
+		isRunner: true,
+	}
+	orch, _, db := setupOrchestrator(t,
+		withCoordinator(coord),
+		withAgentResolver(&mockAgentResolver{agentDef: agentDef}),
+		withConfigBuilder(agentservice.NewConfigBuilder(provider)),
+	)
+
+	layer := `CONFIG autonomy_level = "medium"
+CONFIG interaction_mode = "spec"`
+	source, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		RunnerID:       1,
+		AgentSlug:      "factory-cli",
+		AgentfileLayer: &layer,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, source.Pod)
+	assert.Equal(t, "medium", source.Pod.ConfigOverrides["autonomy_level"])
+	assert.Equal(t, "spec", source.Pod.ConfigOverrides["interaction_mode"])
+
+	db.Exec("UPDATE pods SET status = ? WHERE pod_key = ?", podDomain.StatusTerminated, source.Pod.PodKey)
+	coord.lastCmd = nil
+
+	resumed, err := orch.CreatePod(context.Background(), &OrchestrateCreatePodRequest{
+		OrganizationID: 1,
+		UserID:         1,
+		SourcePodKey:   source.Pod.PodKey,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resumed.Pod)
+	assert.Equal(t, "medium", resumed.Pod.ConfigOverrides["autonomy_level"])
+	assert.Equal(t, "spec", resumed.Pod.ConfigOverrides["interaction_mode"])
+
+	require.NotNil(t, coord.lastCmd)
+	settingsPath := "{{sandbox_root}}/factory-runtime-settings.json"
+	assert.Equal(t, []string{"--resume", "--settings", settingsPath}, coord.lastCmd.LaunchArgs)
+
+	var settings map[string]interface{}
+	settingsFile := findFileToCreate(coord.lastCmd.FilesToCreate, settingsPath)
+	require.NotNil(t, settingsFile)
+	require.NoError(t, json.Unmarshal([]byte(settingsFile.Content), &settings))
+	sessionDefaults, ok := settings["sessionDefaultSettings"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "medium", sessionDefaults["autonomyLevel"])
+	assert.Equal(t, "spec", sessionDefaults["interactionMode"])
+}
+
+func findFileToCreate(files []*runnerv1.FileToCreate, path string) *runnerv1.FileToCreate {
+	for _, f := range files {
+		if f.Path == path {
+			return f
+		}
+	}
+	return nil
 }
 
 func TestCreatePod_ResumeMode_SourcePodNotFound(t *testing.T) {
@@ -63,7 +151,7 @@ func TestCreatePod_ResumeMode_AccessDenied(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 999, // Different org
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 	})
 	require.NoError(t, err)
@@ -86,7 +174,7 @@ func TestCreatePod_ResumeMode_NotTerminated(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 	})
 	require.NoError(t, err)
@@ -110,7 +198,7 @@ func TestCreatePod_ResumeMode_AlreadyResumed(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -146,7 +234,7 @@ func TestCreatePod_ResumeMode_RunnerMismatch(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1, // Source on runner 1
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -172,7 +260,7 @@ func TestCreatePod_ResumeMode_InheritRunnerID(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -202,7 +290,7 @@ func TestCreatePod_ResumeMode_InheritConfig(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		RepositoryID:   &repoID,
 		TicketID:       &ticketID,
 		BranchName:     &branch,
@@ -233,7 +321,7 @@ func TestCreatePod_ResumeMode_SessionReused(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "my-session-id",
 	})
@@ -262,7 +350,7 @@ func TestCreatePod_ResumeMode_NoSessionID_GeneratesNew(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "", // No session ID
 	})
@@ -288,7 +376,7 @@ func TestCreatePod_ResumeMode_DisableResumeAgentSession(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -318,7 +406,7 @@ func TestCreatePod_ResumeMode_CompletedPod(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -343,7 +431,7 @@ func TestCreatePod_ResumeMode_OrphanedPod(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})
@@ -368,7 +456,7 @@ func TestCreatePod_ResumeMode_SandboxPath(t *testing.T) {
 	sourcePod, err := podSvc.CreatePod(context.Background(), &CreatePodRequest{
 		OrganizationID: 1,
 		RunnerID:       1,
-		AgentSlug:    agentSlug,
+		AgentSlug:      agentSlug,
 		CreatedByID:    1,
 		SessionID:      "session-1",
 	})

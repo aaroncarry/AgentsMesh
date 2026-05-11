@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ConfigForm } from "@/components/ide/ConfigForm";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { POD_MODE_ACP } from "@/lib/pod-modes";
 import { RunnerSelect } from "./RunnerSelect";
 import { CredentialSelect } from "./CredentialSelect";
 import { RepositorySelect, BranchInput } from "./RepositorySelect";
@@ -45,6 +46,14 @@ export function AdvancedFormSection({
   // (ConfigForm, RepositorySelect, BranchInput, CredentialSelect)
   // Keep: Alias, RunnerSelect (not represented in AgentFile Layer)
   const hideFormSections = form.rawLayerMode;
+  const visibleConfigFields = React.useMemo(
+    () => configFields.filter((field) =>
+      form.selectedAgentSlug !== "factory-cli" ||
+      field.name !== "skip_permissions_unsafe" ||
+      form.interactionMode === POD_MODE_ACP
+    ),
+    [configFields, form.selectedAgentSlug, form.interactionMode]
+  );
 
   return (
     <AdvancedOptions t={t}>
@@ -129,13 +138,13 @@ export function AdvancedFormSection({
               </span>
             </div>
           ) : (
-            configFields.length > 0 && (
+            visibleConfigFields.length > 0 && (
               <div>
                 <label className="block text-sm font-medium mb-2">
                   {t("ide.createPod.pluginConfig")}
                 </label>
                 <ConfigForm
-                  fields={configFields}
+                  fields={visibleConfigFields}
                   values={configValues}
                   onChange={handleConfigChange}
                   agentSlug={form.selectedAgentSlug}
@@ -153,7 +162,7 @@ export function AdvancedFormSection({
         rawText={form.rawLayerText}
         onRawModeChange={form.setRawLayerMode}
         onRawTextChange={form.setRawLayerText}
-        configFields={configFields}
+        configFields={visibleConfigFields}
         repositories={repositories}
         credentialProfiles={form.credentialProfiles}
         t={t}

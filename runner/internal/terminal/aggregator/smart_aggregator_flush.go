@@ -67,45 +67,61 @@ func (a *SmartAggregator) flushLocked() {
 		// Legacy mode: use frame-aware buffer flush
 		// FlushComplete ensures we don't break incomplete frames
 
-		// Full redraw throttling: detect high-frequency redraws and reduce transmission rate
-		if a.fullRedrawThrottler != nil && a.buffer.IsLastFrameFullRedraw() {
-			// Record redraw with frame size for bandwidth-aware throttling
-			a.fullRedrawThrottler.RecordRedraw(a.buffer.Len())
-
-			// Check if we should throttle (skip this flush)
-			if !a.fullRedrawThrottler.ShouldFlush() {
-				// Throttling: skip this flush, schedule next check
-				// Data stays in buffer until next allowed flush
-				delay := a.fullRedrawThrottler.GetNextCheckDelay()
-				a.timer = time.AfterFunc(delay, a.timerFlush)
-				logger.TerminalTrace().Trace("SmartAggregator: throttling full redraw",
-					"next_check", delay,
-					"frequency", a.fullRedrawThrottler.GetFrequency(),
-					"bandwidth_kbps", a.fullRedrawThrottler.GetBandwidth()/1024,
-					"effective_window", a.fullRedrawThrottler.GetEffectiveWindowSize())
+		if a.rawPassthrough {
+			data, _ = a.buffer.FlushAllRaw()
+			if len(data) == 0 {
 				return
 			}
-		}
+			logger.TerminalTrace().Trace("SmartAggregator flushing (raw passthrough)",
+				"bytes", len(data))
+		} else {
+			// Full redraw throttling: detect high-frequency redraws and reduce transmission rate
+			if a.fullRedrawThrottler != nil && a.buffer.IsLastFrameFullRedraw() {
+				// Record redraw with frame size for bandwidth-aware throttling
+				a.fullRedrawThrottler.RecordRedraw(a.buffer.Len())
 
-		var remaining int
-		data, remaining = a.buffer.FlushComplete()
-
-		if len(data) == 0 {
-			// No complete frames to flush - reschedule if there's data
-			if remaining > 0 {
-				// There's an incomplete frame - schedule check for when it completes
-				a.timer = time.AfterFunc(a.delay.Calculate(), a.timerFlush)
+				// Check if we should throttle (skip this flush)
+				if !a.fullRedrawThrottler.ShouldFlush() {
+					// Throttling: skip this flush, schedule next check
+					// Data stays in buffer until next allowed flush
+					delay := a.fullRedrawThrottler.GetNextCheckDelay()
+					a.timer = time.AfterFunc(delay, a.timerFlush)
+					logger.TerminalTrace().Trace("SmartAggregator: throttling full redraw",
+						"next_check", delay,
+						"frequency", a.fullRedrawThrottler.GetFrequency(),
+						"bandwidth_kbps", a.fullRedrawThrottler.GetBandwidth()/1024,
+						"effective_window", a.fullRedrawThrottler.GetEffectiveWindowSize())
+					return
+				}
 			}
-			return
-		}
 
-		logger.TerminalTrace().Trace("SmartAggregator flushing (legacy mode)",
-			"bytes", len(data), "remaining", remaining)
+			var remaining int
+			data, remaining = a.buffer.FlushComplete()
+
+			if len(data) == 0 {
+				// No complete frames to flush - reschedule if there's data
+				if remaining > 0 {
+					// There's an incomplete frame - schedule check for when it completes
+					a.timer = time.AfterFunc(a.delay.Calculate(), a.timerFlush)
+				}
+				return
+			}
+
+			logger.TerminalTrace().Trace("SmartAggregator flushing (legacy mode)",
+				"bytes", len(data), "remaining", remaining)
+		}
 	}
 
 	// Mark flush time for throttler (if active)
 	if a.fullRedrawThrottler != nil {
 		a.fullRedrawThrottler.MarkFlushed()
+	}
+
+	if a.outputTransform != nil {
+		data = a.outputTransform(data)
+		if len(data) == 0 {
+			return
+		}
 	}
 
 	// Log aggregated output if logger is set
@@ -137,12 +153,22 @@ func (a *SmartAggregator) forceFlushLocked() {
 		a.buffer.Reset()
 	} else {
 		// FlushAll flushes everything including incomplete frames
-		var _ int
-		data, _ = a.buffer.FlushAll()
+		if a.rawPassthrough {
+			data, _ = a.buffer.FlushAllRaw()
+		} else {
+			data, _ = a.buffer.FlushAll()
+		}
 	}
 
 	if len(data) == 0 {
 		return
+	}
+
+	if a.outputTransform != nil {
+		data = a.outputTransform(data)
+		if len(data) == 0 {
+			return
+		}
 	}
 
 	// Log aggregated output if logger is set

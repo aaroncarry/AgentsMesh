@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { PodData, AgentData, RepositoryData } from "@/lib/api";
 import { usePodCreationStore } from "@/stores/podCreation";
 import { buildAgentfileLayer } from "@/lib/agentfile-layer";
-import { POD_MODE_PTY } from "@/lib/pod-modes";
+import { POD_MODE_ACP, POD_MODE_PTY } from "@/lib/pod-modes";
 import type { PodMode } from "@/lib/pod-modes";
 import { submitCreatePod } from "./useCreatePodFormSubmit";
 import { usePrefsAutoFill, useCredentialProfiles } from "./useCreatePodFormEffects";
@@ -137,6 +137,10 @@ export function useCreatePodForm(
 
   // AgentFile Layer: compute from form fields
   const generatedLayer = useMemo(() => {
+    const effectiveConfigValues = { ...(configValues ?? {}) };
+    if (selectedAgentSlug === "factory-cli" && interactionMode !== POD_MODE_ACP) {
+      delete effectiveConfigValues.skip_permissions_unsafe;
+    }
     const repoSlug = selectedRepository
       ? repositories.find((r) => r.id === selectedRepository)?.slug
       : undefined;
@@ -146,23 +150,23 @@ export function useCreatePodForm(
           (p) => p.id === creds.selectedCredentialProfile
         )?.name;
     return buildAgentfileLayer({
-      configValues: configValues ?? {},
+      configValues: effectiveConfigValues,
       repositorySlug: repoSlug,
       branchName: selectedBranch || undefined,
       interactionMode,
       credentialProfileName: credProfileName,
       prompt: prompt || undefined,
     });
-  }, [configValues, selectedRepository, repositories, selectedBranch, creds.selectedCredentialProfile, creds.credentialProfiles, interactionMode, prompt]);
+  }, [configValues, selectedAgentSlug, selectedRepository, repositories, selectedBranch, creds.selectedCredentialProfile, creds.credentialProfiles, interactionMode, prompt]);
 
   const agentfileLayer = rawLayerMode ? rawLayerText : generatedLayer;
 
   const setRawLayerMode = useCallback((enabled: boolean) => {
-    if (enabled && !rawLayerText) {
+    if (enabled) {
       setRawLayerText(generatedLayer);
     }
     setRawLayerModeState(enabled);
-  }, [generatedLayer, rawLayerText]);
+  }, [generatedLayer]);
 
   const submit = useCallback(
     async (

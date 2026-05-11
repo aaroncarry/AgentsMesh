@@ -129,7 +129,8 @@ func (h *RunnerMessageHandler) rebuildPTYIO(pod *Pod, dpty terminal.PtyProcess, 
 	virtualTerm := vt.NewVirtualTerminal(cols, rows, defaultVTHistoryLimit)
 	virtualTerm.SetOSCHandler(h.createOSCHandler(pod.PodKey))
 
-	agg := aggregator.NewSmartAggregator(nil, aggregator.WithFullRedrawThrottling())
+	terminalProfile := selectPTYTerminalProfile(pod.LaunchCommand)
+	agg := terminalProfile.NewAggregator()
 
 	cfg := h.runner.GetConfig()
 	var ptyLogger *aggregator.PTYLogger
@@ -143,7 +144,12 @@ func (h *RunnerMessageHandler) rebuildPTYIO(pod *Pod, dpty terminal.PtyProcess, 
 
 	pod.vtProvider = func() *vt.VirtualTerminal { return virtualTerm }
 
-	comps := &PTYComponents{Terminal: term, VirtualTerminal: virtualTerm, Aggregator: agg, PTYLogger: ptyLogger}
+	comps := &PTYComponents{
+		Terminal:        term,
+		VirtualTerminal: virtualTerm,
+		Aggregator:      agg,
+		PTYLogger:       ptyLogger,
+	}
 	term.SetOutputHandler(NewPTYOutputHandler(pod.PodKey, comps, pod.NotifyStateDetectorWithScreen))
 
 	ptyIO := NewPTYPodIO(pod.PodKey, comps, PTYPodIODeps{

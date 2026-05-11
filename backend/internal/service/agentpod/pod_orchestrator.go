@@ -25,7 +25,7 @@ var (
 	ErrSourcePodAlreadyResumed    = errors.New("source pod already resumed")
 	ErrResumeRunnerMismatch       = errors.New("resume requires same runner")
 	ErrConfigBuildFailed          = errors.New("failed to build pod configuration")
-	ErrInvalidAgentfileLayer        = errors.New("invalid agentfile layer")
+	ErrInvalidAgentfileLayer      = errors.New("invalid agentfile layer")
 	ErrRunnerDispatchFailed       = errors.New("failed to dispatch pod to runner")
 	ErrUnsupportedInteractionMode = errors.New("agent type does not support the requested interaction mode")
 )
@@ -40,7 +40,7 @@ type OrchestrateCreatePodRequest struct {
 
 	RunnerID            int64
 	AgentSlug           string
-	RepositoryID        *int64  // Platform-level ID (from AgentFile REPO slug resolution or resume inheritance)
+	RepositoryID        *int64 // Platform-level ID (from AgentFile REPO slug resolution or resume inheritance)
 	TicketID            *int64
 	TicketSlug          *string
 	Alias               *string
@@ -144,13 +144,14 @@ type PodOrchestrator struct {
 // agentfileResolved carries values extracted from AgentFile Layer processing.
 // Separates intermediate state from the original request to keep req read-only.
 type agentfileResolved struct {
-	InteractionMode      string
-	BranchName           string
-	PermissionMode       string
-	RepositoryID         *int64
-	Prompt               string
+	InteractionMode       string
+	BranchName            string
+	PermissionMode        string
+	RepositoryID          *int64
+	Prompt                string
 	MergedAgentfileSource string
-	CredentialProfile    string
+	CredentialProfile     string
+	ConfigValues          agentDomain.ConfigValues
 }
 
 func NewPodOrchestrator(deps *PodOrchestratorDeps) *PodOrchestrator {

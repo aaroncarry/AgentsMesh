@@ -164,10 +164,8 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 		virtualTerm.SetOSCHandler(b.oscHandler)
 	}
 
-	// Create SmartAggregator for adaptive frame rate output
-	agg := aggregator.NewSmartAggregator(nil,
-		aggregator.WithFullRedrawThrottling(),
-	)
+	terminalProfile := selectPTYTerminalProfile(launchCommand)
+	agg := terminalProfile.NewAggregator()
 
 	var ptyLogger *aggregator.PTYLogger
 	if b.enablePTYLogging && b.ptyLogDir != "" {
@@ -198,7 +196,12 @@ func (b *PodBuilder) buildPTYPod(ctx context.Context, sandboxRoot, workingDir, b
 		vtProvider:      func() *vt.VirtualTerminal { return virtualTerm },
 	}
 
-	comps := &PTYComponents{Terminal: term, VirtualTerminal: virtualTerm, Aggregator: agg, PTYLogger: ptyLogger}
+	comps := &PTYComponents{
+		Terminal:        term,
+		VirtualTerminal: virtualTerm,
+		Aggregator:      agg,
+		PTYLogger:       ptyLogger,
+	}
 	ptyIO := NewPTYPodIO(b.cmd.PodKey, comps, PTYPodIODeps{
 		GetOrCreateDetector: pod.GetOrCreateStateDetector,
 		SubscribeState:      pod.SubscribeStateChange,

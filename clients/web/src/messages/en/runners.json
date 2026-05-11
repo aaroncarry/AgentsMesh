@@ -314,6 +314,34 @@
         }
       }
     },
+    "factory-cli": {
+      "fields": {
+        "autonomy_level": {
+          "label": "Autonomy Level",
+          "description": "Set Droid's default autonomy level. Leave empty to use Droid's own default.",
+          "options": {
+            "": "Droid Default",
+            "off": "Off",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High"
+          }
+        },
+        "interaction_mode": {
+          "label": "Interaction Mode",
+          "description": "Choose Droid's default interaction style. Leave empty to use Droid's own default.",
+          "options": {
+            "": "Droid Default",
+            "auto": "Auto",
+            "spec": "Spec"
+          }
+        },
+        "skip_permissions_unsafe": {
+          "label": "Skip Permission Checks (ACP only)",
+          "description": "Bypass Droid permission prompts in ACP mode. Droid may run commands without confirmation; use only in trusted workspaces."
+        }
+      }
+    },
     "loopal": {
       "fields": {
         "permission_mode": {
