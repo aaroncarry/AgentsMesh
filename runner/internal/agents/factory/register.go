@@ -5,6 +5,7 @@ import (
 
 	"github.com/anthropics/agentsmesh/runner/internal/acp"
 	"github.com/anthropics/agentsmesh/runner/internal/agentkit"
+	"github.com/anthropics/agentsmesh/runner/internal/tokenusage"
 )
 
 const TransportType = "factory-droid-acp"
@@ -15,6 +16,8 @@ func init() {
 			SendInitialized: true,
 		})
 	})
+
+	tokenusage.RegisterParser([]string{"droid", "factory-cli"}, &factoryParser{})
 
 	agentkit.RegisterProcessNames("droid")
 }

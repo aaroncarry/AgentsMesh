@@ -37,6 +37,8 @@ go_test(
         "//runner/internal/agents/claude/testsupport",
         "//runner/internal/agents/codex",
         "//runner/internal/agents/codex/testsupport",
+        "//runner/internal/agents/factory",
+        "//runner/internal/agents/factory/testsupport",
         "//runner/internal/agents/loopal",
         "//runner/internal/agents/opencode",
         "//runner/internal/agents/opencode/testsupport",

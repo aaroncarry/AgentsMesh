@@ -15,6 +15,7 @@ import (
 	aiderfixture "github.com/anthropics/agentsmesh/runner/internal/agents/aider/testsupport"
 	claudefixture "github.com/anthropics/agentsmesh/runner/internal/agents/claude/testsupport"
 	codexfixture "github.com/anthropics/agentsmesh/runner/internal/agents/codex/testsupport"
+	factoryfixture "github.com/anthropics/agentsmesh/runner/internal/agents/factory/testsupport"
 	_ "github.com/anthropics/agentsmesh/runner/internal/agents/loopal"
 	opencodefixture "github.com/anthropics/agentsmesh/runner/internal/agents/opencode/testsupport"
 	"github.com/anthropics/agentsmesh/runner/internal/tokenusage"
@@ -30,10 +31,11 @@ type fixtureCase struct {
 }
 
 var fixtureCases = map[string]fixtureCase{
-	"codex":    {buildFixture: codexfixture.BuildFixtureSandbox, wantModelNames: []string{"o3-mini", "gpt-4.1"}},
-	"claude":   {buildFixture: claudefixture.BuildFixtureSandbox, wantModelNames: []string{"claude-sonnet-4-20250514"}},
-	"aider":    {buildFixture: aiderfixture.BuildFixtureSandbox, wantModelNames: []string{"aider-unknown"}},
-	"opencode": {buildFixture: opencodefixture.BuildFixtureSandbox, wantModelNames: []string{"claude-sonnet-4-20250514"}},
+	"codex":       {buildFixture: codexfixture.BuildFixtureSandbox, wantModelNames: []string{"o3-mini", "gpt-4.1"}},
+	"claude":      {buildFixture: claudefixture.BuildFixtureSandbox, wantModelNames: []string{"claude-sonnet-4-20250514"}},
+	"aider":       {buildFixture: aiderfixture.BuildFixtureSandbox, wantModelNames: []string{"aider-unknown"}},
+	"factory-cli": {buildFixture: factoryfixture.BuildFixtureSandbox, wantModelNames: []string{"claude-sonnet-4-5-20250929"}},
+	"opencode":    {buildFixture: opencodefixture.BuildFixtureSandbox, wantModelNames: []string{"claude-sonnet-4-20250514"}},
 }
 
 // Each fixture case must drive its parser through to non-zero token counts

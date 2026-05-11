@@ -2,12 +2,17 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "factory",
-    srcs = ["register.go"],
+    srcs = [
+        "parser.go",
+        "register.go",
+    ],
     importpath = "github.com/anthropics/agentsmesh/runner/internal/agents/factory",
     visibility = ["//runner:__subpackages__"],
     deps = [
         "//runner/internal/acp",
         "//runner/internal/agentkit",
+        "//runner/internal/logger",
+        "//runner/internal/tokenusage",
     ],
 )
 
@@ -19,7 +24,15 @@ alias(
 
 go_test(
     name = "factory_test",
-    srcs = ["register_test.go"],
+    srcs = [
+        "parser_test.go",
+        "register_test.go",
+    ],
     embed = [":factory"],
-    deps = ["//runner/internal/acp"],
+    deps = [
+        "//runner/internal/acp",
+        "//runner/internal/tokenusage",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+    ],
 )
